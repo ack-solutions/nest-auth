@@ -18,8 +18,8 @@ export default defineConfig({
         },
     },
     build: {
-        outDir: '../src/lib/admin-console/static',
-        emptyOutDir: true,
+        outDir: '../dist/lib/admin-console/static',
+        emptyOutDir: false,
         // Continue build even with TypeScript errors
         rollupOptions: {
             input: {

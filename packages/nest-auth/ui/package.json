@@ -22,7 +22,7 @@
         "react-syntax-highlighter": "^16.1.0",
         "recharts": "^2.10.0",
         "remark-gfm": "^4.0.1",
-        "swagger-ui-react": "^5.30.1",
+        "@scalar/api-reference-react": "^0.8.14",
         "yup": "^1.7.1"
     },
     "devDependencies": {

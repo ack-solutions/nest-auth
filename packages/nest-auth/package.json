@@ -9,8 +9,7 @@
     "clean": "rm -rf dist tsconfig.build.tsbuildinfo",
     "generate:swagger": "node script/generate-nest-auth-swagger.mjs",
     "build:ui": "npm --prefix ui install && npm --prefix ui run build",
-    "copy:ui-static": "node script/copy-admin-console-static.mjs",
-    "build": "pnpm clean && pnpm -C ../.. exec tsc -p packages/nest-auth/tsconfig.build.json && pnpm generate:swagger && pnpm build:ui && pnpm copy:ui-static",
+    "build": "pnpm clean && pnpm -C ../.. exec tsc -p packages/nest-auth/tsconfig.build.json && pnpm generate:swagger && pnpm build:ui",
     "format": "prettier --write \"src/**/*.ts\"",
     "lint": "eslint \"src/**/*.ts\" --fix"
   },

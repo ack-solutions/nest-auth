@@ -75,8 +75,12 @@ async function generateSwaggerSpec() {
   const destinations = [
     join(repoRoot, 'apps/docs/public/api'),
     join(repoRoot, 'apps/docs/src/data/openapi'),
-    join(packageRoot, 'ui/src/data'),
+    join(packageRoot, 'ui/src/data'), // For UI build-time consumption
+    join(packageRoot, 'dist/lib/admin-console/static'), // For runtime consumption
   ];
+
+  console.log('Generating Swagger spec for @ackplus/nest-auth');
+  console.log('Destinations:', destinations);
 
   destinations.forEach((folder) => {
     mkdirSync(folder, { recursive: true });
