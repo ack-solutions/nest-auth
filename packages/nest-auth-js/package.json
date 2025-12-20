@@ -1,0 +1,47 @@
+{
+  "name": "@ackplus/nest-auth-js",
+  "version": "1.1.18",
+  "description": "Framework-agnostic query builder for REST APIs - build complex queries with filtering, relations, and pagination for both frontend and backend",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "tsc -p tsconfig.build.json",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "lint": "eslint \"src/**/*.ts\" --fix",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "query-builder",
+    "rest",
+    "api",
+    "frontend",
+    "backend",
+    "filtering",
+    "pagination",
+    "relations",
+    "typescript",
+    "nestjs",
+    "react",
+    "angular",
+    "vue"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ack-solutions/nest-auth"
+  },
+  "license": "MIT",
+  "author": "Ackplus",
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

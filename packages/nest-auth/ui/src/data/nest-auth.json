@@ -1,0 +1,1644 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/auth/signup": {
+      "post": {
+        "description": "Register a new user. Response format depends on accessTokenType configuration:\n- Header mode (default): Returns tokens in response body\n- Cookie mode: Sets tokens in HTTP-only cookies and returns success message",
+        "operationId": "AuthController_signup",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignupRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Header mode: Returns message + tokens in body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthWithTokensResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Signup",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "description": "Authenticate user. Response format depends on accessTokenType configuration:\n- Header mode (default): Returns tokens in response body\n- Cookie mode: Sets tokens in HTTP-only cookies and returns success message",
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Header mode: Returns message + tokens in body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthWithTokensResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/refresh-token": {
+      "post": {
+        "description": "Refresh access token. Response format depends on accessTokenType configuration:\n- Header mode (default): Returns new tokens in response body\n- Cookie mode: Sets new tokens in HTTP-only cookies and returns success message",
+        "operationId": "AuthController_refreshToken",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Header mode: Returns message + tokens in body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthWithTokensResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Refresh Token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/send-2fa-code": {
+      "post": {
+        "operationId": "AuthController_send2faCode",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Send 2FA Code",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/verify-2fa": {
+      "post": {
+        "description": "Verify two-factor authentication. Response format depends on accessTokenType configuration:\n- Header mode (default): Returns tokens in response body\n- Cookie mode: Sets tokens in HTTP-only cookies and returns success message",
+        "operationId": "AuthController_verify2fa",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Verify2faRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Header mode: Returns message + tokens in body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Verify2faWithTokensResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Verify 2FA",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Logout",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/logout-all": {
+      "post": {
+        "operationId": "AuthController_logoutAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Logout All",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/change-password": {
+      "post": {
+        "operationId": "AuthController_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthWithTokensResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Change Password",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "operationId": "AuthController_forgotPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Forgot Password",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/verify-forgot-password-otp": {
+      "post": {
+        "operationId": "AuthController_verifyForgotPasswordOtp",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyForgotPasswordOtpRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyOtpResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Verify Forgot Password OTP and get reset token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/reset-password": {
+      "post": {
+        "operationId": "AuthController_resetPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reset Password (Legacy - using OTP)",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/reset-password-with-token": {
+      "post": {
+        "operationId": "AuthController_resetPasswordWithToken",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordWithTokenRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reset Password with Token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/user": {
+      "get": {
+        "operationId": "AuthController_getUser",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get Logged In User",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/send-email-verification": {
+      "post": {
+        "operationId": "AuthController_sendEmailVerification",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendEmailVerificationRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Send Email Verification",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/verify-email": {
+      "post": {
+        "operationId": "AuthController_verifyEmail",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Verify Email",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/client-config": {
+      "get": {
+        "description": "Returns backend configuration for frontend clients. Includes enabled auth methods, registration settings, MFA options, tenant configuration, and SSO providers. Can be customized via clientConfig.factory in AuthModuleOptions.",
+        "operationId": "AuthController_getClientConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientConfigResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get Client Configuration",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/callback/{provider}": {
+      "get": {
+        "description": "OAuth callback endpoint for SSO providers. Exchanges authorization code for access token and returns raw SSO user info. Returns HTML page that posts SSO data to parent window and auto-closes.",
+        "operationId": "AuthController_ssoCallback",
+        "parameters": [
+          {
+            "name": "provider",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "SSO Callback",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/mfa/status": {
+      "get": {
+        "operationId": "MfaController_getStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaStatusResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get MFA status for the current user",
+        "tags": [
+          "Mfa"
+        ]
+      }
+    },
+    "/auth/mfa/toggle": {
+      "post": {
+        "operationId": "MfaController_toggleMfa",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToggleMfaRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Enable or disable MFA for the current user",
+        "tags": [
+          "Mfa"
+        ]
+      }
+    },
+    "/auth/mfa/devices": {
+      "get": {
+        "operationId": "MfaController_listDevices",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MfaDeviceDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "List registered MFA devices",
+        "tags": [
+          "Mfa"
+        ]
+      }
+    },
+    "/auth/mfa/devices/{deviceId}": {
+      "delete": {
+        "operationId": "MfaController_removeDevice",
+        "parameters": [
+          {
+            "name": "deviceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Remove a registered MFA device",
+        "tags": [
+          "Mfa"
+        ]
+      }
+    },
+    "/auth/mfa/send-mfa-code": {
+      "post": {
+        "operationId": "MfaController_sendMfaCode",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMfaCodeRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Send MFA Code",
+        "tags": [
+          "Mfa"
+        ]
+      }
+    },
+    "/auth/mfa/setup-totp": {
+      "post": {
+        "operationId": "MfaController_setupTotp",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Setup TOTP Device",
+        "tags": [
+          "Mfa"
+        ]
+      }
+    },
+    "/auth/mfa/verify-totp-setup": {
+      "post": {
+        "operationId": "MfaController_verifyTotpSetup",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyTotpSetupRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Verify TOTP Setup",
+        "tags": [
+          "Mfa"
+        ]
+      }
+    },
+    "/auth/mfa/generate-recovery-code": {
+      "post": {
+        "operationId": "MfaController_generateRecoveryCodes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Generate Recovery Codes",
+        "tags": [
+          "Mfa"
+        ]
+      }
+    },
+    "/auth/mfa/reset-totp": {
+      "post": {
+        "operationId": "MfaController_resetTotp",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Reset TOTP Device",
+        "tags": [
+          "Mfa"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "@ackplus/nest-auth API",
+    "description": "OpenAPI specification generated from the Nest Auth module",
+    "version": "1.1.23",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "SignupRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User email address (required if phone not provided)",
+            "example": "user@example.com"
+          },
+          "phone": {
+            "type": "string",
+            "description": "User phone number (required if email not provided)",
+            "example": "+1234567890"
+          },
+          "password": {
+            "type": "string",
+            "description": "User password",
+            "example": "SecurePass123!",
+            "minLength": 8
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        },
+        "required": [
+          "password"
+        ]
+      },
+      "UserResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "User unique identifier",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "email": {
+            "type": "string",
+            "description": "User email address",
+            "example": "user@example.com"
+          },
+          "phone": {
+            "type": "string",
+            "description": "User phone number",
+            "example": "+1234567890"
+          },
+          "isVerified": {
+            "type": "boolean",
+            "description": "Email verification status",
+            "example": true
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Additional user metadata",
+            "example": {
+              "firstName": "John",
+              "lastName": "Doe"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "isVerified"
+        ]
+      },
+      "AuthWithTokensResponseDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "JWT access token (short-lived)",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJpYXQiOjE2OTk5OTk5OTksImV4cCI6MTY5OTk5OTk5OX0.xyz"
+          },
+          "refreshToken": {
+            "type": "string",
+            "description": "JWT refresh token (long-lived)",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJ0eXBlIjoicmVmcmVzaCIsImlhdCI6MTY5OTk5OTk5OX0.abc"
+          },
+          "message": {
+            "type": "string",
+            "description": "Success message (added by controller based on configuration)",
+            "example": "Login successful"
+          },
+          "isRequiresMfa": {
+            "type": "boolean",
+            "description": "Whether multi-factor authentication is required",
+            "example": false
+          },
+          "user": {
+            "description": "User information",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "accessToken",
+          "refreshToken",
+          "isRequiresMfa"
+        ]
+      },
+      "EmailCredentialsDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User email address",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "User password",
+            "example": "SecurePass123!",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "PhoneCredentialsDto": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "User phone number",
+            "example": "+1234567890"
+          },
+          "password": {
+            "type": "string",
+            "description": "User password",
+            "example": "SecurePass123!",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "phone",
+          "password"
+        ]
+      },
+      "SocialCredentialsDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "OAuth token or ID token from social provider",
+            "example": "ya29.a0AfH6SMBx1234567890abcdefghijklmnop"
+          }
+        },
+        "required": [
+          "accessToken"
+        ]
+      },
+      "LoginRequestDto": {
+        "type": "object",
+        "properties": {
+          "providerName": {
+            "type": "string",
+            "description": "Authentication provider name",
+            "example": "email",
+            "enum": [
+              "email",
+              "phone",
+              "google",
+              "facebook",
+              "apple",
+              "github"
+            ],
+            "default": "email"
+          },
+          "credentials": {
+            "description": "Login credentials - type varies by provider",
+            "examples": {
+              "emailLogin": {
+                "summary": "Email Login",
+                "value": {
+                  "email": "user@example.com",
+                  "password": "SecurePass123!"
+                }
+              },
+              "phoneLogin": {
+                "summary": "Phone Login",
+                "value": {
+                  "phone": "+1234567890",
+                  "password": "SecurePass123!"
+                }
+              },
+              "socialLogin": {
+                "summary": "Social Login (Google/Facebook/etc)",
+                "value": {
+                  "token": "ya29.a0AfH6SMBx..."
+                }
+              }
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/EmailCredentialsDto"
+              },
+              {
+                "$ref": "#/components/schemas/PhoneCredentialsDto"
+              },
+              {
+                "$ref": "#/components/schemas/SocialCredentialsDto"
+              }
+            ]
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "createUserIfNotExists": {
+            "type": "boolean",
+            "description": "Auto-create user if not exists (for social auth)",
+            "default": false
+          }
+        }
+      },
+      "RefreshTokenRequestDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "description": "Refresh token to obtain new access token",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJ0eXBlIjoicmVmcmVzaCJ9.abc123"
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
+      },
+      "MessageResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "MFAMethodEnum": {
+        "type": "string",
+        "enum": [
+          "totp",
+          "sms",
+          "email"
+        ],
+        "description": "MFA method used"
+      },
+      "Verify2faRequestDto": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "description": "MFA method used",
+            "example": "totp",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MFAMethodEnum"
+              }
+            ]
+          },
+          "otp": {
+            "type": "string",
+            "description": "One-time password code",
+            "example": "123456",
+            "minLength": 6,
+            "maxLength": 8
+          },
+          "rememberDevice": {
+            "type": "boolean",
+            "description": "Whether to trust this device for future logins",
+            "example": true
+          }
+        },
+        "required": [
+          "method",
+          "otp"
+        ]
+      },
+      "Verify2faWithTokensResponseDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "JWT access token (short-lived)",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJpYXQiOjE2OTk5OTk5OTksImV4cCI6MTY5OTk5OTk5OX0.xyz"
+          },
+          "refreshToken": {
+            "type": "string",
+            "description": "JWT refresh token (long-lived)",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJ0eXBlIjoicmVmcmVzaCIsImlhdCI6MTY5OTk5OTk5OX0.abc"
+          },
+          "message": {
+            "type": "string",
+            "description": "Verification success message (added by controller)",
+            "example": "2FA verification successful"
+          }
+        },
+        "required": [
+          "accessToken",
+          "refreshToken"
+        ]
+      },
+      "ChangePasswordRequestDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "description": "Current password",
+            "example": "DemoOwner1!",
+            "minLength": 8
+          },
+          "newPassword": {
+            "type": "string",
+            "description": "New password",
+            "example": "DemoOwner1!New",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ]
+      },
+      "ForgotPasswordRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User email address (required if phone not provided)",
+            "example": "user@example.com"
+          },
+          "phone": {
+            "type": "string",
+            "description": "User phone number (required if email not provided)",
+            "example": "+1234567890"
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        }
+      },
+      "VerifyForgotPasswordOtpRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User email address (required if phone not provided)",
+            "example": "user@example.com"
+          },
+          "phone": {
+            "type": "string",
+            "description": "User phone number (required if email not provided)",
+            "example": "+1234567890"
+          },
+          "otp": {
+            "type": "string",
+            "description": "One-time password code received via email or SMS",
+            "example": "123456",
+            "minLength": 6,
+            "maxLength": 8
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        },
+        "required": [
+          "otp"
+        ]
+      },
+      "VerifyOtpResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Success message"
+          },
+          "resetToken": {
+            "type": "string",
+            "description": "Password reset token - use this to reset password"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "ResetPasswordRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User email address (required if phone not provided)",
+            "example": "user@example.com"
+          },
+          "phone": {
+            "type": "string",
+            "description": "User phone number (required if email not provided)",
+            "example": "+1234567890"
+          },
+          "otp": {
+            "type": "string",
+            "description": "One-time password (OTP) received via email or SMS",
+            "example": "123456",
+            "minLength": 6,
+            "maxLength": 8
+          },
+          "newPassword": {
+            "type": "string",
+            "description": "New password",
+            "example": "NewSecurePass123!",
+            "minLength": 8
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        },
+        "required": [
+          "otp",
+          "newPassword"
+        ]
+      },
+      "ResetPasswordWithTokenRequestDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Password reset token (JWT) received after OTP verification",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0eXBlIjoicGFzc3dvcmQtcmVzZXQifQ.xyz"
+          },
+          "newPassword": {
+            "type": "string",
+            "description": "New password",
+            "example": "NewSecurePass123!",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "token",
+          "newPassword"
+        ]
+      },
+      "SendEmailVerificationRequestDto": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        }
+      },
+      "VerifyEmailRequestDto": {
+        "type": "object",
+        "properties": {
+          "otp": {
+            "type": "string",
+            "description": "One-time password code received via email",
+            "example": "123456",
+            "minLength": 6,
+            "maxLength": 8
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        },
+        "required": [
+          "otp"
+        ]
+      },
+      "EmailAuthConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "PhoneAuthConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "RegistrationConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether user registration is enabled"
+          },
+          "requireInvitation": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether registration requires an invitation"
+          },
+          "collectProfileFields": {
+            "type": "array",
+            "description": "Additional profile fields to collect during registration",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "text",
+                    "email",
+                    "phone",
+                    "select",
+                    "checkbox",
+                    "password"
+                  ]
+                },
+                "placeholder": {
+                  "type": "string"
+                },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "label": {
+                        "type": "string"
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "MfaConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "methods": {
+            "example": [
+              "email",
+              "totp"
+            ],
+            "type": "array",
+            "items": {
+              "type": "array"
+            }
+          },
+          "allowUserToggle": {
+            "type": "boolean",
+            "example": true
+          },
+          "allowMethodSelection": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "TenantOptionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "isActive"
+        ]
+      },
+      "TenantsConfigDto": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "example": "single",
+            "enum": [
+              "single",
+              "multi"
+            ]
+          },
+          "defaultTenantId": {
+            "type": "string",
+            "nullable": true
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantOptionDto"
+            }
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "SsoProviderConfigDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string"
+          },
+          "authorizationUrl": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "hint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "SsoConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": false
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SsoProviderConfigDto"
+            }
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "UiConfigDto": {
+        "type": "object",
+        "properties": {
+          "brandName": {
+            "type": "string"
+          },
+          "brandColor": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string"
+          },
+          "backgroundImageUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "ClientConfigResponseDto": {
+        "type": "object",
+        "properties": {
+          "emailAuth": {
+            "$ref": "#/components/schemas/EmailAuthConfigDto"
+          },
+          "phoneAuth": {
+            "$ref": "#/components/schemas/PhoneAuthConfigDto"
+          },
+          "registration": {
+            "$ref": "#/components/schemas/RegistrationConfigDto"
+          },
+          "mfa": {
+            "$ref": "#/components/schemas/MfaConfigDto"
+          },
+          "tenants": {
+            "$ref": "#/components/schemas/TenantsConfigDto"
+          },
+          "sso": {
+            "$ref": "#/components/schemas/SsoConfigDto"
+          },
+          "ui": {
+            "$ref": "#/components/schemas/UiConfigDto"
+          }
+        },
+        "required": [
+          "emailAuth",
+          "phoneAuth",
+          "registration",
+          "mfa",
+          "tenants",
+          "sso"
+        ]
+      },
+      "MfaDeviceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier of the MFA device",
+            "example": "4b3c9c9c-9a9d-4d1e-8d9f-123456789abc"
+          },
+          "deviceName": {
+            "type": "string",
+            "description": "Friendly name of the registered device",
+            "example": "Work laptop"
+          },
+          "method": {
+            "type": "string",
+            "description": "MFA method this device supports",
+            "enum": [
+              "totp",
+              "sms",
+              "email"
+            ],
+            "example": "totp"
+          },
+          "lastUsedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Timestamp of when the device was last used",
+            "example": "2024-05-20T12:34:56.000Z"
+          },
+          "verified": {
+            "type": "boolean",
+            "description": "Whether the device setup has been verified",
+            "example": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Timestamp of when the device was registered",
+            "example": "2024-05-18T10:15:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "deviceName",
+          "method",
+          "verified"
+        ]
+      },
+      "MfaStatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "isEnabled": {
+            "type": "boolean",
+            "description": "Whether MFA is currently enabled for the user",
+            "example": true
+          },
+          "verifiedMethods": {
+            "type": "array",
+            "description": "MFA methods the user has verified and can currently use (includes EMAIL/SMS if configured, and TOTP if user has verified device)",
+            "example": [
+              "email",
+              "totp"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "totp",
+                "sms",
+                "email"
+              ]
+            }
+          },
+          "configuredMethods": {
+            "type": "array",
+            "description": "All MFA methods configured and available in the application (methods user can potentially set up)",
+            "example": [
+              "email",
+              "totp",
+              "sms"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "totp",
+                "sms",
+                "email"
+              ]
+            }
+          },
+          "allowUserToggle": {
+            "type": "boolean",
+            "description": "Indicates if MFA toggling is allowed for the user",
+            "example": true
+          },
+          "allowMethodSelection": {
+            "type": "boolean",
+            "description": "Indicates if users can choose their preferred MFA method",
+            "example": true
+          },
+          "totpDevices": {
+            "description": "Registered TOTP devices for the user",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MfaDeviceDto"
+            }
+          },
+          "hasRecoveryCode": {
+            "type": "boolean",
+            "description": "Whether a recovery code has been generated for the user",
+            "example": false
+          }
+        },
+        "required": [
+          "isEnabled",
+          "verifiedMethods",
+          "configuredMethods",
+          "allowUserToggle",
+          "allowMethodSelection",
+          "totpDevices",
+          "hasRecoveryCode"
+        ]
+      },
+      "ToggleMfaRequestDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether MFA should be enabled for the current user",
+            "example": true
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "SendMfaCodeRequestDto": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "description": "MFA delivery method",
+            "example": "email",
+            "examples": {
+              "email": {
+                "value": "email",
+                "description": "Send OTP via email"
+              },
+              "sms": {
+                "value": "sms",
+                "description": "Send OTP via SMS"
+              },
+              "totp": {
+                "value": "totp",
+                "description": "Use authenticator app (TOTP)"
+              }
+            },
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MFAMethodEnum"
+              }
+            ]
+          }
+        },
+        "required": [
+          "method"
+        ]
+      },
+      "VerifyTotpSetupRequestDto": {
+        "type": "object",
+        "properties": {
+          "otp": {
+            "type": "string",
+            "description": "The TOTP code from authenticator app",
+            "example": "123456",
+            "minLength": 6,
+            "maxLength": 6
+          },
+          "secret": {
+            "type": "string",
+            "description": "Secret key from TOTP setup",
+            "example": "JBSWY3DPEHPK3PXP"
+          }
+        },
+        "required": [
+          "otp",
+          "secret"
+        ]
+      }
+    }
+  }
+}

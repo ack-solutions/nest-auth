@@ -1,0 +1,45 @@
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { NestAuthUser } from '../../user/entities/user.entity';
+import { NestAuthIdentity } from '../../user/entities/identity.entity';
+import { BaseAuthProvider, LinkUserWith } from './base-auth.provider';
+import { PHONE_AUTH_PROVIDER } from '../../auth.constants';
+
+@Injectable()
+export class PhoneAuthProvider extends BaseAuthProvider {
+    providerName = PHONE_AUTH_PROVIDER;
+
+    constructor(
+        readonly dataSource: DataSource,
+    ) {
+        const userRepository = dataSource.getRepository(NestAuthUser);
+        const authIdentityRepository = dataSource.getRepository(NestAuthIdentity);
+
+        super(userRepository, authIdentityRepository);
+
+        this.enabled = this.options.phoneAuth?.enabled;
+    }
+
+    async validate(credentials: { phone: string; password: string }) {
+
+        const identity = await this.findIdentity(credentials.phone);
+
+        if (!identity?.user || !(await identity.user.validatePassword(credentials.password))) {
+            throw new UnauthorizedException('Invalid credentials');
+        }
+
+        return {
+            userId: identity.user?.phone,
+            phone: identity.user?.phone || '',
+            metadata: identity.user,
+        };
+    }
+
+    getRequiredFields(): string[] {
+        return ['phone', 'password'];
+    }
+
+    override linkUserWith(): LinkUserWith {
+        return 'phone';
+    }
+}

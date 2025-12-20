@@ -1,0 +1,79 @@
+import { BaseAuthProvider } from './base-auth.provider';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { GITHUB_AUTH_PROVIDER } from '../../auth.constants';
+import { NestAuthUser } from '../../user/entities/user.entity';
+import { NestAuthIdentity } from '../../user/entities/identity.entity';
+import { AuthModuleOptions } from '../interfaces/auth-module-options.interface';
+
+@Injectable()
+export class GitHubAuthProvider extends BaseAuthProvider {
+    providerName = GITHUB_AUTH_PROVIDER;
+    private githubConfig: AuthModuleOptions['github'];
+
+    constructor(
+        readonly dataSource: DataSource,
+    ) {
+        const userRepository = dataSource.getRepository(NestAuthUser);
+        const authIdentityRepository = dataSource.getRepository(NestAuthIdentity);
+
+        super(userRepository, authIdentityRepository);
+
+        this.githubConfig = this.options.github;
+        this.enabled = Boolean(this.githubConfig);
+    }
+
+    async validate(credentials: { accessToken: string }) {
+        try {
+            // Fetch user info from GitHub API
+            const userResponse = await fetch('https://api.github.com/user', {
+                headers: {
+                    Authorization: `Bearer ${credentials.accessToken}`,
+                    Accept: 'application/vnd.github.v3+json',
+                },
+            });
+
+            if (!userResponse.ok) {
+                throw new UnauthorizedException('Invalid GitHub token');
+            }
+
+            const userData: any = await userResponse.json();
+
+            // Fetch user emails (in case email is private in profile)
+            let email = userData.email;
+            if (!email) {
+                const emailsResponse = await fetch('https://api.github.com/user/emails', {
+                    headers: {
+                        Authorization: `Bearer ${credentials.accessToken}`,
+                        Accept: 'application/vnd.github.v3+json',
+                    },
+                });
+
+                if (emailsResponse.ok) {
+                    const emails: any = await emailsResponse.json();
+                    const primaryEmail = emails.find((e: any) => e.primary) || emails[0];
+                    email = primaryEmail?.email || '';
+                }
+            }
+
+            return {
+                userId: userData.id.toString(),
+                email: email || '',
+                metadata: {
+                    name: userData.name || userData.login,
+                    login: userData.login,
+                    avatar: userData.avatar_url,
+                    bio: userData.bio,
+                    company: userData.company,
+                    location: userData.location,
+                },
+            };
+        } catch (error) {
+            throw new UnauthorizedException('Invalid GitHub token');
+        }
+    }
+
+    getRequiredFields(): string[] {
+        return ['accessToken'];
+    }
+}

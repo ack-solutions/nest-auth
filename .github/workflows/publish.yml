@@ -1,0 +1,97 @@
+name: Publish Package
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Triggers on semantic version tags like v1.0.0
+      - '*.*.*'    # Also triggers on version tags without 'v' prefix like 1.0.0
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # Required for npm provenance
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.21.0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+      
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      
+      - name: Extract version from tag
+        id: extract_version
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          # Remove 'v' prefix if present
+          VERSION=${TAG_NAME#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION from tag: $TAG_NAME"
+      
+      - name: Update package versions and prepare for publish
+        run: |
+          VERSION=${{ steps.extract_version.outputs.version }}
+          # Update nest-auth-js version first (dependency)
+          cd packages/nest-auth-js
+          pnpm version $VERSION --no-git-tag-version --no-commit-hooks
+          # Remove private field if present
+          node -e "const pkg = require('./package.json'); delete pkg.private; require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');"
+          # Update license if it's UNLICENSED
+          node -e "const pkg = require('./package.json'); if (pkg.license === 'UNLICENSED') { pkg.license = 'ISC'; require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n'); }"
+          
+          # Update nest-auth version
+          cd ../nest-auth
+          pnpm version $VERSION --no-git-tag-version --no-commit-hooks
+          # Replace workspace dependency with actual version
+          node -e "const pkg = require('./package.json'); if (pkg.dependencies && pkg.dependencies['@ackplus/nest-auth-js']) { pkg.dependencies['@ackplus/nest-auth-js'] = '$VERSION'; require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n'); }"
+          # Remove private field if present
+          node -e "const pkg = require('./package.json'); delete pkg.private; require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');"
+          # Update license if it's UNLICENSED
+          node -e "const pkg = require('./package.json'); if (pkg.license === 'UNLICENSED') { pkg.license = 'ISC'; require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n'); }"
+      
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      
+      - name: Build packages
+        run: |
+          # Build nest-auth-js first (dependency)
+          pnpm -C packages/nest-auth-js build
+          # Build nest-auth
+          pnpm -C packages/nest-auth build
+      
+      - name: Publish nest-auth-js to npm
+        run: |
+          cd packages/nest-auth-js
+          pnpm publish --access public --no-git-checks --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      
+      - name: Publish nest-auth to npm
+        run: |
+          cd packages/nest-auth
+          pnpm publish --access public --no-git-checks --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
