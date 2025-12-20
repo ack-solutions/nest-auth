@@ -1,6 +1,6 @@
 {
   "name": "@ackplus/nest-auth",
-  "version": "1.1.18",
+  "version": "1.1.29",
   "description": "Powerful CRUD operations for NestJS with TypeORM - automatic REST endpoints, advanced filtering, relations, pagination, and more",
   "type": "commonjs",
   "main": "./dist/index.js",
@@ -9,10 +9,10 @@
     "clean": "rm -rf dist tsconfig.build.tsbuildinfo",
     "generate:swagger": "node script/generate-nest-auth-swagger.mjs",
     "build:ui": "npm --prefix ui install && npm --prefix ui run build",
-    "build": "pnpm clean && pnpm -C ../.. exec tsc -p packages/nest-auth/tsconfig.build.json && pnpm generate:swagger && pnpm build:ui",
+    "copy:ui-static": "node script/copy-admin-console-static.mjs",
+    "build": "pnpm clean && pnpm -C ../.. exec tsc -p packages/nest-auth/tsconfig.build.json && pnpm generate:swagger && pnpm build:ui && pnpm copy:ui-static",
     "format": "prettier --write \"src/**/*.ts\"",
-    "lint": "eslint \"src/**/*.ts\" --fix",
-    "prepublishOnly": "pnpm build"
+    "lint": "eslint \"src/**/*.ts\" --fix"
   },
   "files": [
     "dist",

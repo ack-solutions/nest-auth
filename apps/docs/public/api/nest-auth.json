@@ -688,7 +688,7 @@
   "info": {
     "title": "@ackplus/nest-auth API",
     "description": "OpenAPI specification generated from the Nest Auth module",
-    "version": "1.1.18",
+    "version": "1.1.29",
     "contact": {}
   },
   "tags": [],
