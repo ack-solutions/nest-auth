@@ -6,11 +6,14 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "clean": "rm -rf dist",
-    "build": "tsc -p tsconfig.build.json",
+    "postinstall": "cd packages/nest-auth/ui && pnpm install",
+    "clean": "rm -rf dist tsconfig.build.tsbuildinfo",
+    "generate:swagger": "node script/generate-nest-auth-swagger.mjs",
+    "build:ui": "npm --prefix ui install && npm --prefix ui run build",
+    "build": "pnpm clean && pnpm -C ../.. exec tsc -p packages/nest-auth/tsconfig.build.json && pnpm generate:swagger && pnpm build:ui",
     "format": "prettier --write \"src/**/*.ts\"",
     "lint": "eslint \"src/**/*.ts\" --fix",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "pnpm build"
   },
   "files": [
     "dist",
@@ -41,7 +44,10 @@
     "deepmerge": "^4.3.1",
     "lodash": "^4.17.21",
     "qs": "^6.11.2",
-    "@ackplus/nest-auth-js": "1.1.18"
+    "argon2": "^0.31.0",
+    "speakeasy": "^2.0.0",
+    "qrcode": "^1.5.0",
+    "jsonwebtoken": "^9.0.0"
   },
   "peerDependencies": {
     "@nestjs/common": "^10 || ^11",
@@ -49,16 +55,46 @@
     "@nestjs/platform-express": "^10 || ^11",
     "@nestjs/swagger": "^10 || ^11",
     "@nestjs/typeorm": "^10 || ^11",
+    "@nestjs/event-emitter": "^2.0.0",
     "class-validator": "^0.14.1",
     "typeorm": "^0.3.21",
     "reflect-metadata": "^0.1.13",
-    "class-transformer": "^0.5.1"
+    "class-transformer": "^0.5.1",
+    "express": "^4.21.2",
+    "rxjs": "^7.8.0",
+    "moment": "^2.29.0",
+    "apple-auth": "^1.0.9",
+    "fb": "^2.0.0",
+    "google-auth-library": "^9.0.0"
   },
   "devDependencies": {
     "typescript": "^5.7.3",
     "@types/deepmerge": "^2.2.0",
     "@types/lodash": "^4.17.0",
     "@types/qs": "^6.9.12",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/uuid": "^9.0.7",
+    "@types/qrcode": "^1.5.5",
+    "@types/speakeasy": "^2.0.9",
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/swagger": "^8.0.0",
+    "@nestjs/typeorm": "^10.0.0",
+    "@nestjs/event-emitter": "^2.0.0",
+    "@nestjs/testing": "^11.0.0",
+    "class-validator": "^0.14.1",
+    "class-transformer": "^0.5.1",
+    "typeorm": "^0.3.21",
+    "reflect-metadata": "^0.1.13",
+    "express": "^4.21.2",
+    "rxjs": "^7.8.0",
+    "moment": "^2.29.0",
+    "apple-auth": "^1.0.9",
+    "fb": "^2.0.0",
+    "google-auth-library": "^9.0.0",
+    "uuid": "^9.0.0"
   }
 }

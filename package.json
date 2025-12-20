@@ -6,14 +6,13 @@
   "scripts": {
     "build:nest-auth": "pnpm -C packages/nest-auth build",
     "build:nest-auth-js": "pnpm -C packages/nest-auth-js build",
-    "build:packages": "pnpm build:nest-auth && pnpm build:nest-auth-js",
+    "build": "pnpm build:nest-auth && pnpm build:nest-auth-js",
     "build:example": "pnpm -C apps/example-app build",
-    "build": "pnpm build:packages && pnpm build:example",
-    "test:nest-auth": "pnpm -C packages/nest-auth test",
-    "test:nest-auth-js": "pnpm -C packages/nest-auth-js test",
-    "test:example": "pnpm -C apps/example-app test",
-    "test": "pnpm test:nest-auth && pnpm test:nest-auth-js && pnpm test:example",
-    "publish": "node scripts/publish.js"
+    "nest-auth": "pnpm -C packages/nest-auth",
+    "nest-auth-js": "pnpm -C packages/nest-auth-js",
+    "example": "pnpm -C apps/example-app",
+    "publish": "node scripts/publish.js",
+    "postinstall": "npm --prefix packages/nest-auth/ui install"
   },
   "keywords": [
     "nestjs",
