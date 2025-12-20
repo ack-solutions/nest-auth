@@ -13,7 +13,6 @@ import {
     ManyToMany,
     In,
 } from "typeorm";
-import type * as Argon2 from 'argon2';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { NestAuthTenant } from "../../tenant/entities/tenant.entity";
 import { NestAuthIdentity } from "./identity.entity";

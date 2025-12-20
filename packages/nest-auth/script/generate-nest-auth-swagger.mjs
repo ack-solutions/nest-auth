@@ -35,8 +35,9 @@ Module({
   imports: [
     EventEmitterModule.forRoot(),
     TypeOrmModule.forRoot({
-      type: 'sqlite',
-      database: ':memory:',
+      type: 'sqljs',
+      autoSave: false,
+      location: ':memory:',
       dropSchema: true,
       synchronize: true,
       logging: false,

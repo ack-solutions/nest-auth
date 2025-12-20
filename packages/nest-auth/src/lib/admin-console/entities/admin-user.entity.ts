@@ -9,7 +9,6 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import * as argon2 from 'argon2';
 
 @Entity('nest_auth_admin_users')
 export class AdminUser extends BaseEntity {
@@ -38,6 +37,21 @@ export class AdminUser extends BaseEntity {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  private static argon2Loader: Promise<typeof import('argon2')> | null = null;
+
+  private static async getArgon2(): Promise<typeof import('argon2')> {
+    if (!AdminUser.argon2Loader) {
+      AdminUser.argon2Loader = import('argon2').catch((error) => {
+        throw new Error(
+          `argon2 native module is not available. ` +
+            `Install/build argon2 before using password hashing. ` +
+            `Original error: ${error?.message ?? error}`
+        );
+      }) as Promise<typeof import('argon2')>;
+    }
+    return AdminUser.argon2Loader;
+  }
+
   @BeforeInsert()
   normalizeEmail() {
     if (this.email) {
@@ -53,6 +67,7 @@ export class AdminUser extends BaseEntity {
   }
 
   async setPassword(password: string): Promise<void> {
+    const argon2 = await AdminUser.getArgon2();
     this.passwordHash = await argon2.hash(password, {
       type: argon2.argon2id,
       memoryCost: 65536,
@@ -66,6 +81,7 @@ export class AdminUser extends BaseEntity {
       return false;
     }
     try {
+      const argon2 = await AdminUser.getArgon2();
       return await argon2.verify(this.passwordHash, password);
     } catch {
       return false;

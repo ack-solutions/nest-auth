@@ -34,6 +34,9 @@ export class AdminConsoleController implements OnModuleInit {
   constructor(private readonly config: AdminConsoleConfigService) { }
 
   onModuleInit() {
+    if (this.config.options?.enabled === false) {
+      return;
+    }
     if (!existsSync(this.indexPath)) {
       this.logger.error('Admin console index.html not found at startup', { path: this.indexPath });
       throw new Error(`Admin console index.html not found at ${this.indexPath}`);

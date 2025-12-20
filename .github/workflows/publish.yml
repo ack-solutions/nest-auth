@@ -5,13 +5,17 @@ on:
     tags:
       - 'v*.*.*'  # Triggers on semantic version tags like v1.0.0
       - '*.*.*'    # Also triggers on version tags without 'v' prefix like 1.0.0
+  workflow_dispatch:
 
 jobs:
   publish:
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write  # Required for npm provenance
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     
     steps:
       - name: Checkout code
@@ -85,13 +89,8 @@ jobs:
         run: |
           cd packages/nest-auth-js
           pnpm publish --access public --no-git-checks --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       
       - name: Publish nest-auth to npm
         run: |
           cd packages/nest-auth
           pnpm publish --access public --no-git-checks --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
