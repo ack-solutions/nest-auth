@@ -57,8 +57,8 @@ jobs:
       - name: Update package versions and prepare for publish
         run: |
           VERSION=${{ steps.extract_version.outputs.version }}
-          # Update nest-auth-js version first (dependency)
-          cd packages/nest-auth-js
+          # Update nest-auth-client version first (dependency)
+          cd packages/nest-auth-client
           pnpm version $VERSION --no-git-tag-version --no-commit-hooks
           # Remove private field if present
           node -e "const pkg = require('./package.json'); delete pkg.private; require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');"
@@ -69,7 +69,7 @@ jobs:
           cd ../nest-auth
           pnpm version $VERSION --no-git-tag-version --no-commit-hooks
           # Replace workspace dependency with actual version
-          node -e "const pkg = require('./package.json'); if (pkg.dependencies && pkg.dependencies['@ackplus/nest-auth-js']) { pkg.dependencies['@ackplus/nest-auth-js'] = '$VERSION'; require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n'); }"
+          node -e "const pkg = require('./package.json'); if (pkg.dependencies && pkg.dependencies['@ackplus/nest-auth-client']) { pkg.dependencies['@ackplus/nest-auth-client'] = '$VERSION'; require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n'); }"
           # Remove private field if present
           node -e "const pkg = require('./package.json'); delete pkg.private; require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');"
           # Update license if it's UNLICENSED
@@ -80,14 +80,14 @@ jobs:
       
       - name: Build packages
         run: |
-          # Build nest-auth-js first (dependency)
-          pnpm -C packages/nest-auth-js build
+          # Build nest-auth-client first (dependency)
+          pnpm -C packages/nest-auth-client build
           # Build nest-auth
           pnpm -C packages/nest-auth build
       
-      - name: Publish nest-auth-js to npm
+      - name: Publish nest-auth-client to npm
         run: |
-          cd packages/nest-auth-js
+          cd packages/nest-auth-client
           pnpm publish --access public --no-git-checks --provenance
       
       - name: Publish nest-auth to npm

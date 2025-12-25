@@ -1,0 +1,40 @@
+/**
+ * useAuth hook - Full auth context access
+ */
+
+import { useContext } from 'react';
+import { AuthContext, AuthContextValue } from '../context';
+
+/**
+ * Access the full auth context
+ * 
+ * @returns Full auth context with status, user, session, error, and all actions
+ * 
+ * @example
+ * ```tsx
+ * function LoginButton() {
+ *   const { user, login, logout, isLoading, isAuthenticated } = useAuth();
+ * 
+ *   if (isLoading) return <div>Loading...</div>;
+ * 
+ *   if (isAuthenticated) {
+ *     return <button onClick={() => logout()}>Logout ({user.email})</button>;
+ *   }
+ * 
+ *   return (
+ *     <button onClick={() => login({ credentials: { email: '...', password: '...' } })}>
+ *       Login
+ *     </button>
+ *   );
+ * }
+ * ```
+ */
+export function useAuth(): AuthContextValue {
+    const context = useContext(AuthContext);
+
+    if (!context.client) {
+        throw new Error('useAuth must be used within an AuthProvider');
+    }
+
+    return context;
+}

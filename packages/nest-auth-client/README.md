@@ -1,4 +1,4 @@
-# @ackplus/nest-auth-js
+# @ackplus/nest-auth-client
 
 Framework-agnostic query builder for REST APIs - build complex queries with filtering, relations, and pagination for both frontend and backend.
 
@@ -15,17 +15,17 @@ Framework-agnostic query builder for REST APIs - build complex queries with filt
 ## Installation
 
 ```bash
-npm install @ackplus/nest-auth-js
+npm install @ackplus/nest-auth-client
 # or
-pnpm add @ackplus/nest-auth-js
+pnpm add @ackplus/nest-auth-client
 # or
-yarn add @ackplus/nest-auth-js
+yarn add @ackplus/nest-auth-client
 ```
 
 ## Quick Start
 
 ```typescript
-import { QueryBuilder, WhereOperatorEnum, OrderDirectionEnum } from '@ackplus/nest-auth-js';
+import { QueryBuilder, WhereOperatorEnum, OrderDirectionEnum } from '@ackplus/nest-auth-client';
 
 // Create a query builder
 const query = new QueryBuilder()
@@ -55,7 +55,7 @@ const response = await fetch(`/api/users?${new URLSearchParams(params)}`);
 ### Frontend Usage (React)
 
 ```typescript
-import { QueryBuilder, WhereOperatorEnum, OrderDirectionEnum } from '@ackplus/nest-auth-js';
+import { QueryBuilder, WhereOperatorEnum, OrderDirectionEnum } from '@ackplus/nest-auth-client';
 import { useState, useEffect } from 'react';
 
 function UserList() {
@@ -102,7 +102,7 @@ function UserList() {
 ### Frontend Usage (Angular)
 
 ```typescript
-import { QueryBuilder, WhereOperatorEnum, OrderDirectionEnum } from '@ackplus/nest-auth-js';
+import { QueryBuilder, WhereOperatorEnum, OrderDirectionEnum } from '@ackplus/nest-auth-client';
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
@@ -144,7 +144,7 @@ export class UserService {
 ### Frontend Usage (Vue 3)
 
 ```typescript
-import { QueryBuilder, WhereOperatorEnum, OrderDirectionEnum } from '@ackplus/nest-auth-js';
+import { QueryBuilder, WhereOperatorEnum, OrderDirectionEnum } from '@ackplus/nest-auth-client';
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
 
@@ -199,7 +199,7 @@ export function useUsers() {
 ### Backend Usage (Node.js/Express)
 
 ```typescript
-import { QueryBuilder, WhereOperatorEnum } from '@ackplus/nest-auth-js';
+import { QueryBuilder, WhereOperatorEnum } from '@ackplus/nest-auth-client';
 
 // Parse query from request
 app.get('/api/users', (req, res) => {
@@ -431,7 +431,7 @@ const json = query.toJson();
 The WhereBuilder is used internally by QueryBuilder but can also be used standalone.
 
 ```typescript
-import { WhereBuilder, WhereOperatorEnum } from '@ackplus/nest-auth-js';
+import { WhereBuilder, WhereOperatorEnum } from '@ackplus/nest-auth-client';
 
 const whereBuilder = new WhereBuilder()
   .where('isActive', WhereOperatorEnum.EQ, true)
@@ -654,7 +654,7 @@ import {
   WhereBuilder,
   WhereOptions,
   RelationOptions,
-} from '@ackplus/nest-auth-js';
+} from '@ackplus/nest-auth-client';
 
 // Type-safe query building
 const options: QueryBuilderOptions = {

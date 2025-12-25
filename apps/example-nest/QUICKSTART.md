@@ -181,7 +181,7 @@ pnpm start:dev
 
 - Check the [main README](./README.md) for detailed API documentation
 - Look at [nest-auth documentation](../../packages/nest-auth/README.md)
-- Check [nest-auth-js examples](../../packages/nest-auth-js/examples/)
+- Check [nest-auth-client examples](../../packages/nest-auth-client/examples/)
 
 Happy coding! 🎉
 

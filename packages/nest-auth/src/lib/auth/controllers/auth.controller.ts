@@ -249,28 +249,12 @@ export class AuthController {
         return await this.authService.verifyForgotPasswordOtp(input);
     }
 
-    /**
-     * Reset Password (Legacy - using OTP)
-     * @param input
-     * @returns
-     * @deprecated to-do remove in future release
-     */
-    @ApiOperation({ summary: 'Reset Password (Legacy - using OTP)' })
+    @ApiOperation({ summary: 'Reset Password with Token' })
     @ApiResponse({ status: 200, type: MessageResponseDto })
     @HttpCode(200)
     @Post('reset-password')
     @SkipMfa()
-    async resetPassword(@Body() input: ResetPasswordRequestDto): Promise<MessageResponseDto> {
-        await this.authService.resetPassword(input);
-        return { message: 'Password reset successfully' }
-    }
-
-    @ApiOperation({ summary: 'Reset Password with Token' })
-    @ApiResponse({ status: 200, type: MessageResponseDto })
-    @HttpCode(200)
-    @Post('reset-password-with-token')
-    @SkipMfa()
-    async resetPasswordWithToken(@Body() input: ResetPasswordWithTokenRequestDto): Promise<MessageResponseDto> {
+    async resetPassword(@Body() input: ResetPasswordWithTokenRequestDto): Promise<MessageResponseDto> {
         await this.authService.resetPasswordWithToken(input);
         return { message: 'Password reset successfully' }
     }
@@ -281,6 +265,32 @@ export class AuthController {
     @Get('user')
     async getUser() {
         return await this.authService.getUser();
+    }
+
+    @ApiOperation({
+        summary: 'Verify Session',
+        description: 'Lightweight endpoint to verify if the current session is valid. Returns minimal information without fetching full user data.'
+    })
+    @ApiResponse({
+        status: 200,
+        schema: {
+            properties: {
+                valid: { type: 'boolean', example: true },
+                userId: { type: 'string', example: '123e4567-e89b-12d3-a456-426614174000' },
+                expiresAt: { type: 'string', example: '2024-01-01T12:00:00.000Z' }
+            }
+        }
+    })
+    @UseGuards(NestAuthAuthGuard)
+    @Get('verify-session')
+    async verifySession() {
+        const user = RequestContext.currentUser();
+        const session = RequestContext.currentSession();
+        return {
+            valid: true,
+            userId: user?.id,
+            expiresAt: session?.expiresAt?.toISOString(),
+        };
     }
 
     @ApiOperation({ summary: 'Send Email Verification' })

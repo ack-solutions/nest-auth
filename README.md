@@ -28,7 +28,7 @@ Automatic REST API endpoints with advanced filtering, relations, and pagination 
 - 🎯 **Field selection** - Select specific fields to return
 - 📚 **Swagger integration** - Automatic API documentation
 
-### [@ackplus/nest-auth-js](./packages/nest-auth-js) - Query Builder
+### [@ackplus/nest-auth-client](./packages/nest-auth-client) - Query Builder
 
 Framework-agnostic query builder for REST APIs - works in React, Angular, Vue, and any JavaScript/TypeScript environment.
 
@@ -86,11 +86,11 @@ DELETE /users/:id          # Delete user
 ### Frontend (React, Angular, Vue, etc.)
 
 ```bash
-npm install @ackplus/nest-auth-js
+npm install @ackplus/nest-auth-client
 ```
 
 ```typescript
-import { QueryBuilder, WhereOperatorEnum, OrderDirectionEnum } from '@ackplus/nest-auth-js';
+import { QueryBuilder, WhereOperatorEnum, OrderDirectionEnum } from '@ackplus/nest-auth-client';
 
 // Build complex queries
 const query = new QueryBuilder()
@@ -108,7 +108,7 @@ const params = query.toObject();
 const response = await fetch(`/api/users?${new URLSearchParams(params)}`);
 ```
 
-[📖 Full Frontend Documentation](./packages/nest-auth-js/README.md)
+[📖 Full Frontend Documentation](./packages/nest-auth-client/README.md)
 
 ## 📚 Documentation
 
@@ -116,10 +116,10 @@ const response = await fetch(`/api/users?${new URLSearchParams(params)}`);
 
 - **[@ackplus/nest-auth](./packages/nest-auth/README.md)** - Backend CRUD operations for NestJS
   - [Examples](./packages/nest-auth/examples/) - Backend examples
-- **[@ackplus/nest-auth-js](./packages/nest-auth-js/README.md)** - Frontend query builder
-  - [React Examples](./packages/nest-auth-js/examples/react/) - React integration
-  - [Angular Examples](./packages/nest-auth-js/examples/angular/) - Angular integration
-  - [Vue Examples](./packages/nest-auth-js/examples/vue/) - Vue integration
+- **[@ackplus/nest-auth-client](./packages/nest-auth-client/README.md)** - Frontend query builder
+  - [React Examples](./packages/nest-auth-client/examples/react/) - React integration
+  - [Angular Examples](./packages/nest-auth-client/examples/angular/) - Angular integration
+  - [Vue Examples](./packages/nest-auth-client/examples/vue/) - Vue integration
 
 ### Example Application
 
@@ -156,7 +156,7 @@ GET /users?select=["id","email","firstName"]
 GET /users?where={"isActive":{"$eq":true}}&relations=["posts"]&skip=0&take=10&order={"createdAt":"DESC"}
 ```
 
-### Frontend Features (nest-auth-js)
+### Frontend Features (nest-auth-client)
 
 ```typescript
 // Fluent API for building queries
@@ -231,7 +231,7 @@ nest-auth/
 │   │   ├── src/                  # Source code
 │   │   ├── examples/             # Backend examples
 │   │   └── README.md             # Package documentation
-│   └── nest-auth-js/      # Frontend query builder
+│   └── nest-auth-client/      # Frontend query builder
 │       ├── src/                  # Source code
 │       ├── examples/             # Frontend examples (React, Angular, Vue)
 │       └── README.md             # Package documentation
@@ -255,7 +255,7 @@ pnpm build:packages
 
 # Build specific package
 pnpm -C packages/nest-auth build
-pnpm -C packages/nest-auth-js build
+pnpm -C packages/nest-auth-client build
 
 # Run example app
 cd apps/example-app
@@ -264,7 +264,7 @@ pnpm start:dev                  # Start API server
 
 # Run tests
 pnpm -C packages/nest-auth test
-pnpm -C packages/nest-auth-js test
+pnpm -C packages/nest-auth-client test
 pnpm -C apps/example-app test
 ```
 
@@ -276,7 +276,7 @@ pnpm test
 
 # Test specific package
 pnpm -C packages/nest-auth test
-pnpm -C packages/nest-auth-js test
+pnpm -C packages/nest-auth-client test
 
 # Test with coverage
 pnpm -C packages/nest-auth test:cov
@@ -333,7 +333,7 @@ export class UserController {
 ### Frontend Example (React)
 
 ```typescript
-import { QueryBuilder, WhereOperatorEnum, OrderDirectionEnum } from '@ackplus/nest-auth-js';
+import { QueryBuilder, WhereOperatorEnum, OrderDirectionEnum } from '@ackplus/nest-auth-client';
 
 function UserList() {
   const [users, setUsers] = useState([]);
@@ -387,7 +387,7 @@ MIT License
 
 - **NPM Packages:**
   - [@ackplus/nest-auth](https://www.npmjs.com/package/@ackplus/nest-auth)
-  - [@ackplus/nest-auth-js](https://www.npmjs.com/package/@ackplus/nest-auth-js)
+  - [@ackplus/nest-auth-client](https://www.npmjs.com/package/@ackplus/nest-auth-client)
 - **[GitHub Repository](https://github.com/ackplus/nest-auth)**
 - **[Issue Tracker](https://github.com/ackplus/nest-auth/issues)**
 

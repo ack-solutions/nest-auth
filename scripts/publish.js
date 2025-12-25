@@ -7,7 +7,7 @@ const readline = require("readline");
 
 // Package paths
 const NEST_AUTH_PATH = path.join(__dirname, "../packages/nest-auth/package.json");
-const NEST_AUTH_JS_PATH = path.join(__dirname, "../packages/nest-auth-js/package.json");
+const NEST_AUTH_JS_PATH = path.join(__dirname, "../packages/nest-auth-client/package.json");
 const NEST_AUTH_DIR = path.dirname(NEST_AUTH_PATH);
 const NEST_AUTH_JS_DIR = path.dirname(NEST_AUTH_JS_PATH);
 
@@ -113,11 +113,11 @@ function buildPackages() {
     // Build nest-auth
     console.log("📦 Building @ackplus/nest-auth...");
     execSync("pnpm build", { cwd: NEST_AUTH_DIR, stdio: "inherit" });
-    
-    // Build nest-auth-js
-    console.log("\n📦 Building @ackplus/nest-auth-js...");
+
+    // Build nest-auth-client
+    console.log("\n📦 Building @ackplus/nest-auth-client...");
     execSync("pnpm build", { cwd: NEST_AUTH_JS_DIR, stdio: "inherit" });
-    
+
     console.log("\n✅ All packages built successfully\n");
   } catch (error) {
     console.error("❌ Build failed");
@@ -131,20 +131,20 @@ function updateVersions(versionType) {
 
   console.log("📦 Updating package versions...\n");
 
-  // Update nest-auth-js first (dependency)
+  // Update nest-auth-client first (dependency)
   const nestAuthJsJson = JSON.parse(fs.readFileSync(NEST_AUTH_JS_PATH, "utf8"));
   const oldNestAuthJsVersion = nestAuthJsJson.version;
   nestAuthJsJson.version = newVersion;
   fs.writeFileSync(NEST_AUTH_JS_PATH, JSON.stringify(nestAuthJsJson, null, 2) + "\n");
-  console.log(`✅ Updated @ackplus/nest-auth-js from ${oldNestAuthJsVersion} to ${newVersion}`);
+  console.log(`✅ Updated @ackplus/nest-auth-client from ${oldNestAuthJsVersion} to ${newVersion}`);
 
   // Update nest-auth and replace workspace dependency
   const nestAuthJson = JSON.parse(fs.readFileSync(NEST_AUTH_PATH, "utf8"));
   const oldNestAuthVersion = nestAuthJson.version;
   nestAuthJson.version = newVersion;
   // Replace workspace dependency with actual version for publishing
-  if (nestAuthJson.dependencies && nestAuthJson.dependencies["@ackplus/nest-auth-js"]) {
-    nestAuthJson.dependencies["@ackplus/nest-auth-js"] = newVersion;
+  if (nestAuthJson.dependencies && nestAuthJson.dependencies["@ackplus/nest-auth-client"]) {
+    nestAuthJson.dependencies["@ackplus/nest-auth-client"] = newVersion;
   }
   fs.writeFileSync(NEST_AUTH_PATH, JSON.stringify(nestAuthJson, null, 2) + "\n");
   console.log(`✅ Updated @ackplus/nest-auth from ${oldNestAuthVersion} to ${newVersion}`);
@@ -169,9 +169,9 @@ async function ensureNpmAuth() {
 async function publishSinglePackage(packageName, packageDir) {
   try {
     console.log(`📦 Publishing ${packageName}...`);
-    execSync("npm publish --access public", { 
+    execSync("npm publish --access public", {
       cwd: packageDir,
-      stdio: "inherit" 
+      stdio: "inherit"
     });
     console.log(`✅ ${packageName} published successfully!\n`);
     return true;
@@ -185,13 +185,13 @@ async function publishSinglePackage(packageName, packageDir) {
 async function publishPackages() {
   console.log("🚀 Publishing packages to npm...\n");
 
-  // Publish nest-auth-js first (dependency)
-  const nestAuthJsSuccess = await publishSinglePackage("@ackplus/nest-auth-js", NEST_AUTH_JS_DIR);
+  // Publish nest-auth-client first (dependency)
+  const nestAuthJsSuccess = await publishSinglePackage("@ackplus/nest-auth-client", NEST_AUTH_JS_DIR);
   if (!nestAuthJsSuccess) {
     return false;
   }
 
-  // Publish nest-auth (depends on nest-auth-js)
+  // Publish nest-auth (depends on nest-auth-client)
   const nestAuthSuccess = await publishSinglePackage("@ackplus/nest-auth", NEST_AUTH_DIR);
   if (!nestAuthSuccess) {
     return false;
@@ -219,7 +219,7 @@ async function main() {
     console.log(`   New version:      ${newVersion}`);
     console.log(`   Type:             ${versionType}`);
     console.log(`   Packages:         @ackplus/nest-auth`);
-    console.log(`                     @ackplus/nest-auth-js\n`);
+    console.log(`                     @ackplus/nest-auth-client\n`);
     console.log(`⚠️  Both packages will be published with the same version to avoid conflicts.\n`);
 
     const confirm = await question("❓ Proceed with publish? (Y/n): ");
@@ -231,10 +231,10 @@ async function main() {
 
     // Generate Swagger docs
     generateSwaggerDocs();
-    
+
     // Build UI
     buildUI();
-    
+
     // Build packages
     buildPackages();
 
@@ -256,10 +256,10 @@ async function main() {
       console.log("🎉 All packages published successfully!\n");
       console.log(`📦 Package Links:`);
       console.log(`   https://www.npmjs.com/package/@ackplus/nest-auth/v/${versionInfo.newVersion}`);
-      console.log(`   https://www.npmjs.com/package/@ackplus/nest-auth-js/v/${versionInfo.newVersion}`);
+      console.log(`   https://www.npmjs.com/package/@ackplus/nest-auth-client/v/${versionInfo.newVersion}`);
       console.log(`\n📥 Install with:`);
-      console.log(`   npm install @ackplus/nest-auth@${versionInfo.newVersion} @ackplus/nest-auth-js@${versionInfo.newVersion}`);
-      console.log(`   pnpm add @ackplus/nest-auth@${versionInfo.newVersion} @ackplus/nest-auth-js@${versionInfo.newVersion}\n`);
+      console.log(`   npm install @ackplus/nest-auth@${versionInfo.newVersion} @ackplus/nest-auth-client@${versionInfo.newVersion}`);
+      console.log(`   pnpm add @ackplus/nest-auth@${versionInfo.newVersion} @ackplus/nest-auth-client@${versionInfo.newVersion}\n`);
     }
 
   } catch (error) {

@@ -304,38 +304,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ResetPasswordRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Reset Password (Legacy - using OTP)",
-        "tags": [
-          "Auth"
-        ]
-      }
-    },
-    "/auth/reset-password-with-token": {
-      "post": {
-        "operationId": "AuthController_resetPasswordWithToken",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
                 "$ref": "#/components/schemas/ResetPasswordWithTokenRequestDto"
               }
             }
@@ -376,6 +344,42 @@
           }
         },
         "summary": "Get Logged In User",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/verify-session": {
+      "get": {
+        "description": "Lightweight endpoint to verify if the current session is valid. Returns minimal information without fetching full user data.",
+        "operationId": "AuthController_verifySession",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "valid": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "userId": {
+                      "type": "string",
+                      "example": "123e4567-e89b-12d3-a456-426614174000"
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "example": "2024-01-01T12:00:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Verify Session",
         "tags": [
           "Auth"
         ]
@@ -1096,43 +1100,6 @@
         },
         "required": [
           "message"
-        ]
-      },
-      "ResetPasswordRequestDto": {
-        "type": "object",
-        "properties": {
-          "email": {
-            "type": "string",
-            "description": "User email address (required if phone not provided)",
-            "example": "user@example.com"
-          },
-          "phone": {
-            "type": "string",
-            "description": "User phone number (required if email not provided)",
-            "example": "+1234567890"
-          },
-          "otp": {
-            "type": "string",
-            "description": "One-time password (OTP) received via email or SMS",
-            "example": "123456",
-            "minLength": 6,
-            "maxLength": 8
-          },
-          "newPassword": {
-            "type": "string",
-            "description": "New password",
-            "example": "NewSecurePass123!",
-            "minLength": 8
-          },
-          "tenantId": {
-            "type": "string",
-            "description": "Tenant ID for multi-tenant applications",
-            "example": "123e4567-e89b-12d3-a456-426614174000"
-          }
-        },
-        "required": [
-          "otp",
-          "newPassword"
         ]
       },
       "ResetPasswordWithTokenRequestDto": {

@@ -1,7 +1,7 @@
 {
-  "name": "@ackplus/nest-auth-js",
+  "name": "@ackplus/nest-auth-client",
   "version": "1.1.29",
-  "description": "Framework-agnostic query builder for REST APIs - build complex queries with filtering, relations, and pagination for both frontend and backend",
+  "description": "NestJS authentication for REST APIs",
   "type": "commonjs",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -38,6 +38,7 @@
   "license": "MIT",
   "author": "Ackplus",
   "dependencies": {
+    "jwt-decode": "^4.0.0",
     "tslib": "^2.3.0"
   },
   "devDependencies": {

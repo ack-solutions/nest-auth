@@ -1,16 +1,14 @@
 {
   "name": "nest-auth-monorepo",
   "version": "1.0.0",
-  "description": "Monorepo for @ackplus/nest-auth and @ackplus/nest-auth-js packages",
+  "description": "Monorepo for @ackplus/nest-auth and @ackplus/nest-auth-client packages",
   "private": true,
   "scripts": {
-    "build:nest-auth": "pnpm -C packages/nest-auth build",
-    "build:nest-auth-js": "pnpm -C packages/nest-auth-js build",
-    "build": "pnpm build:nest-auth && pnpm build:nest-auth-js",
-    "build:example": "pnpm -C apps/example-app build",
+    "build": "pnpm nest-auth build && pnpm nest-auth-client build",
     "nest-auth": "pnpm -C packages/nest-auth",
-    "nest-auth-js": "pnpm -C packages/nest-auth-js",
-    "example": "pnpm -C apps/example-app",
+    "nest-auth-client": "pnpm -C packages/nest-auth-client",
+    "nest": "pnpm -C apps/example-nest",
+    "react": "pnpm -C apps/example-react",
     "publish": "node scripts/publish.js",
     "postinstall": "npm --prefix packages/nest-auth/ui install"
   },

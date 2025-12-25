@@ -544,8 +544,8 @@ pnpm lint              # Lint and fix
 
 - [nest-auth Documentation](../../packages/nest-auth/README.md)
 - [nest-auth Examples](../../packages/nest-auth/examples/)
-- [nest-auth-js Documentation](../../packages/nest-auth-js/README.md)
-- [nest-auth-js Frontend Examples](../../packages/nest-auth-js/examples/)
+- [nest-auth-client Documentation](../../packages/nest-auth-client/README.md)
+- [nest-auth-client Frontend Examples](../../packages/nest-auth-client/examples/)
 
 ## 🐛 Troubleshooting
 
