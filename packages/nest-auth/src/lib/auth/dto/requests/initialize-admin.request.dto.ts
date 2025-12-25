@@ -1,7 +1,8 @@
 import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength, Matches, IsObject } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IInitializeAdminRequest } from '@libs/auth-types';
 
-export class InitializeAdminRequestDto {
+export class InitializeAdminRequestDto implements IInitializeAdminRequest {
     @ApiProperty({
         description: 'Super admin email address',
         example: 'admin@example.com'

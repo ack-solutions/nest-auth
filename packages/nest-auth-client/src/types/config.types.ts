@@ -2,7 +2,8 @@
  * Configuration types for AuthClient
  */
 
-import { AuthUser, AuthError, TokenPair } from './auth.types';
+import { IAuthUser as AuthUser, ITokenPair as TokenPair } from '@libs/auth-types';
+import { AuthError } from './auth.types';
 
 /**
  * Storage adapter interface

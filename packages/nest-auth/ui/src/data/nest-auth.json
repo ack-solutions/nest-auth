@@ -795,6 +795,32 @@
             "description": "Whether multi-factor authentication is required",
             "example": false
           },
+          "mfaMethods": {
+            "type": "array",
+            "description": "Available MFA methods when isRequiresMfa is true",
+            "example": [
+              "email",
+              "totp"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "email",
+                "sms",
+                "totp"
+              ]
+            }
+          },
+          "defaultMfaMethod": {
+            "type": "string",
+            "description": "Default/recommended MFA method",
+            "example": "email",
+            "enum": [
+              "email",
+              "sms",
+              "totp"
+            ]
+          },
           "user": {
             "description": "User information",
             "allOf": [
@@ -926,7 +952,10 @@
             "description": "Auto-create user if not exists (for social auth)",
             "default": false
           }
-        }
+        },
+        "required": [
+          "credentials"
+        ]
       },
       "RefreshTokenRequestDto": {
         "type": "object",
@@ -956,9 +985,9 @@
       "MFAMethodEnum": {
         "type": "string",
         "enum": [
-          "totp",
+          "email",
           "sms",
-          "email"
+          "totp"
         ]
       },
       "Verify2faRequestDto": {
@@ -1435,9 +1464,9 @@
             "type": "string",
             "description": "MFA method this device supports",
             "enum": [
-              "totp",
+              "email",
               "sms",
-              "email"
+              "totp"
             ],
             "example": "totp"
           },
@@ -1484,9 +1513,9 @@
             "items": {
               "type": "string",
               "enum": [
-                "totp",
+                "email",
                 "sms",
-                "email"
+                "totp"
               ]
             }
           },
@@ -1501,9 +1530,9 @@
             "items": {
               "type": "string",
               "enum": [
-                "totp",
+                "email",
                 "sms",
-                "email"
+                "totp"
               ]
             }
           },

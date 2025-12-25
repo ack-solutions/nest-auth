@@ -2,42 +2,14 @@
  * Types barrel export
  */
 
-// Core types
+// Core types (client-specific)
 export type {
-    AuthUser,
-    AuthSession,
     AuthStatus,
     AuthState,
     AuthError,
-    TokenPair,
     DecodedJwt,
+    ClientSession,
 } from './auth.types';
-
-// DTOs
-export type {
-    // Credentials
-    EmailCredentials,
-    PhoneCredentials,
-    SocialCredentials,
-    LoginCredentials,
-    // Request DTOs
-    LoginDto,
-    SignupDto,
-    RefreshDto,
-    ForgotPasswordDto,
-    ResetPasswordDto,
-    VerifyEmailDto,
-    ResendVerificationDto,
-    ChangePasswordDto,
-    Verify2faDto,
-    // Response DTOs
-    AuthResponse,
-    MeResponse,
-    MessageResponse,
-    VerifyOtpResponse,
-    Verify2faResponse,
-    SessionVerifyResponse,
-} from './dto.types';
 
 // Config types
 export type {

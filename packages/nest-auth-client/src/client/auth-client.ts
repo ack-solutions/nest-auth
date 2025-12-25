@@ -4,25 +4,27 @@
  */
 
 import {
+    IAuthUser as AuthUser,
+    ITokenPair as TokenPair,
+    ILoginRequest as LoginDto,
+    ISignupRequest as SignupDto,
+    IRefreshRequest as RefreshDto,
+    IForgotPasswordRequest as ForgotPasswordDto,
+    IResetPasswordRequest as ResetPasswordDto,
+    IVerifyEmailRequest as VerifyEmailDto,
+    IResendVerificationRequest as ResendVerificationDto,
+    IChangePasswordRequest as ChangePasswordDto,
+    IVerify2faRequest as Verify2faDto,
+    IAuthResponse as AuthResponse,
+    IAuthUser as MeResponse,
+    IMessageResponse as MessageResponse,
+    IVerifyOtpResponse as VerifyOtpResponse,
+    IVerify2faResponse as Verify2faResponse,
+} from '@libs/auth-types';
+import {
     AuthClientConfig,
-    AuthUser,
-    AuthSession,
+    ClientSession,
     AuthError,
-    TokenPair,
-    LoginDto,
-    SignupDto,
-    RefreshDto,
-    ForgotPasswordDto,
-    ResetPasswordDto,
-    VerifyEmailDto,
-    ResendVerificationDto,
-    ChangePasswordDto,
-    Verify2faDto,
-    AuthResponse,
-    MeResponse,
-    MessageResponse,
-    VerifyOtpResponse,
-    Verify2faResponse,
     HttpResponse,
     RequestOptions,
     DEFAULT_ENDPOINTS,
@@ -69,7 +71,7 @@ export class AuthClient {
     private retryTracker: RetryTracker;
 
     private user: AuthUser | null = null;
-    private session: AuthSession | null = null;
+    private session: ClientSession | null = null;
     private tenantId: string | undefined;
 
     private timeout: number = 30000;
@@ -285,6 +287,7 @@ export class AuthClient {
         // Create session
         const decoded = response.accessToken ? decodeJwt(response.accessToken) : null;
         this.session = {
+            id: decoded?.sessionId || '',
             userId: response.user?.id || getUserIdFromToken(response.accessToken) || '',
             accessToken: this.tokenManager.isHeaderMode() ? response.accessToken : undefined,
             refreshToken: this.tokenManager.isHeaderMode() ? response.refreshToken : undefined,
@@ -631,7 +634,7 @@ export class AuthClient {
     /**
      * Get the current session
      */
-    getSession(): AuthSession | null {
+    getSession(): ClientSession | null {
         return this.session;
     }
 

@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IAuthCookieResponse } from '@libs/auth-types';
 
 /**
  * Auth Cookie Response DTO
@@ -36,7 +37,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
  * ```
  * Tokens are in response body.
  */
-export class AuthCookieResponseDto {
+export class AuthCookieResponseDto implements IAuthCookieResponse {
     @ApiProperty({
         description: 'Success message indicating the operation result',
         example: 'Authentication successful',

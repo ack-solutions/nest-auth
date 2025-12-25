@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
     AuthClient,
     AuthUser,
-    AuthSession,
+    ClientSession,
     AuthError,
     AuthStatus,
     LoginDto,
@@ -20,7 +20,7 @@ import { AuthContext, AuthContextValue } from './auth-context';
  */
 export interface InitialAuthState {
     user?: AuthUser | null;
-    session?: AuthSession | null;
+    session?: ClientSession | null;
     status?: AuthStatus;
 }
 
@@ -80,7 +80,7 @@ export function AuthProvider({
         return initialState?.user ?? client.getUser();
     });
 
-    const [session, setSession] = useState<AuthSession | null>(() => {
+    const [session, setSession] = useState<ClientSession | null>(() => {
         return initialState?.session ?? client.getSession();
     });
 

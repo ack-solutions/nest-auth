@@ -1,7 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UserResponseDto } from './auth.response.dto';
+import { IInitializeAdminResponse } from '@libs/auth-types';
 
-export class InitializeAdminResponseDto {
+export class InitializeAdminResponseDto implements IInitializeAdminResponse {
     @ApiProperty({
         description: 'Success message',
         example: 'Super admin created successfully'

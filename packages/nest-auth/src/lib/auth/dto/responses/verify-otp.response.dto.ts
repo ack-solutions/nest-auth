@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { IVerifyOtpResponse } from '@libs/auth-types';
 
-export class VerifyOtpResponseDto {
+export class VerifyOtpResponseDto implements IVerifyOtpResponse {
     @ApiProperty({ description: 'Success message' })
     message: string;
 

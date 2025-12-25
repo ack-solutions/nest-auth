@@ -5,7 +5,10 @@
  * Works in Node.js, browsers, and React Native
  */
 
-// Types
+// Re-export shared types from @libs/auth-types
+export * from '@libs/auth-types';
+
+// Client-specific types
 export * from './types';
 
 // Storage adapters

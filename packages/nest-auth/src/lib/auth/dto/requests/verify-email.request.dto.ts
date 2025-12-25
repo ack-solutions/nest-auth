@@ -1,7 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsUUID, IsOptional } from 'class-validator';
+import { IVerifyEmailRequest } from '@libs/auth-types';
 
-export class VerifyEmailRequestDto {
+export class VerifyEmailRequestDto implements IVerifyEmailRequest {
     @ApiProperty({
         description: 'One-time password code received via email',
         example: '123456',

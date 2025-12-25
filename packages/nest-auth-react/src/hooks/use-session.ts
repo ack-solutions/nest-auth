@@ -3,7 +3,7 @@
  */
 
 import { useContext } from 'react';
-import { AuthSession } from '@ackplus/nest-auth-client';
+import { ClientSession } from '@ackplus/nest-auth-client';
 import { AuthContext } from '../context';
 
 /**
@@ -31,7 +31,8 @@ import { AuthContext } from '../context';
  * }
  * ```
  */
-export function useSession(): AuthSession | null {
+export function useSession(): ClientSession | null {
     const context = useContext(AuthContext);
     return context.session;
 }
+

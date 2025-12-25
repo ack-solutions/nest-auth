@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { IMfaCodeResponse } from '@libs/auth-types';
 
-export class MfaCodeResponseDto {
+export class MfaCodeResponseDto implements IMfaCodeResponse {
     @ApiProperty({
         description: 'Current MFA code for testing purposes (development only)',
         example: '123456',

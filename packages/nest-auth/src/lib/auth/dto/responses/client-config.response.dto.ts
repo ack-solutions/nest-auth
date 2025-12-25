@@ -1,17 +1,29 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { RegistrationCollectProfileField } from '../../../core/interfaces/auth-module-options.interface';
+import {
+    IEmailAuthConfig,
+    IPhoneAuthConfig,
+    IRegistrationConfig,
+    IMfaConfig,
+    ITenantOption,
+    ITenantsConfig,
+    ISsoProviderConfig,
+    ISsoConfig,
+    IUiConfig,
+    IClientConfigResponse,
+} from '@libs/auth-types';
 
-export class EmailAuthConfigDto {
+export class EmailAuthConfigDto implements IEmailAuthConfig {
     @ApiProperty({ example: true })
     enabled: boolean;
 }
 
-export class PhoneAuthConfigDto {
+export class PhoneAuthConfigDto implements IPhoneAuthConfig {
     @ApiProperty({ example: false })
     enabled: boolean;
 }
 
-export class RegistrationConfigDto {
+export class RegistrationConfigDto implements IRegistrationConfig {
     @ApiProperty({ example: true, description: 'Whether user registration is enabled' })
     enabled: boolean;
 
@@ -45,12 +57,12 @@ export class RegistrationConfigDto {
     collectProfileFields?: Array<RegistrationCollectProfileField>;
 }
 
-export class MfaConfigDto {
+export class MfaConfigDto implements IMfaConfig {
     @ApiProperty({ example: true })
     enabled: boolean;
 
     @ApiPropertyOptional({ example: ['email', 'totp'], isArray: true })
-    methods?: string[];
+    methods?: any[]; // Using any[] here to avoid circular dependency or import issues with MFAMethodEnum if complex
 
     @ApiPropertyOptional({ example: true })
     allowUserToggle?: boolean;
@@ -59,7 +71,7 @@ export class MfaConfigDto {
     allowMethodSelection?: boolean;
 }
 
-export class TenantOptionDto {
+export class TenantOptionDto implements ITenantOption {
     @ApiProperty()
     id: string;
 
@@ -76,7 +88,7 @@ export class TenantOptionDto {
     metadata?: Record<string, any>;
 }
 
-export class TenantsConfigDto {
+export class TenantsConfigDto implements ITenantsConfig {
     @ApiProperty({ example: 'single', enum: ['single', 'multi'] })
     mode: 'single' | 'multi';
 
@@ -87,7 +99,7 @@ export class TenantsConfigDto {
     options?: TenantOptionDto[];
 }
 
-export class SsoProviderConfigDto {
+export class SsoProviderConfigDto implements ISsoProviderConfig {
     @ApiProperty()
     id: string;
 
@@ -107,7 +119,7 @@ export class SsoProviderConfigDto {
     hint?: string;
 }
 
-export class SsoConfigDto {
+export class SsoConfigDto implements ISsoConfig {
     @ApiProperty({ example: false })
     enabled: boolean;
 
@@ -115,7 +127,7 @@ export class SsoConfigDto {
     providers?: SsoProviderConfigDto[];
 }
 
-export class UiConfigDto {
+export class UiConfigDto implements IUiConfig {
     @ApiPropertyOptional()
     brandName?: string;
 
@@ -129,7 +141,7 @@ export class UiConfigDto {
     backgroundImageUrl?: string;
 }
 
-export class ClientConfigResponseDto {
+export class ClientConfigResponseDto implements IClientConfigResponse {
     @ApiProperty({ type: EmailAuthConfigDto })
     emailAuth: EmailAuthConfigDto;
 

@@ -1,8 +1,9 @@
 import { IsEnum, IsString, IsNotEmpty } from "class-validator";
 import { MFAMethodEnum } from "../../../core";
 import { ApiProperty } from "@nestjs/swagger";
+import { IVerify2faRequest } from "@libs/auth-types";
 
-export class Verify2faRequestDto {
+export class Verify2faRequestDto implements IVerify2faRequest {
     @ApiProperty({
         description: 'MFA method used',
         enum: MFAMethodEnum,

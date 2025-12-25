@@ -1,7 +1,8 @@
 import { IsEmail, IsString, IsOptional, IsNotEmpty, MinLength, ValidateIf } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ISignupRequest } from '@libs/auth-types';
 
-export class SignupRequestDto {
+export class SignupRequestDto implements ISignupRequest {
     [x: string]: any;
 
     @ApiPropertyOptional({

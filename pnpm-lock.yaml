@@ -170,8 +170,17 @@ importers:
         specifier: npm:rolldown-vite@7.2.5
         version: rolldown-vite@7.2.5(@types/node@24.10.4)(terser@5.44.1)
 
+  libs/auth-types:
+    devDependencies:
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+
   packages/nest-auth:
     dependencies:
+      '@libs/auth-types':
+        specifier: workspace:*
+        version: link:../../libs/auth-types
       argon2:
         specifier: ^0.31.0
         version: 0.31.2(encoding@0.1.13)
@@ -293,6 +302,9 @@ importers:
 
   packages/nest-auth-client:
     dependencies:
+      '@libs/auth-types':
+        specifier: workspace:*
+        version: link:../../libs/auth-types
       jwt-decode:
         specifier: ^4.0.0
         version: 4.0.0

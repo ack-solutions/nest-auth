@@ -1,3 +1,7 @@
+import { MFAMethodEnum } from '@libs/auth-types';
+
+// Re-export for convenience
+export { MFAMethodEnum };
 
 export interface MFAOptions {
     // Whether MFA is enabled for the application
@@ -8,6 +12,9 @@ export interface MFAOptions {
 
     // Default enabled MFA methods
     methods?: MFAMethodEnum[];
+
+    // Default MFA method to suggest to users
+    defaultMethod?: MFAMethodEnum;
 
     // OTP length
     otpLength?: number;
@@ -49,8 +56,3 @@ export interface MFAOptions {
     defaultOtp?: string;
 }
 
-export enum MFAMethodEnum {
-    TOTP = 'totp',
-    SMS = 'sms',
-    EMAIL = 'email',
-}

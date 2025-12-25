@@ -3,7 +3,9 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -18,6 +20,14 @@
     "noImplicitThis": false,
     "noImplicitReturns": false
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*spec.ts", "**/*.test.ts", "src/tests"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*spec.ts",
+    "**/*.test.ts",
+    "src/tests"
+  ]
 }

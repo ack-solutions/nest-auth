@@ -3,8 +3,19 @@
   "compilerOptions": {
     "module": "commonjs",
     "moduleResolution": "node",
-    "resolvePackageJsonExports": false
+    "resolvePackageJsonExports": false,
+    "baseUrl": ".",
+    "paths": {
+      "@libs/auth-types": [
+        "../../libs/auth-types/dist/index.d.ts"
+      ],
+      "@libs/auth-types/*": [
+        "../../libs/auth-types/dist/*"
+      ]
+    }
   },
   "files": [],
-  "include": []
+  "include": [
+    "src/**/*"
+  ]
 }

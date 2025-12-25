@@ -3,7 +3,8 @@
  * Supports both header and cookie modes
  */
 
-import { AccessTokenType, StorageAdapter, TokenPair } from '../types';
+import { ITokenPair as TokenPair } from '@libs/auth-types';
+import { AccessTokenType, StorageAdapter } from '../types';
 import { isTokenExpired } from './jwt-utils';
 
 /** Storage keys */

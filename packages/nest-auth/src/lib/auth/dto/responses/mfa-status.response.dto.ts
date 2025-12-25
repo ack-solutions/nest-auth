@@ -1,7 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { MFAMethodEnum } from '../../../core';
+import { IMfaDevice, IMfaStatusResponse } from '@libs/auth-types';
 
-export class MfaDeviceDto {
+export class MfaDeviceDto implements IMfaDevice {
     @ApiProperty({
         description: 'Unique identifier of the MFA device',
         example: '4b3c9c9c-9a9d-4d1e-8d9f-123456789abc',
@@ -40,7 +41,7 @@ export class MfaDeviceDto {
     createdAt?: Date | null;
 }
 
-export class MfaStatusResponseDto {
+export class MfaStatusResponseDto implements IMfaStatusResponse {
     @ApiProperty({
         description: 'Whether MFA is currently enabled for the user',
         example: true,

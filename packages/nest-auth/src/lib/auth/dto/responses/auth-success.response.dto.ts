@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IAuthSuccessResponse } from '@libs/auth-types';
 
 /**
  * Auth Success Response DTO
@@ -36,7 +37,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
  * ```
  * Tokens are in response body.
  */
-export class AuthSuccessResponseDto {
+export class AuthSuccessResponseDto implements IAuthSuccessResponse {
     @ApiProperty({
         description: 'Success message indicating the operation result',
         example: 'Authentication successful',

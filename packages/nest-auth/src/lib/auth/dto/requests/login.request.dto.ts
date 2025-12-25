@@ -3,12 +3,13 @@ import { ApiProperty, ApiPropertyOptional, ApiExtraModels, getSchemaPath } from 
 import { EmailCredentialsDto } from '../credentials/email-credentials.dto';
 import { PhoneCredentialsDto } from '../credentials/phone-credentials.dto';
 import { SocialCredentialsDto } from '../credentials/social-credentials.dto';
+import { ILoginRequest } from '@libs/auth-types';
 
 /**
  * Login request DTO supporting multiple authentication providers
  */
 @ApiExtraModels(EmailCredentialsDto, PhoneCredentialsDto, SocialCredentialsDto)
-export class LoginRequestDto {
+export class LoginRequestDto implements ILoginRequest {
 
     @ApiPropertyOptional({
         description: 'Authentication provider name',
@@ -22,7 +23,7 @@ export class LoginRequestDto {
 
     @ApiProperty({
         description: 'Login credentials - type varies by provider',
-        required: false,
+        required: true,
         examples: {
             emailLogin: {
                 summary: 'Email Login',
@@ -44,8 +45,7 @@ export class LoginRequestDto {
         ],
     })
     @IsObject()
-    @IsOptional()
-    credentials?: EmailCredentialsDto | PhoneCredentialsDto | SocialCredentialsDto | Record<string, any>;
+    credentials: EmailCredentialsDto | PhoneCredentialsDto | SocialCredentialsDto | Record<string, any>;
 
     @ApiPropertyOptional({
         description: 'Tenant ID for multi-tenant applications',

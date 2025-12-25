@@ -2,7 +2,7 @@
  * Role and permission utilities
  */
 
-import { AuthUser } from '../types';
+import { IAuthUser as AuthUser } from '@libs/auth-types';
 
 /**
  * Check if user has a specific role

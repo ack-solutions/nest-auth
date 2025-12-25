@@ -1,8 +1,9 @@
 import { IsEnum } from "class-validator";
 import { MFAMethodEnum } from "../../../core";
 import { ApiProperty } from "@nestjs/swagger";
+import { ISendMfaCodeRequest } from "@libs/auth-types";
 
-export class SendMfaCodeRequestDto {
+export class SendMfaCodeRequestDto implements ISendMfaCodeRequest {
     @ApiProperty({
         description: 'MFA delivery method',
         enum: MFAMethodEnum,

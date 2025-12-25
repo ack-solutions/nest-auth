@@ -1,9 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+    ITokensResponse,
+    IUserResponse,
+    IAuthResponse,
+    IVerify2faResponse,
+    MFAMethodEnum
+} from '@libs/auth-types';
 
 /**
  * Authentication tokens response
  */
-export class AuthTokensResponseDto {
+export class AuthTokensResponseDto implements ITokensResponse {
     @ApiProperty({
         description: 'JWT access token (short-lived)',
         example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJpYXQiOjE2OTk5OTk5OTksImV4cCI6MTY5OTk5OTk5OX0.xyz',
@@ -20,7 +27,7 @@ export class AuthTokensResponseDto {
 /**
  * User information response
  */
-export class UserResponseDto {
+export class UserResponseDto implements IUserResponse {
     @ApiProperty({
         description: 'User unique identifier',
         example: '123e4567-e89b-12d3-a456-426614174000',
@@ -58,7 +65,7 @@ export class UserResponseDto {
  * Used in header mode (accessTokenType: 'header')
  * Returns tokens in the response body along with message and status.
  */
-export class AuthWithTokensResponseDto extends AuthTokensResponseDto {
+export class AuthWithTokensResponseDto extends AuthTokensResponseDto implements IAuthResponse {
     @ApiPropertyOptional({
         description: 'Success message (added by controller based on configuration)',
         example: 'Login successful',
@@ -70,6 +77,21 @@ export class AuthWithTokensResponseDto extends AuthTokensResponseDto {
         example: false,
     })
     isRequiresMfa: boolean;
+
+    @ApiPropertyOptional({
+        description: 'Available MFA methods when isRequiresMfa is true',
+        example: ['email', 'totp'],
+        enum: MFAMethodEnum,
+        isArray: true,
+    })
+    mfaMethods?: MFAMethodEnum[];
+
+    @ApiPropertyOptional({
+        description: 'Default/recommended MFA method',
+        example: 'email',
+        enum: MFAMethodEnum,
+    })
+    defaultMfaMethod?: MFAMethodEnum;
 
     @ApiPropertyOptional({
         description: 'User information',
@@ -87,7 +109,7 @@ export type AuthResponseDto = AuthWithTokensResponseDto;
  * Used in header mode (accessTokenType: 'header')
  * Returns tokens in the response body after successful 2FA verification.
  */
-export class Verify2faWithTokensResponseDto extends AuthTokensResponseDto {
+export class Verify2faWithTokensResponseDto extends AuthTokensResponseDto implements IVerify2faResponse {
     @ApiPropertyOptional({
         description: 'Verification success message (added by controller)',
         example: '2FA verification successful',

@@ -6,7 +6,7 @@ import { createContext } from 'react';
 import {
     AuthClient,
     AuthUser,
-    AuthSession,
+    ClientSession,
     AuthError,
     AuthStatus,
     LoginDto,
@@ -26,7 +26,7 @@ export interface AuthContextValue {
     /** Authenticated user or null */
     user: AuthUser | null;
     /** Current session or null */
-    session: AuthSession | null;
+    session: ClientSession | null;
     /** Last error or null */
     error: AuthError | null;
     /** Whether the auth state is currently loading */

@@ -246,6 +246,12 @@ export interface AuthModuleOptions {
     registration?: {
         enabled?: boolean;
         requireInvitation?: boolean;
+        /**
+         * Whether to automatically log in the user after signup.
+         * If true (default), signup returns tokens and the user is logged in immediately.
+         * If false, signup only creates the account and the user must login separately.
+         */
+        autoLoginAfterSignup?: boolean;
         collectProfileFields?: Array<RegistrationCollectProfileField>;
     };
     /**

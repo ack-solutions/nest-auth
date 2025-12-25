@@ -4,16 +4,22 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "resolvePackageJsonExports": false,
-    "forceConsistentCasingInFileNames": true
-  },
-  "files": [],
-  "include": [],
-  "references": [
-    {
-      "path": "./tsconfig.lib.json"
-    },
-    {
-      "path": "./tsconfig.spec.json"
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@libs/auth-types": [
+        "../../libs/auth-types/dist/index.d.ts"
+      ],
+      "@libs/auth-types/*": [
+        "../../libs/auth-types/dist/*"
+      ]
     }
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
   ]
 }

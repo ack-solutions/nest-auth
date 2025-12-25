@@ -243,12 +243,33 @@ export class AuthService {
 
             this.debugLogger.logFunctionExit('signup', 'AuthService', { userId: user.id, isRequiresMfa });
 
-            // Build default response
+            // Check if auto-login after signup is disabled
+            const autoLoginAfterSignup = config.registration?.autoLoginAfterSignup !== false; // default: true
+
+            if (!autoLoginAfterSignup) {
+                // Return success message without tokens - user must login separately
+                return {
+                    message: 'Account created successfully. Please login.',
+                    accessToken: '',
+                    refreshToken: '',
+                    isRequiresMfa: false,
+                } as any;
+            }
+
+            // Build default response with tokens (auto-login enabled)
             let response: AuthResponseDto = {
                 accessToken: tokens.accessToken,
                 refreshToken: tokens.refreshToken,
                 isRequiresMfa: isRequiresMfa,
             };
+
+            // Add MFA methods if MFA is required
+            if (isRequiresMfa) {
+                const enabledMethods = await this.mfaService.getEnabledMethods(user.id);
+                response.mfaMethods = enabledMethods;
+                const defaultMethod = this.mfaService.mfaConfig?.defaultMethod || enabledMethods[0];
+                response.defaultMfaMethod = defaultMethod;
+            }
 
             // Apply auth.transformResponse hook if configured
             if (config.auth?.transformResponse) {
@@ -377,6 +398,15 @@ export class AuthService {
                 refreshToken: tokens.refreshToken,
                 isRequiresMfa: isRequiresMfa,
             };
+
+            // Add MFA methods if MFA is required
+            if (isRequiresMfa) {
+                const enabledMethods = await this.mfaService.getEnabledMethods(user.id);
+                response.mfaMethods = enabledMethods;
+                // Set default method from config or first available method
+                const defaultMethod = this.mfaService.mfaConfig?.defaultMethod || enabledMethods[0];
+                response.defaultMfaMethod = defaultMethod;
+            }
 
             // Apply auth.transformResponse hook if configured
             const config = this.authConfigService.getConfig();
