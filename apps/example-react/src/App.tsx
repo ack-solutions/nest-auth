@@ -1,43 +1,153 @@
-import { useState } from 'react'
-import { useNestAuth } from '@ackplus/nest-auth-react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+/**
+ * Main Application Component
+ * 
+ * Defines the routing structure and main layout.
+ * Separates public routes (login, signup) from protected routes (dashboard, profile).
+ */
 
-function App() {
-  const [count, setCount] = useState(0)
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useNestAuth } from '@ackplus/nest-auth-react';
+import { Box, CircularProgress } from '@mui/material';
 
-  const { login, logout } = useNestAuth()
+// Layout
+import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
 
+// Public Pages (no auth required)
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import MfaVerifyPage from './pages/MfaVerifyPage';
+
+// Protected Pages (auth required)
+import DashboardPage from './pages/DashboardPage';
+import ProfilePage from './pages/ProfilePage';
+import SecurityPage from './pages/SecurityPage';
+import SessionsPage from './pages/SessionsPage';
+
+/**
+ * Loading screen shown while checking initial auth state
+ */
+function LoadingScreen() {
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <div className="card">
-        <h2>Nest Auth React SDK Demo</h2>
-        <button onClick={login}>Login</button>
-        <button onClick={logout}>Logout</button>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        backgroundColor: 'background.default',
+      }}
+    >
+      <CircularProgress size={48} />
+    </Box>
+  );
 }
 
-export default App
+/**
+ * Main App Component
+ * 
+ * Route structure:
+ * - / -> Redirect to dashboard if logged in, login otherwise
+ * - /login -> Login page
+ * - /signup -> Registration page
+ * - /forgot-password -> Password reset request
+ * - /reset-password -> Password reset with token/OTP
+ * - /mfa-verify -> MFA verification during login
+ * - /dashboard -> Protected dashboard
+ * - /profile -> Protected profile page
+ * - /security -> Protected security settings (password, MFA)
+ * - /sessions -> Protected session management
+ */
+function App() {
+  const { status, isAuthenticated } = useNestAuth();
+
+  // Show loading while determining auth state
+  if (status === 'loading') {
+    return <LoadingScreen />;
+  }
+
+  return (
+    <Routes>
+      {/* ============================================ */}
+      {/* Public Routes - No authentication required  */}
+      {/* ============================================ */}
+
+      {/* Root redirect */}
+      <Route
+        path="/"
+        element={
+          isAuthenticated ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+
+      {/* Login */}
+      <Route
+        path="/login"
+        element={
+          isAuthenticated ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <LoginPage />
+          )
+        }
+      />
+
+      {/* Signup */}
+      <Route
+        path="/signup"
+        element={
+          isAuthenticated ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <SignupPage />
+          )
+        }
+      />
+
+      {/* Forgot Password */}
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+
+      {/* Reset Password (with token/OTP) */}
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+      {/* MFA Verification (during login flow) */}
+      <Route path="/mfa-verify" element={<MfaVerifyPage />} />
+
+      {/* ============================================ */}
+      {/* Protected Routes - Authentication required  */}
+      {/* ============================================ */}
+
+      {/* Wrap protected routes in Layout */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }
+      >
+        {/* Dashboard - Main landing page after login */}
+        <Route path="/dashboard" element={<DashboardPage />} />
+
+        {/* Profile - View and edit user profile */}
+        <Route path="/profile" element={<ProfilePage />} />
+
+        {/* Security - Change password, MFA settings */}
+        <Route path="/security" element={<SecurityPage />} />
+
+        {/* Sessions - View and manage active sessions */}
+        <Route path="/sessions" element={<SessionsPage />} />
+      </Route>
+
+      {/* 404 - Redirect to home */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+export default App;

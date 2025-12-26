@@ -892,14 +892,14 @@
       "SocialCredentialsDto": {
         "type": "object",
         "properties": {
-          "accessToken": {
+          "token": {
             "type": "string",
             "description": "OAuth token or ID token from social provider",
             "example": "ya29.a0AfH6SMBx1234567890abcdefghijklmnop"
           }
         },
         "required": [
-          "accessToken"
+          "token"
         ]
       },
       "NestAuthLoginRequestDto": {
@@ -939,7 +939,8 @@
               "socialLogin": {
                 "summary": "Social Login (Google/Facebook/etc)",
                 "value": {
-                  "token": "ya29.a0AfH6SMBx..."
+                  "token": "ya29.a0AfH6SMBx...",
+                  "type": "idToken"
                 }
               }
             },
