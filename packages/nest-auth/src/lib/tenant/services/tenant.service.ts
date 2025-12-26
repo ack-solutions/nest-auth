@@ -25,33 +25,27 @@ export class TenantService {
     ) { }
 
     async createTenant(data: Partial<NestAuthTenant>): Promise<NestAuthTenant> {
-        // Use slug if provided, fallback to domain for backward compatibility
-        const identifier = data.slug || data.domain;
-        this.debugLogger.logTenantOperation('createTenant', undefined, { slug: data.slug, domain: data.domain, name: data.name });
+        // Use slug (required)
+        const identifier = data.slug;
+        this.debugLogger.logTenantOperation('createTenant', undefined, { slug: data.slug, name: data.name });
 
-        // Validate slug format if provided
-        if (data.slug && !isValidSlug(data.slug)) {
+        // Validate slug format
+        if (!data.slug || !isValidSlug(data.slug)) {
             throw new BadRequestException({
                 message: `Invalid slug format. Slug must be lowercase with only letters, numbers, hyphens (-) and underscores (_). Got: '${data.slug}'`,
                 code: 'INVALID_SLUG_FORMAT'
             });
         }
 
-        // Check for existing tenant with same slug or domain
-        this.debugLogger.debug('Checking for existing tenant', 'TenantService', { slug: data.slug, domain: data.domain });
+        // Check for existing tenant with same slug
+        this.debugLogger.debug('Checking for existing tenant', 'TenantService', { slug: data.slug });
 
-        let existingTenant: NestAuthTenant | null = null;
-        if (data.slug) {
-            existingTenant = await this.getTenantBySlug(data.slug);
-        } else if (data.domain) {
-            existingTenant = await this.getTenantByDomain(data.domain);
-        }
+        const existingTenant = await this.getTenantBySlug(data.slug);
 
         if (existingTenant) {
-            const identifier = data.slug || data.domain;
             this.debugLogger.warn('Tenant already exists', 'TenantService', { identifier, existingTenantId: existingTenant.id });
             throw new ConflictException({
-                message: `Tenant with ${data.slug ? 'slug' : 'domain'} '${identifier}' already exists`,
+                message: `Tenant with slug '${identifier}' already exists`,
                 code: 'TENANT_ALREADY_EXISTS'
             });
         }
@@ -87,7 +81,7 @@ export class TenantService {
     }
 
     /**
-     * Get tenant by slug (recommended)
+     * Get tenant by slug
      */
     async getTenantBySlug(slug: string, options?: FindOneOptions<NestAuthTenant>): Promise<NestAuthTenant> {
         if (!slug) {
@@ -97,23 +91,6 @@ export class TenantService {
         const tenant = await this.tenantRepository.findOne({
             ...(options ? options : {}),
             where: { slug }
-        });
-
-        return tenant;
-    }
-
-    /**
-     * @deprecated Use getTenantBySlug instead. Will be removed in v2.0.0
-     * Get tenant by domain (legacy method)
-     */
-    async getTenantByDomain(domain: string, options?: FindOneOptions<NestAuthTenant>): Promise<NestAuthTenant> {
-        if (!domain) {
-            return null;
-        }
-
-        const tenant = await this.tenantRepository.findOne({
-            ...(options ? options : {}),
-            where: { domain }
         });
 
         return tenant;
@@ -232,11 +209,11 @@ export class TenantService {
 
         // Support both slug and domain for backward compatibility
         // Prefer slug over domain
-        const identifier = config.defaultTenant.slug || config.defaultTenant.domain;
+        const identifier = config.defaultTenant.slug;
 
         if (!identifier) {
             throw new BadRequestException({
-                message: 'defaultTenant must have either "slug" or "domain" field',
+                message: 'defaultTenant must have "slug" field',
                 code: 'MISSING_TENANT_IDENTIFIER'
             });
         }

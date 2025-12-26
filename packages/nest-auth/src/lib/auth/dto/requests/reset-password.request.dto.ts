@@ -1,8 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsPhoneNumber, IsString, ValidateIf, IsUUID, IsOptional, MinLength } from 'class-validator';
-import { IResetPasswordRequest } from '@libs/auth-types';
+import { IResetPasswordRequest } from '@ackplus/nest-auth-contracts';
 
-export class ResetPasswordRequestDto implements IResetPasswordRequest {
+export class NestAuthResetPasswordRequestDto implements IResetPasswordRequest {
     @ApiPropertyOptional({
         description: 'User email address (required if phone not provided)',
         example: 'user@example.com',

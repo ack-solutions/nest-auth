@@ -1,19 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, Optional } from '@nestjs/common';
 import { randomBytes } from 'crypto';
-import { AuthModuleOptions } from '../interfaces/auth-module-options.interface';
+import { IAuthModuleOptions, IDefaultTenantOptions, IOtpOptions, IAdminConsoleOptions, IRegistrationCollectProfileField } from '../interfaces/auth-module-options.interface';
 import { SessionStorageType } from '../interfaces/session-options.interface';
-import { MFAMethodEnum } from '../interfaces/mfa-options.interface';
+import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
 
 @Injectable()
 export class AuthConfigService {
-    private static instance: AuthConfigService;
-    private static options: AuthModuleOptions;
-
     /**
      * Default configuration options for NestAuth module
      * This is the single source of truth for default values
      */
-    private static defaultOptions: AuthModuleOptions = {
+    private static defaultOptions: IAuthModuleOptions = {
         isGlobal: true,
         appName: 'Nest Auth',
         passwordResetOtpExpiresIn: '15m',
@@ -39,13 +36,13 @@ export class AuthConfigService {
         },
         mfa: {
             enabled: false,
-            methods: [MFAMethodEnum.EMAIL, MFAMethodEnum.TOTP],
+            methods: [NestAuthMFAMethodEnum.EMAIL, NestAuthMFAMethodEnum.TOTP],
             allowUserToggle: true,
             allowMethodSelection: true,
             otpLength: 6,
             otpExpiresIn: '15m',
         },
-        defaultTenant: undefined, // No default tenant by default
+        defaultTenant: undefined,
         adminConsole: {
             enabled: true,
             basePath: '/api/auth/admin',
@@ -67,11 +64,27 @@ export class AuthConfigService {
         }
     };
 
-    constructor() {
+    private static options: IAuthModuleOptions;
+    private static instance: AuthConfigService;
+
+    constructor(
+        @Inject('AUTH_MODULE_OPTIONS')
+        @Optional() options?: IAuthModuleOptions
+    ) {
+        if (options) {
+            AuthConfigService.options = options;
+        }
         if (!AuthConfigService.instance) {
             AuthConfigService.instance = this;
         }
-        return AuthConfigService.instance;
+    }
+
+    static getOptions(): IAuthModuleOptions {
+        return this.options || this.defaultOptions;
+    }
+
+    static getDefaultOptions(): IAuthModuleOptions {
+        return this.defaultOptions;
     }
 
     static getInstance(): AuthConfigService {
@@ -100,7 +113,7 @@ export class AuthConfigService {
      * 2. Auto-generated random key (for development only, with warning)
      * 3. undefined (if generation is disabled)
      */
-    private static resolveSecretKey(options: AuthModuleOptions): string | undefined {
+    private static resolveSecretKey(options: IAuthModuleOptions): string | undefined {
         // Check explicit configuration first
         const adminConsoleKey = options.adminConsole?.secretKey;
         if (adminConsoleKey) {
@@ -121,7 +134,7 @@ export class AuthConfigService {
         return undefined;
     }
 
-    static setOptions(options: AuthModuleOptions): void {
+    static setOptions(options: IAuthModuleOptions): void {
         const deepmerge = require('deepmerge');
         const mergedOptions = deepmerge(this.defaultOptions, options, { clone: false });
 
@@ -149,7 +162,7 @@ export class AuthConfigService {
     /**
      * Validates admin console configuration options
      */
-    private static validateAdminConsoleOptions(options: AuthModuleOptions): void {
+    private static validateAdminConsoleOptions(options: IAuthModuleOptions): void {
         if (options.adminConsole?.enabled !== false && options.adminConsole?.secretKey) {
             const secretKey = options.adminConsole.secretKey;
             const weakSecrets = ['change-me-admin-secret', 'default', 'secret', ''];
@@ -166,22 +179,11 @@ export class AuthConfigService {
         }
     }
 
-    static getOptions(): AuthModuleOptions {
-        if (!this.options) {
-            this.options = { ...this.defaultOptions };
-        }
-        return this.options;
-    }
-
-    static getDefaultOptions(): AuthModuleOptions {
-        return { ...this.defaultOptions };
-    }
-
-    getConfig(): AuthModuleOptions {
+    getConfig(): IAuthModuleOptions {
         return AuthConfigService.getOptions();
     }
 
-    setConfig(options: AuthModuleOptions): void {
+    setConfig(options: IAuthModuleOptions): void {
         AuthConfigService.setOptions(options);
     }
 }

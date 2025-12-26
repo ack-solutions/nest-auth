@@ -4,8 +4,8 @@
 
 // Auth types (from auth.ts)
 export {
-    MFAMethodEnum,
-    OTPTypeEnum,
+    NestAuthMFAMethodEnum,
+    NestAuthOTPTypeEnum,
     type IEmailCredentials,
     type IPhoneCredentials,
     type ISocialCredentials,

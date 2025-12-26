@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, UpdateDateColumn } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
-import { OTPTypeEnum } from '../../core/interfaces/otp.interface';
+import { NestAuthOTPTypeEnum } from '@ackplus/nest-auth-contracts';
 
 @Entity('nest_auth_otps')
 export class NestAuthOTP {
@@ -14,7 +14,7 @@ export class NestAuthOTP {
     code: string;
 
     @Column({ type: 'text' })
-    type: OTPTypeEnum;
+    type: NestAuthOTPTypeEnum;
 
     @Column()
     expiresAt: Date;

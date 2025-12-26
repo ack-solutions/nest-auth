@@ -3,7 +3,7 @@
  * Multi-factor authentication related types
  */
 
-import { MFAMethodEnum } from './auth';
+import { NestAuthMFAMethodEnum } from './auth';
 
 // --- Entity Interfaces ---
 
@@ -33,7 +33,7 @@ export interface INestAuthTrustedDevice {
 
 export interface IVerify2faRequest {
     otp: string;
-    method?: MFAMethodEnum;
+    method?: NestAuthMFAMethodEnum;
     trustDevice?: boolean;
 }
 
@@ -45,7 +45,7 @@ export interface IVerify2faResponse {
 }
 
 export interface ISendMfaCodeRequest {
-    method: MFAMethodEnum;
+    method: NestAuthMFAMethodEnum;
 }
 
 export interface IToggleMfaRequest {
@@ -60,7 +60,7 @@ export interface IVerifyTotpSetupRequest {
 export interface IMfaDevice {
     id: string;
     deviceName: string;
-    method: MFAMethodEnum;
+    method: NestAuthMFAMethodEnum;
     lastUsedAt?: Date | string | null;
     verified: boolean;
     createdAt?: Date | string | null;
@@ -68,8 +68,8 @@ export interface IMfaDevice {
 
 export interface IMfaStatusResponse {
     isEnabled: boolean;
-    verifiedMethods: MFAMethodEnum[];
-    configuredMethods: MFAMethodEnum[];
+    verifiedMethods: NestAuthMFAMethodEnum[];
+    configuredMethods: NestAuthMFAMethodEnum[];
     allowUserToggle: boolean;
     allowMethodSelection: boolean;
     totpDevices: IMfaDevice[];

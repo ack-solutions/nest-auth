@@ -1,10 +1,10 @@
 import { NestAuthUser } from "../../user/entities/user.entity";
-import { MFAMethodEnum } from "../../core/interfaces/mfa-options.interface";
+import { NestAuthMFAMethodEnum } from "@ackplus/nest-auth-contracts";
 
 export interface TwoFactorCodeSentEventPayload {
     user: NestAuthUser;
     tenantId?: string;
-    method: MFAMethodEnum;
+    method: NestAuthMFAMethodEnum;
     code: string;
 }
 

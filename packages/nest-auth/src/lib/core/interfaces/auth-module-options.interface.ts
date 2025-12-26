@@ -5,7 +5,6 @@ import { BaseAuthProvider } from '../providers/base-auth.provider';
 import { DebugLogOptions } from '../services/debug-logger.service';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { SessionPayload, JWTTokenPayload } from './token-payload.interface';
-import { NestAuthSession } from '../../session/entities/session.entity';
 
 /**
  * Default Tenant Options
@@ -15,7 +14,7 @@ import { NestAuthSession } from '../../session/entities/session.entity';
  *
  * This enables single-tenant mode where users don't need to pass tenantId in signup/login requests.
  */
-export interface DefaultTenantOptions {
+export interface IDefaultTenantOptions {
     /** Name of the default tenant */
     name: string;
 
@@ -26,12 +25,6 @@ export interface DefaultTenantOptions {
      */
     slug: string;
 
-    /**
-     * @deprecated Use 'slug' instead. Will be removed in v2.0.0
-     * Unique domain identifier for the tenant (legacy field)
-     */
-    domain?: string;
-
     /** Optional description */
     description?: string;
 
@@ -39,7 +32,7 @@ export interface DefaultTenantOptions {
     metadata?: Record<string, any>;
 }
 
-export interface RegistrationCollectProfileField {
+export interface IRegistrationCollectProfileField {
     id: string;
     label: string;
     required: boolean;
@@ -51,7 +44,7 @@ export interface RegistrationCollectProfileField {
 /**
  * User lifecycle hooks for customizing user creation and serialization
  */
-export interface UserHooks {
+export interface IUserHooks {
     /**
      * Transform user data before creation.
      * Use this to set default roles, validate fields, or enrich data.
@@ -93,7 +86,7 @@ export interface UserHooks {
 /**
  * Authentication response hooks
  */
-export interface AuthHooks {
+export interface IAuthHooks {
     /**
      * Transform authentication response (login/signup).
      * Use to add custom data like user profile, organization info, feature flags.
@@ -117,7 +110,7 @@ export interface AuthHooks {
 /**
  * Password customization hooks
  */
-export interface PasswordHooks {
+export interface IPasswordHooks {
     /** Custom password hashing (default: Argon2id) */
     hash?: (password: string) => Promise<string>;
     /** Custom password verification */
@@ -129,7 +122,7 @@ export interface PasswordHooks {
 /**
  * OTP customization options
  */
-export interface OtpOptions {
+export interface IOtpOptions {
     /** Custom OTP generation function */
     generate?: (length?: number) => string | Promise<string>;
     /** OTP length (default: 6) */
@@ -141,7 +134,7 @@ export interface OtpOptions {
 /**
  * Guard customization hooks for pre/post auth validation
  */
-export interface GuardHooks {
+export interface IGuardHooks {
     /**
      * Pre-auth validation (IP whitelist, device fingerprint, etc.)
      * Return { reject: true, reason: '...' } to block authentication.
@@ -162,7 +155,7 @@ export interface GuardHooks {
 /**
  * Authorization customization hooks
  */
-export interface AuthorizationHooks {
+export interface IAuthorizationHooks {
     /** Custom role resolution */
     resolveRoles?: (user: NestAuthUser) => Promise<string[]>;
     /** Custom permission resolution */
@@ -172,7 +165,7 @@ export interface AuthorizationHooks {
 /**
  * Audit event structure
  */
-export interface AuthAuditEvent {
+export interface IAuthAuditEvent {
     type: 'login' | 'logout' | 'signup' | 'password_change' | 'mfa_enable' | 'session_revoke';
     userId?: string;
     ip?: string;
@@ -185,13 +178,13 @@ export interface AuthAuditEvent {
 /**
  * Audit logging options
  */
-export interface AuditOptions {
+export interface IAuditOptions {
     enabled?: boolean;
     /** Callback for audit events */
-    onEvent?: (event: AuthAuditEvent) => Promise<void> | void;
+    onEvent?: (event: IAuthAuditEvent) => Promise<void> | void;
 }
 
-export interface AuthModuleOptions {
+export interface IAuthModuleOptions {
     isGlobal?: boolean;
     appName: string;
     /**
@@ -252,7 +245,7 @@ export interface AuthModuleOptions {
          * If false, signup only creates the account and the user must login separately.
          */
         autoLoginAfterSignup?: boolean;
-        collectProfileFields?: Array<RegistrationCollectProfileField>;
+        collectProfileFields?: Array<IRegistrationCollectProfileField>;
     };
     /**
      * Client configuration customization
@@ -291,14 +284,14 @@ export interface AuthModuleOptions {
      * }
      * ```
      */
-    defaultTenant?: DefaultTenantOptions;
+    defaultTenant?: IDefaultTenantOptions;
     /**
      * Embedded admin console configuration.
      * Provides a password-protected dashboard for managing users, roles, tenants, and system settings.
      *
      * The admin console secretKey is also used for admin signup via the /signup endpoint.
      */
-    adminConsole?: AdminConsoleOptions;
+    adminConsole?: IAdminConsoleOptions;
     debug?: DebugLogOptions;
 
     // ============================================
@@ -309,43 +302,43 @@ export interface AuthModuleOptions {
      * User lifecycle hooks
      * Customize user creation, validation, and serialization
      */
-    user?: UserHooks;
+    user?: IUserHooks;
 
     /**
      * Authentication hooks
      * Customize auth responses (login/signup)
      */
-    auth?: AuthHooks;
+    auth?: IAuthHooks;
 
     /**
      * Guard hooks
      * Add custom pre/post authentication validation
      */
-    guards?: GuardHooks;
+    guards?: IGuardHooks;
 
     /**
      * Password customization
      * Custom hashing, verification, and validation
      */
-    password?: PasswordHooks;
+    password?: IPasswordHooks;
 
     /**
      * OTP customization
      * Custom generation, format, and length
      */
-    otp?: OtpOptions;
+    otp?: IOtpOptions;
 
     /**
      * Authorization hooks
      * Custom role and permission resolution
      */
-    authorization?: AuthorizationHooks;
+    authorization?: IAuthorizationHooks;
 
     /**
      * Audit logging
      * Track auth events for compliance
      */
-    audit?: AuditOptions;
+    audit?: IAuditOptions;
 
     /**
      * Custom error handling
@@ -354,7 +347,7 @@ export interface AuthModuleOptions {
     errorHandler?: (error: Error, context: 'login' | 'signup' | 'refresh' | 'mfa' | 'password_reset' | 'password_change') => any;
 }
 
-export interface AdminConsoleOptions {
+export interface IAdminConsoleOptions {
     /** Enable or disable the embedded admin console (default: true) */
     enabled?: boolean;
     /** Base path where the console is served (default: /auth/admin) */
@@ -376,14 +369,6 @@ export interface AdminConsoleOptions {
     /** Session duration expressed in seconds or ms string (default: 2h) */
     sessionDuration?: string | number;
     /**
-     * @deprecated This option is no longer used. Admin users are created directly without role assignment.
-     * Role name for super admin created via /initialize endpoint (default: 'super-admin')
-     */
-    superAdminRole?: string;
-    /**
-     * @deprecated This option is no longer used. The /signup endpoint is always available when secretKey is configured.
-     * Whether the /initialize endpoint is enabled for super admin creation (default: true if secretKey is available)
-     */
     initializeEnabled?: boolean;
     /**
      * Cookie options applied to the admin session cookie.
@@ -396,7 +381,7 @@ export interface AdminConsoleOptions {
     allowAdminManagement?: boolean;
 }
 
-export interface AuthModuleAsyncOptions {
+export interface IAuthModuleAsyncOptions {
     isGlobal?: boolean;
     /**
      * Enable automatic token refresh via global interceptor.
@@ -406,12 +391,12 @@ export interface AuthModuleAsyncOptions {
      */
     enableAutoRefresh?: boolean;
     imports?: any[];
-    useFactory?: (...args: any[]) => Promise<AuthModuleOptions> | AuthModuleOptions;
+    useFactory?: (...args: any[]) => Promise<IAuthModuleOptions> | IAuthModuleOptions;
     inject?: any[];
-    useClass?: Type<AuthModuleOptionsFactory>;
-    useExisting?: Type<AuthModuleOptionsFactory>;
+    useClass?: Type<IAuthModuleOptionsFactory>;
+    useExisting?: Type<IAuthModuleOptionsFactory>;
 }
 
-export interface AuthModuleOptionsFactory {
-    createAuthModuleOptions(): Promise<AuthModuleOptions> | AuthModuleOptions;
+export interface IAuthModuleOptionsFactory {
+    createAuthModuleOptions(): Promise<IAuthModuleOptions> | IAuthModuleOptions;
 }

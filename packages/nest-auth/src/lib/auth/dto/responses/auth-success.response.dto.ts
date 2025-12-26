@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IAuthSuccessResponse } from '@libs/auth-types';
+import { IAuthSuccessResponse } from '@ackplus/nest-auth-contracts';
 
 /**
  * Auth Success Response DTO

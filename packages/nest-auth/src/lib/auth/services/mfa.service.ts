@@ -4,14 +4,15 @@ import { MoreThan, Repository } from 'typeorm';
 import { NestAuthMFASecret } from '../../auth/entities/mfa-secret.entity';
 import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
-import { MFAMethodEnum, MFAOptions } from '../../core/interfaces/mfa-options.interface';
+import { MFAOptions } from '../../core/interfaces/mfa-options.interface';
+import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
 import {
     ERROR_CODES,
     NestAuthEvents,
 } from '../../auth.constants';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthOTP } from '../../auth/entities/otp.entity';
-import { OTPTypeEnum } from '../../core/interfaces/otp.interface';
+import { NestAuthOTPTypeEnum } from '@ackplus/nest-auth-contracts';
 import { generateOtp } from '../../utils/otp';
 import ms from 'ms';
 import { AuthConfigService } from '../../core/services/auth-config.service';
@@ -63,12 +64,12 @@ export class MfaService {
         return this.requireMfaEnabledForApp(throwError);
     }
 
-    async getVerifiedMethods(userId: string): Promise<MFAMethodEnum[]> {
+    async getVerifiedMethods(userId: string): Promise<NestAuthMFAMethodEnum[]> {
         if (!this.requireMfaEnabledForApp(false)) {
             return [];
         }
 
-        const verifiedMethods: MFAMethodEnum[] = []
+        const verifiedMethods: NestAuthMFAMethodEnum[] = []
 
         // Check for verified TOTP devices
         const verifiedTotpDevice = await this.mfaSecretRepository.findOne({
@@ -78,25 +79,25 @@ export class MfaService {
             },
         });
 
-        if (verifiedTotpDevice && this.mfaConfig.methods?.includes(MFAMethodEnum.TOTP)) {
-            verifiedMethods.push(MFAMethodEnum.TOTP)
+        if (verifiedTotpDevice && this.mfaConfig.methods?.includes(NestAuthMFAMethodEnum.TOTP)) {
+            verifiedMethods.push(NestAuthMFAMethodEnum.TOTP)
         }
 
         // Note: EMAIL and SMS methods are always available if configured
         // They don't require pre-verification like TOTP does
         // But we only include them if they're in the config
-        if (this.mfaConfig.methods?.includes(MFAMethodEnum.EMAIL)) {
-            verifiedMethods.push(MFAMethodEnum.EMAIL)
+        if (this.mfaConfig.methods?.includes(NestAuthMFAMethodEnum.EMAIL)) {
+            verifiedMethods.push(NestAuthMFAMethodEnum.EMAIL)
         }
 
-        if (this.mfaConfig.methods?.includes(MFAMethodEnum.SMS)) {
-            verifiedMethods.push(MFAMethodEnum.SMS)
+        if (this.mfaConfig.methods?.includes(NestAuthMFAMethodEnum.SMS)) {
+            verifiedMethods.push(NestAuthMFAMethodEnum.SMS)
         }
 
         return verifiedMethods;
     }
 
-    async getEnabledMethods(userId: string): Promise<MFAMethodEnum[]> {
+    async getEnabledMethods(userId: string): Promise<NestAuthMFAMethodEnum[]> {
         if (!this.requireMfaEnabledForApp(false)) {
             return [];
         }
@@ -106,14 +107,14 @@ export class MfaService {
             return [];
         }
 
-        const enableMethod = []
+        const enableMethod: NestAuthMFAMethodEnum[] = [];
 
-        if (this.mfaConfig.methods?.includes(MFAMethodEnum.EMAIL)) {
-            enableMethod.push(MFAMethodEnum.EMAIL)
+        if (this.mfaConfig.methods?.includes(NestAuthMFAMethodEnum.EMAIL)) {
+            enableMethod.push(NestAuthMFAMethodEnum.EMAIL)
         }
 
-        if (this.mfaConfig.methods?.includes(MFAMethodEnum.SMS)) {
-            enableMethod.push(MFAMethodEnum.SMS)
+        if (this.mfaConfig.methods?.includes(NestAuthMFAMethodEnum.SMS)) {
+            enableMethod.push(NestAuthMFAMethodEnum.SMS)
         }
 
         const verifiedTotpDevice = await this.mfaSecretRepository.findOne({
@@ -124,14 +125,14 @@ export class MfaService {
         });
 
         if (verifiedTotpDevice) {
-            enableMethod.push(MFAMethodEnum.TOTP)
+            enableMethod.push(NestAuthMFAMethodEnum.TOTP)
         }
 
         return enableMethod;
     }
 
 
-    async sendMfaCode(userId: string, method: MFAMethodEnum): Promise<boolean> {
+    async sendMfaCode(userId: string, method: NestAuthMFAMethodEnum): Promise<boolean> {
 
         this.requireMfaEnabledForApp(true)
 
@@ -159,18 +160,18 @@ export class MfaService {
         // Invalidate previous MFA OTPs for this user
         await this.otpRepository.delete({
             userId,
-            type: OTPTypeEnum.MFA
+            type: NestAuthOTPTypeEnum.MFA
         });
 
         const otp = await this.otpRepository.create({
             userId,
-            type: OTPTypeEnum.MFA,
+            type: NestAuthOTPTypeEnum.MFA,
             expiresAt: new Date(Date.now() + expiresAtMs),
             code,
         })
         await this.otpRepository.save(otp);
 
-        if (method === MFAMethodEnum.EMAIL || method === MFAMethodEnum.SMS) {
+        if (method === NestAuthMFAMethodEnum.EMAIL || method === NestAuthMFAMethodEnum.SMS) {
             const user = await this.userRepository.findOne({ where: { id: userId } });
             if (user) {
                 await this.eventEmitter.emitAsync(
@@ -188,7 +189,7 @@ export class MfaService {
         return true;
     }
 
-    async verifyMfa(userId: string, inputOtp: string, method: MFAMethodEnum): Promise<boolean> {
+    async verifyMfa(userId: string, inputOtp: string, method: NestAuthMFAMethodEnum): Promise<boolean> {
 
         this.requireMfaEnabledForApp(true)
 
@@ -197,7 +198,7 @@ export class MfaService {
             return true;
         }
 
-        if (method === MFAMethodEnum.TOTP) {
+        if (method === NestAuthMFAMethodEnum.TOTP) {
             const devices = await this.mfaSecretRepository.find({
                 where: { userId, verified: true }
             });
@@ -222,11 +223,11 @@ export class MfaService {
             return false;
         }
 
-        if (method === MFAMethodEnum.EMAIL || method === MFAMethodEnum.SMS) {
+        if (method === NestAuthMFAMethodEnum.EMAIL || method === NestAuthMFAMethodEnum.SMS) {
             const otp = await this.otpRepository.findOne({
                 where: {
                     userId,
-                    type: OTPTypeEnum.MFA,
+                    type: NestAuthOTPTypeEnum.MFA,
                     used: false,
                     expiresAt: MoreThan(new Date()),
                     code: inputOtp
@@ -261,7 +262,7 @@ export class MfaService {
             verified: false
         });
 
-        const qrCode = await qrcode.toDataURL(secret.otpauth_url);
+        const qrCode = await qrcode.toDataURL(secret.otpauth_url || '');
         return { secret: secret.base32, qrCode };
     }
 
@@ -306,7 +307,7 @@ export class MfaService {
         return devices.map(device => ({
             id: device.id,
             deviceName: device.deviceName,
-            method: MFAMethodEnum.TOTP,
+            method: NestAuthMFAMethodEnum.TOTP,
             lastUsedAt: device.lastUsedAt,
             createdAt: device.createdAt,
             verified: device.verified,
@@ -453,7 +454,7 @@ export class MfaService {
         });
     }
 
-    getAvailableMethods(): MFAMethodEnum[] {
+    getAvailableMethods(): NestAuthMFAMethodEnum[] {
         if (!this.requireMfaEnabledForApp(false)) {
             return [];
         }

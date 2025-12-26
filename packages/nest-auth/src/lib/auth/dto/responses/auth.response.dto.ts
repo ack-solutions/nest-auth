@@ -4,8 +4,8 @@ import {
     IUserResponse,
     IAuthResponse,
     IVerify2faResponse,
-    MFAMethodEnum
-} from '@libs/auth-types';
+    NestAuthMFAMethodEnum
+} from '@ackplus/nest-auth-contracts';
 
 /**
  * Authentication tokens response
@@ -81,17 +81,17 @@ export class AuthWithTokensResponseDto extends AuthTokensResponseDto implements 
     @ApiPropertyOptional({
         description: 'Available MFA methods when isRequiresMfa is true',
         example: ['email', 'totp'],
-        enum: MFAMethodEnum,
+        enum: NestAuthMFAMethodEnum,
         isArray: true,
     })
-    mfaMethods?: MFAMethodEnum[];
+    mfaMethods?: NestAuthMFAMethodEnum[];
 
     @ApiPropertyOptional({
         description: 'Default/recommended MFA method',
         example: 'email',
-        enum: MFAMethodEnum,
+        enum: NestAuthMFAMethodEnum,
     })
-    defaultMfaMethod?: MFAMethodEnum;
+    defaultMfaMethod?: NestAuthMFAMethodEnum;
 
     @ApiPropertyOptional({
         description: 'User information',

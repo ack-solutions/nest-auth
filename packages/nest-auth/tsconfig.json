@@ -6,11 +6,11 @@
     "resolvePackageJsonExports": false,
     "baseUrl": ".",
     "paths": {
-      "@libs/auth-types": [
-        "../../libs/auth-types/dist/index.d.ts"
+      "@ackplus/nest-auth-contracts": [
+        "../../packages/nest-auth-contracts/dist/index.d.ts"
       ],
-      "@libs/auth-types/*": [
-        "../../libs/auth-types/dist/*"
+      "@ackplus/nest-auth-contracts/*": [
+        "../../packages/nest-auth-contracts/dist/*"
       ]
     }
   },

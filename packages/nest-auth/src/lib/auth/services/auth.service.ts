@@ -7,7 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthOTP } from '../../auth/entities/otp.entity';
-import { OTPTypeEnum } from '../../core/interfaces/otp.interface';
+import { NestAuthOTPTypeEnum } from '@ackplus/nest-auth-contracts';
 import {
     EMAIL_AUTH_PROVIDER,
     PHONE_AUTH_PROVIDER,
@@ -21,18 +21,18 @@ import { JwtService } from '../../core/services/jwt.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { SessionManagerService } from '../../session/services/session-manager.service';
 import { RequestContext } from '../../request-context/request-context';
-import { SignupRequestDto } from '../dto/requests/signup.request.dto';
+import { NestAuthSignupRequestDto } from '../dto/requests/signup.request.dto';
 import { AuthResponseDto } from '../dto/responses/auth.response.dto';
-import { LoginRequestDto } from '../dto/requests/login.request.dto';
-import { Verify2faRequestDto } from '../dto/requests/verify-2fa.request.dto';
+import { NestAuthLoginRequestDto } from '../dto/requests/login.request.dto';
+import { NestAuthVerify2faRequestDto } from '../dto/requests/verify-2fa.request.dto';
 import {
-    MFAMethodEnum,
     MFAOptions
 } from '../../core/interfaces/mfa-options.interface';
+import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
 import { JWTTokenPayload, SessionPayload } from '../../core/interfaces/token-payload.interface';
-import { ForgotPasswordRequestDto } from '../dto/requests/forgot-password.request.dto';
+import { NestAuthForgotPasswordRequestDto } from '../dto/requests/forgot-password.request.dto';
 import { generateOtp } from '../../utils/otp';
-import { ResetPasswordRequestDto } from '../dto/requests/reset-password.request.dto';
+import { NestAuthResetPasswordRequestDto } from '../dto/requests/reset-password.request.dto';
 import { UserRegisteredEvent } from '../events/user-registered.event';
 import { UserLoggedInEvent } from '../events/user-logged-in.event';
 import { User2faVerifiedEvent } from '../events/user-2fa-verified.event';
@@ -46,12 +46,12 @@ import { AuthProviderRegistryService } from '../../core/services/auth-provider-r
 import { TenantService } from '../../tenant/services/tenant.service';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
 import moment from 'moment';
-import { VerifyForgotPasswordOtpRequestDto } from '../dto/requests/verify-forgot-password-otp-request-dto';
-import { ResetPasswordWithTokenRequestDto } from '../dto/requests/reset-password-with-token.request.dto';
-import { ChangePasswordRequestDto } from '../dto/requests/change-password.request.dto';
+import { NestAuthVerifyForgotPasswordOtpRequestDto } from '../dto/requests/verify-forgot-password-otp-request-dto';
+import { NestAuthResetPasswordWithTokenRequestDto } from '../dto/requests/reset-password-with-token.request.dto';
+import { NestAuthChangePasswordRequestDto } from '../dto/requests/change-password.request.dto';
 import { VerifyOtpResponseDto } from '../dto/responses/verify-otp.response.dto';
-import { SendEmailVerificationRequestDto } from '../dto/requests/send-email-verification.request.dto';
-import { VerifyEmailRequestDto } from '../dto/requests/verify-email.request.dto';
+import { NestAuthSendEmailVerificationRequestDto } from '../dto/requests/send-email-verification.request.dto';
+import { NestAuthVerifyEmailRequestDto } from '../dto/requests/verify-email.request.dto';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { CookieHelper } from '../../utils/cookie.helper';
 import { UserPasswordChangedEvent } from '../events/user-password-changed.event';
@@ -123,7 +123,7 @@ export class AuthService {
         return fullUser;
     }
 
-    async signup(input: SignupRequestDto): Promise<AuthResponseDto> {
+    async signup(input: NestAuthSignupRequestDto): Promise<AuthResponseDto> {
         this.debugLogger.logFunctionEntry('signup', 'AuthService', { email: input.email, phone: input.phone, hasPassword: !!input.password });
 
         try {
@@ -285,7 +285,7 @@ export class AuthService {
         }
     }
 
-    async login(input: LoginRequestDto): Promise<AuthResponseDto> {
+    async login(input: NestAuthLoginRequestDto): Promise<AuthResponseDto> {
         const { credentials, providerName, createUserIfNotExists = false } = input;
         this.debugLogger.logFunctionEntry('login', 'AuthService', { providerName, createUserIfNotExists });
         let { tenantId = null } = input;
@@ -326,7 +326,7 @@ export class AuthService {
                     });
                 }
                 // Create new user if not exists and link to provider
-                user = await this.handleSocialLogin(provider, authProviderUser, tenantId);
+                user = await this.handleSocialLogin(provider, authProviderUser!, tenantId);
             }
 
             if (user.isActive === false) {
@@ -336,10 +336,11 @@ export class AuthService {
                 });
             }
 
-            user = await this.getUserWithRolesAndPermissions(user.id);
+            user = await this.getUserWithRolesAndPermissions(user!.id);
 
 
             let isRequiresMfa = false
+            let isTrusted = false;
             // Skip MFA for social login providers as they are considered trusted/direct login
             if (!provider.skipMfa) {
                 isRequiresMfa = await this.mfaService.isRequiresMfa(user.id);
@@ -352,21 +353,23 @@ export class AuthService {
             if (isRequiresMfa) {
                 const trustCookieName = AuthConfigService.getOptions().mfa?.trustDeviceStorageName || NEST_AUTH_TRUST_DEVICE_KEY;
                 const req = RequestContext.currentRequest();
-                let trustToken = CookieHelper.get(req, trustCookieName);
+                if (req) {
+                    let trustToken = CookieHelper.get(req, trustCookieName);
 
-                // If not in cookie, check header
-                if (!trustToken) {
-                    trustToken = req.headers[trustCookieName] as string;
-                }
-                let isTrusted = false;
-                if (trustToken) {
-                    isTrusted = await this.mfaService.validateTrustedDevice(user.id, trustToken);
-                    if (isTrusted) {
-                        isRequiresMfa = false;
-                        // Update session to indicate MFA is verified by trust
-                        session = await this.sessionManager.updateSession(session.id, {
-                            data: { ...session.data, isMfaVerified: true }
-                        });
+                    // If not in cookie, check header
+                    if (!trustToken) {
+                        trustToken = req.headers[trustCookieName] as string;
+                    }
+
+                    if (trustToken) {
+                        isTrusted = await this.mfaService.validateTrustedDevice(user.id, trustToken);
+                        if (isTrusted) {
+                            isRequiresMfa = false;
+                            // Update session to indicate MFA is verified by trust
+                            session = await this.sessionManager.updateSession(session.id, {
+                                data: { ...session.data, isMfaVerified: true }
+                            });
+                        }
                     }
                 }
 
@@ -422,7 +425,7 @@ export class AuthService {
         }
     }
 
-    async verify2fa(input: Verify2faRequestDto) {
+    async verify2fa(input: NestAuthVerify2faRequestDto) {
         this.debugLogger.logFunctionEntry('verify2fa', 'AuthService', { method: input.method });
 
         try {
@@ -437,9 +440,9 @@ export class AuthService {
             }
 
             this.debugLogger.debug('Verifying MFA code', 'AuthService', { userId: session.userId, method: input.method });
-            const isValid = await this.mfaService.verifyMfa(session.userId, input.otp, input.method);
+            const isValid = await this.mfaService.verifyMfa(session.userId, input.otp, input.method!);
             if (!isValid) {
-                this.debugLogger.warn('Invalid MFA code provided', 'AuthService', { userId: session.userId, method: input.method });
+                this.debugLogger.warn('Invalid MFA code provided', 'AuthService', { userId: session.userId!, method: input.method });
                 throw new UnauthorizedException({
                     message: 'Invalid MFA code',
                     code: ERROR_CODES.MFA_CODE_INVALID,
@@ -447,9 +450,9 @@ export class AuthService {
             }
 
             this.debugLogger.debug('Updating session with MFA verification', 'AuthService', { sessionId: session.id });
-            const payload = await this.sessionManager.updateSession(session.id, {
+            const payload = await this.sessionManager.updateSession(session.id!, {
                 data: {
-                    ...session.data,
+                    ...session.data!,
                     isMfaVerified: true,
                 }
             });
@@ -458,9 +461,11 @@ export class AuthService {
             let trustToken: string | undefined;
             if (input.rememberDevice) {
                 const req = RequestContext.currentRequest();
-                const userAgent = req.headers['user-agent'] || '';
-                const ip = req.ip || req.socket.remoteAddress || '';
-                trustToken = await this.mfaService.createTrustedDevice(session.userId, userAgent, ip);
+                if (req) {
+                    const userAgent = (req.headers['user-agent'] || '') as string;
+                    const ip = (req.ip || req.socket.remoteAddress || '') as string;
+                    trustToken = await this.mfaService.createTrustedDevice(session.userId!, userAgent, ip);
+                }
             }
 
             const user = await this.getUser();
@@ -471,7 +476,7 @@ export class AuthService {
                 NestAuthEvents.TWO_FACTOR_VERIFIED,
                 new User2faVerifiedEvent({
                     user: user as NestAuthUser,
-                    tenantId: user.tenantId,
+                    tenantId: user?.tenantId!,
                     input,
                     session,
                     tokens
@@ -492,7 +497,7 @@ export class AuthService {
         }
     }
 
-    async send2faCode(userId: string, method: MFAMethodEnum) {
+    async send2faCode(userId: string, method: NestAuthMFAMethodEnum) {
         const user = await this.userRepository.findOne({ where: { id: userId } });
 
         if (!user) {
@@ -584,6 +589,13 @@ export class AuthService {
                 });
             }
 
+            if (!payload.sessionId) {
+                throw new UnauthorizedException({
+                    message: 'Invalid refresh token payload',
+                    code: ERROR_CODES.REFRESH_TOKEN_INVALID,
+                });
+            }
+
             const session = await this.sessionManager.getSession(payload.sessionId);
 
             if (!session) {
@@ -622,7 +634,7 @@ export class AuthService {
     }
 
 
-    async changePassword(input: ChangePasswordRequestDto): Promise<AuthResponseDto> {
+    async changePassword(input: NestAuthChangePasswordRequestDto): Promise<AuthResponseDto> {
         this.debugLogger.logFunctionEntry('changePassword', 'AuthService');
 
         try {
@@ -692,7 +704,7 @@ export class AuthService {
         }
     }
 
-    async forgotPassword(input: ForgotPasswordRequestDto) {
+    async forgotPassword(input: NestAuthForgotPasswordRequestDto) {
         this.debugLogger.logFunctionEntry('forgotPassword', 'AuthService', { email: input.email, phone: input.phone });
 
         try {
@@ -765,7 +777,7 @@ export class AuthService {
             // Invalidate previous MFA OTPs for this user
             await this.otpRepository.delete({
                 userId: identity.user?.id,
-                type: OTPTypeEnum.PASSWORD_RESET
+                type: NestAuthOTPTypeEnum.PASSWORD_RESET
             });
 
             // // Generate OTP
@@ -776,7 +788,7 @@ export class AuthService {
             // Save OTP to database
             const otpEntity = await this.otpRepository.create({
                 userId: identity.user?.id,
-                type: OTPTypeEnum.PASSWORD_RESET,
+                type: NestAuthOTPTypeEnum.PASSWORD_RESET,
                 expiresAt: new Date(Date.now() + expiresAtMs),
                 code,
             });
@@ -804,7 +816,7 @@ export class AuthService {
         }
     }
 
-    async verifyForgotPasswordOtp(input: VerifyForgotPasswordOtpRequestDto): Promise<VerifyOtpResponseDto> {
+    async verifyForgotPasswordOtp(input: NestAuthVerifyForgotPasswordOtpRequestDto): Promise<VerifyOtpResponseDto> {
         this.debugLogger.logFunctionEntry('verifyForgotPasswordOtp', 'AuthService', { email: input.email, phone: input.phone });
         try {
             const { email, phone, otp } = input;
@@ -835,7 +847,7 @@ export class AuthService {
                 });
             }
 
-            const identity = await provider.findIdentity(email || phone);
+            const identity = await provider.findIdentity((email || phone)!);
 
             if (!identity) {
                 throw new BadRequestException({
@@ -848,7 +860,7 @@ export class AuthService {
                 where: {
                     userId: identity.user?.id,
                     code: otp,
-                    type: OTPTypeEnum.PASSWORD_RESET,
+                    type: NestAuthOTPTypeEnum.PASSWORD_RESET,
                     used: false
                 },
                 relations: ['user']
@@ -893,7 +905,7 @@ export class AuthService {
         }
     }
 
-    async resetPassword(input: ResetPasswordRequestDto) {
+    async resetPassword(input: NestAuthResetPasswordRequestDto): Promise<boolean> {
         this.debugLogger.logFunctionEntry('resetPassword', 'AuthService', { email: input.email, phone: input.phone });
 
         try {
@@ -930,7 +942,7 @@ export class AuthService {
                 where: {
                     userId: user.id,
                     code: otp,
-                    type: OTPTypeEnum.PASSWORD_RESET,
+                    type: NestAuthOTPTypeEnum.PASSWORD_RESET,
                     expiresAt: MoreThan(new Date()),
                     used: false
                 }
@@ -972,7 +984,7 @@ export class AuthService {
     }
 
 
-    async resetPasswordWithToken(input: ResetPasswordWithTokenRequestDto) {
+    async resetPasswordWithToken(input: NestAuthResetPasswordWithTokenRequestDto) {
         this.debugLogger.logFunctionEntry('resetPasswordWithToken', 'AuthService', { token: '***' });
 
         try {
@@ -1047,19 +1059,19 @@ export class AuthService {
 
         const user = await this.getUser();
 
-        // Emit logout event
-        await this.eventEmitter.emitAsync(
-            NestAuthEvents.LOGGED_OUT,
-            new LoggedOutEvent({
-                user: user as NestAuthUser,
-                tenantId: user?.tenantId,
-                session,
-                logoutType,
-                reason,
-            })
-        );
-
         if (session) {
+            // Emit logout event
+            await this.eventEmitter.emitAsync(
+                NestAuthEvents.LOGGED_OUT,
+                new LoggedOutEvent({
+                    user: user as NestAuthUser,
+                    tenantId: user?.tenantId,
+                    session,
+                    logoutType,
+                    reason,
+                })
+            );
+
             await this.sessionManager.revokeSession(session.id);
         }
 
@@ -1067,14 +1079,6 @@ export class AuthService {
     }
 
     async logoutAll(userId: string, logoutType: 'user' | 'admin' | 'system' = 'user', reason?: string) {
-        const session = RequestContext.currentSession();
-        if (!session) {
-            throw new UnauthorizedException({
-                message: 'Session not found',
-                code: ERROR_CODES.SESSION_NOT_FOUND,
-            });
-        }
-
         const sessions = await this.sessionManager.getUserSessions(userId);
 
         await this.sessionManager.revokeAllUserSessions(userId);
@@ -1090,7 +1094,6 @@ export class AuthService {
                     tenantId: user.tenantId,
                     logoutType,
                     reason,
-                    currentSessionId: session.id,
                     sessions,
                 })
             );
@@ -1099,7 +1102,7 @@ export class AuthService {
         return true;
     }
 
-    async sendEmailVerification(input: SendEmailVerificationRequestDto) {
+    async sendEmailVerification(input: NestAuthSendEmailVerificationRequestDto): Promise<{ message: string }> {
         this.debugLogger.logFunctionEntry('sendEmailVerification', 'AuthService');
 
         try {
@@ -1137,7 +1140,7 @@ export class AuthService {
                 userId: fullUser.id,
                 code: otp,
                 expiresAt,
-                type: OTPTypeEnum.VERIFICATION
+                type: NestAuthOTPTypeEnum.VERIFICATION,
             });
 
             // Emit email verification event - email sending should be handled by event listener
@@ -1160,7 +1163,7 @@ export class AuthService {
         }
     }
 
-    async verifyEmail(input: VerifyEmailRequestDto) {
+    async verifyEmail(input: NestAuthVerifyEmailRequestDto): Promise<{ message: string }> {
         this.debugLogger.logFunctionEntry('verifyEmail', 'AuthService');
 
         try {
@@ -1193,7 +1196,7 @@ export class AuthService {
                 where: {
                     userId: fullUser.id,
                     code: input.otp,
-                    type: OTPTypeEnum.VERIFICATION,
+                    type: NestAuthOTPTypeEnum.VERIFICATION,
                     used: false
                 }
             });

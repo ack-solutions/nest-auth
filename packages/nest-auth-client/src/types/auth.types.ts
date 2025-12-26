@@ -25,7 +25,7 @@ export interface ClientSession {
  */
 export interface AuthState {
     status: AuthStatus;
-    user: import('@libs/auth-types').IAuthUser | null;
+    user: import('@ackplus/nest-auth-contracts').IAuthUser | null;
     session: ClientSession | null;
     error: AuthError | null;
 }

@@ -150,26 +150,6 @@ export const ERROR_CODES = {
 // Type for error codes
 export type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES];
 
-// ==========================================
-// LEGACY ERROR CODES (For backward compatibility)
-// ==========================================
-/** @deprecated Use ERROR_CODES.USER_NOT_FOUND instead */
-export const USER_NOT_FOUND_EXCEPTION_CODE = AUTH_ERROR_CODES.USER_NOT_FOUND;
-/** @deprecated Use ERROR_CODES.UNAUTHORIZED instead */
-export const UNAUTHORIZED_EXCEPTION_CODE = GUARD_ERROR_CODES.UNAUTHORIZED;
-/** @deprecated Use ERROR_CODES.MFA_CODE_INVALID instead */
-export const INVALID_MFA_EXCEPTION_CODE = MFA_ERROR_CODES.MFA_CODE_INVALID;
-/** @deprecated Use ERROR_CODES.REFRESH_TOKEN_INVALID instead */
-export const INVALID_REFRESH_TOKEN_EXCEPTION_CODE = AUTH_ERROR_CODES.REFRESH_TOKEN_INVALID;
-/** @deprecated Use ERROR_CODES.SESSION_NOT_FOUND instead */
-export const SESSION_NOT_FOUND_ERROR = SESSION_ERROR_CODES.SESSION_NOT_FOUND;
-/** @deprecated Use ERROR_CODES.ACCOUNT_INACTIVE instead */
-export const USER_NOT_ACTIVE_ERROR = AUTH_ERROR_CODES.ACCOUNT_INACTIVE;
-/** @deprecated Use ERROR_CODES.REFRESH_TOKEN_INVALID instead */
-export const REFRESH_TOKEN_INVALID = AUTH_ERROR_CODES.REFRESH_TOKEN_INVALID;
-/** @deprecated Use ERROR_CODES.REFRESH_TOKEN_EXPIRED instead */
-export const REFRESH_TOKEN_EXPIRED = AUTH_ERROR_CODES.REFRESH_TOKEN_EXPIRED;
-
 
 // Auth Cookie Names
 export const ACCESS_TOKEN_COOKIE_NAME = 'accessToken';

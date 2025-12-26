@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsString, MinLength, Validate, ValidatorConstraint, ValidatorConstraintInterface, ValidationArguments } from 'class-validator';
-import { IChangePasswordRequest } from '@libs/auth-types';
+import { IChangePasswordRequest } from '@ackplus/nest-auth-contracts';
 
 @ValidatorConstraint({ name: 'passwordNotSameAsCurrent', async: false })
 class PasswordNotSameAsCurrent implements ValidatorConstraintInterface {
@@ -13,7 +13,7 @@ class PasswordNotSameAsCurrent implements ValidatorConstraintInterface {
     }
 }
 
-export class ChangePasswordRequestDto implements IChangePasswordRequest {
+export class NestAuthChangePasswordRequestDto implements IChangePasswordRequest {
     @ApiProperty({
         description: 'Current password',
         example: 'DemoOwner1!',

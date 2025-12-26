@@ -2,7 +2,7 @@
  * Configuration types for AuthClient
  */
 
-import { IAuthUser as AuthUser, ITokenPair as TokenPair } from '@libs/auth-types';
+import { IAuthUser as AuthUser, ITokenPair as TokenPair } from '@ackplus/nest-auth-contracts';
 import { AuthError } from './auth.types';
 
 /**

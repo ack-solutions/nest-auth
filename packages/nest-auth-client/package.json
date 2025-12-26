@@ -38,7 +38,7 @@
   "license": "MIT",
   "author": "Ackplus",
   "dependencies": {
-    "@libs/auth-types": "workspace:*",
+    "@ackplus/nest-auth-contracts": "workspace:*",
     "jwt-decode": "^4.0.0",
     "tslib": "^2.3.0"
   },

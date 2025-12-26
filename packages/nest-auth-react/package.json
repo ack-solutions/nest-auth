@@ -1,6 +1,6 @@
 {
     "name": "@ackplus/nest-auth-react",
-    "version": "0.0.1",
+    "version": "1.1.29",
     "description": "React SDK for NestJS authentication - hooks, guards, and Next.js integration",
     "type": "commonjs",
     "main": "./dist/index.js",

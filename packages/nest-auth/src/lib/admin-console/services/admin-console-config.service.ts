@@ -1,42 +1,50 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import { AdminConsoleOptions } from '../../core/interfaces/auth-module-options.interface';
+import { IAdminConsoleOptions } from '../../core/interfaces/auth-module-options.interface';
 import { CookieOptions } from 'express';
 
 @Injectable()
 export class AdminConsoleConfigService {
-  constructor(private readonly authConfig: AuthConfigService) { }
+  constructor(private readonly authConfigService: AuthConfigService) { }
 
-  get options(): AdminConsoleOptions {
-    return this.authConfig.getConfig().adminConsole ?? ({} as AdminConsoleOptions);
+  getConfig(): IAdminConsoleOptions {
+    const authConfig = this.authConfigService.getConfig();
+    return {
+      enabled: true,
+      basePath: '/auth/admin',
+      sessionCookieName: 'nest_auth_admin',
+      sessionDuration: '2h',
+      ...authConfig.adminConsole
+    };
   }
 
   ensureEnabled(): void {
-    if (this.options?.enabled === false) {
+    if (this.getConfig().enabled === false) {
       throw new NotFoundException('Admin console is disabled');
     }
   }
 
   getCookieName(): string {
-    return this.options?.sessionCookieName ?? 'nest_auth_admin';
+    return this.getConfig().sessionCookieName ?? 'nest_auth_admin';
   }
 
   getBasePath(): string {
-    return this.options?.basePath;
+    return this.getConfig().basePath || '/auth/admin';
   }
 
   getSessionSecret(): string {
     // Use secretKey for session signing - unified key for all admin console security operations
-    return this.options?.secretKey ?? 'change-me-admin-secret';
+    return this.authConfigService.getConfig().adminConsole?.secretKey ?? 'change-me-admin-secret';
   }
 
   getSessionDuration(): string | number {
-    return this.options?.sessionDuration ?? '2h';
+    return this.getConfig().sessionDuration ?? '2h';
   }
 
   getCookieOptions(): CookieOptions {
     // Determine secure flag based on environment
     const secureDefault = process.env.NODE_ENV === 'production';
+    const config = this.getConfig();
 
     const base: CookieOptions = {
       httpOnly: true,
@@ -47,16 +55,16 @@ export class AdminConsoleConfigService {
 
     return {
       ...base,
-      ...(this.options?.cookie ?? {}),
-      path: this.options?.cookie?.path ?? base.path,
+      ...(config.cookie ?? {}),
+      path: config.cookie?.path ?? base.path,
     };
   }
 
   allowAdminManagement(): boolean {
-    return this.options?.allowAdminManagement !== false;
+    return this.getConfig().allowAdminManagement !== false;
   }
 
   getSecretKey(): string | undefined {
-    return this.options?.secretKey;
+    return this.authConfigService.getConfig().adminConsole?.secretKey;
   }
 }

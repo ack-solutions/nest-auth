@@ -3,13 +3,13 @@ import { ApiProperty, ApiPropertyOptional, ApiExtraModels, getSchemaPath } from 
 import { EmailCredentialsDto } from '../credentials/email-credentials.dto';
 import { PhoneCredentialsDto } from '../credentials/phone-credentials.dto';
 import { SocialCredentialsDto } from '../credentials/social-credentials.dto';
-import { ILoginRequest } from '@libs/auth-types';
+import { ILoginRequest } from '@ackplus/nest-auth-contracts';
 
 /**
  * Login request DTO supporting multiple authentication providers
  */
 @ApiExtraModels(EmailCredentialsDto, PhoneCredentialsDto, SocialCredentialsDto)
-export class LoginRequestDto implements ILoginRequest {
+export class NestAuthLoginRequestDto implements ILoginRequest {
 
     @ApiPropertyOptional({
         description: 'Authentication provider name',

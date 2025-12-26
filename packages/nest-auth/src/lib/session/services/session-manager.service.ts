@@ -1,8 +1,8 @@
-import { Injectable, UnauthorizedException, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger, UnauthorizedException } from '@nestjs/common';
 import { ISessionRepository } from '../interfaces/session-repository.interface';
 import { NestAuthSession } from '../entities/session.entity';
+import { IAuthModuleOptions } from '../../core/interfaces/auth-module-options.interface';
 import { SessionPayload, SessionDataPayload } from '../../core/interfaces/token-payload.interface';
-import { AuthModuleOptions } from '../../core/interfaces/auth-module-options.interface';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { RequestContext } from '../../request-context/request-context';
 import { NestAuthUser } from '../../user/entities/user.entity';
@@ -22,7 +22,7 @@ export class SessionManagerService {
         private readonly repository: ISessionRepository,
     ) { }
 
-    private get options(): AuthModuleOptions {
+    private get options(): IAuthModuleOptions {
         return AuthConfigService.getOptions();
     }
 

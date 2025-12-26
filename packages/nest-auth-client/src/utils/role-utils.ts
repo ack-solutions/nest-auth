@@ -2,7 +2,7 @@
  * Role and permission utilities
  */
 
-import { IAuthUser as AuthUser } from '@libs/auth-types';
+import { IAuthUser as AuthUser } from '@ackplus/nest-auth-contracts';
 
 /**
  * Check if user has a specific role

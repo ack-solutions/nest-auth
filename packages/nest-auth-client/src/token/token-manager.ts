@@ -3,7 +3,7 @@
  * Supports both header and cookie modes
  */
 
-import { ITokenPair as TokenPair } from '@libs/auth-types';
+import { ITokenPair as TokenPair } from '@ackplus/nest-auth-contracts';
 import { AccessTokenType, StorageAdapter } from '../types';
 import { isTokenExpired } from './jwt-utils';
 

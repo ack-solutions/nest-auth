@@ -1,10 +1,11 @@
+
 import { NestAuthUser } from "../../user/entities/user.entity";
-import { ResetPasswordRequestDto } from "../dto/requests/reset-password.request.dto";
+import { NestAuthResetPasswordRequestDto } from '../dto/requests/reset-password.request.dto';
 
 export interface PasswordResetEventPayload {
     user: NestAuthUser;
     tenantId?: string;
-    input: ResetPasswordRequestDto;
+    input: NestAuthResetPasswordRequestDto;
 }
 
 export class PasswordResetEvent {

@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UserResponseDto } from './auth.response.dto';
-import { IInitializeAdminResponse } from '@libs/auth-types';
+import { IInitializeAdminResponse } from '@ackplus/nest-auth-contracts';
 
 export class InitializeAdminResponseDto implements IInitializeAdminResponse {
     @ApiProperty({

@@ -1,8 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsPhoneNumber, ValidateIf, IsUUID, IsOptional } from 'class-validator';
-import { IForgotPasswordRequest } from '@libs/auth-types';
+import { IForgotPasswordRequest } from '@ackplus/nest-auth-contracts';
 
-export class ForgotPasswordRequestDto implements IForgotPasswordRequest {
+export class NestAuthForgotPasswordRequestDto implements IForgotPasswordRequest {
     @ApiPropertyOptional({
         description: 'User email address (required if phone not provided)',
         example: 'user@example.com',

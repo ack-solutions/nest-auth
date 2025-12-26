@@ -4,14 +4,14 @@
  */
 
 // OTP Type Enum
-export enum OTPTypeEnum {
+export enum NestAuthOTPTypeEnum {
     PASSWORD_RESET = 'password_reset',
     VERIFICATION = 'verification',
     MFA = 'mfa',
 }
 
 // MFA Method Enum (Needed for AuthResponse and others)
-export enum MFAMethodEnum {
+export enum NestAuthMFAMethodEnum {
     EMAIL = 'email',
     SMS = 'sms',
     TOTP = 'totp',
@@ -61,7 +61,7 @@ export interface INestAuthOTP {
     id: string;
     userId: string;
     code: string;
-    type: OTPTypeEnum;
+    type: NestAuthOTPTypeEnum;
     expiresAt: Date;
     used: boolean;
     createdAt: Date;
@@ -125,8 +125,8 @@ export interface IAuthUser {
 export interface IAuthResponse extends ITokenPair {
     message?: string;
     isRequiresMfa?: boolean;
-    mfaMethods?: MFAMethodEnum[];
-    defaultMfaMethod?: MFAMethodEnum;
+    mfaMethods?: NestAuthMFAMethodEnum[];
+    defaultMfaMethod?: NestAuthMFAMethodEnum;
     user?: IAuthUser;
 }
 

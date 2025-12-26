@@ -7,13 +7,13 @@ import { GoogleAuthProvider } from '../providers/google-auth.provider';
 import { JwtAuthProvider } from '../providers/jwt-auth.provider';
 import { FacebookAuthProvider } from '../providers/facebook-auth.provider';
 import { GitHubAuthProvider } from '../providers/github-auth.provider';
-import { AuthModuleOptions } from '../interfaces/auth-module-options.interface';
+import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
 import { AuthConfigService } from './auth-config.service';
 
 @Injectable()
 export class AuthProviderRegistryService {
     private providers: Map<string, BaseAuthProvider> = new Map();
-    private options: AuthModuleOptions;
+    private options: IAuthModuleOptions;
 
     constructor(
         private readonly emailAuthProvider: EmailAuthProvider,

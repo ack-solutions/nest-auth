@@ -1,9 +1,9 @@
 import { NestAuthUser } from "../../user/entities/user.entity";
-import { MFAMethodEnum } from "../../core/interfaces/mfa-options.interface";
+import { NestAuthMFAMethodEnum } from "@ackplus/nest-auth-contracts";
 
 export interface User2faEnabledEventPayload {
     user: NestAuthUser;
-    method?: MFAMethodEnum;
+    method?: NestAuthMFAMethodEnum;
 }
 
 export class User2faEnabledEvent {
@@ -15,7 +15,7 @@ export class User2faEnabledEvent {
         return this.payload.user;
     }
 
-    get method(): MFAMethodEnum | undefined {
+    get method(): NestAuthMFAMethodEnum | undefined {
         return this.payload.method;
     }
 }

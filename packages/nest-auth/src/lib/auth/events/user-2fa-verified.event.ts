@@ -1,12 +1,12 @@
 import { NestAuthUser } from "../../user/entities/user.entity";
-import { Verify2faRequestDto } from "../dto/requests/verify-2fa.request.dto";
+import { NestAuthVerify2faRequestDto } from '../dto/requests/verify-2fa.request.dto';
 import { SessionPayload } from "../../core";
 import { AuthTokensResponseDto } from "../dto/responses/auth.response.dto";
 
 export interface User2faVerifiedEventPayload {
     user: NestAuthUser;
     tenantId?: string;
-    input: Verify2faRequestDto;
+    input: NestAuthVerify2faRequestDto;
     session: SessionPayload;
     tokens: AuthTokensResponseDto;
 }

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import jwt from 'jsonwebtoken';
-import { AuthModuleOptions } from '../../core/interfaces/auth-module-options.interface';
-import { JWTTokenPayload } from '../../core/interfaces/token-payload.interface';
+import * as jwt from 'jsonwebtoken';
+import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
+import { JWTTokenPayload } from '../interfaces/token-payload.interface';
 import ms from 'ms';
 import { AuthConfigService } from './auth-config.service';
 
@@ -9,7 +9,7 @@ import { AuthConfigService } from './auth-config.service';
 @Injectable()
 export class JwtService {
 
-    private options: AuthModuleOptions;
+    private options: IAuthModuleOptions;
 
     constructor() {
         this.options = AuthConfigService.getOptions();
@@ -100,7 +100,7 @@ export class JwtService {
         }
     }
 
-    getConfig(): AuthModuleOptions {
+    getConfig(): IAuthModuleOptions {
         return this.options;
     }
 

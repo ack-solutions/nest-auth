@@ -2,14 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { NestAuthEvents } from '../../auth.constants';
-import {
-    UserLoggedInEvent,
-    LoggedOutEvent,
-    UserRegisteredEvent,
-    UserPasswordChangedEvent,
-    User2faEnabledEvent,
-    User2faDisabledEvent
-} from '../../auth/events';
+import { UserLoggedInEvent } from '../../auth/events/user-logged-in.event';
+import { LoggedOutEvent } from '../../auth/events/logged-out.event';
+import { UserRegisteredEvent } from '../../auth/events/user-registered.event';
+import { UserPasswordChangedEvent } from '../../auth/events/user-password-changed.event';
+import { User2faEnabledEvent } from '../../auth/events/user-2fa-enabled.event';
+import { User2faDisabledEvent } from '../../auth/events/user-2fa-disabled.event';
 import { AuthAuditEvent } from '../../core/interfaces/auth-module-options.interface';
 
 @Injectable()

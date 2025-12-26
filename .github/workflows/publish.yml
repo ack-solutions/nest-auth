@@ -57,40 +57,59 @@ jobs:
       - name: Update package versions and prepare for publish
         run: |
           VERSION=${{ steps.extract_version.outputs.version }}
-          # Update nest-auth-client version first (dependency)
-          cd packages/nest-auth-client
-          pnpm version $VERSION --no-git-tag-version --no-commit-hooks
-          # Remove private field if present
-          node -e "const pkg = require('./package.json'); delete pkg.private; require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');"
-          # Update license if it's UNLICENSED
-          node -e "const pkg = require('./package.json'); if (pkg.license === 'UNLICENSED') { pkg.license = 'ISC'; require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n'); }"
           
-          # Update nest-auth version
-          cd ../nest-auth
-          pnpm version $VERSION --no-git-tag-version --no-commit-hooks
-          # Replace workspace dependency with actual version
-          node -e "const pkg = require('./package.json'); if (pkg.dependencies && pkg.dependencies['@ackplus/nest-auth-client']) { pkg.dependencies['@ackplus/nest-auth-client'] = '$VERSION'; require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n'); }"
-          # Remove private field if present
-          node -e "const pkg = require('./package.json'); delete pkg.private; require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');"
-          # Update license if it's UNLICENSED
-          node -e "const pkg = require('./package.json'); if (pkg.license === 'UNLICENSED') { pkg.license = 'ISC'; require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n'); }"
+          # Iterate over packages directory and update each package
+          for dir in packages/*; do
+            if [ -d "$dir" ]; then
+              echo "Processing $dir..."
+              cd "$dir"
+              
+              # Update version
+              pnpm version $VERSION --no-git-tag-version --no-commit-hooks
+              
+              # Update package.json properties and dependencies
+              node -e "
+                const fs = require('fs');
+                const pkg = require('./package.json');
+                
+                // Remove private field
+                delete pkg.private;
+                
+                // Update license if UNLICENSED
+                if (pkg.license === 'UNLICENSED') {
+                  pkg.license = 'ISC';
+                }
+                
+                // Update dependencies that match workspace packages (@ackplus/*)
+                const updateDeps = (deps) => {
+                  if (!deps) return;
+                  Object.keys(deps).forEach(dep => {
+                    if (dep.startsWith('@ackplus/')) {
+                      deps[dep] = '$VERSION';
+                    }
+                  });
+                };
+                
+                updateDeps(pkg.dependencies);
+                updateDeps(pkg.peerDependencies);
+                updateDeps(pkg.devDependencies);
+                
+                fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');
+              "
+              
+              cd ../..
+            fi
+          done
       
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       
       - name: Build packages
         run: |
-          # Build nest-auth-client first (dependency)
-          pnpm -C packages/nest-auth-client build
-          # Build nest-auth
-          pnpm -C packages/nest-auth build
+          # Build all workspace packages
+          pnpm build
       
-      - name: Publish nest-auth-client to npm
+      - name: Publish packages to npm
         run: |
-          cd packages/nest-auth-client
-          pnpm publish --access public --no-git-checks --provenance
-      
-      - name: Publish nest-auth to npm
-        run: |
-          cd packages/nest-auth
-          pnpm publish --access public --no-git-checks --provenance
+          # Publish all packages in the packages directory
+          pnpm -r publish --access public --no-git-checks --provenance --filter "./packages/**"

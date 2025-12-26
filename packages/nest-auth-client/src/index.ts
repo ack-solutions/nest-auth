@@ -5,8 +5,8 @@
  * Works in Node.js, browsers, and React Native
  */
 
-// Re-export shared types from @libs/auth-types
-export * from '@libs/auth-types';
+// Re-export shared types from @ackplus/nest-auth-contracts
+export * from '@ackplus/nest-auth-contracts';
 
 // Client-specific types
 export * from './types';

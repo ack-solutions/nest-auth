@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IAuthCookieResponse } from '@libs/auth-types';
+import { IAuthCookieResponse } from '@ackplus/nest-auth-contracts';
 
 /**
  * Auth Cookie Response DTO

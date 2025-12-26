@@ -1,6 +1,6 @@
 import { Module, DynamicModule, MiddlewareConsumer, Provider } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
-import { AuthModuleAsyncOptions, AuthModuleOptions, AuthModuleOptionsFactory } from './core/interfaces/auth-module-options.interface';
+import { IAuthModuleAsyncOptions, IAuthModuleOptions, IAuthModuleOptionsFactory } from './core/interfaces/auth-module-options.interface';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { RequestContextMiddleware } from './request-context/request-context.middleware';
 import { AuthModule } from './auth/auth.module';
@@ -18,7 +18,7 @@ import { AuditService } from './audit/services/audit.service';
 
 @Module({})
 export class NestAuthModule {
-  static forRoot(options: AuthModuleOptions): DynamicModule {
+  static forRoot(options: IAuthModuleOptions): DynamicModule {
     const mergedOptions = this.getOptions(options);
 
     // Set options in static service
@@ -60,7 +60,7 @@ export class NestAuthModule {
     };
   }
 
-  static forRootAsync(options: AuthModuleAsyncOptions): DynamicModule {
+  static forRootAsync(options: IAuthModuleAsyncOptions): DynamicModule {
     const asyncProviders = this.createAsyncProviders(options);
 
     // Add refresh token interceptor provider (enabled by default)
@@ -100,7 +100,7 @@ export class NestAuthModule {
     };
   }
 
-  private static createAsyncProviders(options: AuthModuleAsyncOptions): Provider[] {
+  private static createAsyncProviders(options: IAuthModuleAsyncOptions): Provider[] {
     if (options.useExisting || options.useFactory) {
       return [this.createAsyncOptionsProvider(options)];
     }
@@ -118,7 +118,7 @@ export class NestAuthModule {
     return [];
   }
 
-  private static createAsyncOptionsProvider(options: AuthModuleAsyncOptions): Provider {
+  private static createAsyncOptionsProvider(options: IAuthModuleAsyncOptions): Provider {
     if (options.useFactory) {
       return {
         provide: NEST_AUTH_ASYNC_OPTIONS_PROVIDER,
@@ -134,7 +134,7 @@ export class NestAuthModule {
 
     return {
       provide: NEST_AUTH_ASYNC_OPTIONS_PROVIDER,
-      useFactory: async (optionsFactory: AuthModuleOptionsFactory) => {
+      useFactory: async (optionsFactory: IAuthModuleOptionsFactory) => {
         const userOptions = await optionsFactory.createAuthModuleOptions();
         const mergedOptions = this.getOptions(userOptions);
         AuthConfigService.setOptions(mergedOptions);
@@ -144,7 +144,7 @@ export class NestAuthModule {
     };
   }
 
-  private static getOptions(options: AuthModuleOptions): AuthModuleOptions {
+  private static getOptions(options: IAuthModuleOptions): IAuthModuleOptions {
     const deepmerge = require('deepmerge');
     // Use default options from AuthConfigService - single source of truth
     const defaultOptions = AuthConfigService.getDefaultOptions();

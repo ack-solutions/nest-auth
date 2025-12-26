@@ -11,7 +11,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SignupRequestDto"
+                "$ref": "#/components/schemas/NestAuthSignupRequestDto"
               }
             }
           }
@@ -44,7 +44,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/LoginRequestDto"
+                "$ref": "#/components/schemas/NestAuthLoginRequestDto"
               }
             }
           }
@@ -77,7 +77,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RefreshTokenRequestDto"
+                "$ref": "#/components/schemas/NestAuthRefreshTokenRequestDto"
               }
             }
           }
@@ -100,7 +100,7 @@
         ]
       }
     },
-    "/auth/send-2fa-code": {
+    "/auth/2fa/send": {
       "post": {
         "operationId": "AuthController_send2faCode",
         "parameters": [],
@@ -110,7 +110,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "$ref": "#/components/schemas/NestAuthMfaCodeSentResponseDto"
                 }
               }
             }
@@ -122,7 +122,7 @@
         ]
       }
     },
-    "/auth/verify-2fa": {
+    "/auth/2fa/verify": {
       "post": {
         "description": "Verify two-factor authentication. Response format depends on accessTokenType configuration:\n- Header mode (default): Returns tokens in response body\n- Cookie mode: Sets tokens in HTTP-only cookies and returns success message",
         "operationId": "AuthController_verify2fa",
@@ -132,7 +132,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Verify2faRequestDto"
+                "$ref": "#/components/schemas/NestAuthVerify2faRequestDto"
               }
             }
           }
@@ -165,7 +165,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "$ref": "#/components/schemas/NestAuthLogoutResponseDto"
                 }
               }
             }
@@ -187,7 +187,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "$ref": "#/components/schemas/NestAuthLogoutAllResponseDto"
                 }
               }
             }
@@ -208,7 +208,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ChangePasswordRequestDto"
+                "$ref": "#/components/schemas/NestAuthChangePasswordRequestDto"
               }
             }
           }
@@ -240,7 +240,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ForgotPasswordRequestDto"
+                "$ref": "#/components/schemas/NestAuthForgotPasswordRequestDto"
               }
             }
           }
@@ -251,13 +251,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "$ref": "#/components/schemas/NestAuthPasswordResetLinkSentResponseDto"
                 }
               }
             }
           }
         },
-        "summary": "Forgot Password",
+        "summary": "Forgot password",
         "tags": [
           "Auth"
         ]
@@ -272,7 +272,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/VerifyForgotPasswordOtpRequestDto"
+                "$ref": "#/components/schemas/NestAuthVerifyForgotPasswordOtpRequestDto"
               }
             }
           }
@@ -304,7 +304,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ResetPasswordWithTokenRequestDto"
+                "$ref": "#/components/schemas/NestAuthResetPasswordWithTokenRequestDto"
               }
             }
           }
@@ -315,13 +315,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "$ref": "#/components/schemas/NestAuthPasswordResetResponseDto"
                 }
               }
             }
           }
         },
-        "summary": "Reset Password with Token",
+        "summary": "Reset password",
         "tags": [
           "Auth"
         ]
@@ -394,7 +394,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SendEmailVerificationRequestDto"
+                "$ref": "#/components/schemas/NestAuthSendEmailVerificationRequestDto"
               }
             }
           }
@@ -405,13 +405,13 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "$ref": "#/components/schemas/NestAuthEmailVerificationSentResponseDto"
                 }
               }
             }
           }
         },
-        "summary": "Send Email Verification",
+        "summary": "Send email verification",
         "tags": [
           "Auth"
         ]
@@ -426,7 +426,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/VerifyEmailRequestDto"
+                "$ref": "#/components/schemas/NestAuthVerifyEmailRequestDto"
               }
             }
           }
@@ -437,7 +437,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponseDto"
+                  "$ref": "#/components/schemas/NestAuthEmailVerifiedResponseDto"
                 }
               }
             }
@@ -528,14 +528,21 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ToggleMfaRequestDto"
+                "$ref": "#/components/schemas/NestAuthToggleMfaRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthMfaToggleResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Enable or disable MFA for the current user",
@@ -584,7 +591,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthMfaDeviceRemovedResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Remove a registered MFA device",
@@ -602,14 +616,21 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SendMfaCodeRequestDto"
+                "$ref": "#/components/schemas/NestAuthSendMfaCodeRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthMfaCodeSentResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Send MFA Code",
@@ -642,14 +663,21 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/VerifyTotpSetupRequestDto"
+                "$ref": "#/components/schemas/NestAuthVerifyTotpSetupRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthMfaDeviceVerifiedResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Verify TOTP Setup",
@@ -679,7 +707,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthMfaResetResponseDto"
+                }
+              }
+            }
           }
         },
         "summary": "Reset TOTP Device",
@@ -706,7 +741,7 @@
       }
     },
     "schemas": {
-      "SignupRequestDto": {
+      "NestAuthSignupRequestDto": {
         "type": "object",
         "properties": {
           "email": {
@@ -889,7 +924,7 @@
           "accessToken"
         ]
       },
-      "LoginRequestDto": {
+      "NestAuthLoginRequestDto": {
         "type": "object",
         "properties": {
           "providerName": {
@@ -957,7 +992,7 @@
           "credentials"
         ]
       },
-      "RefreshTokenRequestDto": {
+      "NestAuthRefreshTokenRequestDto": {
         "type": "object",
         "properties": {
           "refreshToken": {
@@ -970,19 +1005,20 @@
           "refreshToken"
         ]
       },
-      "MessageResponseDto": {
+      "NestAuthMfaCodeSentResponseDto": {
         "type": "object",
         "properties": {
           "message": {
             "type": "string",
-            "description": "Response message"
+            "description": "Response message",
+            "example": "MFA code sent successfully"
           }
         },
         "required": [
           "message"
         ]
       },
-      "MFAMethodEnum": {
+      "NestAuthMFAMethodEnum": {
         "type": "string",
         "enum": [
           "email",
@@ -990,7 +1026,7 @@
           "totp"
         ]
       },
-      "Verify2faRequestDto": {
+      "NestAuthVerify2faRequestDto": {
         "type": "object",
         "properties": {
           "method": {
@@ -998,7 +1034,7 @@
             "example": "totp",
             "allOf": [
               {
-                "$ref": "#/components/schemas/MFAMethodEnum"
+                "$ref": "#/components/schemas/NestAuthMFAMethodEnum"
               }
             ]
           },
@@ -1044,7 +1080,33 @@
           "refreshToken"
         ]
       },
-      "ChangePasswordRequestDto": {
+      "NestAuthLogoutResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Logged out successfully"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthLogoutAllResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Logged out from all devices"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthChangePasswordRequestDto": {
         "type": "object",
         "properties": {
           "currentPassword": {
@@ -1065,7 +1127,7 @@
           "newPassword"
         ]
       },
-      "ForgotPasswordRequestDto": {
+      "NestAuthForgotPasswordRequestDto": {
         "type": "object",
         "properties": {
           "email": {
@@ -1085,7 +1147,20 @@
           }
         }
       },
-      "VerifyForgotPasswordOtpRequestDto": {
+      "NestAuthPasswordResetLinkSentResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "If your email is registered, you will receive a password reset link"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthVerifyForgotPasswordOtpRequestDto": {
         "type": "object",
         "properties": {
           "email": {
@@ -1131,7 +1206,7 @@
           "message"
         ]
       },
-      "ResetPasswordWithTokenRequestDto": {
+      "NestAuthResetPasswordWithTokenRequestDto": {
         "type": "object",
         "properties": {
           "token": {
@@ -1151,7 +1226,20 @@
           "newPassword"
         ]
       },
-      "SendEmailVerificationRequestDto": {
+      "NestAuthPasswordResetResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Password has been reset successfully"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthSendEmailVerificationRequestDto": {
         "type": "object",
         "properties": {
           "tenantId": {
@@ -1161,7 +1249,20 @@
           }
         }
       },
-      "VerifyEmailRequestDto": {
+      "NestAuthEmailVerificationSentResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Verification email sent"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthVerifyEmailRequestDto": {
         "type": "object",
         "properties": {
           "otp": {
@@ -1179,6 +1280,19 @@
         },
         "required": [
           "otp"
+        ]
+      },
+      "NestAuthEmailVerifiedResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Email verified successfully"
+          }
+        },
+        "required": [
+          "message"
         ]
       },
       "EmailAuthConfigDto": {
@@ -1569,7 +1683,7 @@
           "hasRecoveryCode"
         ]
       },
-      "ToggleMfaRequestDto": {
+      "NestAuthToggleMfaRequestDto": {
         "type": "object",
         "properties": {
           "enabled": {
@@ -1582,7 +1696,33 @@
           "enabled"
         ]
       },
-      "SendMfaCodeRequestDto": {
+      "NestAuthMfaToggleResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "MFA enabled successfully"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthMfaDeviceRemovedResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Device removed successfully"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthSendMfaCodeRequestDto": {
         "type": "object",
         "properties": {
           "method": {
@@ -1604,7 +1744,7 @@
             },
             "allOf": [
               {
-                "$ref": "#/components/schemas/MFAMethodEnum"
+                "$ref": "#/components/schemas/NestAuthMFAMethodEnum"
               }
             ]
           }
@@ -1613,7 +1753,7 @@
           "method"
         ]
       },
-      "VerifyTotpSetupRequestDto": {
+      "NestAuthVerifyTotpSetupRequestDto": {
         "type": "object",
         "properties": {
           "otp": {
@@ -1632,6 +1772,32 @@
         "required": [
           "otp",
           "secret"
+        ]
+      },
+      "NestAuthMfaDeviceVerifiedResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Device setup successfully"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthMfaResetResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "MFA reset successfully"
+          }
+        },
+        "required": [
+          "message"
         ]
       }
     }

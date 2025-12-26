@@ -11,7 +11,7 @@ import {
     ISsoConfig,
     IUiConfig,
     IClientConfigResponse,
-} from '@libs/auth-types';
+} from '@ackplus/nest-auth-contracts';
 
 export class EmailAuthConfigDto implements IEmailAuthConfig {
     @ApiProperty({ example: true })

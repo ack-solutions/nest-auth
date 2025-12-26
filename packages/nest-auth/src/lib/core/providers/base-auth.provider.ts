@@ -2,7 +2,7 @@ import { Repository } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
 import { AuthConfigService } from '../services/auth-config.service';
-import { AuthModuleOptions } from '../interfaces/auth-module-options.interface';
+import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
 
 export interface AuthProviderUser {
     userId: string;
@@ -18,7 +18,7 @@ export type LinkUserWith = 'email' | 'phone';
 export abstract class BaseAuthProvider {
     abstract providerName: string;
     enabled: boolean;
-    options: AuthModuleOptions;
+    options: IAuthModuleOptions;
     skipMfa = false;
 
     constructor(

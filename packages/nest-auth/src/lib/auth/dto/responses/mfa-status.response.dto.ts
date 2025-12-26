@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { MFAMethodEnum } from '../../../core';
-import { IMfaDevice, IMfaStatusResponse } from '@libs/auth-types';
+import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
+import { IMfaDevice, IMfaStatusResponse } from '@ackplus/nest-auth-contracts';
 
 export class MfaDeviceDto implements IMfaDevice {
     @ApiProperty({
@@ -17,10 +17,10 @@ export class MfaDeviceDto implements IMfaDevice {
 
     @ApiProperty({
         description: 'MFA method this device supports',
-        enum: MFAMethodEnum,
-        example: MFAMethodEnum.TOTP,
+        enum: NestAuthMFAMethodEnum,
+        example: NestAuthMFAMethodEnum.TOTP,
     })
-    method: MFAMethodEnum;
+    method: NestAuthMFAMethodEnum;
 
     @ApiPropertyOptional({
         description: 'Timestamp of when the device was last used',
@@ -50,19 +50,19 @@ export class MfaStatusResponseDto implements IMfaStatusResponse {
 
     @ApiProperty({
         description: 'MFA methods the user has verified and can currently use (includes EMAIL/SMS if configured, and TOTP if user has verified device)',
-        enum: MFAMethodEnum,
+        enum: NestAuthMFAMethodEnum,
         isArray: true,
-        example: [MFAMethodEnum.EMAIL, MFAMethodEnum.TOTP],
+        example: [NestAuthMFAMethodEnum.EMAIL, NestAuthMFAMethodEnum.TOTP],
     })
-    verifiedMethods: MFAMethodEnum[];
+    verifiedMethods: NestAuthMFAMethodEnum[];
 
     @ApiProperty({
         description: 'All MFA methods configured and available in the application (methods user can potentially set up)',
-        enum: MFAMethodEnum,
+        enum: NestAuthMFAMethodEnum,
         isArray: true,
-        example: [MFAMethodEnum.EMAIL, MFAMethodEnum.TOTP, MFAMethodEnum.SMS],
+        example: [NestAuthMFAMethodEnum.EMAIL, NestAuthMFAMethodEnum.TOTP, NestAuthMFAMethodEnum.SMS],
     })
-    configuredMethods: MFAMethodEnum[];
+    configuredMethods: NestAuthMFAMethodEnum[];
 
     @ApiProperty({
         description: 'Indicates if MFA toggling is allowed for the user',

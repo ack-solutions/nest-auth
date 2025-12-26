@@ -20,7 +20,7 @@ import {
     IMessageResponse as MessageResponse,
     IVerifyOtpResponse as VerifyOtpResponse,
     IVerify2faResponse as Verify2faResponse,
-} from '@libs/auth-types';
+} from '@ackplus/nest-auth-contracts';
 import {
     AuthClientConfig,
     ClientSession,

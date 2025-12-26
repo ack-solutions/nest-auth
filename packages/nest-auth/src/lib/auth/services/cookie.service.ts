@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { Response } from 'express';
 import { ACCESS_TOKEN_COOKIE_NAME, REFRESH_TOKEN_COOKIE_NAME } from '../../auth.constants';
-import { AuthModuleOptions } from '../../core/interfaces/auth-module-options.interface';
+import { IAuthModuleOptions } from '../../core/interfaces/auth-module-options.interface';
 import ms from 'ms';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 
 @Injectable()
 export class CookieService {
-    private options: AuthModuleOptions;
+    private options: IAuthModuleOptions;
 
     constructor() {
         this.options = AuthConfigService.getOptions();

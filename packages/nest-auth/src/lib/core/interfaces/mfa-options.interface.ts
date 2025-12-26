@@ -1,7 +1,4 @@
-import { MFAMethodEnum } from '@libs/auth-types';
-
-// Re-export for convenience
-export { MFAMethodEnum };
+import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
 
 export interface MFAOptions {
     // Whether MFA is enabled for the application
@@ -11,10 +8,10 @@ export interface MFAOptions {
     required?: boolean;
 
     // Default enabled MFA methods
-    methods?: MFAMethodEnum[];
+    methods?: NestAuthMFAMethodEnum[];
 
     // Default MFA method to suggest to users
-    defaultMethod?: MFAMethodEnum;
+    defaultMethod?: NestAuthMFAMethodEnum;
 
     // OTP length
     otpLength?: number;

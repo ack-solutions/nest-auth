@@ -1,9 +1,9 @@
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsPhoneNumber, IsString, IsUUID, ValidateIf } from "class-validator";
-import { MFAMethodEnum } from "../../../core";
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IVerifyForgotPasswordOtpRequest } from "@libs/auth-types";
 
-export class VerifyForgotPasswordOtpRequestDto implements IVerifyForgotPasswordOtpRequest {
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsPhoneNumber, IsString, IsUUID, ValidateIf } from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { IVerifyForgotPasswordOtpRequest } from "@ackplus/nest-auth-contracts";
+
+export class NestAuthVerifyForgotPasswordOtpRequestDto implements IVerifyForgotPasswordOtpRequest {
     @ApiPropertyOptional({
         description: 'User email address (required if phone not provided)',
         example: 'user@example.com',

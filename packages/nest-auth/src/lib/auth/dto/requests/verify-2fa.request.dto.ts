@@ -1,17 +1,17 @@
 import { IsEnum, IsString, IsNotEmpty } from "class-validator";
-import { MFAMethodEnum } from "../../../core";
+import { NestAuthMFAMethodEnum } from "@ackplus/nest-auth-contracts";
 import { ApiProperty } from "@nestjs/swagger";
-import { IVerify2faRequest } from "@libs/auth-types";
+import { IVerify2faRequest } from "@ackplus/nest-auth-contracts";
 
-export class Verify2faRequestDto implements IVerify2faRequest {
+export class NestAuthVerify2faRequestDto implements IVerify2faRequest {
     @ApiProperty({
         description: 'MFA method used',
-        enum: MFAMethodEnum,
-        example: MFAMethodEnum.TOTP,
-        enumName: 'MFAMethodEnum',
+        enum: NestAuthMFAMethodEnum,
+        example: NestAuthMFAMethodEnum.TOTP,
+        enumName: 'NestAuthMFAMethodEnum',
     })
-    @IsEnum(MFAMethodEnum)
-    method: MFAMethodEnum;
+    @IsEnum(NestAuthMFAMethodEnum)
+    method: NestAuthMFAMethodEnum;
 
     @ApiProperty({
         description: 'One-time password code',

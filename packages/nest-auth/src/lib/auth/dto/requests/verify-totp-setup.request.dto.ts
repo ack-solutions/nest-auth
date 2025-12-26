@@ -1,8 +1,8 @@
 import { ApiProperty } from "@nestjs/swagger";
 import { IsString, IsNotEmpty } from "class-validator";
-import { IVerifyTotpSetupRequest } from "@libs/auth-types";
+import { IVerifyTotpSetupRequest } from "@ackplus/nest-auth-contracts";
 
-export class VerifyTotpSetupRequestDto implements IVerifyTotpSetupRequest {
+export class NestAuthVerifyTotpSetupRequestDto implements IVerifyTotpSetupRequest {
     @ApiProperty({
         description: 'The TOTP code from authenticator app',
         example: '123456',

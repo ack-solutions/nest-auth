@@ -3,7 +3,7 @@
  * Client configuration response types
  */
 
-import { MFAMethodEnum } from './auth';
+import { NestAuthMFAMethodEnum } from './auth';
 
 export interface IEmailAuthConfig {
     enabled: boolean;
@@ -35,7 +35,7 @@ export interface IRegistrationConfig {
 
 export interface IMfaConfig {
     enabled: boolean;
-    methods?: MFAMethodEnum[];
+    methods?: NestAuthMFAMethodEnum[];
     allowUserToggle?: boolean;
     allowMethodSelection?: boolean;
 }

@@ -1,20 +1,21 @@
-import { IsEnum } from "class-validator";
-import { MFAMethodEnum } from "../../../core";
-import { ApiProperty } from "@nestjs/swagger";
-import { ISendMfaCodeRequest } from "@libs/auth-types";
 
-export class SendMfaCodeRequestDto implements ISendMfaCodeRequest {
+import { IsEnum } from "class-validator";
+import { ApiProperty } from "@nestjs/swagger";
+import { ISendMfaCodeRequest } from "@ackplus/nest-auth-contracts";
+import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
+
+export class NestAuthSendMfaCodeRequestDto implements ISendMfaCodeRequest {
     @ApiProperty({
         description: 'MFA delivery method',
-        enum: MFAMethodEnum,
-        example: MFAMethodEnum.EMAIL,
-        enumName: 'MFAMethodEnum',
+        enum: NestAuthMFAMethodEnum,
+        example: NestAuthMFAMethodEnum.EMAIL,
+        enumName: 'NestAuthMFAMethodEnum',
         examples: {
-            email: { value: MFAMethodEnum.EMAIL, description: 'Send OTP via email' },
-            sms: { value: MFAMethodEnum.SMS, description: 'Send OTP via SMS' },
-            totp: { value: MFAMethodEnum.TOTP, description: 'Use authenticator app (TOTP)' },
+            email: { value: NestAuthMFAMethodEnum.EMAIL, description: 'Send OTP via email' },
+            sms: { value: NestAuthMFAMethodEnum.SMS, description: 'Send OTP via SMS' },
+            totp: { value: NestAuthMFAMethodEnum.TOTP, description: 'Use authenticator app (TOTP)' },
         },
     })
-    @IsEnum(MFAMethodEnum)
-    method: MFAMethodEnum;
+    @IsEnum(NestAuthMFAMethodEnum)
+    method: NestAuthMFAMethodEnum;
 }

@@ -24,7 +24,6 @@ import { CurrentAdmin } from '../decorators/current-admin.decorator';
 import { AdminUser } from '../entities/admin-user.entity';
 import { CreateDashboardAdminDto, UpdateDashboardAdminDto } from '../dto/create-dashboard-admin.dto';
 import { AdminUserService } from '../services/admin-user.service';
-import type { AdminConsoleOptions } from '../../core/interfaces/auth-module-options.interface';
 import { compareKeys } from '../../utils/security.util';
 import { UserService } from '../../user/services/user.service';
 import { RoleService } from '../../role/services/role.service';

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IMfaCodeResponse } from '@libs/auth-types';
+import { IMfaCodeResponse } from '@ackplus/nest-auth-contracts';
 
 export class MfaCodeResponseDto implements IMfaCodeResponse {
     @ApiProperty({
