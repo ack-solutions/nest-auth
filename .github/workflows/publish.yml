@@ -1,115 +1,100 @@
-name: Publish Package
+name: Publish Packages (tag)
 
 on:
   push:
     tags:
-      - 'v*.*.*'  # Triggers on semantic version tags like v1.0.0
-      - '*.*.*'    # Also triggers on version tags without 'v' prefix like 1.0.0
+      - "v*.*.*"
+      - "*.*.*"
   workflow_dispatch:
 
 jobs:
-  publish:
-    if: startsWith(github.ref, 'refs/tags/')
+  release:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      id-token: write  # Required for npm provenance
-    env:
-      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-    
+      contents: write
+      id-token: write
+
     steps:
-      - name: Checkout code
+      - name: Checkout (full history)
         uses: actions/checkout@v4
-      
+        with:
+          fetch-depth: 0
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10.21.0
-      
-      - name: Setup Node.js
+          version: 10
+
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
-      
-      - name: Get pnpm store directory
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - name: Extract version from tag
+        id: v
         shell: bash
         run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-      
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-      
-      - name: Extract version from tag
-        id: extract_version
-        run: |
-          TAG_NAME=${GITHUB_REF#refs/tags/}
-          # Remove 'v' prefix if present
-          VERSION=${TAG_NAME#v}
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Extracted version: $VERSION from tag: $TAG_NAME"
-      
-      - name: Update package versions and prepare for publish
+          echo "Version from tag: $VERSION"
+
+      - name: Ensure tag was created from main HEAD
+        shell: bash
         run: |
-          VERSION=${{ steps.extract_version.outputs.version }}
-          
-          # Iterate over packages directory and update each package
-          for dir in packages/*; do
-            if [ -d "$dir" ]; then
-              echo "Processing $dir..."
-              cd "$dir"
-              
-              # Update version
-              pnpm version $VERSION --no-git-tag-version --no-commit-hooks
-              
-              # Update package.json properties and dependencies
-              node -e "
-                const fs = require('fs');
-                const pkg = require('./package.json');
-                
-                // Remove private field
-                delete pkg.private;
-                
-                // Update license if UNLICENSED
-                if (pkg.license === 'UNLICENSED') {
-                  pkg.license = 'ISC';
-                }
-                
-                // Update dependencies that match workspace packages (@ackplus/*)
-                const updateDeps = (deps) => {
-                  if (!deps) return;
-                  Object.keys(deps).forEach(dep => {
-                    if (dep.startsWith('@ackplus/')) {
-                      deps[dep] = '$VERSION';
-                    }
-                  });
-                };
-                
-                updateDeps(pkg.dependencies);
-                updateDeps(pkg.peerDependencies);
-                updateDeps(pkg.devDependencies);
-                
-                fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');
-              "
-              
-              cd ../..
-            fi
-          done
-      
+          git fetch origin main --tags
+          TAG_COMMIT="$(git rev-list -n 1 "${{ steps.v.outputs.tag }}")"
+          MAIN_COMMIT="$(git rev-parse origin/main)"
+          echo "TAG_COMMIT=$TAG_COMMIT"
+          echo "MAIN_COMMIT=$MAIN_COMMIT"
+          if [ "$TAG_COMMIT" != "$MAIN_COMMIT" ]; then
+            echo "❌ Tag is not pointing to latest origin/main. Create the tag from main HEAD."
+            exit 1
+          fi
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      
-      - name: Build packages
+
+      - name: Bump all workspace package versions to tag version
+        shell: bash
         run: |
-          # Build all workspace packages
-          pnpm build
-      
-      - name: Publish packages to npm
+          VERSION="${{ steps.v.outputs.version }}"
+
+          # Bump version for every package in the workspace
+          pnpm -r version "$VERSION" --no-git-tag-version
+
+          # Optional: ensure private is removed only for packages you publish
+          # (Better: keep private=true in packages you never want published.)
+
+      - name: Commit version changes back to main
+        shell: bash
         run: |
-          # Publish all packages in the packages directory
-          pnpm -r publish --access public --no-git-checks --provenance --filter "./packages/**"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Only commit if there are changes
+          if git diff --quiet; then
+            echo "No version changes to commit."
+          else
+            git add -A
+            git commit -m "chore(release): v${{ steps.v.outputs.version }}"
+            git push origin HEAD:main
+          fi
+
+      - name: Move the tag to the release commit (keep tag = published code)
+        shell: bash
+        run: |
+          TAG="${{ steps.v.outputs.tag }}"
+          git tag -f "$TAG"
+          git push origin -f "$TAG"
+
+      - name: Build all packages
+        run: pnpm -r build
+
+      - name: Publish all packages
+        run: pnpm -r publish --access public --no-git-checks --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
