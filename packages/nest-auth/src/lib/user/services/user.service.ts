@@ -35,6 +35,8 @@ export class UserService {
 
             // Check if user already exists
             if (email) {
+                // Normalize email before checking for duplicates
+
                 const existingUser = await this.getUserByEmail(email, tenantId);
                 if (existingUser) {
                     this.debugLogger.warn('User with email already exists', 'UserService', { email, tenantId });

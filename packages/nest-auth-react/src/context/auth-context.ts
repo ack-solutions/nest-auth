@@ -5,16 +5,16 @@
 import { createContext } from 'react';
 import {
     AuthClient,
-    AuthUser,
+    IAuthUser,
     ClientSession,
     AuthError,
     AuthStatus,
-    LoginDto,
-    SignupDto,
-    TokenPair,
-    AuthResponse,
-    Verify2faDto,
-    Verify2faResponse,
+    ILoginRequest,
+    ISignupRequest,
+    ITokenPair,
+    IAuthResponse,
+    IVerify2faRequest,
+    IVerify2faResponse,
 } from '@ackplus/nest-auth-client';
 
 /**
@@ -24,7 +24,7 @@ export interface AuthContextValue {
     /** Current authentication status */
     status: AuthStatus;
     /** Authenticated user or null */
-    user: AuthUser | null;
+    user: IAuthUser | null;
     /** Current session or null */
     session: ClientSession | null;
     /** Last error or null */
@@ -38,17 +38,17 @@ export interface AuthContextValue {
 
     // Actions
     /** Login with credentials */
-    login: (dto: LoginDto) => Promise<AuthResponse>;
+    login: (dto: ILoginRequest) => Promise<IAuthResponse>;
     /** Sign up a new user */
-    signup: (dto: SignupDto) => Promise<AuthResponse>;
+    signup: (dto: ISignupRequest) => Promise<IAuthResponse>;
     /** Logout the current user */
     logout: () => Promise<void>;
     /** Refresh tokens */
-    refresh: () => Promise<TokenPair>;
+    refresh: () => Promise<ITokenPair>;
     /** Get current user from server */
     verifySession: () => Promise<boolean>;
     /** Verify 2FA code */
-    verify2fa: (dto: Verify2faDto) => Promise<Verify2faResponse>;
+    verify2fa: (dto: IVerify2faRequest) => Promise<IVerify2faResponse>;
 
     // Mode & Tenant
     /** Set token mode (only when config.accessTokenType is null) */

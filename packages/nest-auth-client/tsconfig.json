@@ -1,11 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "module": "commonjs",
-    "moduleResolution": "node",
     "resolvePackageJsonExports": false,
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2020",
     "paths": {
       "@ackplus/nest-auth-contracts": [
         "../../packages/nest-auth-contracts/dist/index.d.ts"

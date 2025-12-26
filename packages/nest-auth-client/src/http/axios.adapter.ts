@@ -3,7 +3,7 @@
  * Use this if you prefer axios or need its features
  */
 
-import { HttpAdapter, HttpRequestOptions, HttpResponse } from '../types';
+import { HttpAdapter, HttpRequestOptions, HttpResponse } from '../types/config.types';
 
 /**
  * Create an Axios HTTP adapter

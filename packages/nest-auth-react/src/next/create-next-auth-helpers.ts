@@ -5,7 +5,7 @@
 import {
     AuthClient,
     AuthClientConfig,
-    AuthUser,
+    IAuthUser,
     ClientSession,
 } from '@ackplus/nest-auth-client';
 
@@ -13,7 +13,7 @@ import {
  * Server-side auth state
  */
 export interface ServerAuthState {
-    user: AuthUser | null;
+    user: IAuthUser | null;
     session: ClientSession | null;
 }
 
@@ -35,7 +35,7 @@ export interface NextAuthHelpers {
     /**
      * Create initial state for hydration
      */
-    createInitialState: (serverAuth: ServerAuthState) => { user: AuthUser | null; session: ClientSession | null };
+    createInitialState: (serverAuth: ServerAuthState) => { user: IAuthUser | null; session: ClientSession | null };
 }
 
 /**

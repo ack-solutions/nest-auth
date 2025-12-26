@@ -1,8 +1,9 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { BaseAuthProvider } from './base-auth.provider';
 import { IAuthModuleOptions } from '../../core';
 import { GOOGLE_AUTH_PROVIDER } from '../../auth.constants';
-import { DataSource } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
 import { SocialCredentialsDto } from 'src/lib/auth';
@@ -14,11 +15,11 @@ export class GoogleAuthProvider extends BaseAuthProvider {
     private googleConfig: IAuthModuleOptions['google'];
 
     constructor(
-        readonly dataSource: DataSource,
+        @InjectRepository(NestAuthUser)
+        protected readonly userRepository: Repository<NestAuthUser>,
+        @InjectRepository(NestAuthIdentity)
+        protected readonly authIdentityRepository: Repository<NestAuthIdentity>,
     ) {
-        const userRepository = dataSource.getRepository(NestAuthUser);
-        const authIdentityRepository = dataSource.getRepository(NestAuthIdentity);
-
         super(userRepository, authIdentityRepository);
 
         this.googleConfig = this.options.google;

@@ -7,6 +7,9 @@
     "declarationMap": true,
     "sourceMap": true,
     "incremental": false,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2020"
   },
   "include": [
     "src/**/*"

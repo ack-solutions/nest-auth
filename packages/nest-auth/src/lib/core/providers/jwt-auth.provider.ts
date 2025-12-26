@@ -1,7 +1,7 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { BaseAuthProvider } from './base-auth.provider';
-import { DataSource } from 'typeorm';
-import { Injectable } from '@nestjs/common';
 import { IAuthModuleOptions } from '../../core';
 import { JWT_AUTH_PROVIDER } from '../../auth.constants';
 import { JwtService } from '../services/jwt.service';
@@ -16,12 +16,12 @@ export class JwtAuthProvider extends BaseAuthProvider {
 
 
     constructor(
-        readonly dataSource: DataSource,
+        @InjectRepository(NestAuthUser)
+        protected readonly userRepository: Repository<NestAuthUser>,
+        @InjectRepository(NestAuthIdentity)
+        protected readonly authIdentityRepository: Repository<NestAuthIdentity>,
         private readonly jwtService: JwtService,
     ) {
-        const userRepository = dataSource.getRepository(NestAuthUser);
-        const authIdentityRepository = dataSource.getRepository(NestAuthIdentity);
-
         super(userRepository, authIdentityRepository);
 
         this.jwtConfig = this.options.jwt;
@@ -46,6 +46,6 @@ export class JwtAuthProvider extends BaseAuthProvider {
     }
 
     getRequiredFields(): string[] {
-        return ['accessToken'];
+        return ['token'];
     }
 }

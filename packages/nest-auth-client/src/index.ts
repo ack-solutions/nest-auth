@@ -9,19 +9,49 @@
 export * from '@ackplus/nest-auth-contracts';
 
 // Client-specific types
-export * from './types';
+export {
+    AuthStatus,
+    AuthState,
+    AuthError,
+    DecodedJwt,
+    ClientSession,
+} from './types/auth.types';
+
+// Config types
+export {
+    StorageAdapter,
+    HttpAdapter,
+    HttpRequestOptions,
+    HttpResponse,
+    Logger,
+    EndpointConfig,
+    AccessTokenType,
+    AuthClientConfig,
+    RequestOptions,
+} from './types/config.types';
+
+export { DEFAULT_ENDPOINTS } from './types/config.types';
+
 
 // Storage adapters
-export * from './storage';
+export { MemoryStorage } from './storage/memory.storage';
+export { LocalStorageAdapter } from './storage/local.storage';
+export { SessionStorageAdapter } from './storage/session.storage';
+export { CookieStorageAdapter, CookieOptions } from './storage/cookie.storage';
 
 // HTTP adapters
-export * from './http';
+export { FetchAdapter } from './http/fetch.adapter';
+export { createAxiosAdapter } from './http/axios.adapter';
 
 // Token utilities
-export * from './token';
+export { decodeJwt, isTokenExpired, getTokenExpirationDate, getTokenTimeToExpiry, getUserIdFromToken } from './token/jwt-utils';
+export { TokenManager, TokenManagerConfig } from './token/token-manager';
 
 // Auth client
-export * from './client';
+export { AuthClient } from './client/auth-client';
+export { EventEmitter, createAuthEventEmitter } from './client/event-emitter';
+export type { AuthEvents } from './client/event-emitter';
+export { RefreshQueue, RetryTracker } from './client/refresh-queue';
 
 // Utilities
-export * from './utils';
+export { hasRole, hasPermission, hasAnyAccess, hasAllAccess } from './utils/role-utils';

@@ -3,8 +3,8 @@
  */
 
 import { useContext } from 'react';
-import { AuthUser } from '@ackplus/nest-auth-client';
-import { AuthContext } from '../context';
+import { IAuthUser } from '@ackplus/nest-auth-client';
+import { AuthContext } from '../context/auth-context';
 
 /**
  * Access the current user
@@ -29,7 +29,7 @@ import { AuthContext } from '../context';
  * }
  * ```
  */
-export function useUser(): AuthUser | null {
+export function useUser(): IAuthUser | null {
     const context = useContext(AuthContext);
     return context.user;
 }

@@ -3,7 +3,8 @@
  */
 
 import React, { useEffect } from 'react';
-import { useAuthStatus, useHasPermission } from '../hooks';
+import { useAuthStatus } from '../hooks/use-auth-status';
+import { useHasPermission } from '../hooks/use-has-role';
 
 /**
  * Props for RequirePermission component

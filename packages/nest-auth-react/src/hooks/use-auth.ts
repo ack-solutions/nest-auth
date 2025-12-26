@@ -1,9 +1,9 @@
 /**
- * useAuth hook - Full auth context access
+ * useNestAuth hook - Full auth context access
  */
 
 import { useContext } from 'react';
-import { AuthContext, AuthContextValue } from '../context';
+import { AuthContext, AuthContextValue } from '../context/auth-context';
 
 /**
  * Access the full auth context
@@ -13,7 +13,7 @@ import { AuthContext, AuthContextValue } from '../context';
  * @example
  * ```tsx
  * function LoginButton() {
- *   const { user, login, logout, isLoading, isAuthenticated } = useAuth();
+ *   const { user, login, logout, isLoading, isAuthenticated } = useNestAuth();
  * 
  *   if (isLoading) return <div>Loading...</div>;
  * 
@@ -29,11 +29,11 @@ import { AuthContext, AuthContextValue } from '../context';
  * }
  * ```
  */
-export function useAuth(): AuthContextValue {
+export function useNestAuth(): AuthContextValue {
     const context = useContext(AuthContext);
 
     if (!context.client) {
-        throw new Error('useAuth must be used within an AuthProvider');
+        throw new Error('useNestAuth must be used within an AuthProvider');
     }
 
     return context;

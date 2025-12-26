@@ -4,6 +4,9 @@
         "outDir": "./dist",
         "rootDir": "./src",
         "jsx": "react-jsx",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "target": "ES2020",
     },
     "include": [
         "src/**/*"

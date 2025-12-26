@@ -3,7 +3,7 @@
  * Persists tokens across page refreshes and browser sessions
  */
 
-import { StorageAdapter } from '../types';
+import { StorageAdapter } from '../types/config.types';
 
 /**
  * Check if we're in a browser environment with localStorage

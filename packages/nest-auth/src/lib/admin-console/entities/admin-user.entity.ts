@@ -9,6 +9,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { hash, verify, Algorithm } from '@node-rs/argon2';
 
 @Entity('nest_auth_admin_users')
 export class NestAuthAdminUser extends BaseEntity {
@@ -37,20 +38,6 @@ export class NestAuthAdminUser extends BaseEntity {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  private static argon2Loader: Promise<typeof import('argon2')> | null = null;
-
-  private static async getArgon2(): Promise<typeof import('argon2')> {
-    if (!NestAuthAdminUser.argon2Loader) {
-      NestAuthAdminUser.argon2Loader = import('argon2').catch((error) => {
-        throw new Error(
-          `argon2 native module is not available. ` +
-          `Install/build argon2 before using password hashing. ` +
-          `Original error: ${error?.message ?? error}`
-        );
-      }) as Promise<typeof import('argon2')>;
-    }
-    return NestAuthAdminUser.argon2Loader;
-  }
 
   @BeforeInsert()
   normalizeEmail() {
@@ -67,9 +54,8 @@ export class NestAuthAdminUser extends BaseEntity {
   }
 
   async setPassword(password: string): Promise<void> {
-    const argon2 = await NestAuthAdminUser.getArgon2();
-    this.passwordHash = await argon2.hash(password, {
-      type: argon2.argon2id,
+    this.passwordHash = await hash(password, {
+      algorithm: Algorithm.Argon2id,
       memoryCost: 65536,
       timeCost: 3,
       parallelism: 4,
@@ -81,8 +67,7 @@ export class NestAuthAdminUser extends BaseEntity {
       return false;
     }
     try {
-      const argon2 = await NestAuthAdminUser.getArgon2();
-      return await argon2.verify(this.passwordHash, password);
+      return await verify(this.passwordHash, password);
     } catch {
       return false;
     }

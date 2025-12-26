@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthProviderRegistryService } from './services/auth-provider-registry.service';
 import { AppleAuthProvider } from './providers/apple-auth.provider';
@@ -26,6 +27,7 @@ import { NestAuthIdentity } from '../user/entities/identity.entity';
         TenantModule
     ],
     providers: [
+        Reflector,
         AuthConfigService,
         DebugLoggerService,
         JwtService,
@@ -40,6 +42,7 @@ import { NestAuthIdentity } from '../user/entities/identity.entity';
         InitializationService,
     ],
     exports: [
+        Reflector,
         JwtService,
         AuthProviderRegistryService,
         AuthConfigService,

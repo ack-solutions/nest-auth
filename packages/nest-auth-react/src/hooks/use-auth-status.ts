@@ -4,7 +4,7 @@
 
 import { useContext } from 'react';
 import { AuthStatus } from '@ackplus/nest-auth-client';
-import { AuthContext } from '../context';
+import { AuthContext } from '../context/auth-context';
 
 /**
  * Auth status with derived booleans

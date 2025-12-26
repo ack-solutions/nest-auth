@@ -5,13 +5,13 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     AuthClient,
-    AuthUser,
+    IAuthUser,
     ClientSession,
     AuthError,
     AuthStatus,
-    LoginDto,
-    SignupDto,
-    Verify2faDto,
+    ILoginRequest,
+    ISignupRequest,
+    IVerify2faRequest,
 } from '@ackplus/nest-auth-client';
 import { AuthContext, AuthContextValue } from './auth-context';
 
@@ -19,7 +19,7 @@ import { AuthContext, AuthContextValue } from './auth-context';
  * Initial auth state for SSR hydration
  */
 export interface InitialAuthState {
-    user?: AuthUser | null;
+    user?: IAuthUser | null;
     session?: ClientSession | null;
     status?: AuthStatus;
 }
@@ -76,7 +76,7 @@ export function AuthProvider({
         return 'loading';
     });
 
-    const [user, setUser] = useState<AuthUser | null>(() => {
+    const [user, setUser] = useState<IAuthUser | null>(() => {
         return initialState?.user ?? client.getUser();
     });
 
@@ -142,7 +142,7 @@ export function AuthProvider({
     }, [client, autoLoadMe, initialState]);
 
     // Actions
-    const login = useCallback(async (dto: LoginDto) => {
+    const login = useCallback(async (dto: ILoginRequest) => {
         setError(null);
         try {
             const response = await client.login(dto);
@@ -158,7 +158,7 @@ export function AuthProvider({
         }
     }, [client]);
 
-    const signup = useCallback(async (dto: SignupDto) => {
+    const signup = useCallback(async (dto: ISignupRequest) => {
         setError(null);
         try {
             const response = await client.signup(dto);
@@ -213,7 +213,7 @@ export function AuthProvider({
         }
     }, [client]);
 
-    const verify2fa = useCallback(async (dto: Verify2faDto) => {
+    const verify2fa = useCallback(async (dto: IVerify2faRequest) => {
         setError(null);
         try {
             const response = await client.verify2fa(dto);

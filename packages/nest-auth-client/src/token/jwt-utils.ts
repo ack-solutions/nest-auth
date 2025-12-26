@@ -6,7 +6,7 @@
  */
 
 import { jwtDecode } from 'jwt-decode';
-import { DecodedJwt } from '../types';
+import { DecodedJwt } from '../types/auth.types';
 
 /**
  * Decode a JWT token without verification

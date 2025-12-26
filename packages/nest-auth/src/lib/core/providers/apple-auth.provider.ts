@@ -1,6 +1,7 @@
 import AppleAuth from 'apple-auth';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { BaseAuthProvider } from './base-auth.provider';
 import { APPLE_AUTH_PROVIDER } from '../../auth.constants';
 import { NestAuthUser } from '../../user/entities/user.entity';
@@ -16,12 +17,12 @@ export class AppleAuthProvider extends BaseAuthProvider {
     private appleAuth: AppleAuth;
 
     constructor(
-        readonly dataSource: DataSource,
+        @InjectRepository(NestAuthUser)
+        protected readonly userRepository: Repository<NestAuthUser>,
+        @InjectRepository(NestAuthIdentity)
+        protected readonly authIdentityRepository: Repository<NestAuthIdentity>,
         private readonly jwtService: JwtService,
     ) {
-        const userRepository = dataSource.getRepository(NestAuthUser);
-        const authIdentityRepository = dataSource.getRepository(NestAuthIdentity);
-
         super(userRepository, authIdentityRepository);
 
         this.appleConfig = this.options.apple;

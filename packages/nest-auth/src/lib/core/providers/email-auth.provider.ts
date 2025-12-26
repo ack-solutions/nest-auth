@@ -1,5 +1,6 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { BaseAuthProvider } from './base-auth.provider';
 import { EMAIL_AUTH_PROVIDER } from '../../auth.constants';
 import { NestAuthUser } from '../../user/entities/user.entity';
@@ -11,11 +12,11 @@ export class EmailAuthProvider extends BaseAuthProvider {
     providerName = EMAIL_AUTH_PROVIDER;
 
     constructor(
-        readonly dataSource: DataSource,
+        @InjectRepository(NestAuthUser)
+        protected readonly userRepository: Repository<NestAuthUser>,
+        @InjectRepository(NestAuthIdentity)
+        protected readonly authIdentityRepository: Repository<NestAuthIdentity>,
     ) {
-        const userRepository = dataSource.getRepository(NestAuthUser);
-        const authIdentityRepository = dataSource.getRepository(NestAuthIdentity);
-
         super(userRepository, authIdentityRepository);
 
         this.enabled = this.options.emailAuth?.enabled;
@@ -27,6 +28,14 @@ export class EmailAuthProvider extends BaseAuthProvider {
     private normalizeEmail(email: string | null | undefined): string | null {
         if (!email) return null;
         return email.toLowerCase().trim();
+    }
+
+    /**
+     * Validate email format
+     */
+    private isValidEmail(email: string): boolean {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
     }
 
     /**
@@ -50,7 +59,7 @@ export class EmailAuthProvider extends BaseAuthProvider {
         const normalizedEmail = this.normalizeEmail(credentials.email);
 
         if (!normalizedEmail) {
-            throw new UnauthorizedException('Email is required');
+            throw new BadRequestException('Email is required');
         }
 
         const identity = await this.findIdentity(normalizedEmail);

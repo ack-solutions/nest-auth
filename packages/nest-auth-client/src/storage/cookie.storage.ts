@@ -3,7 +3,7 @@
  * Useful when you need client-side cookie access
  */
 
-import { StorageAdapter } from '../types';
+import { StorageAdapter } from '../types/config.types';
 
 /**
  * Check if we're in a browser environment

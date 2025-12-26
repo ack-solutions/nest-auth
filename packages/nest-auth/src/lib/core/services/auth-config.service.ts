@@ -147,10 +147,8 @@ export class AuthConfigService {
         // This key is used for both session signing and security operations
         // After this, all code should use the config object
         if (!mergedOptions.adminConsole.secretKey) {
-            const secretKey = this.resolveSecretKey(mergedOptions);
-            if (secretKey) {
-                mergedOptions.adminConsole.secretKey = secretKey;
-            }
+            console.warn('Admin console secret key not configured. Please configure adminConsole.secretKey in AuthModuleOptions to enable admin console.');
+            mergedOptions.adminConsole.enabled = false;
         }
 
         this.options = mergedOptions;

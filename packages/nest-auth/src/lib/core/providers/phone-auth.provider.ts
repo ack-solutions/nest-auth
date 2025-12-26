@@ -1,5 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
 import { BaseAuthProvider, LinkUserWith } from './base-auth.provider';
@@ -11,11 +12,11 @@ export class PhoneAuthProvider extends BaseAuthProvider {
     providerName = PHONE_AUTH_PROVIDER;
 
     constructor(
-        readonly dataSource: DataSource,
+        @InjectRepository(NestAuthUser)
+        protected readonly userRepository: Repository<NestAuthUser>,
+        @InjectRepository(NestAuthIdentity)
+        protected readonly authIdentityRepository: Repository<NestAuthIdentity>,
     ) {
-        const userRepository = dataSource.getRepository(NestAuthUser);
-        const authIdentityRepository = dataSource.getRepository(NestAuthIdentity);
-
         super(userRepository, authIdentityRepository);
 
         this.enabled = this.options.phoneAuth?.enabled;

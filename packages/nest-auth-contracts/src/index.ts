@@ -1,100 +1,100 @@
 /**
- * @libs/auth-types - Shared authentication types
+ * @libs/auth-s - Shared authentication s
  */
 
-// Auth types (from auth.ts)
+// Auth s (from auth.ts)
 export {
     NestAuthMFAMethodEnum,
     NestAuthOTPTypeEnum,
-    type IEmailCredentials,
-    type IPhoneCredentials,
-    type ISocialCredentials,
-    type ILoginCredentials,
-    type ILoginRequest,
-    type ISignupRequest,
-    type IRefreshRequest,
-    type ITokenPair,
-    type IAuthResponse,
-    type IAuthUser,
-    type IAuthSession,
-    type IMessageResponse,
-    type IAuthCookieResponse,
-    type IAuthSuccessResponse,
-    type IUserResponse,
-    type ITokensResponse,
+    IEmailCredentials,
+    IPhoneCredentials,
+    ISocialCredentials,
+    ILoginCredentials,
+    ILoginRequest,
+    ISignupRequest,
+    IRefreshRequest,
+    ITokenPair,
+    IAuthResponse,
+    IAuthUser,
+    IAuthSession,
+    IMessageResponse,
+    IAuthCookieResponse,
+    IAuthSuccessResponse,
+    IUserResponse,
+    ITokensResponse,
     // Entities
-    type INestAuthIdentity,
-    type INestAuthSession,
-    type INestAuthAccessKey,
-    type INestAuthOTP,
+    INestAuthIdentity,
+    INestAuthSession,
+    INestAuthAccessKey,
+    INestAuthOTP,
 } from './auth';
 
-// MFA types (from mfa.ts)
+// MFA (from mfa.ts)
 export {
-    type IVerify2faRequest,
-    type IVerify2faResponse,
-    type ISendMfaCodeRequest,
-    type IToggleMfaRequest,
-    type IVerifyTotpSetupRequest,
-    type IMfaDevice,
-    type IMfaStatusResponse,
-    type IMfaCodeResponse,
-    type ITotpSetupResponse,
+    IVerify2faRequest,
+    IVerify2faResponse,
+    ISendMfaCodeRequest,
+    IToggleMfaRequest,
+    IVerifyTotpSetupRequest,
+    IMfaDevice,
+    IMfaStatusResponse,
+    IMfaCodeResponse,
+    ITotpSetupResponse,
     // Entities
-    type INestAuthMFASecret,
-    type INestAuthTrustedDevice,
+    INestAuthMFASecret,
+    INestAuthTrustedDevice,
 } from './mfa';
 
-// Password types
+// Password
 export {
-    type IForgotPasswordRequest,
-    type IResetPasswordRequest,
-    type IResetPasswordWithTokenRequest,
-    type IChangePasswordRequest,
-    type IVerifyForgotPasswordOtpRequest,
-    type IVerifyOtpResponse,
+    IForgotPasswordRequest,
+    IResetPasswordRequest,
+    IResetPasswordWithTokenRequest,
+    IChangePasswordRequest,
+    IVerifyForgotPasswordOtpRequest,
+    IVerifyOtpResponse,
 } from './password';
 
-// Verification types
+// Verification
 export {
-    type IVerifyEmailRequest,
-    type IResendVerificationRequest,
-    type ISendEmailVerificationRequest,
-    type ISessionVerifyResponse,
+    IVerifyEmailRequest,
+    IResendVerificationRequest,
+    ISendEmailVerificationRequest,
+    ISessionVerifyResponse,
 } from './verification';
 
-// Admin types
+// Admin
 export {
-    type IInitializeAdminRequest,
-    type IInitializeAdminResponse,
-    type IAdminUser,
+    IInitializeAdminRequest,
+    IInitializeAdminResponse,
+    IAdminUser,
 } from './admin';
 
-// Config types
+// Config
 export {
-    type IEmailAuthConfig,
-    type IPhoneAuthConfig,
-    type IProfileFieldOption,
-    type IProfileField,
-    type IRegistrationConfig,
-    type IMfaConfig,
-    type ITenantOption,
-    type ITenantsConfig,
-    type ISsoProviderConfig,
-    type ISsoConfig,
-    type IUiConfig,
-    type IClientConfigResponse,
+    IEmailAuthConfig,
+    IPhoneAuthConfig,
+    IProfileFieldOption,
+    IProfileField,
+    IRegistrationConfig,
+    IMfaConfig,
+    ITenantOption,
+    ITenantsConfig,
+    ISsoProviderConfig,
+    ISsoConfig,
+    IUiConfig,
+    IClientConfigResponse,
 } from './config';
 
-// User & Role types (from user.ts)
+// User & Role (from user.ts)
 export {
-    type INestAuthUser,
-    type INestAuthRole,
-    type INestAuthPermission,
+    INestAuthUser,
+    INestAuthRole,
+    INestAuthPermission,
 } from './user';
 
-// Tenant types (from tenant.ts)
+// Tenant (from tenant.ts)
 export {
-    type INestAuthTenant,
+    INestAuthTenant,
 } from './tenant';
 

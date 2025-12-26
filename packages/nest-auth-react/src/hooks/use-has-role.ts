@@ -4,7 +4,7 @@
 
 import { useContext, useMemo } from 'react';
 import { hasRole, hasPermission } from '@ackplus/nest-auth-client';
-import { AuthContext } from '../context';
+import { AuthContext } from '../context/auth-context';
 
 /**
  * Check if current user has a specific role

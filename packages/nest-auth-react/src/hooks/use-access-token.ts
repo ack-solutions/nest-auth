@@ -3,7 +3,7 @@
  */
 
 import { useContext, useState, useEffect } from 'react';
-import { AuthContext } from '../context';
+import { AuthContext } from '../context/auth-context';
 
 /**
  * Access the current access token (header mode only)

@@ -13,6 +13,7 @@ import {
     ManyToMany,
     In,
 } from "typeorm";
+import { hash, verify, Algorithm } from '@node-rs/argon2';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { NestAuthTenant } from "../../tenant/entities/tenant.entity";
 import { NestAuthIdentity } from "./identity.entity";
@@ -96,20 +97,6 @@ export class NestAuthUser extends BaseEntity {
     @UpdateDateColumn()
     updatedAt: Date;
 
-    private static argon2Loader: Promise<typeof import('argon2')> | null = null;
-
-    private static async getArgon2(): Promise<typeof import('argon2')> {
-        if (!NestAuthUser.argon2Loader) {
-            NestAuthUser.argon2Loader = import('argon2').catch((error) => {
-                throw new Error(
-                    `argon2 native module is not available. ` +
-                    `Install/build argon2 before using password hashing. ` +
-                    `Original error: ${error?.message ?? error}`
-                );
-            }) as Promise<typeof import('argon2')>;
-        }
-        return NestAuthUser.argon2Loader;
-    }
 
 
     @BeforeInsert()
@@ -215,8 +202,7 @@ export class NestAuthUser extends BaseEntity {
         }
 
         try {
-            const argon2 = await NestAuthUser.getArgon2();
-            return await argon2.verify(this.passwordHash, password);
+            return await verify(this.passwordHash, password);
         } catch (error) {
             // Invalid hash format or verification error
             return false;
@@ -241,9 +227,8 @@ export class NestAuthUser extends BaseEntity {
         }
 
         // Argon2id is the recommended variant (hybrid of Argon2i and Argon2d)
-        const argon2 = await NestAuthUser.getArgon2();
-        this.passwordHash = await argon2.hash(password, {
-            type: argon2.argon2id,
+        this.passwordHash = await hash(password, {
+            algorithm: Algorithm.Argon2id,
             memoryCost: 65536, // 64 MiB
             timeCost: 3,       // 3 iterations
             parallelism: 4     // 4 parallel threads

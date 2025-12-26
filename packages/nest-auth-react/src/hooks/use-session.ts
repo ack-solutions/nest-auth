@@ -4,7 +4,7 @@
 
 import { useContext } from 'react';
 import { ClientSession } from '@ackplus/nest-auth-client';
-import { AuthContext } from '../context';
+import { AuthContext } from '../context/auth-context';
 
 /**
  * Access the current session

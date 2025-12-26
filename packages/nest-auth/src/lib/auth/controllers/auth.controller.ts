@@ -37,19 +37,20 @@ import { ACCESS_TOKEN_COOKIE_NAME, NEST_AUTH_TRUST_DEVICE_KEY, REFRESH_TOKEN_COO
 
 
 
-import { UseInterceptors } from '@nestjs/common';
+import { UseInterceptors, UseFilters } from '@nestjs/common';
 import { PasswordService } from '../services/password.service';
 import { VerificationService } from '../services/verification.service';
 import { TokenResponseInterceptor } from '../interceptors/token-response.interceptor';
+import { AuthExceptionFilter } from '../filters/auth-exception.filter';
 
 @Controller('auth')
+@UseFilters(AuthExceptionFilter)
 export class AuthController {
     constructor(
         private readonly authService: AuthService,
         private readonly passwordService: PasswordService,
         private readonly verificationService: VerificationService,
         private readonly clientConfigService: ClientConfigService,
-        private readonly authConfigService: AuthConfigService,
     ) { }
 
     // Helper methods for response handling are now handled by TokenResponseInterceptor

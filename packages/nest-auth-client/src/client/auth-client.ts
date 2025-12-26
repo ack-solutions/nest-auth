@@ -23,15 +23,15 @@ import {
 } from '@ackplus/nest-auth-contracts';
 import {
     AuthClientConfig,
-    ClientSession,
-    AuthError,
     HttpResponse,
     RequestOptions,
     DEFAULT_ENDPOINTS,
-} from '../types';
-import { LocalStorageAdapter, MemoryStorage } from '../storage';
-import { FetchAdapter } from '../http';
-import { TokenManager } from '../token';
+} from '../types/config.types';
+import { ClientSession } from '../types/auth.types';
+import { AuthError } from '../types/auth.types';
+import { LocalStorageAdapter } from '../storage/local.storage';
+import { FetchAdapter } from '../http/fetch.adapter';
+import { TokenManager } from '../token/token-manager';
 import { decodeJwt, getUserIdFromToken } from '../token/jwt-utils';
 import { EventEmitter, AuthEvents } from './event-emitter';
 import { RefreshQueue, RetryTracker } from './refresh-queue';

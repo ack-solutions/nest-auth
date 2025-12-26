@@ -3,7 +3,7 @@
  * Works in browser and Node 18+
  */
 
-import { HttpAdapter, HttpRequestOptions, HttpResponse } from '../types';
+import { HttpAdapter, HttpRequestOptions, HttpResponse } from '../types/config.types';
 
 /**
  * HTTP adapter using the Fetch API

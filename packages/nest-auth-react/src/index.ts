@@ -2,35 +2,49 @@
  * @ackplus/nest-auth-react
  * 
  * React SDK for NestJS Auth
- * Provides hooks, components, and Next.js integration
+ * Provides hooks, components, and Next integration
  */
 
 // Context & Provider
-export * from './context';
+export { AuthContext, AuthContextValue } from './context/auth-context';
+export { AuthProvider, AuthProviderProps, InitialAuthState } from './context/auth-provider';
+
 
 // Hooks
-export * from './hooks';
+export { useNestAuth } from './hooks/use-auth';
+export { useUser } from './hooks/use-user';
+export { useSession } from './hooks/use-session';
+export { useAccessToken } from './hooks/use-access-token';
+export { useAuthStatus, AuthStatusResult } from './hooks/use-auth-status';
+export { useHasRole, useHasPermission } from './hooks/use-has-role';
+
 
 // Guards
-export * from './guards';
+export { AuthGuard, AuthGuardProps } from './guards/auth-guard';
+export { GuestGuard, GuestGuardProps } from './guards/guest-guard';
+export { RequireRole, RequireRoleProps } from './guards/require-role';
+export { RequirePermission, RequirePermissionProps } from './guards/require-permission';
 
-// Next.js helpers
-export * from './next';
+
+// Next helpers
+export { createNextAuthHelpers, NextAuthHelpers, ServerAuthState } from './next/create-next-auth-helpers';
+export { NextAuthProvider, NextAuthProviderProps } from './next/next-auth-provider';
+
 
 // Cross-tab sync
-export * from './sync';
+export { CrossTabSync, createCrossTabSync, SyncEvent, SyncEventType, SyncHandler } from './sync/cross-tab-sync';
 
 // Re-export commonly used types from client
 export type {
-    AuthUser,
-    AuthSession,
+    IAuthUser as AuthUser,
+    ClientSession as AuthSession,
     AuthStatus,
     AuthState,
     AuthError,
-    TokenPair,
-    LoginDto,
-    SignupDto,
-    AuthResponse,
+    ITokenPair as TokenPair,
+    ILoginRequest as LoginDto,
+    ISignupRequest as SignupDto,
+    IAuthResponse as AuthResponse,
     AuthClientConfig,
 } from '@ackplus/nest-auth-client';
 

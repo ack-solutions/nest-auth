@@ -3,7 +3,7 @@
  * Safe for SSR and the default storage option
  */
 
-import { StorageAdapter } from '../types';
+import { StorageAdapter } from '../types/config.types';
 
 /**
  * Memory-based storage adapter

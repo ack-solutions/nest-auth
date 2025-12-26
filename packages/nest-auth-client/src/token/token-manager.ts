@@ -4,7 +4,8 @@
  */
 
 import { ITokenPair as TokenPair } from '@ackplus/nest-auth-contracts';
-import { AccessTokenType, StorageAdapter } from '../types';
+import { AccessTokenType } from '../types/config.types';
+import { StorageAdapter } from '../types/config.types';
 import { isTokenExpired } from './jwt-utils';
 
 /** Storage keys */

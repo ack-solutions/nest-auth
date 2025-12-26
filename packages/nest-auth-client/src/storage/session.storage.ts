@@ -3,7 +3,7 @@
  * Persists tokens only for the browser session (cleared when tab closes)
  */
 
-import { StorageAdapter } from '../types';
+import { StorageAdapter } from '../types/config.types';
 
 /**
  * Check if we're in a browser environment with sessionStorage

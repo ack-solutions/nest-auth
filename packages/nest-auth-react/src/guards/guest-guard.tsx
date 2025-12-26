@@ -3,7 +3,7 @@
  */
 
 import React, { useEffect } from 'react';
-import { useAuthStatus } from '../hooks';
+import { useAuthStatus } from '../hooks/use-auth-status';
 
 /**
  * Props for GuestGuard component

@@ -3,7 +3,9 @@
  */
 
 import React, { useEffect } from 'react';
-import { useAuthStatus, useHasRole } from '../hooks';
+import { useAuthStatus } from '../hooks/use-auth-status';
+import { useHasRole } from '../hooks/use-has-role';
+
 
 /**
  * Props for RequireRole component
