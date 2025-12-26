@@ -4,6 +4,7 @@ import { BaseAuthProvider } from './base-auth.provider';
 import { EMAIL_AUTH_PROVIDER } from '../../auth.constants';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
+import { EmailCredentialsDto } from 'src/lib/auth';
 
 @Injectable()
 export class EmailAuthProvider extends BaseAuthProvider {
@@ -44,7 +45,7 @@ export class EmailAuthProvider extends BaseAuthProvider {
         return super.linkToUser(userId, normalizedEmail || providerUserId, metadata);
     }
 
-    async validate(credentials: { email?: string; password?: string }) {
+    async validate(credentials: EmailCredentialsDto) {
         // Normalize email to lowercase for case-insensitive matching
         const normalizedEmail = this.normalizeEmail(credentials.email);
 

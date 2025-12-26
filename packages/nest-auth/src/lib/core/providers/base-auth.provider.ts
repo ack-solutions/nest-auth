@@ -3,6 +3,7 @@ import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
 import { AuthConfigService } from '../services/auth-config.service';
 import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
+import { NestAuthLoginRequestDto, SocialCredentialsDto } from 'src/lib/auth';
 
 export interface AuthProviderUser {
     userId: string;
@@ -64,7 +65,7 @@ export abstract class BaseAuthProvider {
         });
     }
 
-    abstract validate(credentials: any): Promise<AuthProviderUser | null>;
+    abstract validate(credentials: NestAuthLoginRequestDto['credentials']): Promise<AuthProviderUser | null>;
 
     abstract getRequiredFields(): string[];
 

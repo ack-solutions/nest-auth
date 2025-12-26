@@ -7,6 +7,7 @@ import { JWT_AUTH_PROVIDER } from '../../auth.constants';
 import { JwtService } from '../services/jwt.service';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
+import { SocialCredentialsDto } from 'src/lib/auth';
 
 @Injectable()
 export class JwtAuthProvider extends BaseAuthProvider {
@@ -27,9 +28,9 @@ export class JwtAuthProvider extends BaseAuthProvider {
         this.enabled = Boolean(this.jwtConfig);
     }
 
-    async validate(credentials: { accessToken: string }) {
+    async validate(credentials: SocialCredentialsDto) {
         try {
-            const payload = await this.jwtService.verifyToken(credentials.accessToken);
+            const payload = await this.jwtService.verifyToken(credentials.token);
 
             return {
                 userId: payload.sub,

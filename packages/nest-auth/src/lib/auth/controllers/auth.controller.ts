@@ -1,11 +1,10 @@
-import { Controller, Post, Body, Get, UseGuards, Res, HttpCode, Query, Param, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Res, HttpCode, Query, Param, UnauthorizedException, Req } from '@nestjs/common';
 import { AuthService } from '../services/auth.service';
 import { NestAuthVerify2faRequestDto } from '../dto/requests/verify-2fa.request.dto';
 import { NestAuthRefreshTokenRequestDto } from '../dto/requests/refresh-token.request.dto';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { ApiResponse } from '@nestjs/swagger';
 import { ApiOperation } from '@nestjs/swagger';
-import { CookieService } from '../services/cookie.service';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { AuthWithTokensResponseDto, UserResponseDto, Verify2faWithTokensResponseDto } from '../dto/responses/auth.response.dto';
 import { AuthCookieResponseDto } from '../dto/responses/auth-cookie.response.dto';
@@ -34,95 +33,26 @@ import { NestAuthSendEmailVerificationRequestDto } from '../dto/requests/send-em
 import { NestAuthVerifyEmailRequestDto } from '../dto/requests/verify-email.request.dto';
 import { ClientConfigService } from '../services/client-config.service';
 import { ClientConfigResponseDto } from '../dto/responses/client-config.response.dto';
-import { NEST_AUTH_TRUST_DEVICE_KEY } from '../../auth.constants';
+import { ACCESS_TOKEN_COOKIE_NAME, NEST_AUTH_TRUST_DEVICE_KEY, REFRESH_TOKEN_COOKIE_NAME } from '../../auth.constants';
 
+
+
+import { UseInterceptors } from '@nestjs/common';
+import { PasswordService } from '../services/password.service';
+import { VerificationService } from '../services/verification.service';
+import { TokenResponseInterceptor } from '../interceptors/token-response.interceptor';
 
 @Controller('auth')
 export class AuthController {
     constructor(
         private readonly authService: AuthService,
-        private readonly cookieService: CookieService,
-        private readonly authConfig: AuthConfigService,
+        private readonly passwordService: PasswordService,
+        private readonly verificationService: VerificationService,
         private readonly clientConfigService: ClientConfigService,
+        private readonly authConfigService: AuthConfigService,
     ) { }
 
-    /**
-     * Check if using cookie-based authentication
-     */
-    protected isUsingCookies(): boolean {
-        const config = this.authConfig.getConfig();
-        return config.accessTokenType === 'cookie';
-    }
-
-    /**
-     * Handle auth response based on configuration
-     * - If cookie mode: Sets tokens in cookies, returns success message
-     * - If header mode: Returns tokens in response body
-     */
-    protected handleAuthResponse(
-        res: Response,
-        authResult: { accessToken: string; refreshToken: string; isRequiresMfa: boolean },
-        successMessage: string = 'Authentication successful'
-    ): void {
-        if (this.isUsingCookies()) {
-            // Cookie mode: Set tokens in cookies, return success message
-            this.cookieService.setTokens(res, authResult.accessToken, authResult.refreshToken);
-            res.status(200).json({
-                message: successMessage,
-                isRequiresMfa: authResult.isRequiresMfa
-            } as AuthCookieResponseDto);
-        } else {
-            // Header mode: Return tokens in response body
-            res.status(200).json({
-                message: successMessage,
-                accessToken: authResult.accessToken,
-                refreshToken: authResult.refreshToken,
-                isRequiresMfa: authResult.isRequiresMfa
-            } as AuthWithTokensResponseDto);
-        }
-    }
-
-    /**
-     * Handle 2FA verification response based on configuration
-     */
-    protected handle2faResponse(
-        res: Response,
-        authResult: { accessToken: string; refreshToken: string; trustToken?: string }
-    ): void {
-        if (authResult.trustToken) {
-            const trustCookieName = AuthConfigService.getOptions().mfa?.trustDeviceStorageName || NEST_AUTH_TRUST_DEVICE_KEY;
-            const duration = AuthConfigService.getOptions().mfa?.trustedDeviceDuration || '30d';
-            // Convert duration to milliseconds for maxAge
-            const ms = require('ms');
-            const maxAge = typeof duration === 'string' ? ms(duration) : duration;
-
-            res.cookie(trustCookieName, authResult.trustToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'lax',
-                path: '/',
-                maxAge,
-            });
-        }
-
-        if (this.isUsingCookies()) {
-            // Cookie mode: Set tokens in cookies, return success message
-            this.cookieService.setTokens(res, authResult.accessToken, authResult.refreshToken);
-            res.status(200).json({
-                message: '2FA verification successful',
-                // Note: No isRequiresMfa for 2FA verification (it's already verified)
-                trustToken: authResult.trustToken // Return trust token for mobile apps even in cookie mode
-            } as AuthCookieResponseDto & { trustToken?: string });
-        } else {
-            // Header mode: Return message AND tokens in response body
-            res.status(200).json({
-                message: '2FA verification successful',
-                accessToken: authResult.accessToken,
-                refreshToken: authResult.refreshToken,
-                trustToken: authResult.trustToken
-            } as Verify2faWithTokensResponseDto & { trustToken?: string });
-        }
-    }
+    // Helper methods for response handling are now handled by TokenResponseInterceptor
 
     @ApiOperation({
         summary: 'Signup',
@@ -134,9 +64,13 @@ export class AuthController {
     @ApiResponse({ status: 200, type: AuthCookieResponseDto, description: 'Cookie mode: Returns message only, tokens in cookies' })
     @HttpCode(200)
     @Post('signup')
-    async signup(@Body() input: NestAuthSignupRequestDto, @Res() res: Response) {
+    @UseInterceptors(TokenResponseInterceptor)
+    async signup(@Body() input: NestAuthSignupRequestDto): Promise<AuthWithTokensResponseDto> {
         const response = await this.authService.signup(input);
-        this.handleAuthResponse(res, response, 'Signup successful');
+        return {
+            ...response,
+            message: 'Signup successful',
+        };
     }
 
     @ApiOperation({
@@ -149,9 +83,13 @@ export class AuthController {
     @ApiResponse({ status: 200, type: AuthCookieResponseDto, description: 'Cookie mode: Returns message only, tokens in cookies' })
     @HttpCode(200)
     @Post('login')
-    async login(@Body() input: NestAuthLoginRequestDto, @Res() res: Response) {
+    @UseInterceptors(TokenResponseInterceptor)
+    async login(@Body() input: NestAuthLoginRequestDto): Promise<AuthWithTokensResponseDto> {
         const response = await this.authService.login(input);
-        this.handleAuthResponse(res, response, 'Login successful');
+        return {
+            ...response,
+            message: 'Login successful',
+        };
     }
 
     @ApiOperation({
@@ -164,10 +102,14 @@ export class AuthController {
     @ApiResponse({ status: 200, type: AuthCookieResponseDto, description: 'Cookie mode: Returns message only, tokens in cookies' })
     @HttpCode(200)
     @Post('refresh-token')
-    async refreshToken(@Body() input: NestAuthRefreshTokenRequestDto, @Res() res: Response) {
+    @UseInterceptors(TokenResponseInterceptor)
+    async refreshToken(@Body() input: NestAuthRefreshTokenRequestDto): Promise<AuthWithTokensResponseDto> {
         const response = await this.authService.refreshToken(input.refreshToken);
-        // Note: Refresh response doesn't have isRequiresMfa, so we create a compatible object
-        this.handleAuthResponse(res, { ...response, isRequiresMfa: false }, 'Token refreshed successfully');
+        return {
+            ...response,
+            isRequiresMfa: false,
+            message: 'Token refreshed successfully',
+        };
     }
 
 
@@ -198,9 +140,13 @@ export class AuthController {
     @Post('mfa/verify')
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
-    async verify2fa(@Body() input: NestAuthVerify2faRequestDto, @Res() res: Response) {
+    @UseInterceptors(TokenResponseInterceptor)
+    async verify2fa(@Body() input: NestAuthVerify2faRequestDto): Promise<Verify2faWithTokensResponseDto> {
         const response = await this.authService.verify2fa(input);
-        this.handle2faResponse(res, response);
+        return {
+            ...response,
+            message: '2FA verification successful',
+        };
     }
 
     @ApiOperation({ summary: 'Logout' })
@@ -209,13 +155,13 @@ export class AuthController {
     @Post('logout')
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
-    async logout(@Res() res: Response): Promise<NestAuthLogoutResponseDto | void> {
+    async logout(@Res({ passthrough: true }) res: Response, @Req() req: Request): Promise<NestAuthLogoutResponseDto> {
         await this.authService.logout();
 
-        // Only clear cookies if using cookie-based auth
-        if (this.isUsingCookies()) {
-            this.cookieService.clearCookies(res);
-        }
+        res.clearCookie(ACCESS_TOKEN_COOKIE_NAME);
+        res.clearCookie(REFRESH_TOKEN_COOKIE_NAME);
+
+        return { message: 'Logged out successfully' };
     }
 
     @ApiOperation({ summary: 'Logout All' })
@@ -239,9 +185,13 @@ export class AuthController {
     @Post('change-password')
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
-    async changePassword(@Body() input: NestAuthChangePasswordRequestDto, @Res() res: Response) {
-        const response = await this.authService.changePassword(input);
-        this.handleAuthResponse(res, response, 'Password updated successfully');
+    @UseInterceptors(TokenResponseInterceptor)
+    async changePassword(@Body() input: NestAuthChangePasswordRequestDto): Promise<AuthWithTokensResponseDto> {
+        const response = await this.passwordService.changePassword(input);
+        return {
+            ...response,
+            message: 'Password updated successfully',
+        };
     }
 
     @ApiOperation({ summary: 'Forgot password' })
@@ -250,7 +200,7 @@ export class AuthController {
     @Post('forgot-password')
     @SkipMfa()
     async forgotPassword(@Body() input: NestAuthForgotPasswordRequestDto): Promise<NestAuthPasswordResetLinkSentResponseDto> {
-        await this.authService.forgotPassword(input);
+        await this.passwordService.forgotPassword(input);
         return { message: 'If your email is registered, you will receive a password reset link' };
     }
 
@@ -260,7 +210,7 @@ export class AuthController {
     @Post('verify-forgot-password-otp')
     @SkipMfa()
     async verifyForgotPasswordOtp(@Body() input: NestAuthVerifyForgotPasswordOtpRequestDto): Promise<VerifyOtpResponseDto> {
-        return await this.authService.verifyForgotPasswordOtp(input);
+        return await this.passwordService.verifyForgotPasswordOtp(input);
     }
 
     @ApiOperation({ summary: 'Reset password' })
@@ -269,7 +219,7 @@ export class AuthController {
     @Post('reset-password')
     @SkipMfa()
     async resetPassword(@Body() input: NestAuthResetPasswordWithTokenRequestDto): Promise<NestAuthPasswordResetResponseDto> {
-        await this.authService.resetPasswordWithToken(input);
+        await this.passwordService.resetPasswordWithToken(input);
         return { message: 'Password has been reset successfully' };
     }
 
@@ -314,7 +264,7 @@ export class AuthController {
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     async sendEmailVerification(@Body() input: NestAuthSendEmailVerificationRequestDto): Promise<NestAuthEmailVerificationSentResponseDto> {
-        await this.authService.sendEmailVerification(input);
+        await this.verificationService.sendEmailVerification(input);
         return { message: 'Verification email sent' };
     }
 
@@ -325,7 +275,7 @@ export class AuthController {
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     async verifyEmail(@Body() input: NestAuthVerifyEmailRequestDto): Promise<NestAuthEmailVerifiedResponseDto> {
-        await this.authService.verifyEmail(input);
+        await this.verificationService.verifyEmail(input);
         return { message: 'Email verified successfully' };
     }
 

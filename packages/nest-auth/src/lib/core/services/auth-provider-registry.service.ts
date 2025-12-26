@@ -52,6 +52,13 @@ export class AuthProviderRegistryService {
         if (this.options.github) {
             this.registerProvider(this.githubAuthProvider);
         }
+
+        // Register custom providers
+        if (this.options.customAuthProviders && Array.isArray(this.options.customAuthProviders)) {
+            for (const provider of this.options.customAuthProviders) {
+                this.registerProvider(provider);
+            }
+        }
     }
 
     /**

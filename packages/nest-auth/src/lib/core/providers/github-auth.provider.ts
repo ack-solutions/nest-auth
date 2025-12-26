@@ -5,6 +5,7 @@ import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
 import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
 import { BaseAuthProvider } from './base-auth.provider';
+import { SocialCredentialsDto } from 'src/lib/auth';
 
 @Injectable()
 export class GitHubAuthProvider extends BaseAuthProvider {
@@ -23,12 +24,12 @@ export class GitHubAuthProvider extends BaseAuthProvider {
         this.enabled = Boolean(this.githubConfig);
     }
 
-    async validate(credentials: { accessToken: string }) {
+    async validate(credentials: SocialCredentialsDto) {
         try {
             // Fetch user info from GitHub API
             const userResponse = await fetch('https://api.github.com/user', {
                 headers: {
-                    Authorization: `Bearer ${credentials.accessToken}`,
+                    Authorization: `Bearer ${credentials.token}`,
                     Accept: 'application/vnd.github.v3+json',
                 },
             });
@@ -44,7 +45,7 @@ export class GitHubAuthProvider extends BaseAuthProvider {
             if (!email) {
                 const emailsResponse = await fetch('https://api.github.com/user/emails', {
                     headers: {
-                        Authorization: `Bearer ${credentials.accessToken}`,
+                        Authorization: `Bearer ${credentials.token}`,
                         Accept: 'application/vnd.github.v3+json',
                     },
                 });
@@ -74,6 +75,6 @@ export class GitHubAuthProvider extends BaseAuthProvider {
     }
 
     getRequiredFields(): string[] {
-        return ['accessToken'];
+        return ['token'];
     }
 }

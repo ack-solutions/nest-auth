@@ -35,7 +35,7 @@ export class NestAuthLoginRequestDto implements ILoginRequest {
             },
             socialLogin: {
                 summary: 'Social Login (Google/Facebook/etc)',
-                value: { token: 'ya29.a0AfH6SMBx...' },
+                value: { token: 'ya29.a0AfH6SMBx...', type: 'idToken' }, // type is optional
             },
         },
         oneOf: [

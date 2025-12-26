@@ -10,11 +10,11 @@ import { SessionModule } from './session/session.module';
 import { TenantModule } from './tenant/tenant.module';
 import { CoreModule } from './core/core.module';
 import { AuthConfigService } from './core/services/auth-config.service';
-import { RefreshTokenInterceptor } from './auth/interceptors/refresh-token.interceptor';
+
 import { NEST_AUTH_ASYNC_OPTIONS_PROVIDER } from './auth.constants';
 import { AdminConsoleModule } from './admin-console/admin-console.module';
 import { AuditService } from './audit/services/audit.service';
-
+import deepmerge from 'deepmerge';
 
 @Module({})
 export class NestAuthModule {
@@ -26,12 +26,6 @@ export class NestAuthModule {
 
     // Conditionally add refresh token interceptor (enabled by default)
     const providers: Provider[] = [AuditService];
-    if (mergedOptions.enableAutoRefresh !== false) {
-      providers.push({
-        provide: APP_INTERCEPTOR,
-        useClass: RefreshTokenInterceptor,
-      });
-    }
 
     return {
       module: NestAuthModule,
@@ -65,12 +59,7 @@ export class NestAuthModule {
 
     // Add refresh token interceptor provider (enabled by default)
     const providers: Provider[] = [...asyncProviders, AuditService];
-    if (options.enableAutoRefresh !== false) {
-      providers.push({
-        provide: APP_INTERCEPTOR,
-        useClass: RefreshTokenInterceptor,
-      });
-    }
+
 
     return {
       module: NestAuthModule,
@@ -145,7 +134,6 @@ export class NestAuthModule {
   }
 
   private static getOptions(options: IAuthModuleOptions): IAuthModuleOptions {
-    const deepmerge = require('deepmerge');
     // Use default options from AuthConfigService - single source of truth
     const defaultOptions = AuthConfigService.getDefaultOptions();
     return deepmerge(defaultOptions, options);

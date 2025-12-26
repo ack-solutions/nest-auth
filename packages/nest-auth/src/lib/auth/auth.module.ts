@@ -1,16 +1,17 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { AuthService } from './services/auth.service';
-import { CookieService } from './services/cookie.service';
 import { MfaService } from './services/mfa.service';
 import { ClientConfigService } from './services/client-config.service';
 import { NestAuthAuthGuard } from './guards/auth.guard';
-import { RefreshTokenInterceptor } from './interceptors/refresh-token.interceptor';
+import { TokenResponseInterceptor } from './interceptors/token-response.interceptor';
 import { AuthController } from './controllers/auth.controller';
 import { MfaController } from './controllers/mfa.controller';
 import { AuthSessionEventListener } from './services/auth-session-event-listener.service';
 import { NestAuthIdentity } from '../user/entities/identity.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { NestAuthUser } from '../user/entities/user.entity';
+import { PasswordService } from './services/password.service';
+import { VerificationService } from './services/verification.service';
 import { NestAuthOTP } from './entities/otp.entity';
 import { NestAuthMFASecret } from './entities/mfa-secret.entity';
 import { NestAuthAccessKey } from '../user/entities/access-key.entity';
@@ -41,21 +42,23 @@ import { RoleModule } from '../role/role.module';
     ],
     providers: [
         AuthService,
-        CookieService,
         MfaService,
         ClientConfigService,
         NestAuthAuthGuard,
-        RefreshTokenInterceptor,
+        TokenResponseInterceptor,
         AuthSessionEventListener,
+        PasswordService,
+        VerificationService,
     ],
     controllers: [AuthController, MfaController],
     exports: [
         AuthService,
-        CookieService,
+        PasswordService,
+        VerificationService,
         MfaService,
         ClientConfigService,
         NestAuthAuthGuard,
-        RefreshTokenInterceptor,
+        TokenResponseInterceptor,
     ],
 })
 export class AuthModule {

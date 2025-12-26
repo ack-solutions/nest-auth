@@ -24,7 +24,8 @@ export type {
 export { AuthConfigService } from './lib/core/services/auth-config.service';
 
 // Debug logging
-export { DebugLoggerService, DebugLogLevel, DebugLogOptions } from './lib/core/services/debug-logger.service';
+export { DebugLoggerService, DebugLogLevel } from './lib/core/services/debug-logger.service';
+export type { DebugLogOptions } from './lib/core/services/debug-logger.service';
 
 // Admin console exports
 export { NestAuthAdminUser } from './lib/admin-console/entities/admin-user.entity';

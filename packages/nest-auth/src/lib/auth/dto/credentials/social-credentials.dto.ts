@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEnum } from 'class-validator';
 
 /**
  * Social login credentials (Google, Facebook, Apple, GitHub)
@@ -11,5 +11,11 @@ export class SocialCredentialsDto {
     })
     @IsString()
     @IsNotEmpty()
-    accessToken: string;
+    token: string;
+
+
+    @IsOptional()
+    @IsString()
+    @IsEnum(['idToken', 'accessToken'])
+    type?: 'idToken' | 'accessToken';
 }

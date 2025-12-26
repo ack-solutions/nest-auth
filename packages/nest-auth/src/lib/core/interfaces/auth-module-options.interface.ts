@@ -345,6 +345,22 @@ export interface IAuthModuleOptions {
      * Transform errors before sending to client
      */
     errorHandler?: (error: Error, context: 'login' | 'signup' | 'refresh' | 'mfa' | 'password_reset' | 'password_change') => any;
+
+    /**
+     * Resolve configuration dynamically based on request context.
+     * Useful for multi-tenant setups, mobile apps vs web, or domain-based config.
+     * 
+     * @example
+     * ```typescript
+     * resolveConfig: async (req) => {
+     *   if (req.headers['x-mobile-app']) {
+     *     return { accessTokenType: 'header' };
+     *   }
+     *   return {};
+     * }
+     * ```
+     */
+    resolveConfig?: (context: any) => Promise<Partial<IAuthModuleOptions>> | Partial<IAuthModuleOptions>;
 }
 
 export interface IAdminConsoleOptions {

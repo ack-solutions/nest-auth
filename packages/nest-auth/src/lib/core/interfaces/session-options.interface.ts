@@ -5,12 +5,16 @@ import { SessionDataPayload, SessionPayload, JWTTokenPayload } from './token-pay
 export enum SessionStorageType {
     REDIS = 'redis',
     DATABASE = 'database',
-    MEMORY = 'memory'
+    MEMORY = 'memory',
 }
 
 export interface SessionOptions {
     storageType: SessionStorageType;
     redisUrl?: string;
+    /**
+     * Custom session repository implementation.
+     * Required when storageType be set to SessionStorageType.CUSTOM
+     */
     sessionExpiry?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
     refreshTokenExpiry?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
     maxSessionsPerUser?: number; // Maximum number of active sessions per user (default: 10)

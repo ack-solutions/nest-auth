@@ -3,7 +3,7 @@ export * from './guards/auth.guard';
 export { OPTIONAL_AUTH_KEY } from './guards/auth.guard';
 
 // Interceptors
-export * from './interceptors/refresh-token.interceptor';
+export * from './interceptors/token-response.interceptor';
 
 // Events
 export * from './events/logged-out-all.event';
@@ -18,7 +18,6 @@ export * from './events/two-factor-code-sent.event';
 
 // Services
 export * from './services/auth.service';
-export * from './services/cookie.service';
 export * from './services/mfa.service';
 export * from './services/client-config.service';
 

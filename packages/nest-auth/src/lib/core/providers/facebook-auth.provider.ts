@@ -1,4 +1,3 @@
-import Facebook from 'fb';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { FACEBOOK_AUTH_PROVIDER } from '../../auth.constants';
@@ -6,6 +5,7 @@ import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
 import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
 import { BaseAuthProvider } from './base-auth.provider';
+import { SocialCredentialsDto } from 'src/lib/auth';
 
 @Injectable()
 export class FacebookAuthProvider extends BaseAuthProvider {
@@ -23,16 +23,28 @@ export class FacebookAuthProvider extends BaseAuthProvider {
 
         this.facebookConfig = this.options.facebook;
         this.enabled = Boolean(this.facebookConfig);
-
-        if (this.enabled) {
-            Facebook.options({
-                appId: this.facebookConfig.appId,
-                appSecret: this.facebookConfig.appSecret,
-            });
-        }
     }
 
-    async validate(credentials: { token: string }) {
+    async validate(credentials: SocialCredentialsDto) {
+        let Facebook: any;
+        try {
+            Facebook = require('fb');
+        } catch (error) {
+            console.error('Failed to load fb. Please install it to use Facebook Auth.', error);
+            throw new Error('Facebook Auth dependency missing: fb');
+        }
+
+        const currentConfig = this.facebookConfig;
+
+        if (!currentConfig) {
+            throw new UnauthorizedException('Facebook authentication is not configured');
+        }
+
+        Facebook.options({
+            appId: currentConfig.appId,
+            appSecret: currentConfig.appSecret,
+        });
+
         try {
             const response = await Facebook.api('me', {
                 fields: ['id', 'email', 'name', 'picture'],
