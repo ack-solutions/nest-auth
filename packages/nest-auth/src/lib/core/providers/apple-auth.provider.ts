@@ -6,13 +6,13 @@ import { APPLE_AUTH_PROVIDER } from '../../auth.constants';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
 import { JwtService } from '../services/jwt.service';
-import { AuthModuleOptions } from '../../core';
+import { IAuthModuleOptions } from '../../core';
 
 @Injectable()
 export class AppleAuthProvider extends BaseAuthProvider {
     providerName = APPLE_AUTH_PROVIDER;
     skipMfa = true;
-    private appleConfig: AuthModuleOptions['apple'];
+    private appleConfig: IAuthModuleOptions['apple'];
     private appleAuth: AppleAuth;
 
     constructor(

@@ -8,10 +8,10 @@ import { Request } from 'express';
 import { AdminSessionService } from '../services/admin-session.service';
 import { AdminUserService } from '../services/admin-user.service';
 import { AdminConsoleConfigService } from '../services/admin-console-config.service';
-import { AdminUser } from '../entities/admin-user.entity';
+import { NestAuthAdminUser } from '../entities/admin-user.entity';
 
 export interface AdminRequest extends Request {
-  adminUser?: AdminUser;
+  adminUser?: NestAuthAdminUser;
 }
 
 @Injectable()

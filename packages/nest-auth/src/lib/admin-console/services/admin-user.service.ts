@@ -1,23 +1,23 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AdminUser } from '../entities/admin-user.entity';
+import { NestAuthAdminUser } from '../entities/admin-user.entity';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
 
 @Injectable()
 export class AdminUserService {
   constructor(
-    @InjectRepository(AdminUser)
-    private readonly adminRepo: Repository<AdminUser>,
+    @InjectRepository(NestAuthAdminUser)
+    private readonly adminRepo: Repository<NestAuthAdminUser>,
     private readonly debugLogger: DebugLoggerService,
-  ) {}
+  ) { }
 
   async createAdmin(data: {
     email: string;
     password: string;
     name?: string;
     metadata?: Record<string, any>;
-  }): Promise<AdminUser> {
+  }): Promise<NestAuthAdminUser> {
     const email = data.email.toLowerCase();
     const existing = await this.adminRepo.findOne({ where: { email } });
     if (existing) {
@@ -39,28 +39,28 @@ export class AdminUserService {
     return admin;
   }
 
-  async findByEmail(email: string): Promise<AdminUser | null> {
+  async findByEmail(email: string): Promise<NestAuthAdminUser | null> {
     if (!email) {
       return null;
     }
     return this.adminRepo.findOne({ where: { email: email.toLowerCase() } });
   }
 
-  async findById(id: string): Promise<AdminUser | null> {
+  async findById(id: string): Promise<NestAuthAdminUser | null> {
     if (!id) {
       return null;
     }
     return this.adminRepo.findOne({ where: { id } });
   }
 
-  async listAdmins(): Promise<AdminUser[]> {
+  async listAdmins(): Promise<NestAuthAdminUser[]> {
     return this.adminRepo.find({ order: { createdAt: 'DESC' } });
   }
 
   async updateAdmin(
     id: string,
     data: { name?: string; password?: string; metadata?: Record<string, any> },
-  ): Promise<AdminUser> {
+  ): Promise<NestAuthAdminUser> {
     const admin = await this.findById(id);
     if (!admin) {
       throw new NotFoundException({

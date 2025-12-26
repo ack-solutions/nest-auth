@@ -2,7 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { BaseAuthProvider } from './base-auth.provider';
 import { DataSource } from 'typeorm';
 import { Injectable } from '@nestjs/common';
-import { AuthModuleOptions } from '../../core';
+import { IAuthModuleOptions } from '../../core';
 import { JWT_AUTH_PROVIDER } from '../../auth.constants';
 import { JwtService } from '../services/jwt.service';
 import { NestAuthUser } from '../../user/entities/user.entity';
@@ -11,7 +11,7 @@ import { NestAuthIdentity } from '../../user/entities/identity.entity';
 @Injectable()
 export class JwtAuthProvider extends BaseAuthProvider {
     providerName = JWT_AUTH_PROVIDER;
-    private jwtConfig: AuthModuleOptions['jwt'];
+    private jwtConfig: IAuthModuleOptions['jwt'];
 
 
     constructor(

@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/
 import { AdminUserService } from './admin-user.service';
 import { AdminSessionService } from './admin-session.service';
 import { AdminConsoleConfigService } from './admin-console-config.service';
-import { AdminUser } from '../entities/admin-user.entity';
+import { NestAuthAdminUser } from '../entities/admin-user.entity';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
 import { compareKeys } from '../../utils/security.util';
 
@@ -15,7 +15,7 @@ export class AdminAuthService {
     private readonly debugLogger: DebugLoggerService,
   ) { }
 
-  async validateCredentials(email: string, password: string): Promise<AdminUser> {
+  async validateCredentials(email: string, password: string): Promise<NestAuthAdminUser> {
     const admin = await this.adminUsers.findByEmail(email);
     if (!admin) {
       throw new UnauthorizedException('Invalid credentials');
@@ -35,7 +35,7 @@ export class AdminAuthService {
     password: string;
     name?: string;
     metadata?: Record<string, any>;
-  }): Promise<AdminUser> {
+  }): Promise<NestAuthAdminUser> {
     this.config.ensureEnabled();
     const configuredKey = this.config.getSecretKey();
 
@@ -76,7 +76,7 @@ export class AdminAuthService {
     });
   }
 
-  createSession(admin: AdminUser): string {
+  createSession(admin: NestAuthAdminUser): string {
     return this.sessions.createSession(admin);
   }
 }

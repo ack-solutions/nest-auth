@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { RegistrationCollectProfileField } from '../../../core/interfaces/auth-module-options.interface';
+import { IRegistrationCollectProfileField } from '../../../core/interfaces/auth-module-options.interface';
 import {
     IEmailAuthConfig,
     IPhoneAuthConfig,
@@ -54,7 +54,7 @@ export class RegistrationConfigDto implements IRegistrationConfig {
             },
         },
     })
-    collectProfileFields?: Array<RegistrationCollectProfileField>;
+    collectProfileFields?: Array<IRegistrationCollectProfileField>;
 }
 
 export class MfaConfigDto implements IMfaConfig {

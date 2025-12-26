@@ -34,7 +34,7 @@ export class AdminConsoleController implements OnModuleInit {
   constructor(private readonly config: AdminConsoleConfigService) { }
 
   onModuleInit() {
-    if (this.config.options?.enabled === false) {
+    if (this.config.getConfig().enabled === false) {
       return;
     }
     if (!existsSync(this.indexPath)) {

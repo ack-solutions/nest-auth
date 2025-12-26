@@ -139,16 +139,14 @@ export class ClientConfigService {
     }
 
     private async resolveDefaultTenantId(
-        options?: { slug?: string; domain?: string },
+        options?: { slug?: string },
     ): Promise<string | null> {
-        if (!options?.slug && !options?.domain) {
+        if (!options?.slug) {
             return null;
         }
 
         try {
-            const tenant = options.slug
-                ? await this.tenantService.getTenantBySlug(options.slug)
-                : await this.tenantService.getTenantByDomain(options.domain!);
+            const tenant = await this.tenantService.getTenantBySlug(options.slug);
             return tenant?.id ?? null;
         } catch (error) {
             return null;

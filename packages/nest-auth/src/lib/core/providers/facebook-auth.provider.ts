@@ -1,17 +1,17 @@
 import Facebook from 'fb';
-import { BaseAuthProvider } from './base-auth.provider';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { FACEBOOK_AUTH_PROVIDER } from '../../auth.constants';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
-import { AuthModuleOptions } from '../interfaces/auth-module-options.interface';
+import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
+import { BaseAuthProvider } from './base-auth.provider';
 
 @Injectable()
 export class FacebookAuthProvider extends BaseAuthProvider {
     providerName = FACEBOOK_AUTH_PROVIDER;
     skipMfa = true;
-    private facebookConfig: AuthModuleOptions['facebook'];
+    private facebookConfig: IAuthModuleOptions['facebook'];
 
     constructor(
         readonly dataSource: DataSource,

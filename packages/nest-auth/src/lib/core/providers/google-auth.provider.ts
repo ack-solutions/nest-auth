@@ -1,7 +1,7 @@
 import { OAuth2Client, TokenPayload } from 'google-auth-library';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { BaseAuthProvider } from './base-auth.provider';
-import { AuthModuleOptions } from '../../core';
+import { IAuthModuleOptions } from '../../core';
 import { GOOGLE_AUTH_PROVIDER } from '../../auth.constants';
 import { DataSource } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
@@ -12,7 +12,7 @@ export class GoogleAuthProvider extends BaseAuthProvider {
     providerName = GOOGLE_AUTH_PROVIDER;
     skipMfa = true;
     private client: OAuth2Client;
-    private googleConfig: AuthModuleOptions['google'];
+    private googleConfig: IAuthModuleOptions['google'];
 
     constructor(
         readonly dataSource: DataSource,

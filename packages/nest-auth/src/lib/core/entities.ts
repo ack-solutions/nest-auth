@@ -7,7 +7,7 @@ import { NestAuthMFASecret } from '../auth/entities/mfa-secret.entity';
 import { NestAuthOTP } from '../auth/entities/otp.entity';
 import { NestAuthSession } from '../session/entities/session.entity';
 import { NestAuthPermission } from '../permission/entities/permission.entity';
-import { AdminUser as NestAuthAdminUser } from '../admin-console/entities/admin-user.entity';
+import { NestAuthAdminUser } from '../admin-console/entities/admin-user.entity';
 import { NestAuthTrustedDevice } from '../auth';
 
 export * from '../user/entities/user.entity';
@@ -19,7 +19,7 @@ export * from '../auth/entities/mfa-secret.entity';
 export * from '../auth/entities/otp.entity';
 export * from '../session/entities/session.entity';
 export * from '../permission/entities/permission.entity';
-export { AdminUser as NestAuthAdminUser } from '../admin-console/entities/admin-user.entity';
+
 
 export const NestAuthEntities = [
     NestAuthUser,

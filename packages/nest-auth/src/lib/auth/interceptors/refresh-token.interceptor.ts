@@ -6,7 +6,7 @@ import { AuthService } from '../services/auth.service';
 import { CookieService } from '../services/cookie.service';
 import { JwtService } from '../../core/services/jwt.service';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import { REFRESH_TOKEN_COOKIE_NAME, UNAUTHORIZED_EXCEPTION_CODE } from '../../auth.constants';
+import { REFRESH_TOKEN_COOKIE_NAME } from '../../auth.constants';
 
 /**
  * RefreshTokenInterceptor

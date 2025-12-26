@@ -12,12 +12,12 @@ export * from './lib/core';
 export * from './lib/request-context';
 
 // Types and interfaces for configuration
-export {
-  AuthModuleOptions,
-  AuthModuleAsyncOptions,
-  AuthModuleOptionsFactory,
-  DefaultTenantOptions,
-  AdminConsoleOptions,
+export type {
+  IAuthModuleOptions,
+  IAuthModuleAsyncOptions,
+  IAuthModuleOptionsFactory,
+  IDefaultTenantOptions,
+  IAdminConsoleOptions,
 } from './lib/core/interfaces/auth-module-options.interface';
 
 // Static configuration service
@@ -27,4 +27,4 @@ export { AuthConfigService } from './lib/core/services/auth-config.service';
 export { DebugLoggerService, DebugLogLevel, DebugLogOptions } from './lib/core/services/debug-logger.service';
 
 // Admin console exports
-export { AdminUser as NestAuthAdminUser } from './lib/admin-console/entities/admin-user.entity';
+export { NestAuthAdminUser } from './lib/admin-console/entities/admin-user.entity';

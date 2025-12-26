@@ -100,10 +100,20 @@
         ]
       }
     },
-    "/auth/2fa/send": {
+    "/auth/mfa/challenge": {
       "post": {
-        "operationId": "AuthController_send2faCode",
+        "operationId": "MfaController_challenge",
         "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthSendMfaCodeRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "",
@@ -116,15 +126,15 @@
             }
           }
         },
-        "summary": "Send 2FA Code",
+        "summary": "Send MFA code for setup/verification",
         "tags": [
-          "Auth"
+          "Mfa"
         ]
       }
     },
-    "/auth/2fa/verify": {
+    "/auth/mfa/verify": {
       "post": {
-        "description": "Verify two-factor authentication. Response format depends on accessTokenType configuration:\n- Header mode (default): Returns tokens in response body\n- Cookie mode: Sets tokens in HTTP-only cookies and returns success message",
+        "description": "Verify multi-factor authentication. Response format depends on accessTokenType configuration:\n- Header mode (default): Returns tokens in response body\n- Cookie mode: Sets tokens in HTTP-only cookies and returns success message",
         "operationId": "AuthController_verify2fa",
         "parameters": [],
         "requestBody": {
@@ -149,7 +159,7 @@
             }
           }
         },
-        "summary": "Verify 2FA",
+        "summary": "Verify MFA",
         "tags": [
           "Auth"
         ]
@@ -602,38 +612,6 @@
           }
         },
         "summary": "Remove a registered MFA device",
-        "tags": [
-          "Mfa"
-        ]
-      }
-    },
-    "/auth/mfa/send-mfa-code": {
-      "post": {
-        "operationId": "MfaController_sendMfaCode",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NestAuthSendMfaCodeRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NestAuthMfaCodeSentResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Send MFA Code",
         "tags": [
           "Mfa"
         ]

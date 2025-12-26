@@ -3,7 +3,7 @@ import { Request } from 'express';
 import * as jwt from 'jsonwebtoken';
 import ms from 'ms';
 import { AdminConsoleConfigService } from './admin-console-config.service';
-import { AdminUser } from '../entities/admin-user.entity';
+import { NestAuthAdminUser } from '../entities/admin-user.entity';
 
 interface AdminSessionPayload {
   sub: string;
@@ -16,7 +16,7 @@ interface AdminSessionPayload {
 export class AdminSessionService {
   constructor(private readonly config: AdminConsoleConfigService) { }
 
-  createSession(admin: AdminUser): string {
+  createSession(admin: NestAuthAdminUser): string {
     const secret = this.config.getSessionSecret();
     const duration = this.config.getSessionDuration();
     const expiresIn = typeof duration === 'number' ? duration : duration || '2h';

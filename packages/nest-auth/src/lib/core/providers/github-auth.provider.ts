@@ -1,15 +1,15 @@
-import { BaseAuthProvider } from './base-auth.provider';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { GITHUB_AUTH_PROVIDER } from '../../auth.constants';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
-import { AuthModuleOptions } from '../interfaces/auth-module-options.interface';
+import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
+import { BaseAuthProvider } from './base-auth.provider';
 
 @Injectable()
 export class GitHubAuthProvider extends BaseAuthProvider {
     providerName = GITHUB_AUTH_PROVIDER;
-    private githubConfig: AuthModuleOptions['github'];
+    private githubConfig: IAuthModuleOptions['github'];
 
     constructor(
         readonly dataSource: DataSource,

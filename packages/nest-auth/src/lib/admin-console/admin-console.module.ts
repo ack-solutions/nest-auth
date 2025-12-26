@@ -1,6 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AdminUser } from './entities/admin-user.entity';
+import { NestAuthAdminUser } from './entities/admin-user.entity';
 import { AdminUserService } from './services/admin-user.service';
 import { AdminAuthService } from './services/admin-auth.service';
 import { AdminSessionService } from './services/admin-session.service';
@@ -24,7 +24,7 @@ import { NestAuthRole } from '../role/entities/role.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AdminUser, NestAuthMFASecret, NestAuthUser, NestAuthRole]),
+    TypeOrmModule.forFeature([NestAuthAdminUser, NestAuthMFASecret, NestAuthUser, NestAuthRole]),
     forwardRef(() => AuthModule),
     forwardRef(() => UserModule),
     forwardRef(() => RoleModule),

@@ -17,7 +17,7 @@ import {
     NestAuthMfaDeviceVerifiedResponseDto,
     NestAuthMfaResetResponseDto
 } from '../dto/responses/auth-messages.response.dto';
-import { MFA_ERROR_CODES } from 'src/lib/auth.constants';
+import { MFA_ERROR_CODES } from '../../auth.constants';
 
 @Controller('auth/mfa')
 export class MfaController {

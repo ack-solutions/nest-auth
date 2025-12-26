@@ -21,7 +21,7 @@ import { AdminResetPasswordDto } from '../dto/reset-password.dto';
 import { AdminSignupDto } from '../dto/signup.dto';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
 import { CurrentAdmin } from '../decorators/current-admin.decorator';
-import { AdminUser } from '../entities/admin-user.entity';
+import { NestAuthAdminUser } from '../entities/admin-user.entity';
 import { CreateDashboardAdminDto, UpdateDashboardAdminDto } from '../dto/create-dashboard-admin.dto';
 import { AdminUserService } from '../services/admin-user.service';
 import { compareKeys } from '../../utils/security.util';
@@ -106,7 +106,7 @@ export class AdminAuthController {
 
   @Post('logout')
   @UseGuards(AdminSessionGuard)
-  async logout(@CurrentAdmin() admin: AdminUser, @Res({ passthrough: true }) res: Response) {
+  async logout(@CurrentAdmin() admin: NestAuthAdminUser, @Res({ passthrough: true }) res: Response) {
     // Invalidate server-side session if session ID is available
     try {
       await this.sessions.invalidateSessionForAdmin(admin.id);
@@ -124,7 +124,7 @@ export class AdminAuthController {
 
   @Get('me')
   @UseGuards(AdminSessionGuard)
-  async me(@CurrentAdmin() admin: AdminUser) {
+  async me(@CurrentAdmin() admin: NestAuthAdminUser) {
     return this.toSafeAdmin(admin);
   }
 
@@ -324,7 +324,7 @@ export class AdminAuthController {
     };
   }
 
-  private toSafeAdmin(admin: AdminUser) {
+  private toSafeAdmin(admin: NestAuthAdminUser) {
     return {
       id: admin.id,
       email: admin.email,

@@ -8,7 +8,7 @@ import { UserRegisteredEvent } from '../../auth/events/user-registered.event';
 import { UserPasswordChangedEvent } from '../../auth/events/user-password-changed.event';
 import { User2faEnabledEvent } from '../../auth/events/user-2fa-enabled.event';
 import { User2faDisabledEvent } from '../../auth/events/user-2fa-disabled.event';
-import { AuthAuditEvent } from '../../core/interfaces/auth-module-options.interface';
+import { IAuthAuditEvent } from '../../core/interfaces/auth-module-options.interface';
 
 @Injectable()
 export class AuditService {
@@ -18,7 +18,7 @@ export class AuditService {
         private readonly authConfigService: AuthConfigService,
     ) { }
 
-    private async emitAuditEvent(event: AuthAuditEvent): Promise<void> {
+    private async emitAuditEvent(event: IAuthAuditEvent): Promise<void> {
         const config = this.authConfigService.getConfig();
 
         if (config.audit?.enabled === false) {

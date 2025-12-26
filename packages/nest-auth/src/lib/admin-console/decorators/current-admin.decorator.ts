@@ -1,9 +1,9 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { AdminUser } from '../entities/admin-user.entity';
+import { NestAuthAdminUser } from '../entities/admin-user.entity';
 
 export const CurrentAdmin = createParamDecorator(
-  (data: unknown, context: ExecutionContext): AdminUser | undefined => {
+  (data: unknown, context: ExecutionContext): NestAuthAdminUser | undefined => {
     const request = context.switchToHttp().getRequest();
-    return request.adminUser as AdminUser | undefined;
+    return request.adminUser as NestAuthAdminUser | undefined;
   },
 );
