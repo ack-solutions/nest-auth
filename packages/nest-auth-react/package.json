@@ -1,53 +1,53 @@
 {
-    "name": "@ackplus/nest-auth-react",
-    "version": "1.1.29",
-    "description": "React SDK for NestJS authentication - hooks, guards, and Next.js integration",
-    "type": "module",
-    "main": "./dist/index.js",
-    "module": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "exports": {
-        ".": {
-            "types": "./dist/index.d.ts",
-            "import": "./dist/index.js",
-            "require": "./dist/index.js"
-        }
-    },
-    "scripts": {
-        "clean": "rm -rf dist tsconfig.build.tsbuildinfo",
-        "build": "pnpm clean && tsc -p tsconfig.build.json",
-        "format": "prettier --write \"src/**/*.ts\" \"src/**/*.tsx\"",
-        "lint": "eslint \"src/**/*.ts\" \"src/**/*.tsx\" --fix"
-    },
-    "files": [
-        "dist",
-        "README.md",
-        "LICENSE"
-    ],
-    "keywords": [
-        "auth",
-        "authentication",
-        "react",
-        "hooks",
-        "nextjs",
-        "nestjs",
-        "jwt",
-        "oauth"
-    ],
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/ack-solutions/nest-auth"
-    },
-    "license": "MIT",
-    "author": "Ackplus",
-    "peerDependencies": {
-        "react": "^18.0.0 || ^19.0.0"
-    },
-    "dependencies": {
-        "@ackplus/nest-auth-client": "workspace:*"
-    },
-    "devDependencies": {
-        "typescript": "^5.7.3",
-        "@types/react": "^18.0.0"
+  "name": "@ackplus/nest-auth-react",
+  "version": "1.1.31-beta.5",
+  "description": "React SDK for NestJS authentication - hooks, guards, and Next.js integration",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
     }
+  },
+  "scripts": {
+    "clean": "rm -rf dist tsconfig.build.tsbuildinfo",
+    "build": "pnpm clean && tsc -p tsconfig.build.json",
+    "format": "prettier --write \"src/**/*.ts\" \"src/**/*.tsx\"",
+    "lint": "eslint \"src/**/*.ts\" \"src/**/*.tsx\" --fix"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "auth",
+    "authentication",
+    "react",
+    "hooks",
+    "nextjs",
+    "nestjs",
+    "jwt",
+    "oauth"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ack-solutions/nest-auth"
+  },
+  "license": "MIT",
+  "author": "Ackplus",
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "dependencies": {
+    "@ackplus/nest-auth-client": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "@types/react": "^18.0.0"
+  }
 }
