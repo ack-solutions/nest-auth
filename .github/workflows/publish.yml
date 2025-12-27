@@ -36,88 +36,236 @@ jobs:
         id: v
         shell: bash
         run: |
+          echo "🔍 Extracting version from tag..."
           TAG="${GITHUB_REF#refs/tags/}"
           VERSION="${TAG#v}"
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version from tag: $VERSION"
+          echo "📌 Tag: $TAG"
+          echo "📦 Version: $VERSION"
           
           # Detect if this is a pre-release version (beta, alpha, rc, etc.)
           if [[ "$VERSION" =~ -(beta|alpha|rc|pre) ]]; then
             echo "is_prerelease=true" >> $GITHUB_OUTPUT
             echo "dist_tag=beta" >> $GITHUB_OUTPUT
-            echo "Detected pre-release version"
+            echo "✅ Detected pre-release version (beta/alpha/rc/pre)"
           else
             echo "is_prerelease=false" >> $GITHUB_OUTPUT
             echo "dist_tag=latest" >> $GITHUB_OUTPUT
-            echo "Detected stable version"
+            echo "✅ Detected stable version"
           fi
+          echo "🏷️  Dist-tag: $([ "$VERSION" =~ -(beta|alpha|rc|pre) ] && echo 'beta' || echo 'latest')"
 
       - name: Ensure tag was created from main HEAD
         shell: bash
         run: |
+          echo "🔍 Verifying tag is on main HEAD..."
           TAG="${{ steps.v.outputs.tag }}"
+          echo "📌 Checking tag: $TAG"
+          
           # Fetch main branch first
+          echo "⬇️  Fetching origin/main..."
           git fetch origin main
           
-          TAG_COMMIT="$(git rev-list -n 1 "$TAG")"
+          TAG_COMMIT="$(git rev-list -n 1 "$TAG" 2>/dev/null || echo '')"
           MAIN_COMMIT="$(git rev-parse origin/main)"
-          echo "TAG_COMMIT=$TAG_COMMIT"
-          echo "MAIN_COMMIT=$MAIN_COMMIT"
+          
+          echo "📍 Tag commit: ${TAG_COMMIT:0:7}"
+          echo "📍 Main commit: ${MAIN_COMMIT:0:7}"
+          
+          if [ -z "$TAG_COMMIT" ]; then
+            echo "❌ Tag '$TAG' not found!"
+            exit 1
+          fi
+          
           if [ "$TAG_COMMIT" != "$MAIN_COMMIT" ]; then
             echo "❌ Tag is not pointing to latest origin/main. Create the tag from main HEAD."
             exit 1
           fi
+          echo "✅ Tag is on main HEAD"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: |
+          echo "📦 Installing dependencies..."
+          pnpm install --frozen-lockfile
+          echo "✅ Dependencies installed"
 
       - name: Bump all workspace package versions to tag version
         shell: bash
         run: |
           VERSION="${{ steps.v.outputs.version }}"
-
-          # Bump version for every package in the workspace
-          pnpm -r version "$VERSION" --no-git-tag-version
-
-          # Optional: ensure private is removed only for packages you publish
-          # (Better: keep private=true in packages you never want published.)
+          echo "🔄 Bumping package versions to: $VERSION"
+          echo ""
+          
+          # Show current versions before bumping
+          echo "📊 Current package versions (before bump):"
+          for pkg_dir in packages/*/; do
+            if [ -f "$pkg_dir/package.json" ]; then
+              PKG_NAME=$(grep -o '"name":\s*"[^"]*"' "$pkg_dir/package.json" | head -1 | cut -d'"' -f4)
+              PKG_VERSION=$(grep -o '"version":\s*"[^"]*"' "$pkg_dir/package.json" | head -1 | cut -d'"' -f4)
+              IS_PRIVATE=$(grep -o '"private":\s*true' "$pkg_dir/package.json" > /dev/null && echo "true" || echo "false")
+              if [ "$IS_PRIVATE" != "true" ] && [ -n "$PKG_NAME" ]; then
+                echo "  - $PKG_NAME: $PKG_VERSION -> $VERSION"
+              fi
+            fi
+          done
+          echo ""
+          
+          # Bump version for every package in the workspace (pnpm will skip private packages)
+          echo "🚀 Running: pnpm -r version \"$VERSION\" --no-git-tag-version"
+          pnpm -r version "$VERSION" --no-git-tag-version --no-commit-hooks || {
+            echo "❌ Failed to bump versions"
+            exit 1
+          }
+          echo ""
+          
+          # Show updated versions
+          echo "✅ Updated package versions (after bump):"
+          for pkg_dir in packages/*/; do
+            if [ -f "$pkg_dir/package.json" ]; then
+              PKG_NAME=$(grep -o '"name":\s*"[^"]*"' "$pkg_dir/package.json" | head -1 | cut -d'"' -f4)
+              PKG_VERSION=$(grep -o '"version":\s*"[^"]*"' "$pkg_dir/package.json" | head -1 | cut -d'"' -f4)
+              IS_PRIVATE=$(grep -o '"private":\s*true' "$pkg_dir/package.json" > /dev/null && echo "true" || echo "false")
+              if [ "$IS_PRIVATE" != "true" ] && [ -n "$PKG_NAME" ]; then
+                echo "  - $PKG_NAME: $PKG_VERSION"
+              fi
+            fi
+          done
+          echo ""
+          
+          # Show what files changed
+          echo "📝 Changed files:"
+          git status --short || true
 
       - name: Commit version changes back to main
         shell: bash
         run: |
+          echo "💾 Committing version changes..."
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Only commit if there are changes
-          if git diff --quiet; then
-            echo "No version changes to commit."
+          # Check if there are changes
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "ℹ️  No version changes to commit (versions already match tag)."
           else
+            echo "📝 Staging changes..."
             git add -A
-            git commit -m "chore(release): v${{ steps.v.outputs.version }}"
-            git push origin HEAD:main
+            
+            echo "📋 Changes to be committed:"
+            git diff --cached --stat || git diff --stat || true
+            echo ""
+            
+            echo "💬 Committing changes..."
+            git commit -m "chore(release): v${{ steps.v.outputs.version }}" || {
+              echo "❌ Failed to commit changes"
+              exit 1
+            }
+            
+            echo "⬆️  Pushing to origin/main..."
+            git push origin HEAD:main || {
+              echo "❌ Failed to push to origin/main"
+              exit 1
+            }
+            echo "✅ Version changes committed and pushed"
           fi
 
       - name: Move the tag to the release commit (keep tag = published code)
         shell: bash
         run: |
           TAG="${{ steps.v.outputs.tag }}"
-          git tag -f "$TAG"
-          git push origin -f "$TAG"
+          echo "🏷️  Moving tag '$TAG' to current commit..."
+          CURRENT_COMMIT=$(git rev-parse HEAD)
+          echo "📍 Current commit: ${CURRENT_COMMIT:0:7}"
+          
+          git tag -f "$TAG" || {
+            echo "❌ Failed to update tag"
+            exit 1
+          }
+          
+          echo "⬆️  Pushing tag to origin..."
+          git push origin -f "$TAG" || {
+            echo "❌ Failed to push tag"
+            exit 1
+          }
+          echo "✅ Tag moved and pushed"
 
       - name: Build all packages
-        run: pnpm build
+        run: |
+          echo "🔨 Building all packages..."
+          pnpm build || {
+            echo "❌ Build failed"
+            exit 1
+          }
+          echo "✅ Build completed"
 
       - name: Publish all packages
         shell: bash
         run: |
           DIST_TAG="${{ steps.v.outputs.dist_tag }}"
+          VERSION="${{ steps.v.outputs.version }}"
+          
+          echo "📦 Publishing packages..."
+          echo "🏷️  Dist-tag: $DIST_TAG"
+          echo "📌 Version: $VERSION"
+          echo ""
+          
+          # List packages that will be published (excluding private)
+          echo "📋 Packages to publish:"
+          for pkg_dir in packages/*/; do
+            if [ -f "$pkg_dir/package.json" ]; then
+              PKG_NAME=$(grep -o '"name":\s*"[^"]*"' "$pkg_dir/package.json" | head -1 | cut -d'"' -f4)
+              PKG_VERSION=$(grep -o '"version":\s*"[^"]*"' "$pkg_dir/package.json" | head -1 | cut -d'"' -f4)
+              IS_PRIVATE=$(grep -o '"private":\s*true' "$pkg_dir/package.json" > /dev/null && echo "true" || echo "false")
+              if [ "$IS_PRIVATE" != "true" ] && [ -n "$PKG_NAME" ]; then
+                echo "  - $PKG_NAME@$PKG_VERSION"
+              fi
+            fi
+          done
+          echo ""
+          
+          # Check npm authentication
+          echo "🔐 Checking npm authentication..."
+          npm whoami || {
+            echo "❌ Not authenticated to npm"
+            exit 1
+          }
+          echo "✅ Authenticated to npm"
+          echo ""
+          
+          # Publish packages
           if [ "${{ steps.v.outputs.is_prerelease }}" = "true" ]; then
-            echo "Publishing pre-release version with dist-tag: $DIST_TAG"
-            pnpm -r publish --access public --no-git-checks --provenance --tag "$DIST_TAG"
+            echo "🚀 Publishing pre-release version with dist-tag: $DIST_TAG"
+            pnpm -r publish --access public --no-git-checks --provenance --tag "$DIST_TAG" || {
+              echo "❌ Failed to publish packages"
+              exit 1
+            }
           else
-            echo "Publishing stable version with dist-tag: latest"
-            pnpm -r publish --access public --no-git-checks --provenance
+            echo "🚀 Publishing stable version with dist-tag: latest"
+            pnpm -r publish --access public --no-git-checks --provenance || {
+              echo "❌ Failed to publish packages"
+              exit 1
+            }
           fi
+          echo ""
+          echo "✅ All packages published successfully!"
+          
+          # Verify published packages
+          echo ""
+          echo "🔍 Verifying published packages:"
+          for pkg_dir in packages/*/; do
+            if [ -f "$pkg_dir/package.json" ]; then
+              PKG_NAME=$(grep -o '"name":\s*"[^"]*"' "$pkg_dir/package.json" | head -1 | cut -d'"' -f4)
+              PKG_VERSION=$(grep -o '"version":\s*"[^"]*"' "$pkg_dir/package.json" | head -1 | cut -d'"' -f4)
+              IS_PRIVATE=$(grep -o '"private":\s*true' "$pkg_dir/package.json" > /dev/null && echo "true" || echo "false")
+              if [ "$IS_PRIVATE" != "true" ] && [ -n "$PKG_NAME" ]; then
+                echo -n "  - $PKG_NAME@$PKG_VERSION: "
+                if npm view "$PKG_NAME@$PKG_VERSION" version >/dev/null 2>&1; then
+                  echo "✅ Published"
+                else
+                  echo "❌ Not found"
+                fi
+              fi
+            fi
+          done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
