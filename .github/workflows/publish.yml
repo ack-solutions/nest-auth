@@ -48,13 +48,15 @@ jobs:
           if [[ "$VERSION" =~ -(beta|alpha|rc|pre) ]]; then
             echo "is_prerelease=true" >> $GITHUB_OUTPUT
             echo "dist_tag=beta" >> $GITHUB_OUTPUT
+            DIST_TAG="beta"
             echo "✅ Detected pre-release version (beta/alpha/rc/pre)"
           else
             echo "is_prerelease=false" >> $GITHUB_OUTPUT
             echo "dist_tag=latest" >> $GITHUB_OUTPUT
+            DIST_TAG="latest"
             echo "✅ Detected stable version"
           fi
-          echo "🏷️  Dist-tag: $([ "$VERSION" =~ -(beta|alpha|rc|pre) ] && echo 'beta' || echo 'latest')"
+          echo "🏷️  Dist-tag: $DIST_TAG"
 
       - name: Ensure tag was created from main HEAD
         shell: bash
