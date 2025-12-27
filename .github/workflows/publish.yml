@@ -15,10 +15,11 @@ jobs:
       id-token: write
 
     steps:
-      - name: Checkout
+      - name: Checkout main (full history)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: main
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -34,6 +35,7 @@ jobs:
 
       - name: Extract version from tag
         id: version
+        shell: bash
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
           VERSION="${TAG#v}"
@@ -45,19 +47,24 @@ jobs:
             echo "dist_tag=latest" >> $GITHUB_OUTPUT
           fi
 
-      - name: Ensure tag is from main
+      - name: Ensure tag is from main HEAD
+        shell: bash
         run: |
-          git fetch origin main
-          [ "$(git rev-list -n 1 $GITHUB_REF)" = "$(git rev-parse origin/main)" ]
+          git fetch --tags origin
+          TAG_COMMIT="$(git rev-list -n 1 "$GITHUB_REF")"
+          MAIN_COMMIT="$(git rev-parse origin/main)"
+          [ "$TAG_COMMIT" = "$MAIN_COMMIT" ]
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Bump all package versions
+      - name: Bump all workspace package versions
+        shell: bash
         run: |
           pnpm -r version "${{ steps.version.outputs.version }}" --no-git-tag-version
 
-      - name: Commit version changes
+      - name: Commit & push version changes
+        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -65,13 +72,14 @@ jobs:
           if ! git diff --quiet; then
             git add -A
             git commit -m "chore(release): v${{ steps.version.outputs.version }}"
-            git push origin HEAD:main
+            git push origin main
           fi
 
       - name: Build packages
         run: pnpm build
 
       - name: Publish packages
+        shell: bash
         run: |
           pnpm -r publish \
             --access public \
