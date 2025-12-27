@@ -113,12 +113,36 @@ jobs:
           done
           echo ""
           
-          # Bump version for every package in the workspace (pnpm will skip private packages)
-          echo "🚀 Running: pnpm -r version \"$VERSION\" --no-git-tag-version"
-          pnpm -r version "$VERSION" --no-git-tag-version --no-commit-hooks || {
-            echo "❌ Failed to bump versions"
-            exit 1
-          }
+          # Update versions directly in package.json files
+          echo "🚀 Updating package.json files directly..."
+          UPDATED_COUNT=0
+          for pkg_dir in packages/*/; do
+            if [ -f "$pkg_dir/package.json" ]; then
+              IS_PRIVATE=$(grep -o '"private":\s*true' "$pkg_dir/package.json" > /dev/null && echo "true" || echo "false")
+              if [ "$IS_PRIVATE" != "true" ]; then
+                PKG_NAME=$(grep -o '"name":\s*"[^"]*"' "$pkg_dir/package.json" | head -1 | cut -d'"' -f4)
+                OLD_VERSION=$(grep -o '"version":\s*"[^"]*"' "$pkg_dir/package.json" | head -1 | cut -d'"' -f4)
+                
+                if [ -n "$PKG_NAME" ] && [ -n "$OLD_VERSION" ]; then
+                  # Use node to update package.json (more reliable than sed)
+                  node -e "
+                    const fs = require('fs');
+                    const path = '$pkg_dir/package.json';
+                    const pkg = JSON.parse(fs.readFileSync(path, 'utf8'));
+                    pkg.version = '$VERSION';
+                    fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');
+                  " && {
+                    echo "  ✅ Updated $PKG_NAME: $OLD_VERSION -> $VERSION"
+                    UPDATED_COUNT=$((UPDATED_COUNT + 1))
+                  } || {
+                    echo "  ❌ Failed to update $PKG_NAME"
+                  }
+                fi
+              fi
+            fi
+          done
+          echo ""
+          echo "✅ Updated $UPDATED_COUNT package(s)"
           echo ""
           
           # Show updated versions
@@ -138,6 +162,34 @@ jobs:
           # Show what files changed
           echo "📝 Changed files:"
           git status --short || true
+          
+          # Verify versions were actually updated
+          echo ""
+          echo "🔍 Verifying version updates:"
+          ALL_UPDATED=true
+          for pkg_dir in packages/*/; do
+            if [ -f "$pkg_dir/package.json" ]; then
+              IS_PRIVATE=$(grep -o '"private":\s*true' "$pkg_dir/package.json" > /dev/null && echo "true" || echo "false")
+              if [ "$IS_PRIVATE" != "true" ]; then
+                PKG_NAME=$(grep -o '"name":\s*"[^"]*"' "$pkg_dir/package.json" | head -1 | cut -d'"' -f4)
+                PKG_VERSION=$(grep -o '"version":\s*"[^"]*"' "$pkg_dir/package.json" | head -1 | cut -d'"' -f4)
+                if [ -n "$PKG_NAME" ]; then
+                  if [ "$PKG_VERSION" != "$VERSION" ]; then
+                    echo "  ❌ $PKG_NAME: Expected $VERSION, got $PKG_VERSION"
+                    ALL_UPDATED=false
+                  else
+                    echo "  ✅ $PKG_NAME: $PKG_VERSION"
+                  fi
+                fi
+              fi
+            fi
+          done
+          
+          if [ "$ALL_UPDATED" != "true" ]; then
+            echo ""
+            echo "❌ Some packages were not updated correctly!"
+            exit 1
+          fi
 
       - name: Commit version changes back to main
         shell: bash
