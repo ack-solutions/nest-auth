@@ -3,8 +3,8 @@ name: Publish Packages (tag)
 on:
   push:
     tags:
-      - "v*.*.*"
-      - "v*.*.*-beta*"
+      - "*.*.*"
+      - "*.*.*-beta*"
   workflow_dispatch:
 
 jobs:
