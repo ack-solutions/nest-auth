@@ -61,7 +61,7 @@ jobs:
       - name: Bump all workspace package versions
         shell: bash
         run: |
-          pnpm -r version "${{ steps.version.outputs.version }}" --no-git-tag-version
+          pnpm -r exec npm version "${{ steps.version.outputs.version }}" --no-git-tag-version
 
       - name: Commit & push version changes
         shell: bash
