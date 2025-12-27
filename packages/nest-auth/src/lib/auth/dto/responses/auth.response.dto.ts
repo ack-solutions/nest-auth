@@ -53,10 +53,36 @@ export class UserResponseDto implements IUserResponse {
     isVerified: boolean;
 
     @ApiPropertyOptional({
+        description: 'Whether MFA is enabled for this user',
+        example: false,
+    })
+    isMfaEnabled?: boolean;
+
+    @ApiPropertyOptional({
+        description: 'User roles (role names)',
+        example: ['admin', 'user'],
+        type: [String],
+    })
+    roles?: string[];
+
+    @ApiPropertyOptional({
+        description: 'User permissions (flattened from roles)',
+        example: ['read:users', 'write:users'],
+        type: [String],
+    })
+    permissions?: string[];
+
+    @ApiPropertyOptional({
         description: 'Additional user metadata',
         example: { firstName: 'John', lastName: 'Doe' },
     })
     metadata?: Record<string, any>;
+
+    @ApiPropertyOptional({
+        description: 'Tenant ID for multi-tenant applications',
+        example: 'tenant-123',
+    })
+    tenantId?: string;
 }
 
 /**

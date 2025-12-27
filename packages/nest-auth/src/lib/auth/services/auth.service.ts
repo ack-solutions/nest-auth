@@ -614,7 +614,10 @@ export class AuthService {
             email: session.data?.user?.email,
             phone: session.data?.user?.phone,
             isVerified: session.data?.user?.isVerified,
-            roles: session.data?.roles,
+            roles: session.data?.roles?.map((r) => {
+                delete r?.permissions;
+                return { ...r }
+            }),
             tenantId: session.data?.user?.tenantId,
             isMfaEnabled: session.data?.user?.isMfaEnabled,
             isMfaVerified: session.data?.isMfaVerified,
@@ -657,10 +660,33 @@ export class AuthService {
         tokens: { accessToken: string; refreshToken: string },
         isRequiresMfa: boolean
     ): Promise<AuthResponseDto> {
+        // Serialize user for response
+        const config = this.authConfigService.getConfig();
+        let serializedUser: any = user;
+        if (config.user?.serialize) {
+            serializedUser = await config.user.serialize(user);
+        }
+
+        // Extract role names and permissions
+        const roleNames = user.roles?.map(r => r.name) || [];
+        const permissions = this.extractPermissions(user);
+
         let response: AuthResponseDto = {
             accessToken: tokens.accessToken,
             refreshToken: tokens.refreshToken,
             isRequiresMfa: isRequiresMfa,
+            // Include user data in response (not in token) for client-side permission checks
+            user: {
+                id: serializedUser.id,
+                email: serializedUser.email,
+                phone: serializedUser.phone,
+                isVerified: serializedUser.isVerified,
+                isMfaEnabled: serializedUser.isMfaEnabled,
+                roles: roleNames,
+                permissions,
+                metadata: serializedUser.metadata,
+                tenantId: serializedUser.tenantId,
+            },
         };
 
         if (isRequiresMfa) {
@@ -669,12 +695,29 @@ export class AuthService {
             response.defaultMfaMethod = this.mfaService.mfaConfig?.defaultMethod || enabledMethods[0];
         }
 
-        const config = this.authConfigService.getConfig();
         if (config.auth?.transformResponse) {
             response = await config.auth.transformResponse(response, user, session);
         }
 
         return response;
+    }
+
+    /**
+     * Extract permission names from user's roles
+     */
+    private extractPermissions(user: NestAuthUser): string[] {
+        const permissions = new Set<string>();
+        if (user.roles) {
+            for (const role of user.roles) {
+                if (role.permissions) {
+                    for (const perm of role.permissions) {
+                        // Permissions are stored as strings in the role entity
+                        permissions.add(perm);
+                    }
+                }
+            }
+        }
+        return Array.from(permissions);
     }
 
     private async checkTrustedDevice(user: NestAuthUser): Promise<boolean> {

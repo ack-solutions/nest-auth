@@ -1,5 +1,5 @@
 /**
- * Auth Types
+       * Auth Types
  * Contains: Login/Signup/Token types + Auth Entities (Session, Identity, AccessKey, OTP)
  */
 
@@ -14,7 +14,7 @@ export enum NestAuthOTPTypeEnum {
 export enum NestAuthMFAMethodEnum {
     EMAIL = 'email',
     SMS = 'sms',
-    TOTP = 'totp',
+    TOTP  = 'totp',
 }
 
 // --- Entity Interfaces ---
@@ -156,7 +156,11 @@ export interface IUserResponse {
     email?: string;
     phone?: string;
     isVerified?: boolean;
+    isMfaEnabled?: boolean;
+    roles?: string[];
+    permissions?: string[];
     metadata?: Record<string, any>;
+    tenantId?: string;
 }
 
 export interface ITokensResponse {

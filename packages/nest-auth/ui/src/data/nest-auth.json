@@ -705,7 +705,7 @@
   "info": {
     "title": "@ackplus/nest-auth API",
     "description": "OpenAPI specification generated from the Nest Auth module",
-    "version": "1.1.29",
+    "version": "1.1.31-beta.11",
     "contact": {}
   },
   "tags": [],
@@ -771,6 +771,33 @@
             "description": "Email verification status",
             "example": true
           },
+          "isMfaEnabled": {
+            "type": "boolean",
+            "description": "Whether MFA is enabled for this user",
+            "example": false
+          },
+          "roles": {
+            "description": "User roles (role names)",
+            "example": [
+              "admin",
+              "user"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "permissions": {
+            "description": "User permissions (flattened from roles)",
+            "example": [
+              "read:users",
+              "write:users"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
           "metadata": {
             "type": "object",
             "description": "Additional user metadata",
@@ -778,6 +805,11 @@
               "firstName": "John",
               "lastName": "Doe"
             }
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "tenant-123"
           }
         },
         "required": [

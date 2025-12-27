@@ -46,6 +46,19 @@ export type {
     ISignupRequest as SignupDto,
     IAuthResponse as AuthResponse,
     AuthClientConfig,
+    // Password management DTOs
+    IForgotPasswordRequest as ForgotPasswordDto,
+    IResetPasswordRequest as ResetPasswordDto,
+    IChangePasswordRequest as ChangePasswordDto,
+    // Email verification DTOs
+    IVerifyEmailRequest as VerifyEmailDto,
+    IResendVerificationRequest as ResendVerificationDto,
+    // 2FA DTOs
+    IVerify2faRequest as Verify2faDto,
+    IVerify2faResponse as Verify2faResponse,
+    // Response types
+    IMessageResponse as MessageResponse,
+    IVerifyOtpResponse as VerifyOtpResponse,
 } from '@ackplus/nest-auth-client';
 
 // Re-export client class for convenience

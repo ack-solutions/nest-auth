@@ -12,6 +12,11 @@ import {
     ILoginRequest,
     ISignupRequest,
     IVerify2faRequest,
+    IForgotPasswordRequest,
+    IResetPasswordRequest,
+    IVerifyEmailRequest,
+    IResendVerificationRequest,
+    IChangePasswordRequest,
 } from '@ackplus/nest-auth-client';
 import { AuthContext, AuthContextValue } from './auth-context';
 
@@ -233,6 +238,84 @@ export function AuthProvider({
         }
     }, [client]);
 
+    // Password Management
+    const forgotPassword = useCallback(async (dto: IForgotPasswordRequest) => {
+        setError(null);
+        try {
+            return await client.forgotPassword(dto);
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const verifyForgotPasswordOtp = useCallback(async (dto: { email?: string; phone?: string; otp: string }) => {
+        setError(null);
+        try {
+            return await client.verifyForgotPasswordOtp(dto);
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const resetPassword = useCallback(async (dto: IResetPasswordRequest) => {
+        setError(null);
+        try {
+            return await client.resetPassword(dto);
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const changePassword = useCallback(async (dto: IChangePasswordRequest) => {
+        setError(null);
+        try {
+            return await client.changePassword(dto);
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    // Email Verification
+    const verifyEmail = useCallback(async (dto: IVerifyEmailRequest) => {
+        setError(null);
+        try {
+            const response = await client.verifyEmail(dto);
+            // Update local user state to reflect verified status
+            if (user) {
+                setUser({ ...user, isVerified: true });
+            }
+            return response;
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client, user]);
+
+    const resendVerification = useCallback(async (dto: IResendVerificationRequest) => {
+        setError(null);
+        try {
+            return await client.resendVerification(dto);
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    // 2FA
+    const send2fa = useCallback(async (method: 'email' | 'phone' = 'email') => {
+        setError(null);
+        try {
+            return await client.send2fa(method);
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
     // Mode & Tenant
     const setMode = useCallback((mode: 'header' | 'cookie') => {
         client.setMode(mode);
@@ -259,12 +342,24 @@ export function AuthProvider({
         isLoading: status === 'loading',
         isAuthenticated: status === 'authenticated' && user !== null,
         client,
+        // Core auth
         login,
         signup,
         logout,
         refresh,
         verifySession,
         verify2fa,
+        // Password management
+        forgotPassword,
+        verifyForgotPasswordOtp,
+        resetPassword,
+        changePassword,
+        // Email verification
+        verifyEmail,
+        resendVerification,
+        // 2FA
+        send2fa,
+        // Mode & Tenant
         setMode,
         getMode,
         setTenantId,
@@ -281,6 +376,13 @@ export function AuthProvider({
         refresh,
         verifySession,
         verify2fa,
+        forgotPassword,
+        verifyForgotPasswordOtp,
+        resetPassword,
+        changePassword,
+        verifyEmail,
+        resendVerification,
+        send2fa,
         setMode,
         getMode,
         setTenantId,

@@ -15,6 +15,13 @@ import {
     IAuthResponse,
     IVerify2faRequest,
     IVerify2faResponse,
+    IForgotPasswordRequest,
+    IResetPasswordRequest,
+    IVerifyEmailRequest,
+    IResendVerificationRequest,
+    IChangePasswordRequest,
+    IMessageResponse,
+    IVerifyOtpResponse,
 } from '@ackplus/nest-auth-client';
 
 /**
@@ -36,7 +43,7 @@ export interface AuthContextValue {
     /** The underlying AuthClient instance */
     client: AuthClient;
 
-    // Actions
+    // Actions - Core Authentication
     /** Login with credentials */
     login: (dto: ILoginRequest) => Promise<IAuthResponse>;
     /** Sign up a new user */
@@ -49,6 +56,26 @@ export interface AuthContextValue {
     verifySession: () => Promise<boolean>;
     /** Verify 2FA code */
     verify2fa: (dto: IVerify2faRequest) => Promise<IVerify2faResponse>;
+
+    // Actions - Password Management
+    /** Request password reset (forgot password) */
+    forgotPassword: (dto: IForgotPasswordRequest) => Promise<IMessageResponse>;
+    /** Verify forgot password OTP */
+    verifyForgotPasswordOtp: (dto: { email?: string; phone?: string; otp: string }) => Promise<IVerifyOtpResponse>;
+    /** Reset password with token */
+    resetPassword: (dto: IResetPasswordRequest) => Promise<IMessageResponse>;
+    /** Change password (authenticated) */
+    changePassword: (dto: IChangePasswordRequest) => Promise<IMessageResponse>;
+
+    // Actions - Email Verification
+    /** Verify email address */
+    verifyEmail: (dto: IVerifyEmailRequest) => Promise<IMessageResponse>;
+    /** Resend verification email */
+    resendVerification: (dto: IResendVerificationRequest) => Promise<IMessageResponse>;
+
+    // Actions - 2FA
+    /** Send 2FA code */
+    send2fa: (method?: 'email' | 'phone') => Promise<IMessageResponse>;
 
     // Mode & Tenant
     /** Set token mode (only when config.accessTokenType is null) */
@@ -72,12 +99,24 @@ const defaultContextValue: AuthContextValue = {
     isLoading: true,
     isAuthenticated: false,
     client: null as any,
+    // Core auth
     login: () => Promise.reject(new Error('AuthProvider not found')),
     signup: () => Promise.reject(new Error('AuthProvider not found')),
     logout: () => Promise.reject(new Error('AuthProvider not found')),
     refresh: () => Promise.reject(new Error('AuthProvider not found')),
     verifySession: () => Promise.reject(new Error('AuthProvider not found')),
     verify2fa: () => Promise.reject(new Error('AuthProvider not found')),
+    // Password management
+    forgotPassword: () => Promise.reject(new Error('AuthProvider not found')),
+    verifyForgotPasswordOtp: () => Promise.reject(new Error('AuthProvider not found')),
+    resetPassword: () => Promise.reject(new Error('AuthProvider not found')),
+    changePassword: () => Promise.reject(new Error('AuthProvider not found')),
+    // Email verification
+    verifyEmail: () => Promise.reject(new Error('AuthProvider not found')),
+    resendVerification: () => Promise.reject(new Error('AuthProvider not found')),
+    // 2FA
+    send2fa: () => Promise.reject(new Error('AuthProvider not found')),
+    // Mode & tenant
     setMode: () => { throw new Error('AuthProvider not found'); },
     getMode: () => 'header',
     setTenantId: () => { throw new Error('AuthProvider not found'); },
