@@ -1,13 +1,15 @@
-name: Publish Packages (tag)
+name: Release (manual)
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
-      - "*.*.*"
-      - "v*.*.*-beta*"
-      - "*.*.*-beta*"
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 1.2.3 or 1.2.3-beta.1)"
+        required: true
+      dist_tag:
+        description: "npm dist-tag (latest or beta)"
+        required: false
+        default: "latest"
 
 jobs:
   release:
@@ -17,10 +19,11 @@ jobs:
       id-token: write
 
     steps:
-      - name: Checkout (full history)
+      - name: Checkout main (full history)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: main
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -32,80 +35,51 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: pnpm
 
-      - name: Extract version from tag
-        id: v
-        shell: bash
-        run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          VERSION="${TAG#v}"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version from tag: $VERSION"
-          
-          # Detect if this is a pre-release version (beta, alpha, rc, etc.)
-          if [[ "$VERSION" =~ -(beta|alpha|rc|pre) ]]; then
-            echo "is_prerelease=true" >> $GITHUB_OUTPUT
-            echo "dist_tag=beta" >> $GITHUB_OUTPUT
-            echo "Detected pre-release version"
-          else
-            echo "is_prerelease=false" >> $GITHUB_OUTPUT
-            echo "dist_tag=latest" >> $GITHUB_OUTPUT
-            echo "Detected stable version"
-          fi
-
-      - name: Ensure tag was created from main HEAD
-        shell: bash
-        run: |
-          TAG="${{ steps.v.outputs.tag }}"
-          # Fetch main branch first
-          git fetch origin main
-          # Fetch the specific tag (force update if it exists locally)
-          git fetch origin +refs/tags/$TAG:refs/tags/$TAG || true
-          
-          TAG_COMMIT="$(git rev-list -n 1 "$TAG")"
-          MAIN_COMMIT="$(git rev-parse origin/main)"
-          echo "TAG_COMMIT=$TAG_COMMIT"
-          echo "MAIN_COMMIT=$MAIN_COMMIT"
-          if [ "$TAG_COMMIT" != "$MAIN_COMMIT" ]; then
-            echo "❌ Tag is not pointing to latest origin/main. Create the tag from main HEAD."
-            exit 1
-          fi
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Bump all workspace package versions to tag version
+      - name: Validate dist-tag
         shell: bash
         run: |
-          VERSION="${{ steps.v.outputs.version }}"
+          VERSION="${{ inputs.version }}"
+          DIST_TAG="${{ inputs.dist_tag }}"
 
-          # Bump version for every package in the workspace
+          if [[ "$VERSION" =~ -(beta|alpha|rc|pre) ]]; then
+            echo "Pre-release detected."
+            if [ "$DIST_TAG" = "latest" ]; then
+              echo "❌ For prerelease versions, use dist_tag=beta (recommended)."
+              exit 1
+            fi
+          fi
+
+      - name: Bump all workspace package versions
+        shell: bash
+        run: |
+          VERSION="${{ inputs.version }}"
           pnpm -r version "$VERSION" --no-git-tag-version
 
-          # Optional: ensure private is removed only for packages you publish
-          # (Better: keep private=true in packages you never want published.)
-
-      - name: Commit version changes back to main
+      - name: Commit version changes
         shell: bash
         run: |
+          VERSION="${{ inputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Only commit if there are changes
           if git diff --quiet; then
             echo "No version changes to commit."
           else
             git add -A
-            git commit -m "chore(release): v${{ steps.v.outputs.version }}"
-            git push origin HEAD:main
+            git commit -m "chore(release): v$VERSION"
+            git push origin main
           fi
 
-      - name: Move the tag to the release commit (keep tag = published code)
+      - name: Create and push tag on the release commit
         shell: bash
         run: |
-          TAG="${{ steps.v.outputs.tag }}"
-          git tag -f "$TAG"
-          git push origin -f "$TAG"
+          VERSION="${{ inputs.version }}"
+          TAG="v$VERSION"
+          git tag -a "$TAG" -m "$TAG"
+          git push origin "$TAG"
 
       - name: Build all packages
         run: pnpm build
@@ -113,13 +87,11 @@ jobs:
       - name: Publish all packages
         shell: bash
         run: |
-          DIST_TAG="${{ steps.v.outputs.dist_tag }}"
-          if [ "${{ steps.v.outputs.is_prerelease }}" = "true" ]; then
-            echo "Publishing pre-release version with dist-tag: $DIST_TAG"
-            pnpm -r publish --access public --no-git-checks --provenance --tag "$DIST_TAG"
-          else
-            echo "Publishing stable version with dist-tag: latest"
+          DIST_TAG="${{ inputs.dist_tag }}"
+          if [ "$DIST_TAG" = "latest" ]; then
             pnpm -r publish --access public --no-git-checks --provenance
+          else
+            pnpm -r publish --access public --no-git-checks --provenance --tag "$DIST_TAG"
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
