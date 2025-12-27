@@ -56,8 +56,13 @@ jobs:
       - name: Ensure tag was created from main HEAD
         shell: bash
         run: |
-          git fetch origin main --tags
-          TAG_COMMIT="$(git rev-list -n 1 "${{ steps.v.outputs.tag }}")"
+          TAG="${{ steps.v.outputs.tag }}"
+          # Fetch main branch first
+          git fetch origin main
+          # Fetch the specific tag (force update if it exists locally)
+          git fetch origin +refs/tags/$TAG:refs/tags/$TAG || true
+          
+          TAG_COMMIT="$(git rev-list -n 1 "$TAG")"
           MAIN_COMMIT="$(git rev-parse origin/main)"
           echo "TAG_COMMIT=$TAG_COMMIT"
           echo "MAIN_COMMIT=$MAIN_COMMIT"
