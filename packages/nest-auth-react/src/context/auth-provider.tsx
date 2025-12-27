@@ -125,10 +125,16 @@ export function AuthProvider({
 
         const loadUser = async () => {
             try {
-                await client.verifySession();
-                setUser(client.getUser());
-                setSession(client.getSession());
-                setStatus('authenticated');
+                const verfyResponce = await client.verifySession();
+                if (verfyResponce?.valid) {
+                    setUser(client.getUser());
+                    setSession(client.getSession());
+                    setStatus('authenticated');
+                } else {
+                    setUser(null);
+                    setSession(null);
+                    setStatus('unauthenticated');
+                }
             } catch {
                 setUser(null);
                 setSession(null);
