@@ -108,7 +108,7 @@ jobs:
           git push origin -f "$TAG"
 
       - name: Build all packages
-        run: pnpm -r build
+        run: pnpm build
 
       - name: Publish all packages
         shell: bash
