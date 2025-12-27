@@ -23,7 +23,7 @@ export class AuthConfigService {
         jwt: {
             secret: 'secret',
         },
-        accessTokenType: 'header',
+        accessTokenType: null,
         cookieOptions: {
             httpOnly: true,
             secure: false,

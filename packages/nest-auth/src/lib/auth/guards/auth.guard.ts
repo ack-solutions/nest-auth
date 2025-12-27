@@ -10,6 +10,7 @@ import { SKIP_MFA_KEY } from '../../core/decorators/skip-mfa.decorator';
 import { PERMISSIONS_KEY } from '../../core/decorators/permissions.decorator';
 import { ROLES_KEY } from '../../core/decorators/role.decorator';
 import { AuthConfigService } from '../../core/services/auth-config.service';
+import { CookieHelper } from '../../utils/cookie.helper';
 
 // Key for optional auth metadata
 export const OPTIONAL_AUTH_KEY = 'optional_auth';
@@ -148,7 +149,8 @@ export class NestAuthAuthGuard implements CanActivate {
 
         // Try cookies (if allowed)
         if (checkCookie) {
-            const cookieToken = request.cookies?.['accessToken'];
+            // Use CookieHelper for robust cookie parsing (works even without cookie-parser middleware)
+            const cookieToken = CookieHelper.get(request, 'accessToken');
             if (cookieToken) {
                 return { token: cookieToken, authType: 'bearer' };
             }

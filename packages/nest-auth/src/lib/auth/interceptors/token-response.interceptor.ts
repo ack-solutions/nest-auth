@@ -1,12 +1,13 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { CookieOptions, Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { ACCESS_TOKEN_COOKIE_NAME, NEST_AUTH_TRUST_DEVICE_KEY, REFRESH_TOKEN_COOKIE_NAME } from '../../auth.constants';
 import { IAuthModuleOptions } from '../../core/interfaces/auth-module-options.interface';
 import ms from 'ms';
 import { omit } from 'lodash';
+import { CookieHelper, CookieOptions } from '../../utils/cookie.helper';
 
 @Injectable()
 export class TokenResponseInterceptor implements NestInterceptor {
@@ -74,13 +75,14 @@ export class TokenResponseInterceptor implements NestInterceptor {
         }
     }
 
-    private setCookie(response: Response, name, token: string, options?: CookieOptions): void {
-        response.cookie(name, token, {
+    private setCookie(response: Response, name: string, token: string, options?: Partial<CookieOptions>): void {
+        // Use CookieHelper for consistent cookie handling
+        CookieHelper.set(response, name, token, {
             httpOnly: true,
             path: '/',
-            secure: this.options.cookieOptions.secure,
-            sameSite: this.options.cookieOptions.sameSite,
-            maxAge: ms(this.options.session.sessionExpiry),
+            secure: this.options.cookieOptions?.secure,
+            sameSite: this.options.cookieOptions?.sameSite as 'strict' | 'lax' | 'none' | undefined,
+            maxAge: ms(this.options.session?.sessionExpiry || '7d'),
             ...options,
         });
     }
