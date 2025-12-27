@@ -213,11 +213,13 @@ export function AuthProvider({
     const verifySession = useCallback(async () => {
         setError(null);
         try {
-            await client.verifySession();
-            setUser(client.getUser());
-            setSession(client.getSession());
-            setStatus('authenticated');
-            return true;
+            const verifyResponce = await client.verifySession();
+            if (verifyResponce?.valid) {
+                setUser(client.getUser());
+                setSession(client.getSession());
+                setStatus('authenticated');
+            }
+            return verifyResponce?.valid;
         } catch (err) {
             setError(err as AuthError);
             throw err;

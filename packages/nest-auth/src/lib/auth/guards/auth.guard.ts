@@ -54,10 +54,11 @@ export class NestAuthAuthGuard implements CanActivate {
         request.accessKey = null;
         request.authType = null;
 
-        const authHeader = request.headers.authorization;
+        // Get token from header or cookie based on configuration
+        const { token, authType } = this.extractToken(request);
 
-        // If no auth header
-        if (!authHeader) {
+        // If no token found
+        if (!token) {
             if (isOptional) {
                 // Optional auth: allow request to proceed without user data
                 return true;
@@ -70,22 +71,10 @@ export class NestAuthAuthGuard implements CanActivate {
             }
         }
 
-        const [type, token] = authHeader.split(' ');
-        if (!type || !token) {
-            if (isOptional) {
-                return true;
-            } else {
-                throw new UnauthorizedException({
-                    message: 'Invalid authentication format',
-                    code: ERROR_CODES.INVALID_AUTH_FORMAT
-                });
-            }
-        }
-
         // Handle authentication
         let isAuthenticated = false;
         try {
-            switch (type.toLowerCase()) {
+            switch (authType) {
                 case 'bearer':
                     isAuthenticated = await this.handleJwtAuth(context, request, response, token, isOptional);
                     break;
@@ -125,6 +114,47 @@ export class NestAuthAuthGuard implements CanActivate {
         }
 
         return true;
+    }
+
+    /**
+     * Extract token from request (header or cookie)
+     * Priority: Header first, then cookie
+     * Respects accessTokenType configuration:
+     * - 'header': Only check Authorization header
+     * - 'cookie': Only check cookies
+     * - null/undefined: Check both (header first)
+     */
+    private extractToken(request: Request): { token: string | null; authType: 'bearer' | 'apikey' | null } {
+        const config = this.authConfigService.getConfig();
+        const accessTokenType = config.accessTokenType;
+
+        // Determine which sources to check based on configuration
+        const checkHeader = accessTokenType !== 'cookie';
+        const checkCookie = accessTokenType !== 'header';
+
+        // Try Authorization header first (if allowed)
+        if (checkHeader) {
+            const authHeader = request.headers.authorization;
+            if (authHeader) {
+                const [type, token] = authHeader.split(' ');
+                if (type && token) {
+                    const authType = type.toLowerCase() as 'bearer' | 'apikey';
+                    if (authType === 'bearer' || authType === 'apikey') {
+                        return { token, authType };
+                    }
+                }
+            }
+        }
+
+        // Try cookies (if allowed)
+        if (checkCookie) {
+            const cookieToken = request.cookies?.['accessToken'];
+            if (cookieToken) {
+                return { token: cookieToken, authType: 'bearer' };
+            }
+        }
+
+        return { token: null, authType: null };
     }
 
     private async handleJwtAuth(context: ExecutionContext, request: any, response: Response, token: string, isOptional: boolean = false): Promise<boolean> {

@@ -181,7 +181,9 @@ export class AuthClient {
 
         // Add access token type header to communicate preferred mode to backend
         const mode = this.tokenManager.getMode();
-        headers['x-access-token-type'] = mode;
+        if (mode) {
+            headers['x-access-token-type'] = mode;
+        }
 
         // Add authorization header if in header mode
         if (this.tokenManager.isHeaderMode()) {
