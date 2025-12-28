@@ -37,6 +37,7 @@ async function bootstrap() {
     origin: [
       'http://localhost:4200', // Vite default
       'http://localhost:3000', // Same as backend (for some setups)
+      'http://localhost:3001', // Next.js example
     ],
     // Required for cookies to be sent cross-origin
     credentials: true,

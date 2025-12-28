@@ -1,6 +1,6 @@
 // Guards
 export * from './guards/auth.guard';
-export { OPTIONAL_AUTH_KEY } from './guards/auth.guard';
+
 
 // Interceptors
 export * from './interceptors/token-response.interceptor';

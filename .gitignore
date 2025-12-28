@@ -1,3 +1,6 @@
 node_modules
 dist
 /.pnpm-store
+
+apps/examples-next/.env
+apps/example-nest/.env

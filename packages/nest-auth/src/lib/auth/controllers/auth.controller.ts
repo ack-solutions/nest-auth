@@ -43,6 +43,8 @@ import { VerificationService } from '../services/verification.service';
 import { TokenResponseInterceptor } from '../interceptors/token-response.interceptor';
 import { AuthExceptionFilter } from '../filters/auth-exception.filter';
 
+import { Auth } from '../../core/decorators/auth.decorator';
+
 @Controller('auth')
 @UseFilters(AuthExceptionFilter)
 export class AuthController {
@@ -155,9 +157,16 @@ export class AuthController {
     @HttpCode(200)
     @Post('logout')
     @SkipMfa()
-    @UseGuards(NestAuthAuthGuard)
+    @Auth(true)
     async logout(@Res({ passthrough: true }) res: Response, @Req() req: Request): Promise<NestAuthLogoutResponseDto> {
-        await this.authService.logout();
+        // Try safe logout if user is present
+        try {
+            if ((req as any).user) {
+               await this.authService.logout();
+            }
+        } catch (e) {
+            // Ignore session revocation errors if user not found/invalid
+        }
 
         res.clearCookie(ACCESS_TOKEN_COOKIE_NAME);
         res.clearCookie(REFRESH_TOKEN_COOKIE_NAME);

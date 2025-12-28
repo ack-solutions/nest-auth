@@ -68,7 +68,49 @@ const COOKIE_NAMES = {
  * }
  * ```
  */
-export function createNextAuthHelpers(config: AuthClientConfig): NextAuthHelpers {
+/**
+ * Configuration for Next.js auth helpers
+ */
+export interface NextAuthHelpersConfig extends AuthClientConfig {
+    /**
+     * Custom cookie names
+     */
+    cookieNames?: {
+        accessToken?: string;
+        refreshToken?: string;
+    };
+}
+
+/**
+ * Create Next.js auth helpers
+ * 
+ * @example
+ * ```typescript
+ * // lib/auth.ts
+ * import { createNextAuthHelpers } from '@ackplus/nest-auth-react';
+ * 
+ * export const { getServerAuth, withAuth, createInitialState } = createNextAuthHelpers({
+ *   baseUrl: process.env.API_URL!,
+ *   cookieNames: {
+ *     accessToken: 'my_app_access_token',
+ *   },
+ * });
+ * 
+ * // app/page.tsx (Server Component)
+ * import { getServerAuth, createInitialState } from '@/lib/auth';
+ * import { cookies } from 'next/headers';
+ * 
+ * export default async function Page() {
+ *   const auth = await getServerAuth({ cookies: await cookies() });
+ *   return <ClientComponent initialState={createInitialState(auth)} />;
+ * }
+ * ```
+ */
+export function createNextAuthHelpers(config: NextAuthHelpersConfig): NextAuthHelpers {
+    const cookieNames = {
+        accessToken: config.cookieNames?.accessToken || COOKIE_NAMES.ACCESS_TOKEN,
+        refreshToken: config.cookieNames?.refreshToken || COOKIE_NAMES.REFRESH_TOKEN,
+    };
     const getServerAuth = async (
         request: Request | { cookies: { get: (name: string) => { value: string } | undefined } }
     ): Promise<ServerAuthState> => {
@@ -81,11 +123,11 @@ export function createNextAuthHelpers(config: AuthClientConfig): NextAuthHelpers
                 const cookieHeader = request.headers.get('cookie');
                 if (cookieHeader) {
                     const cookies = parseCookies(cookieHeader);
-                    accessToken = cookies[COOKIE_NAMES.ACCESS_TOKEN];
+                    accessToken = cookies[cookieNames.accessToken];
                 }
             } else {
                 // Next.js cookies() object
-                accessToken = request.cookies.get(COOKIE_NAMES.ACCESS_TOKEN)?.value;
+                accessToken = request.cookies.get(cookieNames.accessToken)?.value;
             }
 
             if (!accessToken) {

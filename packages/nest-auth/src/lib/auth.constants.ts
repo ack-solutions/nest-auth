@@ -12,6 +12,9 @@ export const EMAIL_AUTH_PROVIDER = 'email';
 export const PHONE_AUTH_PROVIDER = 'phone';
 
 
+// Key for optional auth metadata
+export const OPTIONAL_AUTH_KEY = 'optional_auth';
+
 // ==========================================
 // ERROR CODES - Categorized for better organization
 // ==========================================

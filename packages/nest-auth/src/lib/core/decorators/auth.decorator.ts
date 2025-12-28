@@ -1,5 +1,6 @@
 import { UseGuards, applyDecorators, SetMetadata } from '@nestjs/common';
-import { NestAuthAuthGuard, OPTIONAL_AUTH_KEY } from '../../auth/guards/auth.guard';
+import { NestAuthAuthGuard } from '../../auth/guards/auth.guard';
+import { OPTIONAL_AUTH_KEY } from '../../auth.constants';
 
 /**
  * Flexible Authentication Decorator

@@ -1,5 +1,5 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, ForbiddenException } from '@nestjs/common';
-import { ERROR_CODES } from '../../auth.constants';
+import { ERROR_CODES, OPTIONAL_AUTH_KEY } from '../../auth.constants';
 import { Reflector } from '@nestjs/core';
 import { Request, Response } from 'express';
 import { JwtService } from '../../core/services/jwt.service';
@@ -11,9 +11,6 @@ import { PERMISSIONS_KEY } from '../../core/decorators/permissions.decorator';
 import { ROLES_KEY } from '../../core/decorators/role.decorator';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { CookieHelper } from '../../utils/cookie.helper';
-
-// Key for optional auth metadata
-export const OPTIONAL_AUTH_KEY = 'optional_auth';
 
 /**
  * NestAuthAuthGuard
@@ -95,7 +92,7 @@ export class NestAuthAuthGuard implements CanActivate {
             }
         } catch (error) {
             if (isOptional) {
-                // If optional auth fails, silently proceed without user data
+                // If optional auth fails, silently proceed without user data (e.g. invalid token)
                 return true;
             } else {
                 // If required auth fails, re-throw the error
@@ -243,7 +240,7 @@ export class NestAuthAuthGuard implements CanActivate {
             // Note: Token refresh is handled by RefreshTokenInterceptor
             if (isOptional) {
                 // Auth is optional - continue without user data
-                return false;
+                return true; 
             } else {
                 // If it's already an HttpException (like UnauthorizedException from our checks), rethrow it
                 if (error instanceof UnauthorizedException || (error as any).status) {

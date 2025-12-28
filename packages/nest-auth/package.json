@@ -11,7 +11,8 @@
     "build:ui": "npm --prefix ui install && npm --prefix ui run build",
     "build": "pnpm clean && pnpm -C ../.. exec tsc -p packages/nest-auth/tsconfig.build.json && pnpm generate:swagger && pnpm build:ui",
     "format": "prettier --write \"src/**/*.ts\"",
-    "lint": "eslint \"src/**/*.ts\" --fix"
+    "lint": "eslint \"src/**/*.ts\" --fix",
+    "watch": "pnpm -C ../.. exec tsc -p packages/nest-auth/tsconfig.build.json -w"
   },
   "files": [
     "dist",
