@@ -10,7 +10,7 @@ import {
     ISignupRequest as SignupDto,
     IRefreshRequest as RefreshDto,
     IForgotPasswordRequest as ForgotPasswordDto,
-    IResetPasswordRequest as ResetPasswordDto,
+    IResetPasswordWithTokenRequest as ResetPasswordDto,
     IVerifyEmailRequest as VerifyEmailDto,
     IResendVerificationRequest as ResendVerificationDto,
     IChangePasswordRequest as ChangePasswordDto,
