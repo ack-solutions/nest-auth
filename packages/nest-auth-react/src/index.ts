@@ -25,6 +25,20 @@ export { GuestGuard, GuestGuardProps } from './guards/guest-guard';
 export { RequireRole, RequireRoleProps } from './guards/require-role';
 export { RequirePermission, RequirePermissionProps } from './guards/require-permission';
 
+// HOC Guards (for both React and Next.js)
+export { 
+    withRequireRole, 
+    createRequireRoleHOC,
+    WithRequireRoleOptions,
+    WithRequireRoleInjectedProps,
+} from './guards/with-require-role';
+export { 
+    withRequirePermission, 
+    createRequirePermissionHOC,
+    WithRequirePermissionOptions,
+    WithRequirePermissionInjectedProps,
+} from './guards/with-require-permission';
+
 
 // Next helpers
 export { createNextAuthHelpers, NextAuthHelpers, ServerAuthState } from './next/create-next-auth-helpers';

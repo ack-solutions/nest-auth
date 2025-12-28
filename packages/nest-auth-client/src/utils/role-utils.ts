@@ -29,6 +29,9 @@ export function hasRole(
     role: string | string[],
     matchAll: boolean = false
 ): boolean {
+    if(!role || role.length === 0) {
+        return true;
+    }
     if (!user || !user.roles || user.roles.length === 0) {
         return false;
     }
@@ -67,6 +70,11 @@ export function hasPermission(
     permission: string | string[],
     matchAll: boolean = false
 ): boolean {
+    // If no permission is specified, return true
+    if (!permission || permission.length === 0) {
+        return true;
+    }
+
     if (!user || !user.permissions || user.permissions.length === 0) {
         return false;
     }
@@ -98,6 +106,11 @@ export function hasAnyAccess(
     user: AuthUser | null | undefined,
     requirements: { roles?: string[]; permissions?: string[] }
 ): boolean {
+    // If no requirements are specified, return true
+    if (!requirements || (!requirements?.roles && !requirements?.permissions)) {
+        return true;
+    }
+    
     if (!user) return false;
 
     const hasRequiredRole = requirements.roles && requirements.roles.length > 0
