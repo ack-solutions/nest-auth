@@ -81,8 +81,7 @@ export {
     ITenantsConfig,
     ISsoProviderConfig,
     ISsoConfig,
-    IUiConfig,
-    IClientConfigResponse,
+    IUiConfig
 } from './config';
 
 // User & Role (from user.ts)

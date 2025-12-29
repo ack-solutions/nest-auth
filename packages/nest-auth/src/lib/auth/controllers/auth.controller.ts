@@ -29,8 +29,6 @@ import { VerifyOtpResponseDto } from '../dto/responses/verify-otp.response.dto';
 import { NestAuthChangePasswordRequestDto } from '../dto/requests/change-password.request.dto';
 import { NestAuthSendEmailVerificationRequestDto } from '../dto/requests/send-email-verification.request.dto';
 import { NestAuthVerifyEmailRequestDto } from '../dto/requests/verify-email.request.dto';
-import { ClientConfigService } from '../services/client-config.service';
-import { ClientConfigResponseDto } from '../dto/responses/client-config.response.dto';
 import { ACCESS_TOKEN_COOKIE_NAME, REFRESH_TOKEN_COOKIE_NAME } from '../../auth.constants';
 
 
@@ -50,7 +48,6 @@ export class AuthController {
         private readonly authService: AuthService,
         private readonly passwordService: PasswordService,
         private readonly verificationService: VerificationService,
-        private readonly clientConfigService: ClientConfigService,
     ) { }
 
     // Helper methods for response handling are now handled by TokenResponseInterceptor
@@ -166,8 +163,10 @@ export class AuthController {
             // Ignore session revocation errors if user not found/invalid
         }
 
-        res.clearCookie(ACCESS_TOKEN_COOKIE_NAME);
-        res.clearCookie(REFRESH_TOKEN_COOKIE_NAME);
+        // Clear cookies with the same options they were set with (especially path)
+        // Cookies must be cleared with matching path option, otherwise browser won't remove them
+        res.clearCookie(ACCESS_TOKEN_COOKIE_NAME, { path: '/' });
+        res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, { path: '/' });
 
         return { message: 'Logged out successfully' };
     }
@@ -178,12 +177,17 @@ export class AuthController {
     @Post('logout-all')
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
-    async logoutAll(): Promise<NestAuthLogoutAllResponseDto> {
+    async logoutAll(@Res({ passthrough: true }) res: Response): Promise<NestAuthLogoutAllResponseDto> {
         const user = RequestContext.currentUser();
         if (!user) {
             throw new UnauthorizedException('User not found');
         }
         await this.authService.logoutAll(user.id!);
+
+        // Clear cookies for the current device as well
+        res.clearCookie(ACCESS_TOKEN_COOKIE_NAME, { path: '/' });
+        res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, { path: '/' });
+
         return { message: 'Logged out from all devices successfully' };
     }
 
@@ -285,17 +289,6 @@ export class AuthController {
     async verifyEmail(@Body() input: NestAuthVerifyEmailRequestDto): Promise<NestAuthEmailVerifiedResponseDto> {
         await this.verificationService.verifyEmail(input);
         return { message: 'Email verified successfully' };
-    }
-
-    @ApiOperation({
-        summary: 'Get Client Configuration',
-        description: 'Returns backend configuration for frontend clients. Includes enabled auth methods, registration settings, MFA options, tenant configuration, and SSO providers. Can be customized via clientConfig.factory in AuthModuleOptions.',
-    })
-    @ApiResponse({ status: 200, type: ClientConfigResponseDto })
-    @HttpCode(200)
-    @Get('client-config')
-    async getClientConfig(): Promise<ClientConfigResponseDto> {
-        return await this.clientConfigService.getClientConfig();
     }
 
     @ApiOperation({

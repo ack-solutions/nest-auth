@@ -381,6 +381,41 @@ export class AuthClient {
     }
 
     /**
+     * Logout from all devices
+     * This revokes all sessions for the current user
+     */
+    async logoutAll(options?: RequestOptions): Promise<MessageResponse> {
+        const endpoint = this.getEndpoint('logoutAll');
+        const response = await this.request<MessageResponse>('POST', endpoint, undefined, options);
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        // Clear local tokens and state (same as regular logout)
+        await this.tokenManager.clearTokens();
+
+        // Clear state
+        this.user = null;
+        this.session = null;
+
+        // Clear persisted state
+        await this.persistState();
+
+        // Cancel any pending refreshes
+        this.refreshQueue.cancel();
+        this.retryTracker.clear();
+
+        // Emit events
+        this.events.emit('logout', undefined);
+        this.events.emit('authStateChange', { user: null });
+        this.config.onLogout?.();
+        this.config.onAuthStateChange?.(null);
+
+        return response.data;
+    }
+
+    /**
      * Refresh tokens
      */
     async refresh(dto?: RefreshDto, options?: RequestOptions): Promise<TokenPair> {

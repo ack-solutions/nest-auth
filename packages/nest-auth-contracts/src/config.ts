@@ -74,13 +74,3 @@ export interface IUiConfig {
     logoUrl?: string;
     backgroundImageUrl?: string;
 }
-
-export interface IClientConfigResponse {
-    emailAuth: IEmailAuthConfig;
-    phoneAuth: IPhoneAuthConfig;
-    registration: IRegistrationConfig;
-    mfa: IMfaConfig;
-    tenants: ITenantsConfig;
-    sso: ISsoConfig;
-    ui?: IUiConfig;
-}

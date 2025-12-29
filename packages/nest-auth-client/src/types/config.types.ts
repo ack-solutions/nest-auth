@@ -97,6 +97,8 @@ export interface EndpointConfig {
     signup?: string;
     /** Logout endpoint (default: /auth/logout) */
     logout?: string;
+    /** Logout from all devices endpoint (default: /auth/logout-all) */
+    logoutAll?: string;
     /** Refresh token endpoint (default: /auth/refresh) */
     refresh?: string;
     /** Get current user endpoint (default: /auth/me) */
@@ -128,16 +130,17 @@ export const DEFAULT_ENDPOINTS: Required<EndpointConfig> = {
     login: '/auth/login',
     signup: '/auth/signup',
     logout: '/auth/logout',
-    refresh: '/auth/refresh',
-    me: '/auth/me',
+    logoutAll: '/auth/logout-all',
+    refresh: '/auth/refresh-token',
+    me: '/auth/user',
     forgotPassword: '/auth/forgot-password',
     verifyForgotPasswordOtp: '/auth/verify-forgot-password-otp',
     resetPassword: '/auth/reset-password',
     verifyEmail: '/auth/verify-email',
     resendVerification: '/auth/send-email-verification',
     changePassword: '/auth/change-password',
-    send2fa: '/auth/2fa/send',
-    verify2fa: '/auth/2fa/verify',
+    send2fa: '/auth/mfa/challenge',
+    verify2fa: '/auth/mfa/verify',
     verifySession: '/auth/verify-session',
 };
 

@@ -52,6 +52,8 @@ export interface AuthContextValue {
     signup: (dto: ISignupRequest) => Promise<IAuthResponse>;
     /** Logout the current user */
     logout: () => Promise<void>;
+    /** Logout from all devices */
+    logoutAll: () => Promise<IMessageResponse>;
     /** Refresh tokens */
     refresh: () => Promise<ITokenPair>;
     /** Get current user from server */
@@ -105,6 +107,7 @@ const defaultContextValue: AuthContextValue = {
     login: () => Promise.reject(new Error('AuthProvider not found')),
     signup: () => Promise.reject(new Error('AuthProvider not found')),
     logout: () => Promise.reject(new Error('AuthProvider not found')),
+    logoutAll: () => Promise.reject(new Error('AuthProvider not found')),
     refresh: () => Promise.reject(new Error('AuthProvider not found')),
     verifySession: () => Promise.reject(new Error('AuthProvider not found')),
     verify2fa: () => Promise.reject(new Error('AuthProvider not found')),

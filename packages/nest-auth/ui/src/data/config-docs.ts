@@ -677,32 +677,6 @@ NestAuthModule.forRoot({
 }
 \`\`\`
 
----
-
-## Client Config Customization
-
-### clientConfig.factory
-- **Type**: \`Function\`
-- **Description**: Customize the \`/auth/client-config\` response
-
-\`\`\`typescript
-{
-  clientConfig: {
-    factory: async (defaultConfig, context) => {
-      return {
-        ...defaultConfig,
-        customField: 'value',
-        features: {
-          socialLogin: true,
-          biometrics: false,
-        },
-      };
-    },
-  },
-}
-\`\`\`
-
----
 
 ## Debug Configuration
 

@@ -1208,31 +1208,6 @@ NestAuthModule.forRoot({
 
 ---
 
-## Client Config Customization
-
-### clientConfig.factory
-- **Type**: \`Function\`
-- **Description**: Customize the \`/auth/client-config\` response
-
-\`\`\`typescript
-{
-  clientConfig: {
-    factory: async (defaultConfig, context) => {
-      return {
-        ...defaultConfig,
-        customField: 'value',
-        features: {
-          socialLogin: true,
-          biometrics: false,
-        },
-      };
-    },
-  },
-}
-\`\`\`
-
----
-
 ## Debug Configuration
 
 ### debug.enabled
@@ -3720,35 +3695,6 @@ curl -X POST http://localhost:3000/auth/verify-email \\
   -d '{
     "otp": "123456"
   }'
-\`\`\`
-
----
-
-### GET /auth/client-config
-
-**Description**: Get frontend client configuration (enabled auth methods, MFA status, etc.).
-
-**Authentication**: None required
-
-**Response**:
-\`\`\`typescript
-{
-  registration: {
-    enabled: boolean;
-  };
-  mfa: {
-    enabled: boolean;
-    required: boolean;
-    methods: string[];
-  };
-  ssoProviders: string[];
-  // ... other config
-}
-\`\`\`
-
-**Example Request**:
-\`\`\`bash
-curl -X GET http://localhost:3000/auth/client-config
 \`\`\`
 
 ---

@@ -200,6 +200,24 @@ export function AuthProvider({
         }
     }, [client]);
 
+    const logoutAll = useCallback(async () => {
+        setError(null);
+        try {
+            const response = await client.logoutAll();
+            setUser(null);
+            setSession(null);
+            setStatus('unauthenticated');
+            return response;
+        } catch (err) {
+            // Still clear local state even if server logout fails
+            setUser(null);
+            setSession(null);
+            setStatus('unauthenticated');
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
     const refresh = useCallback(async () => {
         setError(null);
         try {
@@ -350,6 +368,7 @@ export function AuthProvider({
         login,
         signup,
         logout,
+        logoutAll,
         refresh,
         verifySession,
         verify2fa,
@@ -377,6 +396,7 @@ export function AuthProvider({
         login,
         signup,
         logout,
+        logoutAll,
         refresh,
         verifySession,
         verify2fa,

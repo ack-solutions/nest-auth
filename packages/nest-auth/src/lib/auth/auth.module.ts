@@ -1,7 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { AuthService } from './services/auth.service';
 import { MfaService } from './services/mfa.service';
-import { ClientConfigService } from './services/client-config.service';
 import { NestAuthAuthGuard } from './guards/auth.guard';
 import { TokenResponseInterceptor } from './interceptors/token-response.interceptor';
 import { AuthController } from './controllers/auth.controller';
@@ -43,7 +42,6 @@ import { RoleModule } from '../role/role.module';
     providers: [
         AuthService,
         MfaService,
-        ClientConfigService,
         NestAuthAuthGuard,
         TokenResponseInterceptor,
         AuthSessionEventListener,
@@ -56,7 +54,6 @@ import { RoleModule } from '../role/role.module';
         PasswordService,
         VerificationService,
         MfaService,
-        ClientConfigService,
         NestAuthAuthGuard,
         TokenResponseInterceptor,
     ],

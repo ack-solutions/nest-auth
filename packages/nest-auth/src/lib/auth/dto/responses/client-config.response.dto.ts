@@ -10,7 +10,6 @@ import {
     ISsoProviderConfig,
     ISsoConfig,
     IUiConfig,
-    IClientConfigResponse,
 } from '@ackplus/nest-auth-contracts';
 
 export class EmailAuthConfigDto implements IEmailAuthConfig {
@@ -139,27 +138,4 @@ export class UiConfigDto implements IUiConfig {
 
     @ApiPropertyOptional()
     backgroundImageUrl?: string;
-}
-
-export class ClientConfigResponseDto implements IClientConfigResponse {
-    @ApiProperty({ type: EmailAuthConfigDto })
-    emailAuth: EmailAuthConfigDto;
-
-    @ApiProperty({ type: PhoneAuthConfigDto })
-    phoneAuth: PhoneAuthConfigDto;
-
-    @ApiProperty({ type: RegistrationConfigDto })
-    registration: RegistrationConfigDto;
-
-    @ApiProperty({ type: MfaConfigDto })
-    mfa: MfaConfigDto;
-
-    @ApiProperty({ type: TenantsConfigDto })
-    tenants: TenantsConfigDto;
-
-    @ApiProperty({ type: SsoConfigDto })
-    sso: SsoConfigDto;
-
-    @ApiPropertyOptional({ type: UiConfigDto })
-    ui?: UiConfigDto;
 }

@@ -19,7 +19,6 @@ export * from './events/two-factor-code-sent.event';
 // Services
 export * from './services/auth.service';
 export * from './services/mfa.service';
-export * from './services/client-config.service';
 
 // Controllers
 export * from './controllers/auth.controller';
