@@ -41,7 +41,7 @@ export {
 
 
 // Next helpers
-export { createNextAuthHelpers, NextAuthHelpers, ServerAuthState } from './next/create-next-auth-helpers';
+export { createNextAuthHelpers, NextAuthHelpers, NextAuthHelpersConfig, ServerAuthState } from './next/create-next-auth-helpers';
 export { NextAuthProvider, NextAuthProviderProps } from './next/next-auth-provider';
 
 

@@ -3,7 +3,6 @@
  */
 
 import {
-    AuthClient,
     AuthClientConfig,
     IAuthUser,
     ClientSession,
@@ -40,82 +39,73 @@ export interface NextAuthHelpers {
 
 /**
  * Cookie names used by nest-auth
+ * 
+ * IMPORTANT: These values MUST match the backend constants defined in:
+ * @ackplus/nest-auth -> src/lib/auth.constants.ts
+ * 
+ * - ACCESS_TOKEN_COOKIE_NAME = 'accessToken'
+ * - REFRESH_TOKEN_COOKIE_NAME = 'refreshToken'
+ * 
+ * Do NOT change these values unless you also update the backend.
  */
 const COOKIE_NAMES = {
-    ACCESS_TOKEN: 'access_token',
-    REFRESH_TOKEN: 'refresh_token',
-};
+    ACCESS_TOKEN: 'accessToken',
+    REFRESH_TOKEN: 'refreshToken',
+} as const;
 
-/**
- * Create Next.js auth helpers
- * 
- * @example
- * ```typescript
- * // lib/auth.ts
- * import { createNextAuthHelpers } from '@ackplus/nest-auth-react';
- * 
- * export const { getServerAuth, withAuth, createInitialState } = createNextAuthHelpers({
- *   baseUrl: process.env.API_URL!,
- * });
- * 
- * // app/page.tsx (Server Component)
- * import { getServerAuth, createInitialState } from '@/lib/auth';
- * import { cookies } from 'next/headers';
- * 
- * export default async function Page() {
- *   const auth = await getServerAuth({ cookies: await cookies() });
- *   return <ClientComponent initialState={createInitialState(auth)} />;
- * }
- * ```
- */
 /**
  * Configuration for Next.js auth helpers
+ * 
+ * Note: Cookie names are automatically matched to the backend defaults:
+ * - accessToken: 'accessToken'
+ * - refreshToken: 'refreshToken'
+ * 
+ * Cookie names cannot be customized on the client side as they must
+ * match the backend configuration for authentication to work properly.
  */
-export interface NextAuthHelpersConfig extends AuthClientConfig {
-    /**
-     * Custom cookie names
-     */
-    cookieNames?: {
-        accessToken?: string;
-        refreshToken?: string;
-    };
-}
+export type NextAuthHelpersConfig = AuthClientConfig;
 
 /**
  * Create Next.js auth helpers
  * 
+ * Provides server-side utilities for Next.js App Router to:
+ * - Read authentication state from cookies
+ * - Protect API routes
+ * - Hydrate client-side auth state
+ * 
  * @example
  * ```typescript
- * // lib/auth.ts
+ * // lib/auth.server.ts (no 'use client' directive)
  * import { createNextAuthHelpers } from '@ackplus/nest-auth-react';
  * 
  * export const { getServerAuth, withAuth, createInitialState } = createNextAuthHelpers({
  *   baseUrl: process.env.API_URL!,
- *   cookieNames: {
- *     accessToken: 'my_app_access_token',
- *   },
  * });
  * 
- * // app/page.tsx (Server Component)
- * import { getServerAuth, createInitialState } from '@/lib/auth';
+ * // app/layout.tsx (Server Component)
+ * import { getServerAuth, createInitialState } from '@/lib/auth.server';
  * import { cookies } from 'next/headers';
  * 
- * export default async function Page() {
+ * export default async function RootLayout({ children }) {
  *   const auth = await getServerAuth({ cookies: await cookies() });
- *   return <ClientComponent initialState={createInitialState(auth)} />;
+ *   return (
+ *     <html>
+ *       <body>
+ *         <AuthProvider initialState={createInitialState(auth)}>
+ *           {children}
+ *         </AuthProvider>
+ *       </body>
+ *     </html>
+ *   );
  * }
  * ```
  */
 export function createNextAuthHelpers(config: NextAuthHelpersConfig): NextAuthHelpers {
-    const cookieNames = {
-        accessToken: config.cookieNames?.accessToken || COOKIE_NAMES.ACCESS_TOKEN,
-        refreshToken: config.cookieNames?.refreshToken || COOKIE_NAMES.REFRESH_TOKEN,
-    };
     const getServerAuth = async (
         request: Request | { cookies: { get: (name: string) => { value: string } | undefined } }
     ): Promise<ServerAuthState> => {
         try {
-            // Extract access token from cookies
+            // Extract access token from cookies using fixed cookie names
             let accessToken: string | undefined;
 
             if (request instanceof Request) {
@@ -123,24 +113,18 @@ export function createNextAuthHelpers(config: NextAuthHelpersConfig): NextAuthHe
                 const cookieHeader = request.headers.get('cookie');
                 if (cookieHeader) {
                     const cookies = parseCookies(cookieHeader);
-                    accessToken = cookies[cookieNames.accessToken];
+                    accessToken = cookies[COOKIE_NAMES.ACCESS_TOKEN];
                 }
             } else {
                 // Next.js cookies() object
-                accessToken = request.cookies.get(cookieNames.accessToken)?.value;
+                accessToken = request.cookies.get(COOKIE_NAMES.ACCESS_TOKEN)?.value;
             }
 
             if (!accessToken) {
                 return { user: null, session: null };
             }
 
-            // Create a server-side client to fetch user
-            const serverClient = new AuthClient({
-                ...config,
-                accessTokenType: 'header',
-            });
-
-            // Set the token manually for the request
+            // Verify the session with the backend
             const response = await fetch(`${config.baseUrl}${config.endpoints?.verifySession || '/auth/verify-session'}`, {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
@@ -204,7 +188,7 @@ export function createNextAuthHelpers(config: NextAuthHelpersConfig): NextAuthHe
 }
 
 /**
- * Parse cookie header string
+ * Parse cookie header string into key-value pairs
  */
 function parseCookies(cookieHeader: string): Record<string, string> {
     const cookies: Record<string, string> = {};
