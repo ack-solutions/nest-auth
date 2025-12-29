@@ -1,6 +1,6 @@
 {
   "name": "@ackplus/nest-auth",
-  "version": "1.1.31-beta.15",
+  "version": "1.1.31",
   "description": "Powerful CRUD operations for NestJS with TypeORM - automatic REST endpoints, advanced filtering, relations, pagination, and more",
   "type": "commonjs",
   "main": "./dist/index.js",
