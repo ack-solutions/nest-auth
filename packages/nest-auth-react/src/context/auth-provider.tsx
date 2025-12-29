@@ -13,10 +13,10 @@ import {
     ISignupRequest,
     IVerify2faRequest,
     IForgotPasswordRequest,
-    IResetPasswordRequest,
     IVerifyEmailRequest,
     IResendVerificationRequest,
     IChangePasswordRequest,
+    IResetPasswordWithTokenRequest,
 } from '@ackplus/nest-auth-client';
 import { AuthContext, AuthContextValue } from './auth-context';
 
@@ -261,7 +261,7 @@ export function AuthProvider({
         }
     }, [client]);
 
-    const resetPassword = useCallback(async (dto: IResetPasswordRequest) => {
+    const resetPassword = useCallback(async (dto: IResetPasswordWithTokenRequest) => {
         setError(null);
         try {
             return await client.resetPassword(dto);
