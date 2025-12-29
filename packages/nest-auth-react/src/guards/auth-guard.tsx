@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * AuthGuard component - Protects routes for authenticated users
  */

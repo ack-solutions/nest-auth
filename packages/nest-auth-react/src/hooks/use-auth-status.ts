@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * useAuthStatus hook - Auth status only
  */

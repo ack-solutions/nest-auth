@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * withRequireRole HOC - Wraps a component with role-based access control
  * Works with both React and Next.js

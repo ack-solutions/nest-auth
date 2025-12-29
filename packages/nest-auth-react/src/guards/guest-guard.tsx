@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * GuestGuard component - Protects routes for unauthenticated users
  */

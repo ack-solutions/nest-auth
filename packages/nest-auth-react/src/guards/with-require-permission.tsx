@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * withRequirePermission HOC - Wraps a component with permission-based access control
  * Works with both React and Next.js

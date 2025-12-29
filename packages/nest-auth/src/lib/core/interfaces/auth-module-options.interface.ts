@@ -108,6 +108,65 @@ export interface IAuthHooks {
 }
 
 /**
+ * Registration lifecycle hooks for signup flow
+ * Called after user is created but BEFORE session is generated
+ */
+export interface IRegistrationHooks {
+    /**
+     * Called after user is created but BEFORE session is created.
+     * Use this to assign roles, create related records, etc.
+     * Changes made here WILL be reflected in the session/tokens.
+     * 
+     * @param user - The created user entity
+     * @param input - The original signup request data
+     * @param context - Additional context (request, etc.)
+     * @returns Modified user or void
+     * 
+     * @example
+     * ```typescript
+     * onSignup: async (user, input, context) => {
+     *     // Assign default role - this WILL be in the session
+     *     const defaultRole = await roleService.findByName('user');
+     *     user.roles = [defaultRole];
+     *     await userRepository.save(user);
+     *     return user;
+     * }
+     * ```
+     */
+    onSignup?: (user: NestAuthUser, input: any, context?: { request?: any }) => Promise<NestAuthUser | void> | NestAuthUser | void;
+}
+
+/**
+ * Login lifecycle hooks
+ * Called after user is authenticated but BEFORE session is generated
+ */
+export interface ILoginHooks {
+    /**
+     * Called after user is validated but BEFORE session is created.
+     * Use this to update user data, sync roles, etc.
+     * Changes made here WILL be reflected in the session/tokens.
+     * 
+     * @param user - The authenticated user entity
+     * @param input - The original login request data
+     * @param context - Additional context (request, provider, etc.)
+     * @returns Modified user or void
+     * 
+     * @example
+     * ```typescript
+     * onLogin: async (user, input, context) => {
+     *     // Sync roles from external system
+     *     const externalRoles = await fetchRolesFromExternal(user.email);
+     *     user.roles = await roleService.findByNames(externalRoles);
+     *     await userRepository.save(user);
+     *     return user;
+     * }
+     * ```
+     */
+    onLogin?: (user: NestAuthUser, input: any, context?: { request?: any; provider?: any }) => Promise<NestAuthUser | void> | NestAuthUser | void;
+}
+
+
+/**
  * Password customization hooks
  */
 export interface IPasswordHooks {
@@ -309,6 +368,20 @@ export interface IAuthModuleOptions {
      * Customize auth responses (login/signup)
      */
     auth?: IAuthHooks;
+
+    /**
+     * Registration hooks
+     * Customize signup flow with before/after callbacks
+     * Use afterSignup to assign roles that need to be in the session
+     */
+    registrationHooks?: IRegistrationHooks;
+
+    /**
+     * Login hooks
+     * Customize login flow with before/after callbacks
+     * Use afterLogin to sync roles that need to be in the session
+     */
+    loginHooks?: ILoginHooks;
 
     /**
      * Guard hooks

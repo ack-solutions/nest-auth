@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Auth context for React
  */

@@ -184,14 +184,25 @@ export class AuthService {
 
             this.debugLogger.info('User created successfully', 'AuthService', { userId: user.id, tenantId });
 
-            user = await this.getUserWithRolesAndPermissions(user.id);
-
             // Link user to all enabled providers
             for (const item of providersToLink) {
                 this.debugLogger.debug('Linking user to provider', 'AuthService', { userId: user.id, providerName: item.provider.providerName });
                 // Note: UserService might have already created the identity, but we ensure it's linked here
                 await item.provider.linkToUser(user.id, item.userId);
             }
+
+            // Apply onSignup hook if configured - BEFORE session creation
+            // This allows role assignment to be reflected in the session
+            if (config.registrationHooks?.onSignup) {
+                this.debugLogger.debug('Applying registrationHooks.onSignup hook', 'AuthService', { userId: user.id });
+                const request = RequestContext.currentRequest();
+                const modifiedUser = await config.registrationHooks.onSignup(user, input, { request });
+                if (modifiedUser) {
+                    user = modifiedUser;
+                }
+            }
+
+            user = await this.getUserWithRolesAndPermissions(user.id);
 
             this.debugLogger.debug('Creating session for new user', 'AuthService', { userId: user.id });
             const session = await this.sessionManager.createSessionFromUser(user);
@@ -246,6 +257,7 @@ export class AuthService {
         let { tenantId = null } = input;
 
         try {
+            const config = this.authConfigService.getConfig();
             // Resolve tenant ID - use provided or default
             tenantId = await this.tenantService.resolveTenantId(tenantId);
             this.debugLogger.logAuthOperation('login', providerName, undefined, { resolvedTenantId: tenantId, createUserIfNotExists });
@@ -291,6 +303,17 @@ export class AuthService {
                 });
             }
 
+            // Apply onLogin hook if configured - BEFORE session creation
+            // This allows role sync to be reflected in the session
+            if (config.loginHooks?.onLogin) {
+                this.debugLogger.debug('Applying loginHooks.onLogin hook', 'AuthService', { userId: user.id });
+                const request = RequestContext.currentRequest();
+                const modifiedUser = await config.loginHooks.onLogin(user, input, { request, provider });
+                if (modifiedUser) {
+                    user = modifiedUser;
+                }
+            }
+            
             user = await this.getUserWithRolesAndPermissions(user!.id);
 
 

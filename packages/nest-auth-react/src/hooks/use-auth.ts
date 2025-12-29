@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * useNestAuth hook - Full auth context access
  */

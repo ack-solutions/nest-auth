@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Auth provider component for React
  */

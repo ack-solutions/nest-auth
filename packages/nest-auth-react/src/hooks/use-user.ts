@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * useUser hook - User data only
  */

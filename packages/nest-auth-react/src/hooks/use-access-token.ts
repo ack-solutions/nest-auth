@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * useAccessToken hook - Access token only (header mode)
  */

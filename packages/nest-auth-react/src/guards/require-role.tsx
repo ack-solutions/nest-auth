@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * RequireRole component - Requires specific role(s)
  */

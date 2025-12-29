@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * useSession hook - Session data only
  */

@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * RequirePermission component - Requires specific permission(s)
  */
