@@ -5,7 +5,6 @@ import { NestAuthRefreshTokenRequestDto } from '../dto/requests/refresh-token.re
 import { Request, Response } from 'express';
 import { ApiResponse } from '@nestjs/swagger';
 import { ApiOperation } from '@nestjs/swagger';
-import { AuthConfigService } from '../../core/services/auth-config.service';
 import { AuthWithTokensResponseDto, UserResponseDto, Verify2faWithTokensResponseDto } from '../dto/responses/auth.response.dto';
 import { AuthCookieResponseDto } from '../dto/responses/auth-cookie.response.dto';
 import { NestAuthSignupRequestDto } from '../dto/requests/signup.request.dto';
@@ -23,7 +22,6 @@ import { RequestContext } from '../../request-context/request-context';
 import { SkipMfa } from '../../core';
 import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
 import { NestAuthForgotPasswordRequestDto } from '../dto/requests/forgot-password.request.dto';
-import { NestAuthResetPasswordRequestDto } from '../dto/requests/reset-password.request.dto';
 import { NestAuthAuthGuard } from '../guards/auth.guard';
 import { NestAuthVerifyForgotPasswordOtpRequestDto } from '../dto/requests/verify-forgot-password-otp-request-dto';
 import { NestAuthResetPasswordWithTokenRequestDto } from '../dto/requests/reset-password-with-token.request.dto';
@@ -33,7 +31,7 @@ import { NestAuthSendEmailVerificationRequestDto } from '../dto/requests/send-em
 import { NestAuthVerifyEmailRequestDto } from '../dto/requests/verify-email.request.dto';
 import { ClientConfigService } from '../services/client-config.service';
 import { ClientConfigResponseDto } from '../dto/responses/client-config.response.dto';
-import { ACCESS_TOKEN_COOKIE_NAME, NEST_AUTH_TRUST_DEVICE_KEY, REFRESH_TOKEN_COOKIE_NAME } from '../../auth.constants';
+import { ACCESS_TOKEN_COOKIE_NAME, REFRESH_TOKEN_COOKIE_NAME } from '../../auth.constants';
 
 
 

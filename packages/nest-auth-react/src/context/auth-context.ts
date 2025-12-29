@@ -16,12 +16,12 @@ import {
     IVerify2faRequest,
     IVerify2faResponse,
     IForgotPasswordRequest,
-    IResetPasswordRequest,
     IVerifyEmailRequest,
     IResendVerificationRequest,
     IChangePasswordRequest,
     IMessageResponse,
     IVerifyOtpResponse,
+    IResetPasswordWithTokenRequest,
 } from '@ackplus/nest-auth-client';
 
 /**
@@ -63,7 +63,7 @@ export interface AuthContextValue {
     /** Verify forgot password OTP */
     verifyForgotPasswordOtp: (dto: { email?: string; phone?: string; otp: string }) => Promise<IVerifyOtpResponse>;
     /** Reset password with token */
-    resetPassword: (dto: IResetPasswordRequest) => Promise<IMessageResponse>;
+    resetPassword: (dto: IResetPasswordWithTokenRequest) => Promise<IMessageResponse>;
     /** Change password (authenticated) */
     changePassword: (dto: IChangePasswordRequest) => Promise<IMessageResponse>;
 

@@ -32,7 +32,6 @@ export * from './dto/credentials/social-credentials.dto';
 export * from './dto/credentials/email-credentials.dto';
 export * from './dto/credentials/phone-credentials.dto';
 export * from './dto/requests/forgot-password.request.dto';
-export * from './dto/requests/reset-password.request.dto';
 export * from './dto/requests/reset-password-with-token.request.dto';
 export * from './dto/requests/verify-forgot-password-otp-request-dto';
 export * from './dto/requests/send-mfa-code.request.dto';

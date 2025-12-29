@@ -19,7 +19,6 @@ import { AuthResponseDto } from '../dto/responses/auth.response.dto';
 import { AuthTokensResponseDto } from '../dto/responses/auth.response.dto';
 import { NestAuthForgotPasswordRequestDto } from '../dto/requests/forgot-password.request.dto';
 import { generateOtp } from '../../utils/otp';
-import { NestAuthResetPasswordRequestDto } from '../dto/requests/reset-password.request.dto';
 import { UserPasswordChangedEvent } from '../events/user-password-changed.event';
 import { PasswordResetRequestedEvent } from '../events/password-reset-requested.event';
 import { PasswordResetEvent } from '../events/password-reset.event';
@@ -374,77 +373,6 @@ export class PasswordService {
             };
         } catch (error) {
             this.debugLogger.logError(error, 'verifyForgotPasswordOtp');
-            this.handleError(error, 'password_reset');
-            throw error;
-        }
-    }
-
-    async resetPassword(input: NestAuthResetPasswordRequestDto): Promise<boolean> {
-        this.debugLogger.logFunctionEntry('resetPassword', 'PasswordService');
-
-        try {
-            const { email, phone, otp, newPassword } = input;
-            let { tenantId = null } = input;
-
-            tenantId = await this.tenantService.resolveTenantId(tenantId);
-
-            if (!email && !phone) {
-                throw new BadRequestException({
-                    message: 'Either email or phone must be provided',
-                    code: ERROR_CODES.EMAIL_OR_PHONE_REQUIRED,
-                });
-            }
-
-            const user = await this.userRepository.findOne({
-                where: [
-                    ...(email ? [{ email, tenantId }] : []),
-                    ...(phone ? [{ phone, tenantId }] : [])
-                ]
-            });
-
-            if (!user) {
-                throw new BadRequestException({
-                    message: 'Invalid reset request',
-                    code: ERROR_CODES.PASSWORD_RESET_INVALID_REQUEST,
-                });
-            }
-
-            const validOtp = await this.otpRepository.findOne({
-                where: {
-                    userId: user.id,
-                    code: otp,
-                    type: NestAuthOTPTypeEnum.PASSWORD_RESET,
-                    expiresAt: MoreThan(new Date()),
-                    used: false
-                }
-            });
-
-            if (!validOtp) {
-                throw new BadRequestException({
-                    message: 'Invalid or expired OTP',
-                    code: ERROR_CODES.OTP_INVALID,
-                });
-            }
-
-            await user.setPassword(newPassword);
-            await this.userRepository.save(user);
-
-            validOtp.used = true;
-            await this.otpRepository.save(validOtp);
-
-            await this.eventEmitter.emitAsync(
-                NestAuthEvents.PASSWORD_RESET,
-                new PasswordResetEvent({
-                    user,
-                    tenantId: user.tenantId,
-                    input,
-                })
-            );
-
-            this.debugLogger.logFunctionExit('resetPassword', 'PasswordService');
-            return true;
-        } catch (error) {
-            this.debugLogger.logError(error, 'resetPassword');
             this.handleError(error, 'password_reset');
             throw error;
         }

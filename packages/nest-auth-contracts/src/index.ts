@@ -48,7 +48,6 @@ export {
 // Password
 export {
     IForgotPasswordRequest,
-    IResetPasswordRequest,
     IResetPasswordWithTokenRequest,
     IChangePasswordRequest,
     IVerifyForgotPasswordOtpRequest,

@@ -62,7 +62,7 @@ export type {
     AuthClientConfig,
     // Password management DTOs
     IForgotPasswordRequest as ForgotPasswordDto,
-    IResetPasswordRequest as ResetPasswordDto,
+    IResetPasswordWithTokenRequest as ResetPasswordDto,
     IChangePasswordRequest as ChangePasswordDto,
     // Email verification DTOs
     IVerifyEmailRequest as VerifyEmailDto,
