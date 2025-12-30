@@ -8,9 +8,10 @@ import { AccessKeyService } from '../../user/services/access-key.service';
 import { JWTTokenPayload } from '../../core/interfaces/token-payload.interface';
 import { SKIP_MFA_KEY } from '../../core/decorators/skip-mfa.decorator';
 import { PERMISSIONS_KEY } from '../../core/decorators/permissions.decorator';
-import { ROLES_KEY } from '../../core/decorators/role.decorator';
+import { ROLES_KEY, GUARD_KEY } from '../../core/decorators/role.decorator';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { CookieHelper } from '../../utils/cookie.helper';
+import { uniq } from 'lodash';
 
 /**
  * NestAuthAuthGuard
@@ -341,6 +342,7 @@ export class NestAuthAuthGuard implements CanActivate {
         // Get required permissions and roles from decorators
         const requiredPermissions = this.getRequiredPermissions(context);
         const requiredRoles = this.getRequiredRoles(context);
+        const requiredGuard = this.getRequiredGuard(context);
 
         // If no authorization requirements, allow access
         if (!requiredPermissions.length && !requiredRoles.length) {
@@ -363,9 +365,9 @@ export class NestAuthAuthGuard implements CanActivate {
         // If we need roles check but have no roles/data, we must throw or fetch.
         // For now, if defaults are used, user is just payload.
 
-        // Check roles if required
+        // Check roles if required (also checks guard if specified)
         if (requiredRoles.length > 0) {
-            await this.checkRoles(user, requiredRoles);
+            await this.checkRoles(user, requiredRoles, requiredGuard);
         }
 
         // Check permissions if required
@@ -409,6 +411,16 @@ export class NestAuthAuthGuard implements CanActivate {
     }
 
     /**
+     * Get required guard from decorator
+     */
+    private getRequiredGuard(context: ExecutionContext): string | undefined {
+        return this.reflector.getAllAndOverride<string>(
+            GUARD_KEY,
+            [context.getHandler(), context.getClass()],
+        );
+    }
+
+    /**
      * Check if user has required roles
      */
     /**
@@ -439,8 +451,20 @@ export class NestAuthAuthGuard implements CanActivate {
 
     /**
      * Check if user has required roles
+     * If a guard is specified, first verify the user's guard matches before checking roles
      */
-    private async checkRoles(user: any, requiredRoles: string[]): Promise<void> {
+    private async checkRoles(user: JWTTokenPayload, requiredRoles: string[], requiredGuard?: string): Promise<void> {
+        // If a guard is specified, check if user's guard matches first
+        if (requiredGuard) {
+            const userGuards = uniq(user.roles?.map((role: any) => role.guard));
+            if (!userGuards.includes(requiredGuard)) {
+                throw new ForbiddenException({
+                    message: `Access denied: Guard mismatch. Required: ${requiredGuard}, Found: ${userGuards.join(', ')}`,
+                    code: ERROR_CODES.GUARD_MISMATCH,
+                });
+            }
+        }
+
         const userRoleNames = await this.resolveUserRoles(user);
 
         if (userRoleNames.length === 0 && (!user.roles || !Array.isArray(user.roles))) {
