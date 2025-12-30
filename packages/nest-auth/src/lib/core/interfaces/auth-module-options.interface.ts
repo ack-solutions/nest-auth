@@ -5,6 +5,7 @@ import { BaseAuthProvider } from '../providers/base-auth.provider';
 import { DebugLogOptions } from '../services/debug-logger.service';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { SessionPayload, JWTTokenPayload } from './token-payload.interface';
+import { NestAuthSignupRequestDto } from 'src/lib/auth';
 
 /**
  * Default Tenant Options
