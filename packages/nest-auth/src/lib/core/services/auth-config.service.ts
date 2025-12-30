@@ -1,6 +1,6 @@
 import { Injectable, Inject, Optional } from '@nestjs/common';
 import { randomBytes } from 'crypto';
-import { IAuthModuleOptions, IDefaultTenantOptions, IOtpOptions, IAdminConsoleOptions, IRegistrationCollectProfileField } from '../interfaces/auth-module-options.interface';
+import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
 import { SessionStorageType } from '../interfaces/session-options.interface';
 import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
 

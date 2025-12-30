@@ -112,6 +112,12 @@ export class AuthService {
             const { email, phone, password } = input;
             let { tenantId = null } = input;
 
+            // Resolve guard from config if available (Server-side enforcement)
+            if (config.registrationHooks?.beforeSignup) {
+                const req = RequestContext.currentRequest();
+                await config.registrationHooks.beforeSignup(input, { request: req });
+            }
+
             // Resolve tenant ID - use provided or default
             tenantId = await this.tenantService.resolveTenantId(tenantId);
             this.debugLogger.logAuthOperation('signup', 'email|phone', undefined, { email, phone, resolvedTenantId: tenantId });
@@ -204,6 +210,18 @@ export class AuthService {
 
             user = await this.getUserWithRolesAndPermissions(user.id);
 
+            // Protect against unauthorized signup with guard(potential access violation)
+            if (input?.guard && user.roles) {
+                const isExistsGuard = user.roles.some(r => r.guard === input.guard);
+                if (!isExistsGuard) {
+                    await this.userService.deleteUser(user.id);
+                    throw new UnauthorizedException({
+                        message: 'Not allowed to signup with this guard',
+                        code: ERROR_CODES.FORBIDDEN,
+                    });
+                }
+            }
+
             this.debugLogger.debug('Creating session for new user', 'AuthService', { userId: user.id });
             const session = await this.sessionManager.createSessionFromUser(user);
             const tokens = await this.generateTokensFromSession(session);
@@ -252,8 +270,8 @@ export class AuthService {
     }
 
     async login(input: NestAuthLoginRequestDto): Promise<AuthResponseDto> {
-        const { credentials, providerName, createUserIfNotExists = false } = input;
-        this.debugLogger.logFunctionEntry('login', 'AuthService', { providerName, createUserIfNotExists });
+        let { credentials, providerName, createUserIfNotExists = false, guard } = input;
+        this.debugLogger.logFunctionEntry('login', 'AuthService', { providerName, createUserIfNotExists, guard });
         let { tenantId = null } = input;
 
         try {
@@ -324,6 +342,16 @@ export class AuthService {
                 isRequiresMfa = await this.mfaService.isRequiresMfa(user.id);
             }
             user.isMfaEnabled = isRequiresMfa;
+
+            if (guard && user.roles) {
+               const isExistsGuard = user.roles.some(r => r.guard === guard);
+                if (!isExistsGuard) {
+                    throw new UnauthorizedException({
+                        message: 'Invalid credentials',
+                        code: ERROR_CODES.INVALID_CREDENTIALS,
+                    });
+                }
+            }
 
             let session = await this.sessionManager.createSessionFromUser(user);
 

@@ -40,4 +40,13 @@ export class NestAuthSignupRequestDto implements ISignupRequest {
     @IsString()
     @IsOptional()
     tenantId?: string;
+
+    @ApiPropertyOptional({
+        description: 'Guard context (e.g. admin, web, vendor) for isolation. Deprecated: use client',
+        example: 'admin',
+        deprecated: true
+    })
+    @IsString()
+    @IsOptional()
+    guard?: string;
 }

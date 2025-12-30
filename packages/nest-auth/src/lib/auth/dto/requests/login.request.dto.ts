@@ -56,6 +56,15 @@ export class NestAuthLoginRequestDto implements ILoginRequest {
     tenantId?: string;
 
     @ApiPropertyOptional({
+        description: 'Guard context (e.g. admin, web, vendor) for isolation. Deprecated: use client',
+        example: 'admin',
+        deprecated: true
+    })
+    @IsString()
+    @IsOptional()
+    guard?: string;
+
+    @ApiPropertyOptional({
         description: 'Auto-create user if not exists (for social auth)',
         default: false,
     })

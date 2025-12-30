@@ -113,6 +113,23 @@ export interface IAuthHooks {
  */
 export interface IRegistrationHooks {
     /**
+     * Called before user is created.
+     * Use this to modify the user data before creation.
+     * 
+     * @param request - The original signup request data
+     * @param input - The original signup request data
+     * @returns Modified user data or void
+     * 
+     * @example
+     * ```typescript
+     * beforeSignup: async (request, input) => ({
+     *     orgId: request.orgId,
+     *     tenantId: request.tenantId
+     * })
+     * ```
+     */
+    beforeSignup?: (input: NestAuthSignupRequestDto, context: { request: any }) => Promise<any> | any;
+    /**
      * Called after user is created but BEFORE session is created.
      * Use this to assign roles, create related records, etc.
      * Changes made here WILL be reflected in the session/tokens.
