@@ -192,46 +192,28 @@ export class RoleService {
             });
         }
 
-        if (role.isSystem) {
-            throw new ConflictException({
-                message: 'Cannot update system role',
-                code: 'SYSTEM_ROLE_UPDATE_ERROR',
-            });
-        }
-
         // Prevent changing system status and tenant
         delete data.isSystem;
         delete data.tenantId;
 
-        // If name or guard is being changed, check for conflicts
-        if ((data.name && data.name !== role.name) || (data.guard && data.guard !== role.guard)) {
-            // First check for system role conflicts
-            const systemRole = await this.getRoleByName(
-                data.name || role.name,
-                data.guard || role.guard
-            );
-
-            if (systemRole) {
-                throw new ConflictException({
-                    message: `Cannot use name '${data.name || role.name}' as it conflicts with a system role`,
-                    code: 'SYSTEM_ROLE_CONFLICT'
-                });
-            }
-
-            // Then check for tenant role conflicts
-            const existingRole = await this.getRoleByName(
-                data.name || role.name,
-                data.guard || role.guard,
-                role.tenantId
-            );
-
-            if (existingRole && existingRole.id !== role.id) {
-                throw new ConflictException({
-                    message: `Role with name '${data.name || role.name}' already exists in guard '${data.guard || role.guard}'${role.tenantId ? ` for tenant '${role.tenantId}'` : ''}`,
-                    code: 'ROLE_ALREADY_EXISTS'
-                });
-            }
+        // Block name and guard changes for ALL roles - must delete and create new if needed
+        if (data.name && data.name !== role.name) {
+            throw new BadRequestException({
+                message: 'Cannot update role name. Please delete and create a new role if you need to change the name.',
+                code: 'ROLE_NAME_UPDATE_NOT_ALLOWED'
+            });
         }
+
+        if (data.guard && data.guard !== role.guard) {
+            throw new BadRequestException({
+                message: 'Cannot update role guard. Please delete and create a new role if you need to change the guard.',
+                code: 'ROLE_GUARD_UPDATE_NOT_ALLOWED'
+            });
+        }
+
+        // Remove name and guard from data to prevent accidental updates
+        delete data.name;
+        delete data.guard;
 
         Object.assign(role, data);
         return this.roleRepository.save(role);
@@ -247,13 +229,7 @@ export class RoleService {
             });
         }
 
-        if (role.isSystem) {
-            throw new BadRequestException({
-                message: 'Cannot update system role',
-                code: 'SYSTEM_ROLE_UPDATE_ERROR',
-            });
-        }
-
+        // Permission updates are allowed for ALL roles including system roles
         await role.syncPermissions(permissionIds);
         return this.roleRepository.save(role);
     }
@@ -268,20 +244,6 @@ export class RoleService {
             });
         }
 
-        if (role.isSystem) {
-            throw new BadRequestException({
-                message: 'Cannot delete system role',
-                code: 'SYSTEM_ROLE_DELETE_ERROR',
-            });
-        }
-
         await this.roleRepository.remove(role);
-    }
-
-    async deleteSystemRole(id: string): Promise<void> {
-        const role = await this.getRoleById(id);
-        if (role?.isSystem) {
-            await this.roleRepository.remove(role);
-        }
     }
 }

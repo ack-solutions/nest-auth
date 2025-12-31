@@ -62,8 +62,6 @@ export class AdminAuthController {
 
     // Validate secret key using constant-time comparison to prevent timing attacks
     const secretKey = this.config.getSecretKey();
-    console.log('secretKey', secretKey);
-    console.log('dto.secretKey', dto.secretKey);
     if (!secretKey) {
       throw new BadRequestException({
         message: 'Admin console secret key is not configured. Please configure adminConsole.secretKey in AuthModuleOptions.',

@@ -682,7 +682,7 @@
   "info": {
     "title": "@ackplus/nest-auth API",
     "description": "OpenAPI specification generated from the Nest Auth module",
-    "version": "1.1.34",
+    "version": "1.1.37",
     "contact": {}
   },
   "tags": [],
@@ -719,6 +719,12 @@
             "type": "string",
             "description": "Tenant ID for multi-tenant applications",
             "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "guard": {
+            "type": "string",
+            "description": "Guard context (e.g. admin, web, vendor) for isolation. Deprecated: use client",
+            "example": "admin",
+            "deprecated": true
           }
         },
         "required": [
@@ -969,6 +975,12 @@
             "type": "string",
             "description": "Tenant ID for multi-tenant applications",
             "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "guard": {
+            "type": "string",
+            "description": "Guard context (e.g. admin, web, vendor) for isolation. Deprecated: use client",
+            "example": "admin",
+            "deprecated": true
           },
           "createUserIfNotExists": {
             "type": "boolean",

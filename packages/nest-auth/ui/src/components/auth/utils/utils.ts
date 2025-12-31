@@ -18,8 +18,5 @@ export const getAdminApiBaseUrl = (): string => {
     const origin = envBaseUrl ? envBaseUrl.replace(/\/$/, '') : window.location.origin;
     const basePath = serverBasePath ?? '/api/auth/admin';
 
-    console.log('envBaseUrl', envBaseUrl);
-    console.log('basePath', basePath);
-
     return `${origin}${basePath}`;
 };
