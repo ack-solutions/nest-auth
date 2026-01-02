@@ -43,23 +43,12 @@ export class NestAuthAuthGuard implements CanActivate {
         const request = context.switchToHttp().getRequest<Request>() as any;
         const response = context.switchToHttp().getResponse<Response>();
 
-        this.debugLogger.logFunctionEntry('canActivate', 'AuthGuard', {
-            method: request.method,
-            url: request.url,
-            path: request.path
-        });
 
         // Check if authentication is optional
         const isOptional = this.reflector.getAllAndOverride<boolean>(OPTIONAL_AUTH_KEY, [
             context.getHandler(),
             context.getClass(),
         ]);
-
-        this.debugLogger.debug(
-            `Auth check - isOptional: ${isOptional}`,
-            'AuthGuard',
-            { isOptional, path: request.path }
-        );
 
         // Initialize request properties
         request.user = null;
@@ -72,14 +61,8 @@ export class NestAuthAuthGuard implements CanActivate {
 
         // If no token found
         if (!token) {
-            this.debugLogger.debug(
-                'No token found in request',
-                'AuthGuard',
-                { isOptional }
-            );
             if (isOptional) {
                 // Optional auth: allow request to proceed without user data
-                this.debugLogger.debug('Optional auth - proceeding without user data', 'AuthGuard');
                 return true;
             } else {
                 // Required auth: throw error
@@ -91,11 +74,6 @@ export class NestAuthAuthGuard implements CanActivate {
             }
         }
 
-        this.debugLogger.debug(
-            `Token found - authType: ${authType}`,
-            'AuthGuard',
-            { authType, tokenLength: token.length }
-        );
 
         // Handle authentication
         let isAuthenticated = false;
@@ -125,19 +103,12 @@ export class NestAuthAuthGuard implements CanActivate {
             this.debugLogger.logError(error as Error, 'AuthGuard', { isOptional, authType });
             if (isOptional) {
                 // If optional auth fails, silently proceed without user data (e.g. invalid token)
-                this.debugLogger.debug('Optional auth failed - proceeding without user data', 'AuthGuard');
                 return true;
             } else {
                 // If required auth fails, re-throw the error
                 throw error;
             }
         }
-
-        this.debugLogger.debug(
-            `Authentication result: ${isAuthenticated}`,
-            'AuthGuard',
-            { isAuthenticated, userId: request.user?.sub || request.user?.id }
-        );
 
         // If authentication failed and it's required, stop here
         if (!isAuthenticated && !isOptional) {
@@ -148,11 +119,8 @@ export class NestAuthAuthGuard implements CanActivate {
         // After successful authentication, check authorization (roles, permissions)
         // Only check authorization if user is authenticated and we have user data
         if (isAuthenticated && request.user) {
-            this.debugLogger.debug('Checking authorization (roles/permissions)', 'AuthGuard');
             await this.checkAuthorization(context, request);
         }
-
-        this.debugLogger.logFunctionExit('canActivate', 'AuthGuard', { allowed: true });
         return true;
     }
 
@@ -172,12 +140,6 @@ export class NestAuthAuthGuard implements CanActivate {
         const checkHeader = accessTokenType !== 'cookie';
         const checkCookie = accessTokenType !== 'header';
 
-        this.debugLogger.verbose(
-            'Extracting token from request',
-            'AuthGuard',
-            { accessTokenType, checkHeader, checkCookie }
-        );
-
         // Try Authorization header first (if allowed)
         if (checkHeader) {
             const authHeader = request.headers.authorization;
@@ -186,11 +148,6 @@ export class NestAuthAuthGuard implements CanActivate {
                 if (type && token) {
                     const authType = type.toLowerCase() as 'bearer' | 'apikey';
                     if (authType === 'bearer' || authType === 'apikey') {
-                        this.debugLogger.debug(
-                            `Token extracted from Authorization header`,
-                            'AuthGuard',
-                            { authType, source: 'header' }
-                        );
                         return { token, authType };
                     }
                 }
@@ -202,11 +159,6 @@ export class NestAuthAuthGuard implements CanActivate {
             // Use CookieHelper for robust cookie parsing (works even without cookie-parser middleware)
             const cookieToken = CookieHelper.get(request, 'accessToken');
             if (cookieToken) {
-                this.debugLogger.debug(
-                    'Token extracted from cookie',
-                    'AuthGuard',
-                    { authType: 'bearer', source: 'cookie' }
-                );
                 return { token: cookieToken, authType: 'bearer' };
             }
         }
@@ -216,26 +168,16 @@ export class NestAuthAuthGuard implements CanActivate {
     }
 
     private async handleJwtAuth(context: ExecutionContext, request: any, response: Response, token: string, isOptional: boolean = false): Promise<boolean> {
-        this.debugLogger.logFunctionEntry('handleJwtAuth', 'AuthGuard', { isOptional });
         try {
             // Verify the JWT token
-            this.debugLogger.verbose('Verifying JWT token', 'AuthGuard');
             const payload = await this.jwtService.verifyToken(token);
-
-            this.debugLogger.debug(
-                'JWT token verified successfully',
-                'AuthGuard',
-                { userId: payload.sub, sessionId: payload.sessionId }
-            );
 
             const config = this.authConfigService.getConfig();
 
             // Apply guards.beforeAuth hook if configured
             if (config.guards?.beforeAuth) {
-                this.debugLogger.verbose('Executing beforeAuth hook', 'AuthGuard');
                 const result = await config.guards.beforeAuth(request, payload);
                 if (result && result.reject) {
-                    this.debugLogger.warn('beforeAuth hook rejected authentication', 'AuthGuard', { reason: result.reason });
                     throw new UnauthorizedException({
                         message: result.reason || 'Authentication rejected by custom guard',
                         code: ERROR_CODES.ACCESS_DENIED
@@ -247,10 +189,8 @@ export class NestAuthAuthGuard implements CanActivate {
             request.authType = 'jwt';
 
             // Verify session exists
-            this.debugLogger.verbose('Looking up session', 'AuthGuard', { sessionId: payload.sessionId });
             const session = await this.sessionManager.getSession(payload.sessionId as string);
             if (!session) {
-                this.debugLogger.warn('Session not found', 'AuthGuard', { sessionId: payload.sessionId });
                 if (isOptional) {
                     // Session not found but auth is optional - reset user data and continue
                     request.user = null;
@@ -264,11 +204,8 @@ export class NestAuthAuthGuard implements CanActivate {
                 }
             }
 
-            this.debugLogger.debug('Session found', 'AuthGuard', { sessionId: session.id });
-
             // Apply jwt.validateToken hook if configured
             if (config.jwt?.validateToken) {
-                this.debugLogger.verbose('Executing validateToken hook', 'AuthGuard');
                 const isValid = await config.jwt.validateToken(payload, session);
                 if (!isValid) {
                     this.debugLogger.warn('validateToken hook returned invalid', 'AuthGuard');
@@ -301,7 +238,6 @@ export class NestAuthAuthGuard implements CanActivate {
 
             // Apply guards.afterAuth hook if configured
             if (config.guards?.afterAuth) {
-                this.debugLogger.verbose('Executing afterAuth hook', 'AuthGuard');
                 // We need the full user object for the hook if possible, but the signature asks for NestAuthUser
                 // The payload is just the JWT payload. The session has the user data.
                 // Let's try to use session.data.user if available, otherwise we might need to fetch it or cast payload
@@ -311,15 +247,12 @@ export class NestAuthAuthGuard implements CanActivate {
                 }
             }
 
-            this.debugLogger.logFunctionExit('handleJwtAuth', 'AuthGuard', { success: true });
             return true;
         } catch (error) {
             // Token verification failed
             // Note: Token refresh is handled by RefreshTokenInterceptor
-            this.debugLogger.logError(error as Error, 'AuthGuard.handleJwtAuth');
             if (isOptional) {
                 // Auth is optional - continue without user data
-                this.debugLogger.debug('JWT auth failed but optional - continuing', 'AuthGuard');
                 return true; 
             } else {
                 // If it's already an HttpException (like UnauthorizedException from our checks), rethrow it
@@ -336,8 +269,6 @@ export class NestAuthAuthGuard implements CanActivate {
     }
 
     private async handleApiKeyAuth(request: any, token: string, isOptional: boolean = false): Promise<boolean> {
-        this.debugLogger.logFunctionEntry('handleApiKeyAuth', 'AuthGuard', { isOptional });
-
         // Split the token into public and private parts
         const [publicKey, privateKey] = token.split('.');
         if (!publicKey || !privateKey) {
@@ -355,7 +286,6 @@ export class NestAuthAuthGuard implements CanActivate {
 
         try {
             // Validate API key pair
-            this.debugLogger.verbose('Validating API key', 'AuthGuard', { publicKey: publicKey.substring(0, 8) + '...' });
             const isValid = await this.accessKeyService.validateAccessKey(publicKey, privateKey);
             if (!isValid) {
                 this.debugLogger.warn('Invalid API key', 'AuthGuard');
@@ -371,7 +301,6 @@ export class NestAuthAuthGuard implements CanActivate {
             }
 
             // Get access key details
-            this.debugLogger.verbose('Getting access key details', 'AuthGuard');
             const accessKey = await this.accessKeyService.getAccessKey(publicKey);
 
             // Update last used timestamp
@@ -382,12 +311,6 @@ export class NestAuthAuthGuard implements CanActivate {
             request.accessKey = accessKey;
             request.authType = 'api-key';
 
-            this.debugLogger.debug(
-                'API key authentication successful',
-                'AuthGuard',
-                { userId: accessKey.user?.id, keyName: accessKey.name }
-            );
-            this.debugLogger.logFunctionExit('handleApiKeyAuth', 'AuthGuard', { success: true });
             return true;
         } catch (error) {
             this.debugLogger.logError(error as Error, 'AuthGuard.handleApiKeyAuth');
@@ -412,12 +335,6 @@ export class NestAuthAuthGuard implements CanActivate {
         const isMfaEnabled = payload.isMfaEnabled;
         const isMfaVerified = payload.isMfaVerified;
 
-        this.debugLogger.verbose(
-            'Checking MFA requirements',
-            'AuthGuard',
-            { isMfaEnabled, isMfaVerified, skipMfa }
-        );
-
         // If MFA is enabled and not verified, and route is not marked to skip MFA, require MFA verification
         if (isMfaEnabled && !isMfaVerified && !skipMfa) {
             this.debugLogger.warn('MFA verification required but not verified', 'AuthGuard');
@@ -432,8 +349,6 @@ export class NestAuthAuthGuard implements CanActivate {
                 });
             }
         }
-
-        this.debugLogger.debug('MFA check passed', 'AuthGuard');
     }
 
     /**
@@ -444,12 +359,6 @@ export class NestAuthAuthGuard implements CanActivate {
         const requiredPermissions = this.getRequiredPermissions(context);
         const requiredRoles = this.getRequiredRoles(context);
         const requiredGuard = this.getRequiredGuard(context);
-
-        this.debugLogger.verbose(
-            'Checking authorization requirements',
-            'AuthGuard',
-            { requiredPermissions, requiredRoles, requiredGuard }
-        );
 
         // If no authorization requirements, allow access
         if (!requiredPermissions.length && !requiredRoles.length) {
@@ -476,25 +385,13 @@ export class NestAuthAuthGuard implements CanActivate {
 
         // Check roles if required (also checks guard if specified)
         if (requiredRoles.length > 0) {
-            this.debugLogger.debug(
-                'Checking required roles',
-                'AuthGuard',
-                { requiredRoles, requiredGuard }
-            );
             await this.checkRoles(user, requiredRoles, requiredGuard);
         }
 
         // Check permissions if required
         if (requiredPermissions.length > 0) {
-            this.debugLogger.debug(
-                'Checking required permissions',
-                'AuthGuard',
-                { requiredPermissions }
-            );
             await this.checkPermissions(user, requiredPermissions);
         }
-
-        this.debugLogger.debug('Authorization check passed', 'AuthGuard');
     }
 
     /**

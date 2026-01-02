@@ -146,11 +146,7 @@ export class TokenResponseInterceptor implements NestInterceptor {
             'TokenResponseInterceptor',
             {
                 cookieName: name,
-                httpOnly: cookieOptions.httpOnly,
-                secure: cookieOptions.secure,
-                sameSite: cookieOptions.sameSite,
-                maxAge: cookieOptions.maxAge,
-                path: cookieOptions.path
+                ...cookieOptions
             }
         );
 
