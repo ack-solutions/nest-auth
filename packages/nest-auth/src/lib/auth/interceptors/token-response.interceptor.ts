@@ -136,6 +136,7 @@ export class TokenResponseInterceptor implements NestInterceptor {
             httpOnly: true,
             path: '/',
             secure: this.options.cookieOptions?.secure,
+            ...this.options.cookieOptions?.domain ? { domain: this.options.cookieOptions?.domain } : {},
             sameSite: this.options.cookieOptions?.sameSite as 'strict' | 'lax' | 'none' | undefined,
             maxAge: ms(this.options.session?.sessionExpiry || '7d'),
             ...options,
