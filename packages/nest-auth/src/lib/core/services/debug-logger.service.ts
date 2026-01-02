@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { AuthConfigService } from './auth-config.service';
 
 export enum DebugLogLevel {
@@ -15,35 +15,68 @@ export interface DebugLogOptions {
     prefix?: string;
     includeTimestamp?: boolean;
     includeContext?: boolean;
+    /**
+     * If true, uses console.log directly instead of NestJS Logger
+     * This bypasses NestJS log level filtering which may hide debug/verbose logs
+     * @default false
+     */
+    useConsole?: boolean;
 }
 
 @Injectable()
-export class DebugLoggerService {
+export class DebugLoggerService implements OnModuleInit {
     private readonly logger = new Logger('NestAuth');
-    private config: DebugLogOptions = {
+    private defaultConfig: DebugLogOptions = {
         enabled: false,
         level: DebugLogLevel.VERBOSE,
         prefix: '[NestAuth]',
         includeTimestamp: true,
-        includeContext: true
+        includeContext: true,
+        useConsole: false
     };
 
-    constructor(private readonly authConfig: AuthConfigService) {
-        this.updateConfig();
-    }
+    constructor(private readonly authConfig: AuthConfigService) {}
 
-    private updateConfig(): void {
-        const authOptions = this.authConfig.getConfig();
-        if (authOptions.debug) {
-            this.config = {
-                ...this.config,
-                ...authOptions.debug
-            };
+    /**
+     * Called when the module is initialized
+     * Logs a startup message if debug is enabled
+     */
+    onModuleInit(): void {
+        const config = this.getConfig();
+        if (config.enabled) {
+            // Use console.log directly to ensure this message is always visible
+            // regardless of NestJS log level settings
+            console.log(
+                '\x1b[36m%s\x1b[0m', // Cyan color
+                `${config.prefix || '[NestAuth]'} Debug logging ENABLED (level: ${config.level || 'verbose'})`
+            );
+            console.log(
+                '\x1b[33m%s\x1b[0m', // Yellow color
+                `${config.prefix || '[NestAuth]'} TIP: If you don't see debug/verbose logs, either:\n` +
+                `  1. Set useConsole: true in debug config, OR\n` +
+                `  2. Configure NestJS app with: new Logger({ level: 'verbose' })`
+            );
         }
     }
 
+    /**
+     * Gets the current config by merging defaults with auth module options
+     * This is called on each log to ensure we have the latest config
+     */
+    private getConfig(): DebugLogOptions {
+        const authOptions = this.authConfig.getConfig();
+        if (authOptions.debug) {
+            return {
+                ...this.defaultConfig,
+                ...authOptions.debug
+            };
+        }
+        return this.defaultConfig;
+    }
+
     private shouldLog(level: DebugLogLevel): boolean {
-        if (!this.config.enabled) return false;
+        const config = this.getConfig();
+        if (!config.enabled) return false;
 
         const levels = [
             DebugLogLevel.ERROR,
@@ -53,24 +86,25 @@ export class DebugLoggerService {
             DebugLogLevel.VERBOSE
         ];
 
-        const currentLevelIndex = levels.indexOf(this.config.level);
+        const currentLevelIndex = levels.indexOf(config.level || DebugLogLevel.VERBOSE);
         const requestedLevelIndex = levels.indexOf(level);
 
         return requestedLevelIndex <= currentLevelIndex;
     }
 
     private formatMessage(message: string, context?: string, data?: any): string {
+        const config = this.getConfig();
         let formattedMessage = '';
 
-        if (this.config.prefix) {
-            formattedMessage += `${this.config.prefix} `;
+        if (config.prefix) {
+            formattedMessage += `${config.prefix} `;
         }
 
-        if (this.config.includeTimestamp) {
+        if (config.includeTimestamp) {
             formattedMessage += `[${new Date().toISOString()}] `;
         }
 
-        if (this.config.includeContext && context) {
+        if (config.includeContext && context) {
             formattedMessage += `[${context}] `;
         }
 
@@ -83,33 +117,84 @@ export class DebugLoggerService {
         return formattedMessage;
     }
 
+    /**
+     * Internal logging method that respects useConsole option
+     */
+    private logWithLevel(level: DebugLogLevel, message: string, trace?: string): void {
+        const config = this.getConfig();
+        
+        if (config.useConsole) {
+            // Use console directly to bypass NestJS log level filtering
+            const colorCodes: Record<DebugLogLevel, string> = {
+                [DebugLogLevel.ERROR]: '\x1b[31m', // Red
+                [DebugLogLevel.WARN]: '\x1b[33m',  // Yellow
+                [DebugLogLevel.INFO]: '\x1b[32m',  // Green
+                [DebugLogLevel.DEBUG]: '\x1b[36m', // Cyan
+                [DebugLogLevel.VERBOSE]: '\x1b[35m' // Magenta
+            };
+            const reset = '\x1b[0m';
+            const color = colorCodes[level] || '';
+            
+            switch (level) {
+                case DebugLogLevel.ERROR:
+                    console.error(`${color}[ERROR]${reset} ${message}`);
+                    if (trace) console.error(trace);
+                    break;
+                case DebugLogLevel.WARN:
+                    console.warn(`${color}[WARN]${reset} ${message}`);
+                    break;
+                default:
+                    console.log(`${color}[${level.toUpperCase()}]${reset} ${message}`);
+            }
+        } else {
+            // Use NestJS Logger (respects NestJS log level settings)
+            switch (level) {
+                case DebugLogLevel.ERROR:
+                    this.logger.error(message, trace);
+                    break;
+                case DebugLogLevel.WARN:
+                    this.logger.warn(message);
+                    break;
+                case DebugLogLevel.INFO:
+                    this.logger.log(message);
+                    break;
+                case DebugLogLevel.DEBUG:
+                    this.logger.debug(message);
+                    break;
+                case DebugLogLevel.VERBOSE:
+                    this.logger.verbose(message);
+                    break;
+            }
+        }
+    }
+
     error(message: string, context?: string, data?: any, trace?: string): void {
         if (this.shouldLog(DebugLogLevel.ERROR)) {
-            this.logger.error(this.formatMessage(message, context, data), trace);
+            this.logWithLevel(DebugLogLevel.ERROR, this.formatMessage(message, context, data), trace);
         }
     }
 
     warn(message: string, context?: string, data?: any): void {
         if (this.shouldLog(DebugLogLevel.WARN)) {
-            this.logger.warn(this.formatMessage(message, context, data));
+            this.logWithLevel(DebugLogLevel.WARN, this.formatMessage(message, context, data));
         }
     }
 
     info(message: string, context?: string, data?: any): void {
         if (this.shouldLog(DebugLogLevel.INFO)) {
-            this.logger.log(this.formatMessage(message, context, data));
+            this.logWithLevel(DebugLogLevel.INFO, this.formatMessage(message, context, data));
         }
     }
 
     debug(message: string, context?: string, data?: any): void {
         if (this.shouldLog(DebugLogLevel.DEBUG)) {
-            this.logger.debug(this.formatMessage(message, context, data));
+            this.logWithLevel(DebugLogLevel.DEBUG, this.formatMessage(message, context, data));
         }
     }
 
     verbose(message: string, context?: string, data?: any): void {
         if (this.shouldLog(DebugLogLevel.VERBOSE)) {
-            this.logger.verbose(this.formatMessage(message, context, data));
+            this.logWithLevel(DebugLogLevel.VERBOSE, this.formatMessage(message, context, data));
         }
     }
 
