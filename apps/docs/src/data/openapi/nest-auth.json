@@ -722,8 +722,9 @@
           },
           "guard": {
             "type": "string",
-            "description": "Guard context (e.g. admin, web, vendor) for isolation.",
-            "example": "admin"
+            "description": "Guard context (e.g. admin, web, vendor) for isolation. Deprecated: use client",
+            "example": "admin",
+            "deprecated": true
           }
         },
         "required": [
@@ -977,8 +978,9 @@
           },
           "guard": {
             "type": "string",
-            "description": "Guard context (e.g. admin, web, vendor) for isolation.",
-            "example": "admin"
+            "description": "Guard context (e.g. admin, web, vendor) for isolation. Deprecated: use client",
+            "example": "admin",
+            "deprecated": true
           },
           "createUserIfNotExists": {
             "type": "boolean",
