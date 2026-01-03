@@ -7,7 +7,22 @@ import {
   IsString,
   Matches,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
+/**
+ * Role assignment DTO - includes name and guard for proper role identification
+ */
+export class RoleAssignmentDto {
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsString()
+  @IsNotEmpty()
+  guard: string;
+}
 
 export class AdminCreateUserDto {
   @IsEmail()
@@ -40,8 +55,9 @@ export class AdminCreateUserDto {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
-  roles?: string[];
+  @ValidateNested({ each: true })
+  @Type(() => RoleAssignmentDto)
+  roles?: RoleAssignmentDto[];
 
   @IsOptional()
   metadata?: Record<string, any>;
@@ -67,8 +83,9 @@ export class AdminUpdateUserDto {
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
-  roles?: string[];
+  @ValidateNested({ each: true })
+  @Type(() => RoleAssignmentDto)
+  roles?: RoleAssignmentDto[];
 
   @IsOptional()
   metadata?: Record<string, any>;
@@ -85,3 +102,4 @@ export class AdminUpdateUserDto {
   @IsBoolean()
   phoneLoginEnabled?: boolean;
 }
+

@@ -74,6 +74,14 @@ export interface Role {
     updatedAt: string;
 }
 
+/**
+ * Role assignment for create/update operations - includes name and guard for proper identification
+ */
+export interface RoleAssignment {
+    name: string;
+    guard: string;
+}
+
 export interface Tenant {
     id: string;
     name: string;

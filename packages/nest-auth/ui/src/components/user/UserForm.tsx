@@ -8,14 +8,24 @@ import { MultiSelect } from '../MultiSelect';
 import { PasswordField } from '../form/PasswordField';
 import { FormFooterAction } from '../FormFooter';
 import { Plus } from 'lucide-react';
-import type { Tenant, Role } from '../../types';
+import type { Tenant, Role, RoleAssignment } from '../../types';
 
 export interface UserFormData {
     email: string;
     tenantId: string;
     password: string;
-    roles: string[];
+    roles: string[];  // Composite keys in format "name:guard"
 }
+
+/**
+ * Convert composite role keys to RoleAssignment objects
+ */
+export const roleKeysToAssignments = (keys: string[]): RoleAssignment[] => {
+    return keys.map(key => {
+        const [name, guard] = key.split(':');
+        return { name, guard };
+    });
+};
 
 const userSchema = yup.object({
     email: yup.string().email('Invalid email address').required('Email is required'),
@@ -69,12 +79,12 @@ export const UserForm: React.FC<UserFormProps> = ({
         }
     };
 
-    const handleCancel = () => {
+    const handleCancel = React.useCallback(() => {
         reset();
         onCancel();
-    };
+    }, [reset, onCancel]);
 
-    // Prepare footer actions
+    // Prepare footer actions - only depend on stable references
     const footerActions: FormFooterAction[] = React.useMemo(() => [
         {
             label: 'Cancel',
@@ -96,12 +106,21 @@ export const UserForm: React.FC<UserFormProps> = ({
         },
     ], [handleCancel, isSubmitting, submitLabel]);
 
-    // Notify parent of actions
+    // Track if we've notified parent to prevent unnecessary updates
+    const hasNotifiedRef = React.useRef(false);
+    const prevIsSubmittingRef = React.useRef(isSubmitting);
+
+    // Notify parent of actions - only on mount or when isSubmitting changes
     React.useEffect(() => {
         if (onActionsReady) {
-            onActionsReady(footerActions);
+            // Only call if this is first render or isSubmitting changed
+            if (!hasNotifiedRef.current || prevIsSubmittingRef.current !== isSubmitting) {
+                onActionsReady(footerActions);
+                hasNotifiedRef.current = true;
+                prevIsSubmittingRef.current = isSubmitting;
+            }
         }
-    }, [onActionsReady, footerActions]);
+    }, [onActionsReady, footerActions, isSubmitting]);
 
     return (
         <form id="user-form" onSubmit={handleSubmit(handleFormSubmit)} className="p-4 space-y-3">
@@ -175,7 +194,7 @@ export const UserForm: React.FC<UserFormProps> = ({
                             value={field.value || []}
                             onChange={field.onChange}
                             options={roles.map((r) => ({
-                                value: r.name,
+                                value: `${r.name}:${r.guard}`,
                                 label: r.tenantId ? `${r.name} (${r.guard})` : `${r.name} (${r.guard}) - Global`,
                             }))}
                             placeholder="Select roles..."

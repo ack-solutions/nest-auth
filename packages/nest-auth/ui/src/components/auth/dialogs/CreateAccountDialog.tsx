@@ -74,6 +74,7 @@ export const CreateAccountDialog: React.FC<CreateAccountDialogProps> = ({ open, 
             )}
 
             {activeTab === 'code' && <CreateAccountCodeExamples />}
+
         </Modal>
     );
 };

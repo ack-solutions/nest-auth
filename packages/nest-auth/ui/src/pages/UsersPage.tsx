@@ -13,7 +13,7 @@ import { SearchInput } from '../components/SearchInput';
 import { Table, Column, PaginationInfo } from '../components/Table';
 import { Card } from '../components/Card';
 import { CreateUserDialog } from '../components/user/CreateUserDialog';
-import type { UserFormData } from '../components/user/UserForm';
+import { UserFormData, roleKeysToAssignments } from '../components/user/UserForm';
 
 export const UsersPage: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
@@ -116,11 +116,14 @@ export const UsersPage: React.FC = () => {
     const handleCreateUser = async (data: UserFormData) => {
         setCreateError('');
         try {
+            // Convert role keys (name:guard) to RoleAssignment objects
+            const roleAssignments = roleKeysToAssignments(data.roles || []);
+            
             await api.post('/api/users', {
                 email: data.email.trim(),
                 tenantId: data.tenantId || undefined,
                 password: data.password || undefined,
-                roles: data.roles,
+                roles: roleAssignments,
             });
             setShowCreateModal(false);
             await loadUsers();

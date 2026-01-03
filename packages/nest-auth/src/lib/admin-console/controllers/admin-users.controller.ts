@@ -18,7 +18,7 @@ import { UserService } from '../../user/services/user.service';
 import { TenantService } from '../../tenant/services/tenant.service';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthMFASecret } from '../../auth/entities/mfa-secret.entity';
-import { DEFAULT_GUARD_NAME, EMAIL_AUTH_PROVIDER, PHONE_AUTH_PROVIDER } from '../../auth.constants';
+import { EMAIL_AUTH_PROVIDER, PHONE_AUTH_PROVIDER } from '../../auth.constants';
 import { FindOptionsWhere, Like } from 'typeorm';
 import { MfaService } from '../../auth/services/mfa.service';
 import { SessionManagerService } from '../../session/services/session-manager.service';
@@ -164,7 +164,7 @@ export class AdminUsersController {
     }
 
     if (dto.roles?.length) {
-      await user.assignRoles(dto.roles, DEFAULT_GUARD_NAME);
+      await user.assignRoles(dto.roles);
       await user.save();
     }
 
@@ -283,7 +283,7 @@ export class AdminUsersController {
 
     // Apply role changes in-memory
     if (dto.roles) {
-      await user.assignRoles(dto.roles, DEFAULT_GUARD_NAME);
+      await user.assignRoles(dto.roles);
     }
 
     // Save all changes

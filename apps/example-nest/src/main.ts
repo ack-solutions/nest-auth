@@ -36,8 +36,9 @@ async function bootstrap() {
     // Frontend URLs - add your frontend origins here
     origin: [
       'http://localhost:4200', // Vite default
-      'http://localhost:3000', // Same as backend (for some setups)
+      'http://localhost:3333', // Same as backend (for some setups)
       'http://localhost:3001', // Next.js example
+      'http://localhost:5173', // Next.js example
     ],
     // Required for cookies to be sent cross-origin
     credentials: true,
@@ -154,7 +155,7 @@ async function bootstrap() {
    * Start Server
    * Default port 3000, can be overridden via PORT environment variable
    */
-  const port = process.env.PORT ?? 3000;
+  const port = process.env.PORT ?? 3333;
   await app.listen(port);
 
   console.log(`
