@@ -27,6 +27,7 @@ interface TableProps<T> {
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
     rowKey: (row: T) => string | number;
+    onRowClick?: (row: T) => void;
 }
 
 export function Table<T>({
@@ -41,6 +42,7 @@ export function Table<T>({
     sortBy,
     sortOrder,
     rowKey,
+    onRowClick,
 }: TableProps<T>) {
     const handleSort = (key: string, sortable?: boolean) => {
         if (sortable && onSort) {
@@ -190,7 +192,11 @@ export function Table<T>({
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {data.map((row) => (
-                            <tr key={rowKey(row)} className="hover:bg-gray-50 transition-colors">
+                            <tr 
+                                key={rowKey(row)} 
+                                className={`hover:bg-gray-50 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
+                                onClick={() => onRowClick?.(row)}
+                            >
                                 {columns.map((column) => (
                                     <td key={column.key} className="px-3 py-2.5">
                                         {column.render ? column.render(row) : String(row[column.key as keyof T] ?? '')}

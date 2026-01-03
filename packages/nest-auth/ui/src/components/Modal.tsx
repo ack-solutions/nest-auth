@@ -13,6 +13,8 @@ export interface ModalProps {
     maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl';
     showCloseButton?: boolean;
     animate?: boolean;
+    fullscreen?: boolean;
+    fixedHeight?: boolean;
 }
 
 const maxWidthMap = {
@@ -28,14 +30,14 @@ const maxWidthMap = {
 
 export const ModalFooter = ({ footer, className }: { footer: React.ReactNode; className?: string }) => {
     return (
-        <div className={`p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0 ${className}`}>
+        <div className={`p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0 rounded-b-xl ${className || ''}`}>
             {footer}
         </div>
     );
 };
 export const ModalContent = ({ children, className }: { children: React.ReactNode; className?: string }) => {
     return (
-        <div className={`flex-1 overflow-y-auto px-4 ${className}`}>
+        <div className={`flex-1 overflow-y-auto px-4 ${className || ''}`}>
             {children}
         </div>
     );
@@ -53,16 +55,29 @@ export const Modal: React.FC<ModalProps> = ({
     maxWidth = 'md',
     showCloseButton = true,
     animate = false,
+    fullscreen = false,
+    fixedHeight = true,
 }) => {
     if (!isOpen) return null;
 
+    const paddingClass = fullscreen ? '' : 'p-4';
     const wrapperClasses = animate
-        ? "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in"
-        : "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4";
+        ? `fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${paddingClass} animate-fade-in`
+        : `fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${paddingClass}`;
 
-    const contentClasses = animate
-        ? `bg-white rounded-xl shadow-2xl ${maxWidthMap[maxWidth]} w-full h-[90vh] overflow-hidden animate-slide-up flex flex-col`
-        : `bg-white rounded-xl shadow-2xl ${maxWidthMap[maxWidth]} w-full h-[90vh] flex flex-col`;
+    // Determine height classes based on fullscreen and fixedHeight
+    let heightClass = '';
+    if (fullscreen) {
+        heightClass = 'h-full';
+    } else if (fixedHeight) {
+        heightClass = 'h-[90vh]';
+    } else {
+        heightClass = 'max-h-[90vh]'; // Dynamic height with max constraint
+    }
+
+    const contentClasses = fullscreen
+        ? `bg-white shadow-2xl w-full ${heightClass} overflow-hidden flex flex-col ${animate ? 'animate-slide-up' : ''}`
+        : `bg-white rounded-xl shadow-2xl ${maxWidthMap[maxWidth]} w-full ${heightClass} ${animate ? 'animate-slide-up' : ''} flex flex-col`;
 
     return (
         <div className={wrapperClasses}>
@@ -99,7 +114,7 @@ export const Modal: React.FC<ModalProps> = ({
                 )}
 
                 {/* Content - Scrollable */}
-                <ModalContent className={`${!footer ? 'pb-4' : ''} ${tabs ? 'pt-4' : ''}`}>
+                <ModalContent className={`py-4 ${!footer ? 'pb-4' : ''} ${tabs ? 'pt-4' : ''}`}>
                     {children}
                 </ModalContent>
 

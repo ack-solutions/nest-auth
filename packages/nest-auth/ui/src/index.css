@@ -34,7 +34,7 @@
     }
 
     .input-field {
-        @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all duration-200;
+        @apply w-full px-4 py-2 border border-gray-300 rounded-lg  outline-none transition-all duration-200;
     }
 
     .badge {

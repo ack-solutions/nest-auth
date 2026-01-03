@@ -82,6 +82,8 @@ export class AdminUsersController {
     @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('status') status?: string,
+    @Query('tenantId') tenantId?: string,
+    @Query('roleName') roleName?: string,
   ) {
     // Validate and sanitize pagination parameters
     let pageNum = parseInt(page || '1', 10);
@@ -102,28 +104,36 @@ export class AdminUsersController {
 
     const skip = (pageNum - 1) * limitNum;
 
+    // Build base filter with status and tenant
+    const baseFilter: FindOptionsWhere<NestAuthUser> = {
+      ...this.buildStatusFilter(status),
+    };
+
+    // Add tenant filter if provided
+    if (tenantId && tenantId.trim()) {
+      baseFilter.tenantId = tenantId.trim();
+    }
+
+    // Add role filter if provided
+    if (roleName && roleName.trim()) {
+      baseFilter.roles = { name: roleName.trim() };
+    }
+
     // Build where clause with proper TypeORM typing
-    let where: FindOptionsWhere<NestAuthUser>[] | FindOptionsWhere<NestAuthUser> = {};
+    let where: FindOptionsWhere<NestAuthUser>[] | FindOptionsWhere<NestAuthUser> = baseFilter;
 
     // Apply search filter with proper OR conditions using array syntax
     if (search && search.trim()) {
       const escapedSearch = this.escapeLikePattern(search.trim());
       const searchPattern = `%${escapedSearch}%`;
 
-      // Base status filter if present
-      const baseFilter: FindOptionsWhere<NestAuthUser> = {
-        ...this.buildStatusFilter(status),
-      };
-
       // Create OR conditions for search
+      // Note: Only search on text columns (email, phone)
+      // tenantId is UUID type and doesn't support LIKE operator
       where = [
         { ...baseFilter, email: Like(searchPattern) },
         { ...baseFilter, phone: Like(searchPattern) },
-        { ...baseFilter, tenantId: Like(searchPattern) },
       ];
-    } else {
-      // Apply status filter without search
-      Object.assign(where as FindOptionsWhere<NestAuthUser>, this.buildStatusFilter(status));
     }
 
     // Get users and total count in a single query
