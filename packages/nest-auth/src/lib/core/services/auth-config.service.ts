@@ -138,6 +138,11 @@ export class AuthConfigService {
         const deepmerge = require('deepmerge');
         const mergedOptions = deepmerge(this.defaultOptions, options, { clone: false });
 
+        // avoid duplicate mfa methods
+        if (mergedOptions.mfa?.methods) {
+            mergedOptions.mfa.methods = [...new Set(mergedOptions.mfa.methods)];
+        }
+
         // Ensure adminConsole exists
         if (!mergedOptions.adminConsole) {
             mergedOptions.adminConsole = {};

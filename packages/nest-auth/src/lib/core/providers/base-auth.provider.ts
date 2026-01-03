@@ -31,8 +31,28 @@ export abstract class BaseAuthProvider {
 
     /**
      * Link a provider identity to a user
+     * Checks for existing identity before creating to prevent duplicates
      */
     async linkToUser(userId: string, providerUserId: string, metadata?: Record<string, any>): Promise<void> {
+        // Check if identity already exists to prevent duplicates
+        const existingIdentity = await this.authIdentityRepository.findOne({
+            where: {
+                userId,
+                provider: this.providerName,
+                providerId: providerUserId,
+            },
+        });
+
+        if (existingIdentity) {
+            // Update metadata if provided
+            if (metadata && Object.keys(metadata).length > 0) {
+                existingIdentity.metadata = { ...existingIdentity.metadata, ...metadata };
+                await this.authIdentityRepository.save(existingIdentity);
+            }
+            return;
+        }
+
+        // Create new identity only if it doesn't exist
         const identity = this.authIdentityRepository.create({
             userId,
             provider: this.providerName,

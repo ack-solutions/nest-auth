@@ -155,7 +155,7 @@ export class NestAuthUser extends BaseEntity {
         });
     }
 
-    async assignRolesWithMutipleGuard(roles: { name: string; guard: string } | { name: string; guard: string }[]): Promise<void> {
+    async assignRolesWithMultipleGuard(roles: { name: string; guard: string } | { name: string; guard: string }[]): Promise<void> {
         const roleAssignments = Array.isArray(roles) ? roles : [roles];
         if (roleAssignments.length === 0) {
             this.roles = [];
@@ -191,20 +191,24 @@ export class NestAuthUser extends BaseEntity {
         provider: string,
         data: Partial<NestAuthIdentity>
     ): Promise<NestAuthIdentity> {
-        let identity = {} as NestAuthIdentity;
-        if (provider) {
-            identity = await NestAuthIdentity.findOne({
-                where: { provider, userId: this.id },
-            });
+        // Find existing identity by provider and userId
+        const existingIdentity = await NestAuthIdentity.findOne({
+            where: { provider, userId: this.id },
+        });
+
+        if (existingIdentity) {
+            // Update existing identity
+            Object.assign(existingIdentity, data);
+            return existingIdentity.save();
         }
 
-        identity = NestAuthIdentity.create<NestAuthIdentity>({
+        // Create new identity if none exists
+        const newIdentity = NestAuthIdentity.create<NestAuthIdentity>({
             provider,
-            ...identity,
-            ...data,
             userId: this.id,
+            ...data,
         });
-        return identity.save();
+        return newIdentity.save();
     }
 
     async validatePassword(password: string): Promise<boolean> {

@@ -164,7 +164,7 @@ export class AdminUsersController {
     }
 
     if (dto.roles?.length) {
-      await user.assignRolesWithMutipleGuard(dto.roles);
+      await user.assignRolesWithMultipleGuard(dto.roles);
       await user.save();
     }
 
@@ -226,16 +226,55 @@ export class AdminUsersController {
       throw new NotFoundException('User not found');
     }
 
-    // Apply basic field updates if provided
+    const oldEmail = user.email;
+    const oldPhone = user.phone;
+
+    // Apply basic field updates if provided (including email and phone)
     if (dto.isActive !== undefined || dto.isVerified !== undefined || dto.metadata !== undefined ||
-      dto.isMfaEnabled !== undefined) {
+      dto.isMfaEnabled !== undefined || dto.email !== undefined || dto.phone !== undefined) {
       const updates: Partial<NestAuthUser> = {};
       if (dto.isActive !== undefined) updates.isActive = dto.isActive;
       if (dto.isVerified !== undefined) updates.isVerified = dto.isVerified;
       if (dto.metadata !== undefined) updates.metadata = dto.metadata;
       if (dto.isMfaEnabled !== undefined) updates.isMfaEnabled = dto.isMfaEnabled;
+      if (dto.email !== undefined) updates.email = dto.email;
+      if (dto.phone !== undefined) updates.phone = dto.phone;
 
       user = await this.users.updateUser(id, updates);
+    }
+
+    // Handle email change - update or create identity if email changed
+    if (dto.email !== undefined && dto.email !== oldEmail) {
+      // Remove old email identity if it exists
+      if (oldEmail) {
+        const oldEmailIdentity = user.identities?.find(i => 
+          i.provider === EMAIL_AUTH_PROVIDER && i.providerId === oldEmail
+        );
+        if (oldEmailIdentity) {
+          await oldEmailIdentity.remove();
+        }
+      }
+      // Create new email identity if email is set and email login is enabled
+      if (dto.email && user.emailVerifiedAt) {
+        await user.findOrCreateIdentity(EMAIL_AUTH_PROVIDER, dto.email);
+      }
+    }
+
+    // Handle phone change - update or create identity if phone changed
+    if (dto.phone !== undefined && dto.phone !== oldPhone) {
+      // Remove old phone identity if it exists
+      if (oldPhone) {
+        const oldPhoneIdentity = user.identities?.find(i => 
+          i.provider === PHONE_AUTH_PROVIDER && i.providerId === oldPhone
+        );
+        if (oldPhoneIdentity) {
+          await oldPhoneIdentity.remove();
+        }
+      }
+      // Create new phone identity if phone is set and phone login is enabled
+      if (dto.phone && user.phoneVerifiedAt) {
+        await user.findOrCreateIdentity(PHONE_AUTH_PROVIDER, dto.phone);
+      }
     }
 
     // Enable/disable email login
@@ -245,7 +284,7 @@ export class AdminUsersController {
           throw new NotFoundException('User has no email address');
         }
         user.emailVerifiedAt = user.emailVerifiedAt || new Date();
-        // Ensure identity exists
+        // Ensure identity exists with current email
         await user.findOrCreateIdentity(EMAIL_AUTH_PROVIDER, user.email);
       } else {
         user.emailVerifiedAt = null;
@@ -264,7 +303,7 @@ export class AdminUsersController {
           throw new NotFoundException('User has no phone number');
         }
         user.phoneVerifiedAt = user.phoneVerifiedAt || new Date();
-        // Ensure identity exists
+        // Ensure identity exists with current phone
         await user.findOrCreateIdentity(PHONE_AUTH_PROVIDER, user.phone);
       } else {
         user.phoneVerifiedAt = null;
@@ -283,7 +322,7 @@ export class AdminUsersController {
 
     // Apply role changes in-memory
     if (dto.roles) {
-      await user.assignRolesWithMutipleGuard(dto.roles);
+      await user.assignRolesWithMultipleGuard(dto.roles);
     }
 
     // Save all changes

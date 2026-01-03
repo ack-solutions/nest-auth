@@ -65,6 +65,14 @@ export class AdminCreateUserDto {
 
 export class AdminUpdateUserDto {
   @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 

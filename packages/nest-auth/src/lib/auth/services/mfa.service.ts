@@ -458,7 +458,9 @@ export class MfaService {
         if (!this.requireMfaEnabledForApp(false)) {
             return [];
         }
-        return this.mfaConfig.methods ?? [];
+        // Deduplicate methods to ensure unique values
+        const methods = this.mfaConfig.methods ?? [];
+        return [...new Set(methods)];
     }
 
     async hasRecoveryCode(userId: string): Promise<boolean> {
