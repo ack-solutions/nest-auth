@@ -164,7 +164,7 @@ export class AdminUsersController {
     }
 
     if (dto.roles?.length) {
-      await user.assignRoles(dto.roles);
+      await user.assignRolesWithMutipleGuard(dto.roles);
       await user.save();
     }
 
@@ -283,7 +283,7 @@ export class AdminUsersController {
 
     // Apply role changes in-memory
     if (dto.roles) {
-      await user.assignRoles(dto.roles);
+      await user.assignRolesWithMutipleGuard(dto.roles);
     }
 
     // Save all changes

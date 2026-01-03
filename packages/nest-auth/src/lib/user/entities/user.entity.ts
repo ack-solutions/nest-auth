@@ -11,6 +11,7 @@ import {
     BeforeInsert,
     BeforeUpdate,
     ManyToMany,
+    In,
 } from "typeorm";
 import { hash, verify, Algorithm } from '@node-rs/argon2';
 import { AuthConfigService } from '../../core/services/auth-config.service';
@@ -142,13 +143,20 @@ export class NestAuthUser extends BaseEntity {
         return this.roles;
     }
 
-    /**
-     * Assign roles to the user.
-     * @param roles - Role assignment(s) with name and guard
-     */
-    async assignRoles(roles: { name: string; guard: string } | { name: string; guard: string }[]): Promise<void> {
+    async assignRoles(roles: string | string[], guard: string): Promise<void> {
+        // Find both system roles and tenant - specific roles
+        this.roles = await NestAuthRole.find({
+            where: [
+            // System roles (tenantId is null)
+                { name: In(Array.isArray(roles) ? roles : [roles]), isSystem: true, guard },
+            // Tenant-specific roles
+                { name: In(Array.isArray(roles) ? roles : [roles]), tenantId: this.tenantId, isSystem: false, guard }
+            ]
+        });
+    }
+
+    async assignRolesWithMutipleGuard(roles: { name: string; guard: string } | { name: string; guard: string }[]): Promise<void> {
         const roleAssignments = Array.isArray(roles) ? roles : [roles];
-        
         if (roleAssignments.length === 0) {
             this.roles = [];
             return;
@@ -156,15 +164,12 @@ export class NestAuthUser extends BaseEntity {
 
         // Build where conditions for each role with its specific guard
         const whereConditions = roleAssignments.flatMap(({ name, guard }) => [
-            // System roles (tenantId is null)
             { name, isSystem: true, guard },
-            // Tenant-specific roles
             { name, tenantId: this.tenantId, isSystem: false, guard }
         ]);
 
         this.roles = await NestAuthRole.find({ where: whereConditions });
     }
-
     async findOrCreateIdentity(provider: string, providerId: string) {
         const existingIdentity = await NestAuthIdentity.findOne({
             where: { provider, providerId, userId: this.id }
