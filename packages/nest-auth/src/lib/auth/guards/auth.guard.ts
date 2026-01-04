@@ -172,20 +172,30 @@ export class NestAuthAuthGuard implements CanActivate {
         return { token: null, authType: null };
     }
 
-    private async handleJwtAuth(context: ExecutionContext, request: any, response: Response, token: string, isOptional: boolean = false): Promise<boolean> {
-        try {
-            // Verify the JWT token
-            const payload = await this.jwtService.verifyToken(token);
+    private resetAuth(request: any) {
+        request.user = null;
+        request.session = null;
+        request.accessKey = null;
+        request.authType = null;
+    }
 
+    private async handleJwtAuth(
+        context: ExecutionContext,
+        request: any,
+        response: Response,
+        token: string,
+        isOptional = false,
+    ): Promise<boolean> {
+        try {
+            const payload = await this.jwtService.verifyToken(token);
             const config = this.authConfigService.getConfig();
 
-            // Apply guards.beforeAuth hook if configured
             if (config.guards?.beforeAuth) {
                 const result = await config.guards.beforeAuth(request, payload);
                 if (result && result.reject) {
                     throw new UnauthorizedException({
                         message: result.reason || 'Authentication rejected by custom guard',
-                        code: ERROR_CODES.ACCESS_DENIED
+                        code: ERROR_CODES.ACCESS_DENIED,
                     });
                 }
             }
@@ -193,103 +203,65 @@ export class NestAuthAuthGuard implements CanActivate {
             request.user = payload;
             request.authType = 'jwt';
 
-            // Verify session exists
             const session = await this.sessionManager.getSession(payload.sessionId as string);
             if (!session) {
                 if (isOptional) {
-                    // Session not found but auth is optional - reset user data and continue
-                    request.user = null;
-                    request.authType = null;
+                    this.resetAuth(request);
                     return false;
-                } else {
-                    throw new UnauthorizedException({
-                        message: 'Session not found',
-                        code: ERROR_CODES.SESSION_NOT_FOUND
-                    });
                 }
+                throw new UnauthorizedException({
+                    message: 'Session not found',
+                    code: ERROR_CODES.SESSION_NOT_FOUND,
+                });
             }
 
-            // Apply jwt.validateToken hook if configured
             if (config.jwt?.validateToken) {
                 const isValid = await config.jwt.validateToken(payload, session);
                 if (!isValid) {
-                    this.debugLogger.warn('validateToken hook returned invalid', 'AuthGuard');
                     throw new UnauthorizedException({
                         message: 'Token validation failed',
-                        code: ERROR_CODES.INVALID_TOKEN
+                        code: ERROR_CODES.INVALID_TOKEN,
                     });
                 }
             }
 
             request.session = session;
 
-            // Check if user is active
-            // This ensures if user was deactivated after session creation, they can't access
             const user = await this.userRepository.findOne({
                 where: { id: session.userId },
-                select: ['id', 'isActive', 'isVerified'] // Only select needed fields for performance
+                select: ['id', 'isActive', 'isVerified'],
             });
 
-            if (!user) {
-                this.debugLogger.warn('User not found for session', 'AuthGuard', { userId: session.userId });
+            if (!user || user.isActive === false) {
                 if (isOptional) {
-                    request.user = null;
-                    request.authType = null;
+                    this.resetAuth(request);
                     return false;
-                } else {
-                    throw new UnauthorizedException({
-                        message: 'User not found',
-                        code: ERROR_CODES.ACCOUNT_INACTIVE
-                    });
                 }
+                throw new UnauthorizedException({
+                    message: !user ? 'User not found' : 'User is not active',
+                    code: ERROR_CODES.ACCOUNT_INACTIVE,
+                });
             }
 
-            if (user.isActive === false) {
-                this.debugLogger.warn('User is not active', 'AuthGuard', { userId: user.id });
-                if (isOptional) {
-                    request.user = null;
-                    request.authType = null;
-                    return false;
-                } else {
-                    throw new UnauthorizedException({
-                        message: 'User is not active',
-                        code: ERROR_CODES.ACCOUNT_INACTIVE
-                    });
-                }
-            }
-
-            // Check MFA requirements
             await this.checkMfa(context, payload, isOptional);
 
-            // Apply guards.afterAuth hook if configured
-            if (config.guards?.afterAuth) {
-                // We need the full user object for the hook if possible, but the signature asks for NestAuthUser
-                // The payload is just the JWT payload. The session has the user data.
-                // Let's try to use session.data.user if available, otherwise we might need to fetch it or cast payload
-                // The interface says user: NestAuthUser. session.data.user is usually the user object.
-                if (session.data?.user) {
-                    await config.guards.afterAuth(request, session.data.user, session);
-                }
+            if (config.guards?.afterAuth && session.data?.user) {
+                await config.guards.afterAuth(request, session.data.user, session);
             }
 
             return true;
         } catch (error) {
-            // Token verification failed
-            // Note: Token refresh is handled by RefreshTokenInterceptor
             if (isOptional) {
-                // Auth is optional - continue without user data
-                return true; 
-            } else {
-                // If it's already an HttpException (like UnauthorizedException from our checks), rethrow it
-                if (error instanceof UnauthorizedException || (error as any).status) {
-                    throw error;
-                }
-
-                throw new UnauthorizedException({
-                    message: 'Invalid or expired token',
-                    code: ERROR_CODES.INVALID_TOKEN
-                });
+                this.resetAuth(request);
+                return false; // <-- key change
             }
+
+            if (error instanceof UnauthorizedException || (error as any).status) throw error;
+
+            throw new UnauthorizedException({
+                message: 'Invalid or expired token',
+                code: ERROR_CODES.INVALID_TOKEN,
+            });
         }
     }
 
@@ -300,7 +272,7 @@ export class NestAuthAuthGuard implements CanActivate {
             this.debugLogger.warn('Invalid API key format', 'AuthGuard');
             if (isOptional) {
                 // Invalid format but auth is optional - continue without user data
-                return false;
+                return true;
             } else {
                 throw new UnauthorizedException({
                     message: 'Invalid API key format',
@@ -316,7 +288,7 @@ export class NestAuthAuthGuard implements CanActivate {
                 this.debugLogger.warn('Invalid API key', 'AuthGuard');
                 if (isOptional) {
                     // Invalid API key but auth is optional - continue without user data
-                    return false;
+                    return true;
                 } else {
                     throw new UnauthorizedException({
                         message: 'Invalid API key',
@@ -340,8 +312,7 @@ export class NestAuthAuthGuard implements CanActivate {
         } catch (error) {
             this.debugLogger.logError(error as Error, 'AuthGuard.handleApiKeyAuth');
             if (isOptional) {
-                // API key validation failed but auth is optional - continue without user data
-                return false;
+                return true;
             } else {
                 throw error;
             }
@@ -364,9 +335,7 @@ export class NestAuthAuthGuard implements CanActivate {
         if (isMfaEnabled && !isMfaVerified && !skipMfa) {
             this.debugLogger.warn('MFA verification required but not verified', 'AuthGuard');
             if (isOptional) {
-                // MFA required but auth is optional - this creates a conflict
-                // In this case, we should not set user data since MFA is not verified
-                throw new Error('MFA verification required - cannot proceed with optional auth');
+                return;
             } else {
                 throw new UnauthorizedException({
                     message: 'Multi-factor authentication is required',
@@ -388,6 +357,7 @@ export class NestAuthAuthGuard implements CanActivate {
         // If no authorization requirements, allow access
         if (!requiredPermissions.length && !requiredRoles.length) {
             this.debugLogger.debug('No authorization requirements - allowing access', 'AuthGuard');
+            return;
         }
 
         const user = request.user;
@@ -602,9 +572,7 @@ export class NestAuthAuthGuard implements CanActivate {
 
         roles.forEach(role => {
             // Skip inactive roles
-            if (!role.isActive) {
-                return;
-            }
+            if (role?.isActive === false) return;
 
             // Add permissions from this role
             if (role.permissions && Array.isArray(role.permissions)) {
