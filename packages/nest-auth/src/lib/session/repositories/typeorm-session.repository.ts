@@ -26,17 +26,48 @@ export class TypeORMSessionRepository extends BaseSessionRepository {
     }
 
     async findById(sessionId: string): Promise<NestAuthSession | null> {
-        return await this.repository.findOne({
+        const session = await this.repository.findOne({
             where: { id: sessionId },
-            relations: ['user'],
         });
+
+        if (!session) {
+            return null;
+        }
+
+        // Check expiration and delete if expired (lazy deletion)
+        // This ensures consistent behavior with Memory and Redis stores
+        if (this.isExpired(session)) {
+            await this.delete(sessionId);
+            return null;
+        }
+
+        return session;
     }
 
     async findByUserId(userId: string): Promise<NestAuthSession[]> {
-        return await this.repository.find({
+        const sessions = await this.repository.find({
             where: { userId },
             order: { createdAt: 'DESC' },
         });
+
+        // Filter out expired sessions and delete them (lazy deletion)
+        const activeSessions: NestAuthSession[] = [];
+        const expiredIds: string[] = [];
+
+        for (const session of sessions) {
+            if (this.isExpired(session)) {
+                expiredIds.push(session.id);
+            } else {
+                activeSessions.push(session);
+            }
+        }
+
+        // Delete expired sessions in batch
+        if (expiredIds.length > 0) {
+            await this.repository.delete(expiredIds);
+        }
+
+        return activeSessions;
     }
 
     async findActiveByUserId(userId: string): Promise<NestAuthSession[]> {
@@ -51,7 +82,11 @@ export class TypeORMSessionRepository extends BaseSessionRepository {
 
     async update(sessionId: string, updates: Partial<NestAuthSession>): Promise<NestAuthSession> {
         await this.repository.update(sessionId, updates);
-        return await this.findById(sessionId);
+        const updated = await this.findById(sessionId);
+        if (!updated) {
+            throw new Error(`Session ${sessionId} not found after update`);
+        }
+        return updated;
     }
 
     async delete(sessionId: string): Promise<void> {

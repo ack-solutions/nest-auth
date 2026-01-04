@@ -13,6 +13,9 @@ import { AuthConfigService } from '../../core/services/auth-config.service';
 import { CookieHelper } from '../../utils/cookie.helper';
 import { uniq } from 'lodash';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { NestAuthUser } from '../../user/entities/user.entity';
 
 /**
  * NestAuthAuthGuard
@@ -37,6 +40,8 @@ export class NestAuthAuthGuard implements CanActivate {
         private accessKeyService: AccessKeyService,
         private authConfigService: AuthConfigService,
         private debugLogger: DebugLoggerService,
+        @InjectRepository(NestAuthUser)
+        private readonly userRepository: Repository<NestAuthUser>,
     ) { }
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -219,8 +224,28 @@ export class NestAuthAuthGuard implements CanActivate {
             request.session = session;
 
             // Check if user is active
-            if (session.user && session.user.isActive === false) {
-                this.debugLogger.warn('User is not active', 'AuthGuard', { userId: session.user.id });
+            // This ensures if user was deactivated after session creation, they can't access
+            const user = await this.userRepository.findOne({
+                where: { id: session.userId },
+                select: ['id', 'isActive', 'isVerified'] // Only select needed fields for performance
+            });
+
+            if (!user) {
+                this.debugLogger.warn('User not found for session', 'AuthGuard', { userId: session.userId });
+                if (isOptional) {
+                    request.user = null;
+                    request.authType = null;
+                    return false;
+                } else {
+                    throw new UnauthorizedException({
+                        message: 'User not found',
+                        code: ERROR_CODES.ACCOUNT_INACTIVE
+                    });
+                }
+            }
+
+            if (user.isActive === false) {
+                this.debugLogger.warn('User is not active', 'AuthGuard', { userId: user.id });
                 if (isOptional) {
                     request.user = null;
                     request.authType = null;

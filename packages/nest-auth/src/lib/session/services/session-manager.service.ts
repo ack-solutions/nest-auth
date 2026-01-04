@@ -1,5 +1,5 @@
-import { Injectable, Inject, Logger, UnauthorizedException } from '@nestjs/common';
-import { ISessionRepository } from '../interfaces/session-repository.interface';
+import { Injectable, Inject, UnauthorizedException } from '@nestjs/common';
+import { SessionStore } from '../interfaces/session-store.interface';
 import { NestAuthSession } from '../entities/session.entity';
 import { IAuthModuleOptions } from '../../core/interfaces/auth-module-options.interface';
 import { SessionPayload, SessionDataPayload } from '../../core/interfaces/token-payload.interface';
@@ -9,6 +9,7 @@ import { NestAuthUser } from '../../user/entities/user.entity';
 import { v4 as uuidv4 } from 'uuid';
 import ms from 'ms';
 
+export const SESSION_STORE = 'SESSION_STORE';
 export const SESSION_REPOSITORY = 'SESSION_REPOSITORY';
 
 /**
@@ -18,8 +19,8 @@ export const SESSION_REPOSITORY = 'SESSION_REPOSITORY';
 @Injectable()
 export class SessionManagerService {
     constructor(
-        @Inject(SESSION_REPOSITORY)
-        private readonly repository: ISessionRepository,
+        @Inject(SESSION_STORE)
+        private readonly store: SessionStore,
     ) { }
 
     private get options(): IAuthModuleOptions {
@@ -62,7 +63,7 @@ export class SessionManagerService {
             lastActive: new Date(),
         };
 
-        const session = await this.repository.create(sessionPayload);
+        const session = await this.store.create(sessionPayload);
 
         // Apply onCreated hook if configured
         if (this.options.session?.onCreated) {
@@ -79,7 +80,7 @@ export class SessionManagerService {
      * Get session by ID and optionally refresh it
      */
     async getSession(sessionId: string, refreshSession = true): Promise<NestAuthSession> {
-        const session = await this.repository.findById(sessionId);
+        const session = await this.store.findById(sessionId);
 
         if (!session) {
             throw new UnauthorizedException('Session not found');
@@ -87,13 +88,13 @@ export class SessionManagerService {
 
         // Check if expired
         if (this.isExpired(session)) {
-            await this.repository.delete(sessionId);
+            await this.store.delete(sessionId);
             throw new UnauthorizedException('Session expired');
         }
 
         // Update last active if sliding expiration enabled
         if (refreshSession && this.slidingExpiration) {
-            await this.repository.updateLastActive(sessionId);
+            await this.touchSession(sessionId);
         }
 
         return session;
@@ -103,21 +104,21 @@ export class SessionManagerService {
      * Get all sessions for a user
      */
     async getUserSessions(userId: string): Promise<NestAuthSession[]> {
-        return await this.repository.findByUserId(userId);
+        return await this.store.findByUserId(userId);
     }
 
     /**
      * Get active sessions for a user
      */
     async getActiveSessions(userId: string): Promise<NestAuthSession[]> {
-        return await this.repository.findActiveByUserId(userId);
+        return await this.store.findActiveByUserId(userId);
     }
 
     /**
      * Update session data
      */
     async updateSession(sessionId: string, updates: Partial<NestAuthSession>): Promise<NestAuthSession> {
-        return await this.repository.update(sessionId, updates);
+        return await this.store.update(sessionId, updates);
     }
 
     /**
@@ -127,10 +128,10 @@ export class SessionManagerService {
         // Get session before deleting to pass to hook
         let session: NestAuthSession | null = null;
         if (this.options.session?.onRevoked) {
-            session = await this.repository.findById(sessionId);
+            session = await this.store.findById(sessionId);
         }
 
-        await this.repository.delete(sessionId);
+        await this.store.delete(sessionId);
 
         // Apply onRevoked hook if configured
         if (this.options.session?.onRevoked && session) {
@@ -139,21 +140,28 @@ export class SessionManagerService {
     }
 
     /**
+     * Delete a session (alias for revokeSession)
+     */
+    async deleteSession(sessionId: string): Promise<void> {
+        await this.revokeSession(sessionId);
+    }
+
+    /**
      * Revoke all sessions for a user
      */
     async revokeAllUserSessions(userId: string): Promise<void> {
-        await this.repository.deleteByUserId(userId);
+        await this.store.deleteByUserId(userId);
     }
 
     /**
      * Revoke all sessions except the current one
      */
     async revokeOtherSessions(userId: string, currentSessionId: string): Promise<void> {
-        const sessions = await this.repository.findByUserId(userId);
+        const sessions = await this.store.findByUserId(userId);
 
         for (const session of sessions) {
             if (session.id !== currentSessionId) {
-                await this.repository.delete(session.id);
+                await this.store.delete(session.id);
             }
         }
     }
@@ -162,15 +170,57 @@ export class SessionManagerService {
      * Clean up expired sessions
      */
     async cleanupExpiredSessions(): Promise<number> {
-        return await this.repository.deleteExpired();
+        return await this.store.deleteExpired();
     }
 
     /**
      * Extend session expiration
      */
-    async extendSession(sessionId: string, duration?: string): Promise<NestAuthSession> {
+    async extendSession(sessionId: string, duration?: string | number): Promise<NestAuthSession> {
         const expiresAt = this.calculateExpiration(duration);
-        return await this.repository.update(sessionId, { expiresAt } as any);
+        return await this.store.update(sessionId, { expiresAt } as any);
+    }
+
+    /**
+     * Touch session (update last active and extend expiry)
+     */
+    async touchSession(sessionId: string, duration?: string | number): Promise<NestAuthSession> {
+        const expiresAt = this.calculateExpiration(duration);
+        return await this.store.update(sessionId, {
+            lastActive: new Date(),
+            expiresAt,
+        } as any);
+    }
+
+    /**
+     * Rotate session ID (prevent fixation)
+     */
+    async rotateSession(sessionId: string): Promise<NestAuthSession> {
+        const session = await this.store.findById(sessionId);
+        if (!session) {
+            throw new UnauthorizedException('Session not found');
+        }
+
+        const newSessionPayload: SessionPayload = {
+            id: uuidv4(),
+            userId: session.userId,
+            refreshToken: session.refreshToken,
+            data: session.data,
+            expiresAt: this.calculateExpiration(),
+            userAgent: session.userAgent,
+            deviceName: session.deviceName,
+            ipAddress: session.ipAddress,
+            lastActive: new Date(),
+        };
+
+        const newSession = await this.store.create(newSessionPayload);
+        await this.store.delete(sessionId);
+
+        if (this.options.session?.onRevoked) {
+            await this.options.session.onRevoked(session as any, 'security');
+        }
+
+        return newSession;
     }
 
     /**
@@ -188,7 +238,7 @@ export class SessionManagerService {
      * Check if user has reached max sessions limit
      */
     async hasReachedMaxSessions(userId: string): Promise<boolean> {
-        const count = await this.repository.countActiveByUserId(userId);
+        const count = await this.store.countActiveByUserId(userId);
         return count >= this.maxSessionsPerUser;
     }
 
@@ -196,7 +246,7 @@ export class SessionManagerService {
      * Enforce max sessions per user by removing oldest sessions
      */
     private async enforceMaxSessions(userId: string): Promise<void> {
-        const activeSessions = await this.repository.findActiveByUserId(userId);
+        const activeSessions = await this.store.findActiveByUserId(userId);
 
         if (activeSessions.length >= this.maxSessionsPerUser) {
             // Sort by lastActive (oldest first)
@@ -209,7 +259,7 @@ export class SessionManagerService {
             // Remove oldest session(s)
             const toRemove = sorted.slice(0, activeSessions.length - this.maxSessionsPerUser + 1);
             for (const session of toRemove) {
-                await this.repository.delete(session.id);
+                await this.store.delete(session.id);
             }
         }
     }
@@ -217,9 +267,25 @@ export class SessionManagerService {
     /**
      * Calculate session expiration date
      */
-    private calculateExpiration(duration?: string): Date {
+    private calculateExpiration(duration?: string | number): Date {
         const expiryDuration = duration || this.options.session?.sessionExpiry || '7d';
-        const milliseconds = ms(expiryDuration);
+        let milliseconds: number;
+        
+        if (typeof expiryDuration === 'string') {
+            const parsed = ms(expiryDuration);
+            if (parsed === undefined || !Number.isFinite(parsed) || parsed <= 0) {
+                // Fallback to default if invalid duration string
+                milliseconds = ms('7d') || 7 * 24 * 60 * 60 * 1000;
+            } else {
+                milliseconds = parsed;
+            }
+        } else {
+            milliseconds = expiryDuration * 1000;
+            if (!Number.isFinite(milliseconds) || milliseconds <= 0) {
+                throw new Error(`Invalid session expiry duration: ${expiryDuration} seconds`);
+            }
+        }
+        
         return new Date(Date.now() + milliseconds);
     }
 

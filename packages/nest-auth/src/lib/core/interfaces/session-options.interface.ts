@@ -8,9 +8,37 @@ export enum SessionStorageType {
     MEMORY = 'memory',
 }
 
+export interface RedisSessionOptions {
+    url?: string;
+    host?: string;
+    port?: number;
+    password?: string;
+    db?: number;
+    tls?: Record<string, any>;
+    keyPrefix?: string;
+    ttlSeconds?: number;
+    enableOfflineQueue?: boolean;
+    retryStrategy?: (times: number) => number | null;
+    reconnectOnError?: (error: Error) => boolean | number;
+    maxRetriesPerRequest?: number | null;
+}
+
 export interface SessionOptions {
-    storageType: SessionStorageType;
+    /**
+     * Preferred config for store selection.
+     * Defaults to database when not provided.
+     */
+    storageType?: SessionStorageType;
+
+    /**
+     * Legacy Redis URL config (backward compatibility).
+     */
     redisUrl?: string;
+
+    /**
+     * Redis connection and store options.
+     */
+    redis?: RedisSessionOptions;
     /**
      * Custom session repository implementation.
      * Required when storageType be set to SessionStorageType.CUSTOM

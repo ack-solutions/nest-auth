@@ -158,6 +158,9 @@ export class AuthConfigService {
 
         this.options = mergedOptions;
 
+        // Validate session configuration
+        this.validateSessionOptions(this.options);
+
         // Validate admin console configuration
         this.validateAdminConsoleOptions(this.options);
     }
@@ -177,6 +180,33 @@ export class AuthConfigService {
                     'Please set adminConsole.secretKey in your AuthModuleOptions (e.g., secretKey: process.env.ADMIN_CONSOLE_SESSION_SECRET) ' +
                     'with a 32+ byte random value. Store it securely in environment variables or a secrets manager. ' +
                     'Weak or default values are not allowed for security reasons. Rotate keys regularly.'
+                );
+            }
+        }
+    }
+
+    /**
+     * Validates session configuration options
+     */
+    private static validateSessionOptions(options: IAuthModuleOptions): void {
+        const store = options.session?.storageType;
+        if (store) {
+            const normalized = String(store).toLowerCase();
+            const allowedStores = Object.values(SessionStorageType);
+
+            if (!allowedStores.includes(normalized as SessionStorageType)) {
+                throw new Error(
+                    `Invalid session store "${store}". ` +
+                    `Allowed values: ${allowedStores.join(', ')}`
+                );
+            }
+        }
+
+        const ttlSeconds = options.session?.redis?.ttlSeconds;
+        if (ttlSeconds !== undefined) {
+            if (!Number.isFinite(ttlSeconds) || ttlSeconds <= 0) {
+                throw new Error(
+                    'session.redis.ttlSeconds must be a positive number of seconds.'
                 );
             }
         }

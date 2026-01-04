@@ -1,13 +1,13 @@
 import { NestAuthSession } from '../entities/session.entity';
 import { SessionPayload } from '../../core/interfaces/token-payload.interface';
-import { ISessionRepository } from '../interfaces/session-repository.interface';
+import { SessionStore } from '../interfaces/session-store.interface';
 import ms from 'ms';
 
 /**
  * Abstract base class for session repositories
  * Provides common functionality and helper methods
  */
-export abstract class BaseSessionRepository implements ISessionRepository {
+export abstract class BaseSessionRepository implements SessionStore {
 
     // Abstract methods that must be implemented by subclasses
     abstract create(session: SessionPayload): Promise<NestAuthSession>;
@@ -33,7 +33,7 @@ export abstract class BaseSessionRepository implements ISessionRepository {
      * Helper: Calculate expiration date from duration string
      */
     protected calculateExpiresAt(duration: string | number): Date {
-        const milliseconds = typeof duration === 'string' ? ms(duration) : duration;
+        const milliseconds = typeof duration === 'string' ? ms(duration) : duration * 1000;
         return new Date(Date.now() + milliseconds);
     }
 
@@ -59,7 +59,9 @@ export abstract class BaseSessionRepository implements ISessionRepository {
     protected deserializeSession(data: Record<string, any>): NestAuthSession {
         return {
             ...data,
-            data: data['data'] ? JSON.parse(data['data']) : null,
+            data: data['data'] && data['data'] !== 'null' && data['data'] !== '' 
+                ? JSON.parse(data['data']) 
+                : null,
             expiresAt: data['expiresAt'] ? new Date(data['expiresAt']) : null,
             lastActive: data['lastActive'] ? new Date(data['lastActive']) : null,
         } as NestAuthSession;
