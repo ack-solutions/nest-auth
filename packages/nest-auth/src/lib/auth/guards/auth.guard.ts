@@ -388,10 +388,10 @@ export class NestAuthAuthGuard implements CanActivate {
         // If no authorization requirements, allow access
         if (!requiredPermissions.length && !requiredRoles.length) {
             this.debugLogger.debug('No authorization requirements - allowing access', 'AuthGuard');
-            return;
         }
 
         const user = request.user;
+        const session = request.session;
 
         // Check if user exists
         if (!user) {
@@ -402,20 +402,19 @@ export class NestAuthAuthGuard implements CanActivate {
             });
         }
 
-        // If isFetchUser=false, we might not have roles in the user object (which is just payload)
-        // Unless roles are in payload.
-        // Assuming roles are NOT in payload by default unless configured.
-        // If we need roles check but have no roles/data, we must throw or fetch.
-        // For now, if defaults are used, user is just payload.
+        // Prefer session data for authorization checks as it has complete role/permission information
+        // Token payload may have partial role data (permissions are removed for security)
+        const rolesForAuth = session?.data?.roles || user.roles || [];
+        const permissionsForAuth = session?.data?.permissions;
 
         // Check roles if required (also checks guard if specified)
         if (requiredRoles.length > 0) {
-            await this.checkRoles(user, requiredRoles, requiredGuard);
+            await this.checkRoles(user, rolesForAuth, requiredRoles, requiredGuard);
         }
 
         // Check permissions if required
         if (requiredPermissions.length > 0) {
-            await this.checkPermissions(user, requiredPermissions);
+            await this.checkPermissions(user, rolesForAuth, permissionsForAuth, requiredPermissions);
         }
     }
 
@@ -423,34 +422,54 @@ export class NestAuthAuthGuard implements CanActivate {
      * Get required permissions from decorator
      */
     private getRequiredPermissions(context: ExecutionContext): string[] {
-        let permissions = this.reflector.getAllAndOverride<string[] | string>(
+        const permissions = this.reflector.getAllAndOverride<string[] | string>(
             PERMISSIONS_KEY,
             [context.getHandler(), context.getClass()],
         );
 
-        if (!permissions) {
+        // If no decorator is set, return empty array (no authorization required)
+        if (!permissions || permissions === undefined || permissions === null) {
             return [];
         }
 
         // Normalize to array
-        return typeof permissions === 'string' ? [permissions] : permissions;
+        if (typeof permissions === 'string') {
+            return permissions.trim() ? [permissions] : [];
+        }
+
+        // Filter out empty strings and ensure it's an array
+        if (Array.isArray(permissions)) {
+            return permissions.filter(p => p && typeof p === 'string' && p.trim().length > 0);
+        }
+
+        return [];
     }
 
     /**
      * Get required roles from decorator
      */
     private getRequiredRoles(context: ExecutionContext): string[] {
-        let roles = this.reflector.getAllAndOverride<string[] | string>(
+        const roles = this.reflector.getAllAndOverride<string[] | string>(
             ROLES_KEY,
             [context.getHandler(), context.getClass()],
         );
 
-        if (!roles) {
+        // If no decorator is set, return empty array (no authorization required)
+        if (!roles || roles === undefined || roles === null) {
             return [];
         }
 
         // Normalize to array
-        return typeof roles === 'string' ? [roles] : roles;
+        if (typeof roles === 'string') {
+            return roles.trim() ? [roles] : [];
+        }
+
+        // Filter out empty strings and ensure it's an array
+        if (Array.isArray(roles)) {
+            return roles.filter(r => r && typeof r === 'string' && r.trim().length > 0);
+        }
+
+        return [];
     }
 
     /**
@@ -464,15 +483,9 @@ export class NestAuthAuthGuard implements CanActivate {
     }
 
     /**
-     * Check if user has required roles
+     * Helper to resolve user roles from roles array
      */
-    /**
-     * Check if user has required roles
-     */
-    /**
-     * Helper to resolve user roles
-     */
-    private async resolveUserRoles(user: any): Promise<string[]> {
+    private async resolveUserRoles(user: any, roles: any[]): Promise<string[]> {
         const config = this.authConfigService.getConfig();
 
         // Apply authorization.resolveRoles hook if configured
@@ -481,36 +494,41 @@ export class NestAuthAuthGuard implements CanActivate {
         }
 
         // Default behavior
-        if (!user.roles || !Array.isArray(user.roles)) {
+        if (!roles || !Array.isArray(roles)) {
             // Return empty array instead of throwing, let the caller decide
             return [];
         }
 
         // Get active role names
-        return user.roles
-            .filter((role: any) => role.isActive)
-            .map((role: any) => role.name);
+        return roles
+            .filter((role: any) => role?.isActive !== false) // Handle undefined/null as active
+            .map((role: any) => role?.name)
+            .filter((name: any) => name); // Remove undefined/null names
     }
 
     /**
      * Check if user has required roles
      * If a guard is specified, first verify the user's guard matches before checking roles
      */
-    private async checkRoles(user: JWTTokenPayload, requiredRoles: string[], requiredGuard?: string): Promise<void> {
+    private async checkRoles(user: JWTTokenPayload, rolesForAuth: any[], requiredRoles: string[], requiredGuard?: string): Promise<void> {
         // If a guard is specified, check if user's guard matches first
         if (requiredGuard) {
-            const userGuards = uniq(user.roles?.map((role: any) => role.guard));
-            if (!userGuards.includes(requiredGuard)) {
+            const userGuards = uniq(
+                rolesForAuth
+                    .map((role: any) => role?.guard)
+                    .filter((guard: any) => guard) // Remove undefined/null guards
+            );
+            if (userGuards.length === 0 || !userGuards.includes(requiredGuard)) {
                 throw new ForbiddenException({
-                    message: `Access denied: Guard mismatch. Required: ${requiredGuard}, Found: ${userGuards.join(', ')}`,
+                    message: `Access denied: Guard mismatch. Required: ${requiredGuard}, Found: ${userGuards.length > 0 ? userGuards.join(', ') : 'none'}`,
                     code: ERROR_CODES.GUARD_MISMATCH,
                 });
             }
         }
 
-        const userRoleNames = await this.resolveUserRoles(user);
+        const userRoleNames = await this.resolveUserRoles(user, rolesForAuth);
 
-        if (userRoleNames.length === 0 && (!user.roles || !Array.isArray(user.roles))) {
+        if (userRoleNames.length === 0) {
             throw new ForbiddenException({
                 message: 'Access denied: No roles assigned',
                 code: ERROR_CODES.NO_ROLES_ASSIGNED,
@@ -532,32 +550,31 @@ export class NestAuthAuthGuard implements CanActivate {
     /**
      * Check if user has required permissions
      */
-    /**
-     * Check if user has required permissions
-     */
-    /**
-     * Check if user has required permissions
-     */
-    private async checkPermissions(user: any, requiredPermissions: string[]): Promise<void> {
+    private async checkPermissions(user: any, rolesForAuth: any[], permissionsForAuth: string[] | undefined, requiredPermissions: string[]): Promise<void> {
         const config = this.authConfigService.getConfig();
         let userPermissions: string[] = [];
 
         // Apply authorization.resolvePermissions hook if configured
         if (config.authorization?.resolvePermissions) {
             // Resolve roles first as they are needed for the hook
-            const roles = await this.resolveUserRoles(user);
+            const roles = await this.resolveUserRoles(user, rolesForAuth);
             userPermissions = await config.authorization.resolvePermissions(user, roles);
         } else {
-            // Default behavior
-            if (!user.roles || !Array.isArray(user.roles)) {
-                throw new ForbiddenException({
-                    message: 'Access denied: No roles assigned for permission check',
-                    code: ERROR_CODES.NO_ROLES_ASSIGNED,
-                });
-            }
+            // Prefer permissions from session data if available (more reliable)
+            if (permissionsForAuth && Array.isArray(permissionsForAuth)) {
+                userPermissions = permissionsForAuth;
+            } else {
+                // Fallback to extracting permissions from roles
+                if (!rolesForAuth || !Array.isArray(rolesForAuth) || rolesForAuth.length === 0) {
+                    throw new ForbiddenException({
+                        message: 'Access denied: No roles assigned for permission check',
+                        code: ERROR_CODES.NO_ROLES_ASSIGNED,
+                    });
+                }
 
-            // Get all permissions from user's roles
-            userPermissions = this.getUserPermissions(user.roles);
+                // Get all permissions from user's roles
+                userPermissions = this.getUserPermissions(rolesForAuth);
+            }
         }
 
         // Check if user has all required permissions
