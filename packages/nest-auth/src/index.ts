@@ -9,7 +9,6 @@ export * from './lib/user';
 export * from './lib/role';
 export * from './lib/tenant';
 export * from './lib/core';
-export * from './lib/request-context';
 
 // Types and interfaces for configuration
 export type {
@@ -29,3 +28,6 @@ export type { DebugLogOptions } from './lib/core/services/debug-logger.service';
 
 // Admin console exports
 export { NestAuthAdminUser } from './lib/admin-console/entities/admin-user.entity';
+
+// Re-export commonly used types from contracts for convenience
+export { NestAuthMFAMethodEnum, NestAuthOTPTypeEnum } from '@ackplus/nest-auth-contracts';
