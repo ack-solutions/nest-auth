@@ -7,6 +7,7 @@ export * from './lib/auth';
 export * from './lib/session';
 export * from './lib/user';
 export * from './lib/role';
+export * from './lib/permission';
 export * from './lib/tenant';
 export * from './lib/core';
 

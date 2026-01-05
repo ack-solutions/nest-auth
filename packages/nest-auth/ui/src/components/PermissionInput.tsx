@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Plus, X, Search, Trash2 } from 'lucide-react';
+import { Plus, X, Search, Trash2, List, Grid } from 'lucide-react';
 import { api } from '../services/api';
 
 export interface PermissionInputProps {
@@ -39,6 +39,10 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
     const [listSearchQuery, setListSearchQuery] = useState('');
     const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set());
     const [previewPermissions, setPreviewPermissions] = useState<string[]>([]);
+    const [showAllPermissions, setShowAllPermissions] = useState(false);
+    const [allPermissions, setAllPermissions] = useState<PermissionSuggestion[]>([]);
+    const [loadingAllPermissions, setLoadingAllPermissions] = useState(false);
+    const [allPermissionsSearchQuery, setAllPermissionsSearchQuery] = useState('');
 
     // Fetch permission suggestions from API
     const fetchSuggestions = useCallback(async (query: string) => {
@@ -74,6 +78,38 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
             setIsLoadingSuggestions(false);
         }
     }, [value, guard]);
+
+    // Fetch all permissions for the guard
+    const fetchAllPermissions = useCallback(async () => {
+        if (!guard) {
+            setAllPermissions([]);
+            return;
+        }
+
+        setLoadingAllPermissions(true);
+        try {
+            const params = new URLSearchParams({
+                guard,
+                limit: '1000', // Get all permissions
+            });
+            const response = await api.get<{ data: PermissionSuggestion[] }>(
+                `/api/permissions?${params.toString()}`
+            );
+            setAllPermissions(response.data || []);
+        } catch (error) {
+            console.error('Failed to fetch all permissions:', error);
+            setAllPermissions([]);
+        } finally {
+            setLoadingAllPermissions(false);
+        }
+    }, [guard]);
+
+    // Load all permissions when guard changes and showAllPermissions is true
+    useEffect(() => {
+        if (showAllPermissions && guard) {
+            fetchAllPermissions();
+        }
+    }, [showAllPermissions, guard, fetchAllPermissions]);
 
     // Debounced search
     useEffect(() => {
@@ -243,6 +279,28 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
         });
     };
 
+    const handleTogglePermission = (permName: string) => {
+        if (value.includes(permName)) {
+            // Remove permission
+            onChange(value.filter(p => p !== permName));
+        } else {
+            // Add permission
+            onChange([...value, permName]);
+        }
+    };
+
+    const getFilteredAllPermissions = () => {
+        if (!allPermissionsSearchQuery.trim()) {
+            return allPermissions;
+        }
+        const query = allPermissionsSearchQuery.toLowerCase();
+        return allPermissions.filter(perm => 
+            perm.name.toLowerCase().includes(query) ||
+            perm.description?.toLowerCase().includes(query) ||
+            perm.category?.toLowerCase().includes(query)
+        );
+    };
+
     const handleSelectAll = () => {
         const filteredPerms = getFilteredPermissions();
         setSelectedPermissions(new Set(filteredPerms));
@@ -374,8 +432,142 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
                 )}
             </div>
 
-            {/* Permissions List */}
-            {value.length > 0 && (
+            {/* Toggle View Button */}
+            {guard && (
+                <div className="mt-3 flex items-center justify-between">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setShowAllPermissions(!showAllPermissions);
+                            if (!showAllPermissions && allPermissions.length === 0) {
+                                fetchAllPermissions();
+                            }
+                        }}
+                        className="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700 transition-colors"
+                    >
+                        {showAllPermissions ? (
+                            <>
+                                <Search className="w-4 h-4" />
+                                Search Mode
+                            </>
+                        ) : (
+                            <>
+                                <List className="w-4 h-4" />
+                                Show All Permissions
+                            </>
+                        )}
+                    </button>
+                    {value.length > 0 && (
+                        <span className="text-xs text-gray-500">
+                            {value.length} permission{value.length !== 1 ? 's' : ''} selected
+                        </span>
+                    )}
+                </div>
+            )}
+
+            {/* All Permissions View */}
+            {showAllPermissions && guard && (
+                <div className="mt-3 border border-gray-200 rounded-lg">
+                    <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 rounded-t-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-700">
+                                All Permissions ({allPermissions.length})
+                            </span>
+                            {value.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => onChange([])}
+                                    className="text-xs text-red-600 hover:text-red-700 transition-colors"
+                                >
+                                    Clear All
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Search Box */}
+                        <div className="relative">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                            <input
+                                type="text"
+                                value={allPermissionsSearchQuery}
+                                onChange={(e) => setAllPermissionsSearchQuery(e.target.value)}
+                                placeholder="Search permissions..."
+                                className="input-field text-xs pl-7 pr-2 py-1.5 w-full"
+                            />
+                        </div>
+
+                        {/* Bulk Actions */}
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const filtered = getFilteredAllPermissions();
+                                    const allSelected = filtered.every(p => value.includes(p.name));
+                                    if (allSelected) {
+                                        // Deselect all filtered
+                                        onChange(value.filter(p => !filtered.some(fp => fp.name === p)));
+                                    } else {
+                                        // Select all filtered
+                                        const toAdd = filtered.filter(p => !value.includes(p.name)).map(p => p.name);
+                                        onChange([...value, ...toAdd]);
+                                    }
+                                }}
+                                className="text-xs text-primary-600 hover:text-primary-700 transition-colors"
+                            >
+                                {getFilteredAllPermissions().every(p => value.includes(p.name)) ? 'Deselect All' : 'Select All'}
+                            </button>
+                        </div>
+                    </div>
+                    <div className="max-h-[400px] overflow-y-auto">
+                        {loadingAllPermissions ? (
+                            <div className="p-4 text-center text-xs text-gray-500">
+                                Loading permissions...
+                            </div>
+                        ) : getFilteredAllPermissions().length > 0 ? (
+                            getFilteredAllPermissions().map((perm) => {
+                                const isChecked = value.includes(perm.name);
+                                return (
+                                    <div
+                                        key={perm.id}
+                                        className="px-3 py-2 flex items-start gap-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={() => handleTogglePermission(perm.name)}
+                                            className="mt-0.5 w-4 h-4 text-primary-600 rounded focus:ring-2 focus:ring-primary-500 cursor-pointer flex-shrink-0"
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm text-gray-900 font-mono break-words">{perm.name}</span>
+                                                {perm.category && (
+                                                    <span className="inline-block px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded flex-shrink-0">
+                                                        {perm.category}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {perm.description && (
+                                                <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{perm.description}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        ) : (
+                            <div className="p-4 text-center text-xs text-gray-500">
+                                {allPermissionsSearchQuery ? (
+                                    <>No permissions match &quot;{allPermissionsSearchQuery}&quot;</>
+                                ) : (
+                                    <>No permissions found for guard &quot;{guard}&quot;</>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Selected Permissions List (when not in show all mode) */}
+            {!showAllPermissions && value.length > 0 && (
                 <div className="mt-3">
                     <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
                         <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 rounded-t-lg space-y-2">

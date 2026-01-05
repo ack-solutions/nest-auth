@@ -43,9 +43,9 @@ export class AdminRolesController {
   @Patch(':id')
   async updateRole(@Param('id') id: string, @Body() dto: AdminUpdateRoleDto) {
     // Validate at least one field is provided
-    if (!dto.permissions && !dto.name && !dto.guard) {
+    if (!dto.permissions && dto.name === undefined && dto.guard === undefined && dto.isSystem === undefined) {
       throw new BadRequestException(
-        'At least one field must be provided for update (permissions, name, or guard)'
+        'At least one field must be provided for update (permissions, name, guard, or isSystem)'
       );
     }
 
@@ -54,10 +54,11 @@ export class AdminRolesController {
       await this.roles.updateRolePermissions(id, dto.permissions);
     }
 
-    if (dto.name || dto.guard) {
+    if (dto.name !== undefined || dto.guard !== undefined || dto.isSystem !== undefined) {
       await this.roles.updateRole(id, {
         name: dto.name,
         guard: dto.guard,
+        isSystem: dto.isSystem,
       } as NestAuthRole);
     }
 

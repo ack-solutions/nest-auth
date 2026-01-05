@@ -39,6 +39,10 @@ export class AdminUpdateRoleDto {
   guard?: string;
 
   @IsOptional()
+  @IsBoolean()
+  isSystem?: boolean;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   permissions?: string[];

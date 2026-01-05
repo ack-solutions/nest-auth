@@ -9,6 +9,7 @@ interface SelectProps {
     required?: boolean;
     allowEmpty?: boolean;
     id?: string;
+    disabled?: boolean;
 }
 
 export const Select: React.FC<SelectProps> = ({
@@ -20,6 +21,7 @@ export const Select: React.FC<SelectProps> = ({
     required = false,
     allowEmpty = true,
     id: providedId,
+    disabled = false,
 }) => {
     const generatedId = useId();
     const id = providedId || generatedId;
@@ -37,7 +39,8 @@ export const Select: React.FC<SelectProps> = ({
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 required={required}
-                className="input-field appearance-none bg-white cursor-pointer"
+                disabled={disabled}
+                className={`input-field appearance-none bg-white ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
             >
                 {allowEmpty && <option value="">{placeholder}</option>}
                 {options.map((option) => (

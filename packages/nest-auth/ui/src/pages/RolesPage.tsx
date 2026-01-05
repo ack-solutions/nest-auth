@@ -57,11 +57,15 @@ export const RolesPage: React.FC = () => {
             };
 
             if (editingRole) {
-                // Edit mode
+                // Edit mode - include isSystem if it's being changed
+                if (data.isSystem !== undefined) {
+                    payload.isSystem = data.isSystem;
+                }
                 await api.patch(`/api/roles/${editingRole.id}`, payload);
             } else {
                 // Create mode
-                if (data.tenantId) {
+                payload.isSystem = data.isSystem || false;
+                if (data.tenantId && !data.isSystem) {
                     payload.tenantId = data.tenantId;
                 }
                 await api.post('/api/roles', payload);
@@ -165,11 +169,9 @@ export const RolesPage: React.FC = () => {
             label: 'Actions',
             render: (role) => (
                 <div className="flex items-center justify-end gap-2">
-                    {!role.isSystem && (
-                        <Button size="sm" variant="secondary" onClick={() => handleEdit(role)}>
-                            <Edit2 className="w-4 h-4" />
-                        </Button>
-                    )}
+                    <Button size="sm" variant="secondary" onClick={() => handleEdit(role)}>
+                        <Edit2 className="w-4 h-4" />
+                    </Button>
                     <Button size="sm" variant="danger" onClick={() => handleDelete(role.id)}>
                         <Trash2 className="w-4 h-4" />
                     </Button>

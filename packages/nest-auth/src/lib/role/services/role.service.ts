@@ -192,30 +192,104 @@ export class RoleService {
             });
         }
 
-        // Prevent changing system status and tenant
-        delete data.isSystem;
+        // Prevent changing tenantId directly
         delete data.tenantId;
 
-        // Block name and guard changes for ALL roles - must delete and create new if needed
-        if (data.name && data.name !== role.name) {
-            throw new BadRequestException({
-                message: 'Cannot update role name. Please delete and create a new role if you need to change the name.',
-                code: 'ROLE_NAME_UPDATE_NOT_ALLOWED'
+        // Handle name update - check for conflicts
+        if (data.name !== undefined && data.name !== role.name) {
+            const newName = data.name;
+            const newGuard = data.guard !== undefined ? data.guard : role.guard;
+            const newIsSystem = data.isSystem !== undefined ? data.isSystem : role.isSystem;
+            const newTenantId = newIsSystem ? null : role.tenantId;
+
+            // Check for existing role with same name, guard, and tenantId
+            const existingRole = await this.roleRepository.findOne({
+                where: {
+                    name: newName,
+                    guard: newGuard,
+                    tenantId: newTenantId || IsNull()
+                }
             });
+
+            if (existingRole && existingRole.id !== id) {
+                throw new ConflictException({
+                    message: `Role with name '${newName}' already exists in guard '${newGuard}'${newTenantId ? ` for tenant '${newTenantId}'` : ''}`,
+                    code: 'ROLE_ALREADY_EXISTS'
+                });
+            }
+            role.name = newName;
         }
 
-        if (data.guard && data.guard !== role.guard) {
-            throw new BadRequestException({
-                message: 'Cannot update role guard. Please delete and create a new role if you need to change the guard.',
-                code: 'ROLE_GUARD_UPDATE_NOT_ALLOWED'
+        // Handle guard update - check for conflicts
+        if (data.guard !== undefined && data.guard !== role.guard) {
+            const newName = data.name !== undefined ? data.name : role.name;
+            const newGuard = data.guard;
+            const newIsSystem = data.isSystem !== undefined ? data.isSystem : role.isSystem;
+            const newTenantId = newIsSystem ? null : role.tenantId;
+
+            // Check for existing role with same name, guard, and tenantId
+            const existingRole = await this.roleRepository.findOne({
+                where: {
+                    name: newName,
+                    guard: newGuard,
+                    tenantId: newTenantId || IsNull()
+                }
             });
+
+            if (existingRole && existingRole.id !== id) {
+                throw new ConflictException({
+                    message: `Role with name '${newName}' already exists in guard '${newGuard}'${newTenantId ? ` for tenant '${newTenantId}'` : ''}`,
+                    code: 'ROLE_ALREADY_EXISTS'
+                });
+            }
+            role.guard = newGuard;
         }
 
-        // Remove name and guard from data to prevent accidental updates
-        delete data.name;
-        delete data.guard;
+        // Handle isSystem update
+        if (data.isSystem !== undefined && data.isSystem !== role.isSystem) {
+            const newIsSystem = data.isSystem;
+            const newName = data.name !== undefined ? data.name : role.name;
+            const newGuard = data.guard !== undefined ? data.guard : role.guard;
+            const newTenantId = newIsSystem ? null : role.tenantId;
 
-        Object.assign(role, data);
+            // If changing to system role, tenantId must be null
+            // If changing from system role, we need a tenantId (but we can't set it here, so we'll keep the existing one or throw error)
+            if (newIsSystem) {
+                role.tenantId = null;
+            } else {
+                // If changing from system to non-system, we need a tenantId
+                // But we can't set it here, so we'll throw an error
+                if (!role.tenantId) {
+                    throw new BadRequestException({
+                        message: 'Cannot change system role to non-system role without a tenant. Please assign a tenant first.',
+                        code: 'SYSTEM_ROLE_TENANT_REQUIRED'
+                    });
+                }
+            }
+
+            // Check for conflicts with the new isSystem status
+            const existingRole = await this.roleRepository.findOne({
+                where: {
+                    name: newName,
+                    guard: newGuard,
+                    tenantId: newTenantId || IsNull()
+                }
+            });
+
+            if (existingRole && existingRole.id !== id) {
+                throw new ConflictException({
+                    message: `Role with name '${newName}' already exists in guard '${newGuard}'${newTenantId ? ` for tenant '${newTenantId}'` : ''}`,
+                    code: 'ROLE_ALREADY_EXISTS'
+                });
+            }
+
+            role.isSystem = newIsSystem;
+        }
+
+        // Apply any other fields
+        const { name, guard, isSystem, tenantId, ...otherData } = data;
+        Object.assign(role, otherData);
+
         return this.roleRepository.save(role);
     }
 

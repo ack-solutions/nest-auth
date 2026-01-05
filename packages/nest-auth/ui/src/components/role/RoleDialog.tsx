@@ -14,6 +14,7 @@ export interface RoleFormData {
     name: string;
     guard: string;
     tenantId: string;
+    isSystem: boolean;
     permissions: string[];
 }
 
@@ -21,6 +22,7 @@ const roleSchema = yup.object({
     name: yup.string().required('Role name is required').min(1, 'Role name cannot be empty'),
     guard: yup.string().required('Guard is required').min(1, 'Guard cannot be empty'),
     tenantId: yup.string().optional(),
+    isSystem: yup.boolean().default(false),
     permissions: yup.array().of(yup.string()).default([]),
 });
 
@@ -57,18 +59,28 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
             name: role.name,
             guard: role.guard,
             tenantId: role.tenantId || '',
+            isSystem: role.isSystem || false,
             permissions: role.permissions || [],
         } : {
             name: '',
             guard: 'web',
             tenantId: '',
+            isSystem: false,
             permissions: [],
         },
     });
 
     const guard = watch('guard');
+    const isSystem = watch('isSystem');
     const [permissions, setPermissions] = useState<string[]>(role?.permissions || []);
     const permissionsRef = React.useRef<string[]>(role?.permissions || []);
+
+    // Clear tenantId when isSystem is checked
+    React.useEffect(() => {
+        if (isSystem && !isEdit) {
+            setValue('tenantId', '');
+        }
+    }, [isSystem, isEdit, setValue]);
 
     // Sync permissions when role changes
     React.useEffect(() => {
@@ -194,17 +206,7 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                     )}
                 />
 
-                {isEdit && role?.tenantId ? (
-                    <div className="p-2 bg-gray-50 rounded-lg">
-                        <label className="text-xs font-medium text-gray-600">Tenant</label>
-                        <p className="text-sm text-gray-900 font-medium mt-0.5">
-                            {tenants.find(t => t.id === role.tenantId)?.name || role.tenantId}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                            Tenant cannot be changed after role creation
-                        </p>
-                    </div>
-                ) : !isEdit ? (
+                {!isEdit && (
                     <div>
                         <Controller
                             name="tenantId"
@@ -217,6 +219,7 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                                     options={tenants.map((t) => ({ value: t.id, label: `${t.name} (${t.slug})` }))}
                                     placeholder="Leave empty for global role"
                                     allowEmpty={true}
+                                    disabled={isSystem}
                                 />
                             )}
                         />
@@ -224,16 +227,62 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                             <p className="text-xs text-red-600 mt-0.5">{errors.tenantId.message}</p>
                         )}
                     </div>
-                ) : null}
+                )}
 
-                {isEdit && isSystemRole && (
-                    <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg">
-                        <p className="text-xs font-medium text-amber-900 mb-0.5">System Role</p>
-                        <p className="text-xs text-amber-700">
-                            This is a system role. Some fields may be restricted.
+                {isEdit && role?.tenantId && (
+                    <div className="p-2 bg-gray-50 rounded-lg">
+                        <label className="text-xs font-medium text-gray-600">Tenant</label>
+                        <p className="text-sm text-gray-900 font-medium mt-0.5">
+                            {tenants.find(t => t.id === role.tenantId)?.name || role.tenantId}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            Tenant cannot be changed after role creation
                         </p>
                     </div>
                 )}
+
+                <Controller
+                    name="isSystem"
+                    control={control}
+                    render={({ field }) => {
+                        const isCurrentlySystem = isEdit && role?.isSystem && !role?.tenantId;
+                        const willBecomeNonSystem = isEdit && field.value === false && isCurrentlySystem;
+                        
+                        return (
+                            <div>
+                                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                    <div>
+                                        <label className="text-sm font-medium text-gray-900 cursor-pointer">
+                                            System Role
+                                        </label>
+                                        <p className="text-xs text-gray-500 mt-0.5">
+                                            {isEdit 
+                                                ? 'System roles are available across all tenants. Uncheck to make it tenant-specific.'
+                                                : 'System roles are available across all tenants. If unchecked, select a tenant below.'}
+                                        </p>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={field.value || false}
+                                            onChange={(e) => field.onChange(e.target.checked)}
+                                            disabled={isSubmitting}
+                                            className="sr-only peer"
+                                        />
+                                        <div className={`w-11 h-6 rounded-full peer transition-colors ${isSubmitting ? 'bg-gray-200 cursor-not-allowed' : 'bg-gray-300 peer-checked:bg-primary-600'} peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-100 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all after:shadow-sm peer-checked:after:translate-x-full`}></div>
+                                    </label>
+                                </div>
+                                {willBecomeNonSystem && (
+                                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                        <p className="text-xs text-yellow-800">
+                                            ⚠️ Warning: Changing a system role to non-system requires a tenant. This operation will fail if the role doesn't have a tenant assigned.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    }}
+                />
 
                 <div className="relative">
                     <PermissionInput
