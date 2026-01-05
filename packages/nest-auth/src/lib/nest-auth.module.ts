@@ -15,6 +15,7 @@ import { NEST_AUTH_ASYNC_OPTIONS_PROVIDER } from './auth.constants';
 import { AdminConsoleModule } from './admin-console/admin-console.module';
 import { AuditService } from './audit/services/audit.service';
 import deepmerge from 'deepmerge';
+import { PermissionModule } from './permission';
 
 @Module({})
 export class NestAuthModule {
@@ -37,6 +38,7 @@ export class NestAuthModule {
         TenantModule,
         UserModule,
         RoleModule,
+        PermissionModule,
         SessionModule,
         AdminConsoleModule,
       ],
@@ -47,6 +49,7 @@ export class NestAuthModule {
         TenantModule,
         UserModule,
         RoleModule,
+        PermissionModule,
         SessionModule,
         AdminConsoleModule,
         AuditService,

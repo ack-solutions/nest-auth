@@ -204,6 +204,7 @@ export class PermissionService {
     async createPermissions(permissions: Array<{
         name: string;
         description?: string;
+        guard?: string;
         category?: string;
         metadata?: Record<string, any>;
     }>): Promise<NestAuthPermission[]> {
@@ -222,6 +223,7 @@ export class PermissionService {
             toCreate.map(p => ({
                 name: p.name.trim(),
                 description: p.description?.trim(),
+                guard: p.guard || DEFAULT_GUARD_NAME,
                 category: p.category?.trim(),
                 metadata: p.metadata || {},
             }))

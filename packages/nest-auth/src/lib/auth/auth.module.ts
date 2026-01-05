@@ -21,6 +21,7 @@ import { CoreModule } from '../core/core.module';
 import { SessionModule } from '../session/session.module';
 import { TenantModule } from '../tenant/tenant.module';
 import { RoleModule } from '../role/role.module';
+import { PermissionModule } from '../permission';
 
 @Module({
     imports: [
@@ -38,6 +39,7 @@ import { RoleModule } from '../role/role.module';
         forwardRef(() => SessionModule),
         forwardRef(() => TenantModule),
         forwardRef(() => RoleModule),
+        forwardRef(() => PermissionModule),
     ],
     providers: [
         AuthService,
