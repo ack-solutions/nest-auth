@@ -94,7 +94,8 @@ export class TokenManager {
             return null;
         }
         const token = this.storage.get(STORAGE_KEYS.ACCESS_TOKEN);
-        return Promise.resolve(token);
+        // Handle both sync and async storage adapters
+        return token instanceof Promise ? await token : token;
     }
 
     /**
@@ -105,7 +106,8 @@ export class TokenManager {
             return null;
         }
         const token = this.storage.get(STORAGE_KEYS.REFRESH_TOKEN);
-        return Promise.resolve(token);
+        // Handle both sync and async storage adapters
+        return token instanceof Promise ? await token : token;
     }
 
     /**

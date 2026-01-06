@@ -11,6 +11,9 @@ export * from './lib/permission';
 export * from './lib/tenant';
 export * from './lib/core';
 
+// Request context
+export * from './lib/request-context/request-context';
+
 // Types and interfaces for configuration
 export type {
   IAuthModuleOptions,

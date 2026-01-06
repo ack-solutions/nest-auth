@@ -33,7 +33,7 @@ const authConfig = {
    * Backend API URL
    * Matches the example-nest app running on port 3000
    */
-  baseUrl: 'http://localhost:3000/api',
+  baseUrl: 'http://localhost:3333/api',
 
   /**
    * Token mode: 'header' or 'cookie'
