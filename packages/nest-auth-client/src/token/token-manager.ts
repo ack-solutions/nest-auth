@@ -4,7 +4,7 @@
  */
 
 import { ITokenPair as TokenPair } from '@ackplus/nest-auth-contracts';
-import { AccessTokenType } from '../types/config.types';
+import { AccessTokenType, Logger } from '../types/config.types';
 import { StorageAdapter } from '../types/config.types';
 import { isTokenExpired } from './jwt-utils';
 
@@ -25,6 +25,8 @@ export interface TokenManagerConfig {
     accessTokenType: AccessTokenType;
     /** Time in seconds before expiry to consider token "expired" */
     refreshThreshold?: number;
+    /** Logger for debugging */
+    logger?: Logger;
 }
 
 /**
@@ -38,11 +40,19 @@ export class TokenManager {
     private storage: StorageAdapter;
     private mode: AccessTokenType;
     private refreshThreshold: number;
+    private logger?: Logger;
 
     constructor(config: TokenManagerConfig) {
         this.storage = config.storage;
         this.mode = config.accessTokenType;
         this.refreshThreshold = config.refreshThreshold ?? 60;
+        this.logger = config.logger;
+    }
+
+    private log(level: 'debug' | 'info' | 'warn' | 'error', message: string, ...args: any[]): void {
+        if (this.logger?.[level]) {
+            this.logger[level](`[TokenManager] ${message}`, ...args);
+        }
     }
 
     /**
@@ -78,12 +88,20 @@ export class TokenManager {
      */
     async setTokens(tokens: TokenPair): Promise<void> {
         if (this.isCookieMode()) {
-            // In cookie mode, tokens are managed by the server
+            this.log('debug', 'setTokens: Cookie mode - tokens managed by server');
             return;
         }
 
+        this.log('debug', 'setTokens: Storing tokens in header mode', {
+            hasAccessToken: !!tokens.accessToken,
+            hasRefreshToken: !!tokens.refreshToken,
+            accessTokenLength: tokens.accessToken?.length || 0,
+        });
+
         await Promise.resolve(this.storage.set(STORAGE_KEYS.ACCESS_TOKEN, tokens.accessToken));
         await Promise.resolve(this.storage.set(STORAGE_KEYS.REFRESH_TOKEN, tokens.refreshToken));
+
+        this.log('debug', 'setTokens: Tokens stored successfully');
     }
 
     /**
@@ -91,11 +109,21 @@ export class TokenManager {
      */
     async getAccessToken(): Promise<string | null> {
         if (this.isCookieMode()) {
+            this.log('debug', 'getAccessToken: Cookie mode - returning null');
             return null;
         }
+        
         const token = this.storage.get(STORAGE_KEYS.ACCESS_TOKEN);
         // Handle both sync and async storage adapters
-        return token instanceof Promise ? await token : token;
+        const resolvedToken = token instanceof Promise ? await token : token;
+        
+        if (resolvedToken) {
+            this.log('debug', 'getAccessToken: Token found', { length: resolvedToken.length });
+        } else {
+            this.log('debug', 'getAccessToken: NOT_FOUND', null);
+        }
+        
+        return resolvedToken;
     }
 
     /**
@@ -128,9 +156,11 @@ export class TokenManager {
      * Clear all tokens
      */
     async clearTokens(): Promise<void> {
+        this.log('debug', 'clearTokens: Clearing all tokens');
         await Promise.resolve(this.storage.remove(STORAGE_KEYS.ACCESS_TOKEN));
         await Promise.resolve(this.storage.remove(STORAGE_KEYS.REFRESH_TOKEN));
         await Promise.resolve(this.storage.remove(STORAGE_KEYS.EXPIRES_AT));
+        this.log('debug', 'clearTokens: Tokens cleared');
     }
 
     /**
@@ -194,14 +224,17 @@ export class TokenManager {
      */
     async getAuthorizationHeader(): Promise<string | null> {
         if (this.isCookieMode()) {
+            this.log('debug', 'getAuthorizationHeader: Cookie mode - returning null');
             return null;
         }
 
         const token = await this.getAccessToken();
         if (!token) {
+            this.log('debug', 'getAuthorizationHeader: NO_TOKEN');
             return null;
         }
 
+        this.log('debug', 'getAuthorizationHeader: Token found, returning Bearer header');
         return `Bearer ${token}`;
     }
 }

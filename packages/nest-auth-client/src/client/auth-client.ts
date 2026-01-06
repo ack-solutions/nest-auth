@@ -101,6 +101,7 @@ export class AuthClient {
             storage: this.config.storage!,
             accessTokenType: this.config.accessTokenType!,
             refreshThreshold: this.config.refreshThreshold,
+            logger: this.config.logger,
         });
 
         // Initialize utilities
@@ -183,6 +184,7 @@ export class AuthClient {
         const mode = this.tokenManager.getMode();
         if (mode) {
             headers['x-access-token-type'] = mode;
+            this.log('debug', 'buildHeaders: Mode', mode);
         }
 
         // Add authorization header if in header mode
@@ -190,7 +192,12 @@ export class AuthClient {
             const authHeader = await this.tokenManager.getAuthorizationHeader();
             if (authHeader) {
                 headers['Authorization'] = authHeader;
+                this.log('debug', 'buildHeaders: Authorization header added');
+            } else {
+                this.log('debug', 'buildHeaders: No auth header returned');
             }
+        } else {
+            this.log('debug', 'buildHeaders: Cookie mode - skipping Authorization header');
         }
 
         // Add tenant header
@@ -211,6 +218,14 @@ export class AuthClient {
         const url = this.buildUrl(endpoint);
         const headers = await this.buildHeaders(options);
         const requestId = this.retryTracker.createRequestId(method, url);
+
+        this.log('debug', 'AuthClient.request', {
+            url,
+            method,
+            headers: Object.keys(headers),
+            requestId,
+            isCookie: this.tokenManager.isCookieMode(),
+        });
 
         const makeRequest = async (): Promise<HttpResponse<T>> => {
             return this.config.httpAdapter!.request<T>({
@@ -277,11 +292,24 @@ export class AuthClient {
     }
 
     private async handleAuthResponse(response: AuthResponse): Promise<void> {
+        this.log('debug', 'handleAuthResponse: Processing auth response', {
+            hasAccessToken: !!response.accessToken,
+            hasRefreshToken: !!response.refreshToken,
+            hasUser: !!response.user,
+            mode: this.tokenManager.getMode(),
+        });
+
         // Store tokens if in header mode and tokens are present
         if (response.accessToken && response.refreshToken) {
+            this.log('debug', 'handleAuthResponse: Storing tokens');
             await this.tokenManager.setTokens({
                 accessToken: response.accessToken,
                 refreshToken: response.refreshToken,
+            });
+        } else {
+            this.log('debug', 'handleAuthResponse: No tokens to store', {
+                hasAccessToken: !!response.accessToken,
+                hasRefreshToken: !!response.refreshToken,
             });
         }
 
@@ -306,6 +334,8 @@ export class AuthClient {
         // Emit events
         this.events.emit('authStateChange', { user: this.user });
         this.config.onAuthStateChange?.(this.user);
+
+        this.log('debug', 'handleAuthResponse: Auth response processed successfully');
     }
 
     // ============================================================================
