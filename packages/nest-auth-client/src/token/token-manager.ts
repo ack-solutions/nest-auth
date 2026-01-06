@@ -13,6 +13,7 @@ const STORAGE_KEYS = {
     ACCESS_TOKEN: 'access_token',
     REFRESH_TOKEN: 'refresh_token',
     EXPIRES_AT: 'expires_at',
+    TRUST_TOKEN: 'trust_token',
 };
 
 /**
@@ -155,6 +156,41 @@ export class TokenManager {
     }
 
     /**
+     * Get the trust token (for trusted device verification)
+     */
+    async getTrustToken(): Promise<string | null> {
+        const token = this.storage.get(STORAGE_KEYS.TRUST_TOKEN);
+        // Handle both sync and async storage adapters
+        const resolvedToken = token instanceof Promise ? await token : token;
+        
+        if (resolvedToken) {
+            this.log('debug', 'getTrustToken: Trust token found');
+        } else {
+            this.log('debug', 'getTrustToken: No trust token found');
+        }
+        
+        return resolvedToken;
+    }
+
+    /**
+     * Set the trust token
+     */
+    async setTrustToken(token: string): Promise<void> {
+        this.log('debug', 'setTrustToken: Storing trust token');
+        await Promise.resolve(this.storage.set(STORAGE_KEYS.TRUST_TOKEN, token));
+        this.log('debug', 'setTrustToken: Trust token stored successfully');
+    }
+
+    /**
+     * Clear the trust token
+     */
+    async clearTrustToken(): Promise<void> {
+        this.log('debug', 'clearTrustToken: Clearing trust token');
+        await Promise.resolve(this.storage.remove(STORAGE_KEYS.TRUST_TOKEN));
+        this.log('debug', 'clearTrustToken: Trust token cleared');
+    }
+
+    /**
      * Clear all tokens
      */
     async clearTokens(): Promise<void> {
@@ -162,6 +198,7 @@ export class TokenManager {
         await Promise.resolve(this.storage.remove(STORAGE_KEYS.ACCESS_TOKEN));
         await Promise.resolve(this.storage.remove(STORAGE_KEYS.REFRESH_TOKEN));
         await Promise.resolve(this.storage.remove(STORAGE_KEYS.EXPIRES_AT));
+        await Promise.resolve(this.storage.remove(STORAGE_KEYS.TRUST_TOKEN));
         this.log('debug', 'clearTokens: Tokens cleared');
     }
 

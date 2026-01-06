@@ -682,7 +682,7 @@
   "info": {
     "title": "@ackplus/nest-auth API",
     "description": "OpenAPI specification generated from the Nest Auth module",
-    "version": "1.1.54",
+    "version": "1.1.56",
     "contact": {}
   },
   "tags": [],
@@ -856,6 +856,11 @@
                 "$ref": "#/components/schemas/UserResponseDto"
               }
             ]
+          },
+          "trustToken": {
+            "type": "string",
+            "description": "Trust token for trusted device verification",
+            "example": "1234567890"
           }
         },
         "required": [
@@ -1073,6 +1078,14 @@
             "type": "string",
             "description": "Verification success message (added by controller)",
             "example": "2FA verification successful"
+          },
+          "user": {
+            "description": "User information with roles and permissions",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserResponseDto"
+              }
+            ]
           }
         },
         "required": [

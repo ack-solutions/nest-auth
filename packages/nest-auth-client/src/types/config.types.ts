@@ -115,12 +115,26 @@ export interface EndpointConfig {
     resendVerification?: string;
     /** Change password endpoint (default: /auth/change-password) */
     changePassword?: string;
-    /** Send 2FA code (default: /auth/2fa/send) */
+    /** Send 2FA code (default: /auth/mfa/challenge) */
     send2fa?: string;
-    /** Verify 2FA (default: /auth/2fa/verify) */
+    /** Verify 2FA (default: /auth/mfa/verify) */
     verify2fa?: string;
     /** Verify session endpoint (default: /auth/verify-session) */
     verifySession?: string;
+    /** Setup TOTP device (default: /auth/mfa/setup-totp) */
+    setupTotp?: string;
+    /** Verify TOTP setup (default: /auth/mfa/verify-totp-setup) */
+    verifyTotpSetup?: string;
+    /** Get MFA status (default: /auth/mfa/status) */
+    getMfaStatus?: string;
+    /** List TOTP devices (default: /auth/mfa/devices) */
+    listTotpDevices?: string;
+    /** Remove TOTP device (default: /auth/mfa/devices/:deviceId) */
+    removeTotpDevice?: string;
+    /** Toggle MFA (default: /auth/mfa/toggle) */
+    toggleMfa?: string;
+    /** Generate recovery code (default: /auth/mfa/generate-recovery-code) */
+    generateRecoveryCode?: string;
 }
 
 /**
@@ -142,6 +156,13 @@ export const DEFAULT_ENDPOINTS: Required<EndpointConfig> = {
     send2fa: '/auth/mfa/challenge',
     verify2fa: '/auth/mfa/verify',
     verifySession: '/auth/verify-session',
+    setupTotp: '/auth/mfa/setup-totp',
+    verifyTotpSetup: '/auth/mfa/verify-totp-setup',
+    getMfaStatus: '/auth/mfa/status',
+    listTotpDevices: '/auth/mfa/devices',
+    removeTotpDevice: '/auth/mfa/devices',
+    toggleMfa: '/auth/mfa/toggle',
+    generateRecoveryCode: '/auth/mfa/generate-recovery-code',
 };
 
 /**
@@ -215,6 +236,13 @@ export interface AuthClientConfig {
      * Default: 60 (1 minute)
      */
     refreshThreshold?: number;
+
+    /**
+     * Header name for trust token (trusted device verification)
+     * Default: 'nest_auth_device_trust'
+     * Only used in header mode - in cookie mode, trust token is sent via cookies
+     */
+    trustDeviceHeaderName?: string;
 
 
     // ============================================================================

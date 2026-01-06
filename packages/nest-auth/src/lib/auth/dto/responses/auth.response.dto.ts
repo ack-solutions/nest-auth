@@ -124,6 +124,12 @@ export class AuthWithTokensResponseDto extends AuthTokensResponseDto implements 
         type: UserResponseDto,
     })
     user?: UserResponseDto;
+
+    @ApiPropertyOptional({
+        description: 'Trust token for trusted device verification',
+        example: '1234567890',
+    })
+    trustToken?: string;
 }
 
 // Alias for backward compatibility
@@ -141,6 +147,12 @@ export class Verify2faWithTokensResponseDto extends AuthTokensResponseDto implem
         example: '2FA verification successful',
     })
     message?: string;
+
+    @ApiPropertyOptional({
+        description: 'User information with roles and permissions',
+        type: UserResponseDto,
+    })
+    user?: UserResponseDto;
 }
 
 // Alias for backward compatibility

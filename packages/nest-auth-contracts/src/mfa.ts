@@ -42,6 +42,17 @@ export interface IVerify2faResponse {
     refreshToken: string;
     message?: string;
     trustToken?: string;
+    user?: {
+        id: string;
+        email?: string;
+        phone?: string;
+        isVerified?: boolean;
+        isMfaEnabled?: boolean;
+        roles?: string[];
+        permissions?: string[];
+        metadata?: Record<string, any>;
+        tenantId?: string;
+    };
 }
 
 export interface ISendMfaCodeRequest {

@@ -19,6 +19,8 @@ import {
     IResendVerificationRequest,
     IChangePasswordRequest,
     IResetPasswordWithTokenRequest,
+    IVerifyTotpSetupRequest,
+    IToggleMfaRequest,
 } from '@ackplus/nest-auth-client';
 import { AuthContext, AuthContextValue } from './auth-context';
 
@@ -250,9 +252,18 @@ export function AuthProvider({
         setError(null);
         try {
             const response = await client.verify2fa(dto);
-            setUser(client.getUser());
-            setSession(client.getSession());
-            setStatus('authenticated');
+            // handleAuthResponse should have completed and set user/session
+            // Get updated state from client (event listener will also update, but this ensures immediate update)
+            const updatedUser = client.getUser();
+            const updatedSession = client.getSession();
+            if (updatedUser) {
+                setUser(updatedUser);
+                setSession(updatedSession);
+                setStatus('authenticated');
+            } else {
+                // If user is not set, something went wrong - log for debugging
+                console.warn('[AuthProvider] verify2fa: User not set after verification');
+            }
             return response;
         } catch (err) {
             setError(err as AuthError);
@@ -338,6 +349,77 @@ export function AuthProvider({
         }
     }, [client]);
 
+    // TOTP / MFA Management
+    const setupTotp = useCallback(async () => {
+        setError(null);
+        try {
+            return await client.setupTotp();
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const verifyTotpSetup = useCallback(async (dto: IVerifyTotpSetupRequest) => {
+        setError(null);
+        try {
+            return await client.verifyTotpSetup(dto);
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const getMfaStatus = useCallback(async () => {
+        setError(null);
+        try {
+            return await client.getMfaStatus();
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const listTotpDevices = useCallback(async () => {
+        setError(null);
+        try {
+            return await client.listTotpDevices();
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const removeTotpDevice = useCallback(async (deviceId: string) => {
+        setError(null);
+        try {
+            return await client.removeTotpDevice(deviceId);
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const toggleMfa = useCallback(async (dto: IToggleMfaRequest) => {
+        setError(null);
+        try {
+            return await client.toggleMfa(dto);
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const generateRecoveryCode = useCallback(async () => {
+        setError(null);
+        try {
+            return await client.generateRecoveryCode();
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
     // Mode & Tenant
     const setMode = useCallback((mode: 'header' | 'cookie') => {
         client.setMode(mode);
@@ -382,6 +464,14 @@ export function AuthProvider({
         resendVerification,
         // 2FA
         send2fa,
+        // TOTP / MFA Management
+        setupTotp,
+        verifyTotpSetup,
+        getMfaStatus,
+        listTotpDevices,
+        removeTotpDevice,
+        toggleMfa,
+        generateRecoveryCode,
         // Mode & Tenant
         setMode,
         getMode,
@@ -407,6 +497,13 @@ export function AuthProvider({
         verifyEmail,
         resendVerification,
         send2fa,
+        setupTotp,
+        verifyTotpSetup,
+        getMfaStatus,
+        listTotpDevices,
+        removeTotpDevice,
+        toggleMfa,
+        generateRecoveryCode,
         setMode,
         getMode,
         setTenantId,

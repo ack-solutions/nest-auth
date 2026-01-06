@@ -24,6 +24,11 @@ import {
     IMessageResponse,
     IVerifyOtpResponse,
     IResetPasswordWithTokenRequest,
+    ITotpSetupResponse,
+    IVerifyTotpSetupRequest,
+    IMfaStatusResponse,
+    IMfaDevice,
+    IToggleMfaRequest,
 } from '@ackplus/nest-auth-client';
 
 /**
@@ -81,6 +86,22 @@ export interface AuthContextValue {
     /** Send 2FA code */
     send2fa: (method?: 'email' | 'phone') => Promise<IMessageResponse>;
 
+    // Actions - TOTP / MFA Management
+    /** Setup TOTP device - generates secret and QR code */
+    setupTotp: () => Promise<ITotpSetupResponse>;
+    /** Verify TOTP setup - verifies OTP and marks device as verified */
+    verifyTotpSetup: (dto: IVerifyTotpSetupRequest) => Promise<IMessageResponse>;
+    /** Get MFA status for current user */
+    getMfaStatus: () => Promise<IMfaStatusResponse>;
+    /** List all TOTP devices for current user */
+    listTotpDevices: () => Promise<IMfaDevice[]>;
+    /** Remove a TOTP device */
+    removeTotpDevice: (deviceId: string) => Promise<IMessageResponse>;
+    /** Toggle MFA on/off for current user */
+    toggleMfa: (dto: IToggleMfaRequest) => Promise<IMessageResponse>;
+    /** Generate recovery code for MFA */
+    generateRecoveryCode: () => Promise<{ code: string }>;
+
     // Mode & Tenant
     /** Set token mode (only when config.accessTokenType is null) */
     setMode: (mode: 'header' | 'cookie') => void;
@@ -121,6 +142,14 @@ const defaultContextValue: AuthContextValue = {
     resendVerification: () => Promise.reject(new Error('AuthProvider not found')),
     // 2FA
     send2fa: () => Promise.reject(new Error('AuthProvider not found')),
+    // TOTP / MFA Management
+    setupTotp: () => Promise.reject(new Error('AuthProvider not found')),
+    verifyTotpSetup: () => Promise.reject(new Error('AuthProvider not found')),
+    getMfaStatus: () => Promise.reject(new Error('AuthProvider not found')),
+    listTotpDevices: () => Promise.reject(new Error('AuthProvider not found')),
+    removeTotpDevice: () => Promise.reject(new Error('AuthProvider not found')),
+    toggleMfa: () => Promise.reject(new Error('AuthProvider not found')),
+    generateRecoveryCode: () => Promise.reject(new Error('AuthProvider not found')),
     // Mode & tenant
     setMode: () => { throw new Error('AuthProvider not found'); },
     getMode: () => 'header',

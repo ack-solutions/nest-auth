@@ -444,17 +444,15 @@ export class AuthService {
                     user: user as NestAuthUser,
                     tenantId: user?.tenantId!,
                     input,
-                    session,
+                    session: payload,
                     tokens
                 })
             );
 
             this.debugLogger.logFunctionExit('verify2fa', 'AuthService', { userId: user.id });
-            return {
-                accessToken: tokens.accessToken,
-                refreshToken: tokens.refreshToken,
-                trustToken,
-            };
+            
+            // Return response with user data (similar to generateAuthResponse)
+            return this.generateAuthResponse(user as NestAuthUser, payload, tokens, false, trustToken);
 
         } catch (error) {
             this.debugLogger.logError(error, 'verify2fa', { method: input.method });
@@ -709,7 +707,8 @@ export class AuthService {
         user: NestAuthUser,
         session: any, // NestAuthSession
         tokens: { accessToken: string; refreshToken: string },
-        isRequiresMfa: boolean
+        isRequiresMfa: boolean,
+        trustToken?: string
     ): Promise<AuthResponseDto> {
         // Serialize user for response
         const config = this.authConfigService.getConfig();
@@ -748,6 +747,11 @@ export class AuthService {
 
         if (config.auth?.transformResponse) {
             response = await config.auth.transformResponse(response, user, session);
+        }
+
+        // Add trustToken if provided (for MFA verification)
+        if (trustToken) {
+            response.trustToken = trustToken;
         }
 
         return response;

@@ -20,6 +20,11 @@ import {
     IMessageResponse as MessageResponse,
     IVerifyOtpResponse as VerifyOtpResponse,
     IVerify2faResponse as Verify2faResponse,
+    ITotpSetupResponse,
+    IVerifyTotpSetupRequest,
+    IMfaStatusResponse,
+    IMfaDevice,
+    IToggleMfaRequest,
 } from '@ackplus/nest-auth-contracts';
 import {
     AuthClientConfig,
@@ -200,6 +205,18 @@ export class AuthClient {
             this.log('debug', 'buildHeaders: Cookie mode - skipping Authorization header');
         }
 
+        // Add trust token header if in header mode (for trusted device verification)
+        // In cookie mode, trust token is automatically sent via cookies
+        if (this.tokenManager.isHeaderMode()) {
+            const trustToken = await this.tokenManager.getTrustToken();
+            if (trustToken) {
+                // Use configurable header name or default
+                const trustHeaderName = this.config.trustDeviceHeaderName || 'nest_auth_device_trust';
+                headers[trustHeaderName] = trustToken;
+                this.log('debug', 'buildHeaders: Trust token header added', { headerName: trustHeaderName });
+            }
+        }
+
         // Add tenant header
         const tenantId = this.getTenantIdValue();
         if (tenantId) {
@@ -320,6 +337,7 @@ export class AuthClient {
             hasAccessToken: !!response.accessToken,
             hasRefreshToken: !!response.refreshToken,
             hasUser: !!response.user,
+            hasTrustToken: !!(response as any).trustToken,
             mode: this.tokenManager.getMode(),
         });
 
@@ -335,6 +353,15 @@ export class AuthClient {
                 hasAccessToken: !!response.accessToken,
                 hasRefreshToken: !!response.refreshToken,
             });
+        }
+
+        // Store trust token if present (works in both header and cookie mode)
+        // In cookie mode, backend sets it as cookie, but we also store it for reference
+        // In header mode, we need to send it in headers
+        const trustToken = (response as any).trustToken;
+        if (trustToken) {
+            this.log('debug', 'handleAuthResponse: Storing trust token');
+            await this.tokenManager.setTrustToken(trustToken);
         }
 
         // Update user if present
@@ -421,7 +448,7 @@ export class AuthClient {
             // Ignore logout errors - we'll clear local state anyway
         }
 
-        // Clear tokens
+        // Clear tokens (including trust token)
         await this.tokenManager.clearTokens();
 
         // Clear state
@@ -679,7 +706,125 @@ export class AuthClient {
             throw this.handleError(response);
         }
 
+        const responseData = response.data as any;
+        this.log('debug', 'verify2fa: Response received', {
+            hasAccessToken: !!responseData.accessToken,
+            hasRefreshToken: !!responseData.refreshToken,
+            hasUser: !!responseData.user,
+            userData: responseData.user ? {
+                id: responseData.user.id,
+                email: responseData.user.email,
+                roles: responseData.user.roles,
+                permissions: responseData.user.permissions,
+            } : null,
+        });
+
+        // Cast to AuthResponse to handle user data properly
         await this.handleAuthResponse(response.data as AuthResponse);
+        
+        this.log('debug', 'verify2fa: State updated', {
+            userSet: !!this.user,
+            sessionSet: !!this.session,
+        });
+
+        return response.data;
+    }
+
+    /**
+     * Setup TOTP device - generates secret and QR code
+     */
+    async setupTotp(options?: RequestOptions): Promise<ITotpSetupResponse> {
+        const endpoint = this.getEndpoint('setupTotp');
+        const response = await this.request<ITotpSetupResponse>('POST', endpoint, undefined, options);
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        return response.data;
+    }
+
+    /**
+     * Verify TOTP setup - verifies the OTP code and marks device as verified
+     */
+    async verifyTotpSetup(dto: IVerifyTotpSetupRequest, options?: RequestOptions): Promise<MessageResponse> {
+        const endpoint = this.getEndpoint('verifyTotpSetup');
+        const response = await this.request<MessageResponse>('POST', endpoint, dto, options);
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        return response.data;
+    }
+
+    /**
+     * Get MFA status for current user
+     */
+    async getMfaStatus(options?: RequestOptions): Promise<IMfaStatusResponse> {
+        const endpoint = this.getEndpoint('getMfaStatus');
+        const response = await this.request<IMfaStatusResponse>('GET', endpoint, undefined, options);
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        return response.data;
+    }
+
+    /**
+     * List all TOTP devices for current user
+     */
+    async listTotpDevices(options?: RequestOptions): Promise<IMfaDevice[]> {
+        const endpoint = this.getEndpoint('listTotpDevices');
+        const response = await this.request<IMfaDevice[]>('GET', endpoint, undefined, options);
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        return response.data;
+    }
+
+    /**
+     * Remove a TOTP device
+     */
+    async removeTotpDevice(deviceId: string, options?: RequestOptions): Promise<MessageResponse> {
+        const endpoint = `${this.getEndpoint('removeTotpDevice')}/${deviceId}`;
+        const response = await this.request<MessageResponse>('DELETE', endpoint, undefined, options);
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        return response.data;
+    }
+
+    /**
+     * Toggle MFA on/off for current user
+     */
+    async toggleMfa(dto: IToggleMfaRequest, options?: RequestOptions): Promise<MessageResponse> {
+        const endpoint = this.getEndpoint('toggleMfa');
+        const response = await this.request<MessageResponse>('POST', endpoint, dto, options);
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        return response.data;
+    }
+
+    /**
+     * Generate recovery code for MFA
+     */
+    async generateRecoveryCode(options?: RequestOptions): Promise<{ code: string }> {
+        const endpoint = this.getEndpoint('generateRecoveryCode');
+        const response = await this.request<{ code: string }>('POST', endpoint, undefined, options);
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
         return response.data;
     }
 
