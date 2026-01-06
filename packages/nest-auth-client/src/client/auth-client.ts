@@ -291,6 +291,30 @@ export class AuthClient {
         return error;
     }
 
+    /**
+     * Store tokens only (without setting authenticated state)
+     * Used for MFA flow where tokens are needed but user is not yet authenticated
+     */
+    private async storeTokensOnly(tokens: { accessToken?: string; refreshToken?: string }): Promise<void> {
+        if (tokens.accessToken && tokens.refreshToken) {
+            this.log('debug', 'storeTokensOnly: Storing tokens for MFA flow', {
+                hasAccessToken: !!tokens.accessToken,
+                hasRefreshToken: !!tokens.refreshToken,
+                mode: this.tokenManager.getMode(),
+            });
+            await this.tokenManager.setTokens({
+                accessToken: tokens.accessToken,
+                refreshToken: tokens.refreshToken,
+            });
+            this.log('debug', 'storeTokensOnly: Tokens stored successfully');
+        } else {
+            this.log('debug', 'storeTokensOnly: No tokens to store', {
+                hasAccessToken: !!tokens.accessToken,
+                hasRefreshToken: !!tokens.refreshToken,
+            });
+        }
+    }
+
     private async handleAuthResponse(response: AuthResponse): Promise<void> {
         this.log('debug', 'handleAuthResponse: Processing auth response', {
             hasAccessToken: !!response.accessToken,
@@ -355,9 +379,17 @@ export class AuthClient {
 
         // Check if MFA is required
         if (response.data.isRequiresMfa) {
+            this.log('debug', 'login: MFA required - storing tokens for MFA flow');
+            // Store tokens even when MFA is required so MFA APIs can be called
+            // But don't set authenticated state until MFA is verified
+            await this.storeTokensOnly({
+                accessToken: response.data.accessToken,
+                refreshToken: response.data.refreshToken,
+            });
             return response.data;
         }
 
+        // Full authentication - store tokens and set authenticated state
         await this.handleAuthResponse(response.data);
         return response.data;
     }

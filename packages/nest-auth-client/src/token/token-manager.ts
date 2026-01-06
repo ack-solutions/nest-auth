@@ -113,17 +113,14 @@ export class TokenManager {
             return null;
         }
         
-        const token = this.storage.get(STORAGE_KEYS.ACCESS_TOKEN);
+        const token = await this.storage.get(STORAGE_KEYS.ACCESS_TOKEN);
         // Handle both sync and async storage adapters
-        const resolvedToken = token instanceof Promise ? await token : token;
-        
-        if (resolvedToken) {
-            this.log('debug', 'getAccessToken: Token found', { length: resolvedToken.length });
+        if(token) {
+            this.log('debug', 'getAccessToken: Token found', { length: token.length });
         } else {
             this.log('debug', 'getAccessToken: NOT_FOUND', null);
         }
-        
-        return resolvedToken;
+        return token;
     }
 
     /**
@@ -133,9 +130,14 @@ export class TokenManager {
         if (this.isCookieMode()) {
             return null;
         }
-        const token = this.storage.get(STORAGE_KEYS.REFRESH_TOKEN);
+        const token = await this.storage.get(STORAGE_KEYS.REFRESH_TOKEN);
         // Handle both sync and async storage adapters
-        return token instanceof Promise ? await token : token;
+        if(token) {
+            this.log('debug', 'getRefreshToken: Token found', { length: token.length });
+        } else {
+            this.log('debug', 'getRefreshToken: NOT_FOUND', null);
+        }
+        return token;
     }
 
     /**
