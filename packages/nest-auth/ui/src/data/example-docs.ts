@@ -70,7 +70,7 @@ function LoginForm() {
         {
           method: 'email',
           otp: otp,
-          rememberDevice: true // Trust this device
+          trustDevice: true // Trust this device
         },
         { headers: { Authorization: \`Bearer \${partialToken}\` }}
       );
@@ -610,13 +610,13 @@ async function login(email, password) {
 }
 
 // Verify 2FA function
-async function verify2FA(partialToken, otp, rememberDevice = true) {
+async function verify2FA(partialToken, otp, trustDevice = true) {
   try {
     const { data } = await api.post('/auth/verify-2fa',
       {
         method: 'email',
         otp: otp,
-        rememberDevice: rememberDevice
+        trustDevice: trustDevice
       },
       {
         headers: { Authorization: \`Bearer \${partialToken}\` }
@@ -709,7 +709,7 @@ class AuthService {
       body: jsonEncode({
         'method': 'email',
         'otp': otp,
-        'rememberDevice': true,
+        'trustDevice': true,
       }),
     );
 

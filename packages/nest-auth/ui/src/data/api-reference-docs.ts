@@ -324,7 +324,7 @@ curl -X POST http://localhost:3000/auth/send-2fa-code \\
 {
   method: "email" | "sms" | "totp";  // Method used for 2FA
   otp: string;                        // 6-digit OTP code
-  rememberDevice?: boolean;           // Optional: Trust this device for 30 days
+  trustDevice?: boolean;           // Optional: Trust this device for 30 days
 }
 \`\`\`
 
@@ -334,7 +334,7 @@ curl -X POST http://localhost:3000/auth/send-2fa-code \\
   message: "2FA verification successful";
   accessToken: string;       // New full access token
   refreshToken: string;      // New refresh token
-  trustToken?: string;       // Trust token (if rememberDevice=true)
+  trustToken?: string;       // Trust token (if trustDevice=true)
 }
 \`\`\`
 
@@ -355,7 +355,7 @@ curl -X POST http://localhost:3000/auth/verify-2fa \\
   -d '{
     "method": "email",
     "otp": "123456",
-    "rememberDevice": true
+    "trustDevice": true
   }'
 \`\`\`
 
@@ -953,7 +953,7 @@ curl -X POST http://localhost:3000/auth/verify-2fa \\
   -d '{
     "method": "email",
     "otp": "123456",
-    "rememberDevice": true
+    "trustDevice": true
   }'
 \`\`\`
 

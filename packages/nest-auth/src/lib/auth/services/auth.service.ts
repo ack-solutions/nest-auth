@@ -425,7 +425,7 @@ export class AuthService {
             const tokens = await this.generateTokensFromSession(payload);
 
             let trustToken: string | undefined;
-            if (input.rememberDevice) {
+            if (input.trustDevice) {
                 const req = RequestContext.currentRequest();
                 if (req) {
                     const userAgent = (req.headers['user-agent'] || '') as string;

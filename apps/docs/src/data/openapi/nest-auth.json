@@ -1050,7 +1050,7 @@
             "minLength": 6,
             "maxLength": 8
           },
-          "rememberDevice": {
+          "trustDevice": {
             "type": "boolean",
             "description": "Whether to trust this device for future logins",
             "example": true

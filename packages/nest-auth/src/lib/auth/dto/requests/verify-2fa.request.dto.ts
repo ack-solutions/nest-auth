@@ -28,5 +28,5 @@ export class NestAuthVerify2faRequestDto implements IVerify2faRequest {
         example: true,
         required: false,
     })
-    rememberDevice?: boolean;
+    trustDevice?: boolean;
 }

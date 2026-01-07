@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto';
 import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
 import { SessionStorageType } from '../interfaces/session-options.interface';
 import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
+import { NEST_AUTH_TRUST_DEVICE_KEY } from 'src/lib/auth.constants';
 
 @Injectable()
 export class AuthConfigService {
@@ -40,7 +41,10 @@ export class AuthConfigService {
             allowUserToggle: true,
             allowMethodSelection: true,
             otpLength: 6,
+            required: false,
             otpExpiresIn: '15m',
+            trustDeviceStorageName: NEST_AUTH_TRUST_DEVICE_KEY, // it work only when pass 'trustDevice' true in verify2fa request
+            trustedDeviceDuration: '30m',
         },
         defaultTenant: undefined,
         adminConsole: {

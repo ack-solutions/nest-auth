@@ -65,7 +65,7 @@ The module emits events using \`@nestjs/event-emitter\`. You can listen to these
 {
   user: NestAuthUser;              // The user
   tenantId?: string;               // Tenant ID
-  input: Verify2faRequestDto;      // 2FA verification request (method, OTP, rememberDevice)
+  input: Verify2faRequestDto;      // 2FA verification request (method, OTP, trustDevice)
   session: SessionPayload;         // Updated session
   tokens: AuthTokensResponseDto;   // New access & refresh tokens
 }

@@ -5,7 +5,7 @@ import { NestAuthMFASecret } from '../../auth/entities/mfa-secret.entity';
 import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
 import { MFAOptions } from '../../core/interfaces/mfa-options.interface';
-import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
+import { IMfaConfig, NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
 import {
     ERROR_CODES,
     NestAuthEvents,
@@ -492,8 +492,8 @@ export class MfaService {
      * Check if admin can disable MFA for a user
      * Returns false if MFA is required for all users
      */
-    canAdminDisableMfaForUser(): boolean {
-        return !this.isMfaRequired();
+    getMfaConfig(): MFAOptions {
+        return this.mfaConfig
     }
 
     async hasRecoveryCode(userId: string): Promise<boolean> {
@@ -513,7 +513,7 @@ export class MfaService {
         this.requireMfaEnabledForApp(true);
 
         const token = randomBytes(32).toString('hex');
-        const duration = this.mfaConfig.trustedDeviceDuration || '30d';
+        const duration = this.mfaConfig.trustedDeviceDuration || '30m';
         const expiresAtMs = typeof duration === 'string' ? ms(duration) : duration;
 
         await this.trustedDeviceRepository.save({

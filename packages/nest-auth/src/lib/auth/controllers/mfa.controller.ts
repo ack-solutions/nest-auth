@@ -52,16 +52,16 @@ export class MfaController {
         let isEnabled = false;
 
         if (globallyEnabled) {
-            [verifiedMethods, totpDevices, hasRecoveryCode, isEnabled] = await Promise.all([
+            [verifiedMethods, totpDevices, hasRecoveryCode] = await Promise.all([
                 this.mfaService.getVerifiedMethods(user.id),
                 this.mfaService.getTotpDevices(user.id),
                 this.mfaService.hasRecoveryCode(user.id),
-                this.mfaService.isMfaEnabled(user.id),
             ]);
+            isEnabled = config?.required ? true : await this.mfaService.isMfaEnabled(user.id);
         }
 
         const required = config?.required ?? false;
-        const allowUserToggle = config?.allowUserToggle ?? false;
+        const allowUserToggle = isEnabled ? config?.allowUserToggle ?? false : false;
         // User can toggle only if allowUserToggle is true AND MFA is not required
         const canToggle = allowUserToggle && !required;
 
