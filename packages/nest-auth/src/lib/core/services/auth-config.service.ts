@@ -3,7 +3,7 @@ import { randomBytes } from 'crypto';
 import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
 import { SessionStorageType } from '../interfaces/session-options.interface';
 import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
-import { NEST_AUTH_TRUST_DEVICE_KEY } from 'src/lib/auth.constants';
+import { NEST_AUTH_TRUST_DEVICE_KEY } from '../../auth.constants';
 
 @Injectable()
 export class AuthConfigService {
