@@ -135,6 +135,8 @@ export interface EndpointConfig {
     toggleMfa?: string;
     /** Generate recovery code (default: /auth/mfa/generate-recovery-code) */
     generateRecoveryCode?: string;
+    /** Reset MFA with recovery code (default: /auth/mfa/reset-totp) */
+    resetMfa?: string;
 }
 
 /**
@@ -163,6 +165,7 @@ export const DEFAULT_ENDPOINTS: Required<EndpointConfig> = {
     removeTotpDevice: '/auth/mfa/devices',
     toggleMfa: '/auth/mfa/toggle',
     generateRecoveryCode: '/auth/mfa/generate-recovery-code',
+    resetMfa: '/auth/mfa/reset-totp',
 };
 
 /**

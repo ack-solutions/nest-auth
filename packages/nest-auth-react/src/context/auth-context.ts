@@ -101,6 +101,8 @@ export interface AuthContextValue {
     toggleMfa: (dto: IToggleMfaRequest) => Promise<IMessageResponse>;
     /** Generate recovery code for MFA */
     generateRecoveryCode: () => Promise<{ code: string }>;
+    /** Reset MFA using recovery code */
+    resetMfa: (code: string) => Promise<IMessageResponse>;
 
     // Mode & Tenant
     /** Set token mode (only when config.accessTokenType is null) */
@@ -150,6 +152,7 @@ const defaultContextValue: AuthContextValue = {
     removeTotpDevice: () => Promise.reject(new Error('AuthProvider not found')),
     toggleMfa: () => Promise.reject(new Error('AuthProvider not found')),
     generateRecoveryCode: () => Promise.reject(new Error('AuthProvider not found')),
+    resetMfa: () => Promise.reject(new Error('AuthProvider not found')),
     // Mode & tenant
     setMode: () => { throw new Error('AuthProvider not found'); },
     getMode: () => 'header',

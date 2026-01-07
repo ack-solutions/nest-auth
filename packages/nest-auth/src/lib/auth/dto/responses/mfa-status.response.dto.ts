@@ -87,4 +87,16 @@ export class MfaStatusResponseDto implements IMfaStatusResponse {
         example: false,
     })
     hasRecoveryCode: boolean;
+
+    @ApiProperty({
+        description: 'Whether MFA is required for all users. If true, users cannot disable MFA even if allowUserToggle is true',
+        example: false,
+    })
+    required?: boolean;
+
+    @ApiProperty({
+        description: 'Whether the user can toggle MFA. This is false if MFA is required (required=true) even if allowUserToggle is true',
+        example: true,
+    })
+    canToggle?: boolean;
 }

@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UnauthorizedException, UseGuards, HttpCode, Get, Delete, Param } from '@nestjs/common';
+import { Controller, Post, Body, UnauthorizedException, UseGuards, HttpCode, Get, Delete, Param, ForbiddenException } from '@nestjs/common';
 import { SkipMfa, NestAuthUser } from '../../core';
 import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
 import { MfaService } from '../services/mfa.service';
@@ -17,7 +17,7 @@ import {
     NestAuthMfaDeviceVerifiedResponseDto,
     NestAuthMfaResetResponseDto
 } from '../dto/responses/auth-messages.response.dto';
-import { MFA_ERROR_CODES } from '../../auth.constants';
+import { MFA_ERROR_CODES, ERROR_CODES } from '../../auth.constants';
 
 @Controller('auth/mfa')
 export class MfaController {
@@ -60,14 +60,21 @@ export class MfaController {
             ]);
         }
 
+        const required = config?.required ?? false;
+        const allowUserToggle = config?.allowUserToggle ?? false;
+        // User can toggle only if allowUserToggle is true AND MFA is not required
+        const canToggle = allowUserToggle && !required;
+
         return {
             isEnabled,
             verifiedMethods,  // Methods user has verified/can use
             configuredMethods: this.mfaService.getAvailableMethods(),  // Methods configured in app
-            allowUserToggle: config?.allowUserToggle ?? false,
+            allowUserToggle,
             allowMethodSelection: config?.allowMethodSelection ?? false,
             totpDevices,
             hasRecoveryCode,
+            required,
+            canToggle,
         };
     }
 
@@ -81,6 +88,13 @@ export class MfaController {
         const user = this.getCurrentUserOrThrow();
 
         this.mfaService.requireMfaEnabledForApp(true);
+        // Check if user can toggle (accounts for required flag)
+        if (!this.mfaService.canUserToggleMfa()) {
+            throw new ForbiddenException({
+                message: 'MFA toggle is not allowed',
+                code: ERROR_CODES.MFA_TOGGLING_NOT_ALLOWED,
+            });
+        }
 
         if (input.enabled) {
             await this.mfaService.enableMFA(user.id);
@@ -169,8 +183,8 @@ export class MfaController {
         if (!user) {
             throw new UnauthorizedException('User not found');
         }
+        const isValid = await this.mfaService.verifyTotpSetup(user.id, input.secret, input.otp);
 
-        const isValid = await this.mfaService.verifyMfa(user.id, input.otp, NestAuthMFAMethodEnum.TOTP);
         if (!isValid) { // Changed from !isVerified to !isValid to match the variable name
             throw new UnauthorizedException({
                 message: 'Invalid OTP',

@@ -390,6 +390,14 @@ export class MfaService {
     async disableMFA(userId: string) {
         this.checkIsMfaEnabledForApp(true);
 
+        // Check if MFA is required - if so, users cannot disable it
+        if (this.mfaConfig.required) {
+            throw new ForbiddenException({
+                message: 'MFA is required and cannot be disabled',
+                code: ERROR_CODES.MFA_TOGGLING_NOT_ALLOWED,
+            });
+        }
+
         if (!this.mfaConfig.allowUserToggle) {
             throw new ForbiddenException({
                 message: 'MFA toggling is not allowed',
@@ -461,6 +469,31 @@ export class MfaService {
         // Deduplicate methods to ensure unique values
         const methods = this.mfaConfig.methods ?? [];
         return [...new Set(methods)];
+    }
+
+    /**
+     * Check if MFA is required for all users
+     */
+    isMfaRequired(): boolean {
+        return this.mfaConfig.required ?? false;
+    }
+
+    /**
+     * Check if users are allowed to toggle MFA
+     * Returns true only if allowUserToggle is true AND MFA is not required
+     */
+    canUserToggleMfa(): boolean {
+        const allowUserToggle = this.mfaConfig.allowUserToggle ?? false;
+        const required = this.mfaConfig.required ?? false;
+        return allowUserToggle && !required;
+    }
+
+    /**
+     * Check if admin can disable MFA for a user
+     * Returns false if MFA is required for all users
+     */
+    canAdminDisableMfaForUser(): boolean {
+        return !this.isMfaRequired();
     }
 
     async hasRecoveryCode(userId: string): Promise<boolean> {

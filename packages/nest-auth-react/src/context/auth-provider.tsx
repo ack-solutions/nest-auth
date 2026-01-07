@@ -420,6 +420,16 @@ export function AuthProvider({
         }
     }, [client]);
 
+    const resetMfa = useCallback(async (code: string) => {
+        setError(null);
+        try {
+            return await client.resetMfa(code);
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
     // Mode & Tenant
     const setMode = useCallback((mode: 'header' | 'cookie') => {
         client.setMode(mode);
@@ -472,6 +482,7 @@ export function AuthProvider({
         removeTotpDevice,
         toggleMfa,
         generateRecoveryCode,
+        resetMfa,
         // Mode & Tenant
         setMode,
         getMode,
@@ -504,6 +515,7 @@ export function AuthProvider({
         removeTotpDevice,
         toggleMfa,
         generateRecoveryCode,
+        resetMfa,
         setMode,
         getMode,
         setTenantId,

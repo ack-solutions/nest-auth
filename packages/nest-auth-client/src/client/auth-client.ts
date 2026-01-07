@@ -828,6 +828,21 @@ export class AuthClient {
         return response.data;
     }
 
+    /**
+     * Reset MFA using recovery code
+     * This will delete all MFA secrets and the recovery code after verification
+     */
+    async resetMfa(code: string, options?: RequestOptions): Promise<MessageResponse> {
+        const endpoint = this.getEndpoint('resetMfa');
+        const response = await this.request<MessageResponse>('POST', endpoint, { code }, options);
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        return response.data;
+    }
+
     // ============================================================================
     // Public API - Token Mode
     // ============================================================================

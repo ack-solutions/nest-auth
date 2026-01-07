@@ -85,6 +85,10 @@ export interface IMfaStatusResponse {
     allowMethodSelection: boolean;
     totpDevices: IMfaDevice[];
     hasRecoveryCode: boolean;
+    /** Whether MFA is required for all users (cannot be disabled) */
+    required?: boolean;
+    /** Whether the user can toggle MFA (accounts for both allowUserToggle and required) */
+    canToggle?: boolean;
 }
 
 export interface IMfaCodeResponse {
