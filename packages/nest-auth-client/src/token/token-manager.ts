@@ -198,7 +198,6 @@ export class TokenManager {
         await Promise.resolve(this.storage.remove(STORAGE_KEYS.ACCESS_TOKEN));
         await Promise.resolve(this.storage.remove(STORAGE_KEYS.REFRESH_TOKEN));
         await Promise.resolve(this.storage.remove(STORAGE_KEYS.EXPIRES_AT));
-        await Promise.resolve(this.storage.remove(STORAGE_KEYS.TRUST_TOKEN));
         this.log('debug', 'clearTokens: Tokens cleared');
     }
 

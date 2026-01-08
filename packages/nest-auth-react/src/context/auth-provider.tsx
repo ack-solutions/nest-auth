@@ -45,6 +45,10 @@ export interface AuthProviderProps {
     autoLoadMe?: boolean;
     /** Callback when user becomes unauthenticated */
     onUnauthenticated?: () => void;
+    /** Callback when tokens are set (can be async) - use to set tokens in API headers/storage */
+    onTokensSet?: (tokens: { accessToken: string; refreshToken: string; trustToken?: string }) => void | Promise<void>;
+    /** Callback when tokens are removed (can be async) - use to remove tokens from API/storage */
+    onTokensRemoved?: () => void | Promise<void>;
     /** Children components */
     children: React.ReactNode;
 }
@@ -75,6 +79,8 @@ export function AuthProvider({
     initialState,
     autoLoadMe = true,
     onUnauthenticated,
+    onTokensSet,
+    onTokensRemoved,
     children,
 }: AuthProviderProps) {
     // Initialize state from client or initial state
@@ -115,11 +121,25 @@ export function AuthProvider({
             setError(err);
         });
 
+        const unsubscribeTokensSet = client.onTokensSet(async (tokens) => {
+            if (onTokensSet) {
+                await Promise.resolve(onTokensSet(tokens));
+            }
+        });
+
+        const unsubscribeTokensRemoved = client.onTokensRemoved(async () => {
+            if (onTokensRemoved) {
+                await Promise.resolve(onTokensRemoved());
+            }
+        });
+
         return () => {
             unsubscribeAuthState();
             unsubscribeError();
+            unsubscribeTokensSet();
+            unsubscribeTokensRemoved();
         };
-    }, [client]);
+    }, [client, onTokensSet, onTokensRemoved]);
 
     // Auto load user on mount
     useEffect(() => {

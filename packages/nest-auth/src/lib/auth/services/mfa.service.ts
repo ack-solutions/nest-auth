@@ -69,6 +69,8 @@ export class MfaService {
             return [];
         }
 
+        const user = await this.userRepository.findOne({ where: { id: userId } });
+
         const verifiedMethods: NestAuthMFAMethodEnum[] = []
 
         // Check for verified TOTP devices
@@ -86,11 +88,11 @@ export class MfaService {
         // Note: EMAIL and SMS methods are always available if configured
         // They don't require pre-verification like TOTP does
         // But we only include them if they're in the config
-        if (this.mfaConfig.methods?.includes(NestAuthMFAMethodEnum.EMAIL)) {
+        if (this.mfaConfig.methods?.includes(NestAuthMFAMethodEnum.EMAIL) && user?.email) {
             verifiedMethods.push(NestAuthMFAMethodEnum.EMAIL)
         }
 
-        if (this.mfaConfig.methods?.includes(NestAuthMFAMethodEnum.SMS)) {
+        if (this.mfaConfig.methods?.includes(NestAuthMFAMethodEnum.SMS) && user?.phone) {
             verifiedMethods.push(NestAuthMFAMethodEnum.SMS)
         }
 

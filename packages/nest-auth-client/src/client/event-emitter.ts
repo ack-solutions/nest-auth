@@ -58,6 +58,29 @@ export class EventEmitter<Events extends Record<string, any> = Record<string, an
     }
 
     /**
+     * Emit an event and wait for all async listeners to complete
+     */
+    async emitAsync<K extends keyof Events>(event: K, data: Events[K]): Promise<void> {
+        const listeners = this.listeners.get(event);
+        if (!listeners || listeners.size === 0) {
+            return;
+        }
+
+        const promises = Array.from(listeners).map(callback => {
+            try {
+                const result = callback(data);
+                // Wrap result in Promise.resolve() to handle both void and Promise returns
+                return Promise.resolve(result);
+            } catch (error) {
+                console.error(`Error in event listener for ${String(event)}:`, error);
+                return Promise.resolve();
+            }
+        });
+
+        await Promise.all(promises);
+    }
+
+    /**
      * Remove all listeners for an event, or all listeners if no event specified
      */
     removeAllListeners<K extends keyof Events>(event?: K): void {
@@ -77,6 +100,10 @@ export interface AuthEvents {
     authStateChange: { user: any | null };
     /** Tokens were refreshed */
     tokenRefreshed: { accessToken: string; refreshToken: string };
+    /** Tokens were set (login, signup, refresh, etc.) */
+    tokensSet: { accessToken: string; refreshToken: string; trustToken?: string };
+    /** Tokens were removed (logout, etc.) */
+    tokensRemoved: void;
     /** User logged out */
     logout: void;
     /** An error occurred */

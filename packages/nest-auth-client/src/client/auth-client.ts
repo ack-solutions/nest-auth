@@ -312,16 +312,29 @@ export class AuthClient {
      * Store tokens only (without setting authenticated state)
      * Used for MFA flow where tokens are needed but user is not yet authenticated
      */
-    private async storeTokensOnly(tokens: { accessToken?: string; refreshToken?: string }): Promise<void> {
+    private async storeTokensOnly(tokens: { accessToken?: string; refreshToken?: string; trustToken?: string }): Promise<void> {
         if (tokens.accessToken && tokens.refreshToken) {
             this.log('debug', 'storeTokensOnly: Storing tokens for MFA flow', {
                 hasAccessToken: !!tokens.accessToken,
                 hasRefreshToken: !!tokens.refreshToken,
+                hasTrustToken: !!tokens.trustToken,
                 mode: this.tokenManager.getMode(),
             });
             await this.tokenManager.setTokens({
                 accessToken: tokens.accessToken,
                 refreshToken: tokens.refreshToken,
+            });
+            
+            // Store trust token if present
+            if (tokens.trustToken) {
+                await this.tokenManager.setTrustToken(tokens.trustToken);
+            }
+            
+            // Emit tokensSet event and wait for all listeners (include trust token if present)
+            await this.events.emitAsync('tokensSet', {
+                accessToken: tokens.accessToken,
+                refreshToken: tokens.refreshToken,
+                trustToken: tokens.trustToken || undefined,
             });
             this.log('debug', 'storeTokensOnly: Tokens stored successfully');
         } else {
@@ -342,26 +355,33 @@ export class AuthClient {
         });
 
         // Store tokens if in header mode and tokens are present
+        const trustToken = (response as any).trustToken;
         if (response.accessToken && response.refreshToken) {
             this.log('debug', 'handleAuthResponse: Storing tokens');
             await this.tokenManager.setTokens({
                 accessToken: response.accessToken,
                 refreshToken: response.refreshToken,
             });
+            
+            // Store trust token if present (works in both header and cookie mode)
+            // In cookie mode, backend sets it as cookie, but we also store it for reference
+            // In header mode, we need to send it in headers
+            if (trustToken) {
+                this.log('debug', 'handleAuthResponse: Storing trust token');
+                await this.tokenManager.setTrustToken(trustToken);
+            }
+            
+            // Emit tokensSet event and wait for all listeners (include trust token if present)
+            await this.events.emitAsync('tokensSet', {
+                accessToken: response.accessToken,
+                refreshToken: response.refreshToken,
+                trustToken: trustToken || undefined,
+            });
         } else {
             this.log('debug', 'handleAuthResponse: No tokens to store', {
                 hasAccessToken: !!response.accessToken,
                 hasRefreshToken: !!response.refreshToken,
             });
-        }
-
-        // Store trust token if present (works in both header and cookie mode)
-        // In cookie mode, backend sets it as cookie, but we also store it for reference
-        // In header mode, we need to send it in headers
-        const trustToken = (response as any).trustToken;
-        if (trustToken) {
-            this.log('debug', 'handleAuthResponse: Storing trust token');
-            await this.tokenManager.setTrustToken(trustToken);
         }
 
         // Update user if present
@@ -412,6 +432,7 @@ export class AuthClient {
             await this.storeTokensOnly({
                 accessToken: response.data.accessToken,
                 refreshToken: response.data.refreshToken,
+                trustToken: (response.data as any).trustToken,
             });
             return response.data;
         }
@@ -450,6 +471,11 @@ export class AuthClient {
 
         // Clear tokens (including trust token)
         await this.tokenManager.clearTokens();
+        // Also explicitly clear trust token
+        await this.tokenManager.clearTrustToken();
+
+        // Emit tokensRemoved event and wait for all listeners
+        await this.events.emitAsync('tokensRemoved', undefined);
 
         // Clear state
         this.user = null;
@@ -483,6 +509,11 @@ export class AuthClient {
 
         // Clear local tokens and state (same as regular logout)
         await this.tokenManager.clearTokens();
+        // Also explicitly clear trust token
+        await this.tokenManager.clearTrustToken();
+
+        // Emit tokensRemoved event and wait for all listeners
+        await this.events.emitAsync('tokensRemoved', undefined);
 
         // Clear state
         this.user = null;
@@ -536,6 +567,18 @@ export class AuthClient {
 
             // Store new tokens
             await this.tokenManager.setTokens(tokens);
+
+            // Get trust token if present in response
+            const trustToken = (response.data as any).trustToken;
+            if (trustToken) {
+                await this.tokenManager.setTrustToken(trustToken);
+            }
+
+            // Emit tokensSet event and wait for all listeners (include trust token if present)
+            await this.events.emitAsync('tokensSet', {
+                ...tokens,
+                trustToken: trustToken || undefined,
+            });
 
             // Update session
             const decoded = decodeJwt(tokens.accessToken);
@@ -945,5 +988,21 @@ export class AuthClient {
      */
     onError(callback: (error: AuthError) => void): () => void {
         return this.events.on('error', callback);
+    }
+
+    /**
+     * Subscribe to token set events (fires when tokens are stored)
+     * Callback can be async and will be awaited
+     */
+    onTokensSet(callback: (tokens: TokenPair & { trustToken?: string }) => void | Promise<void>): () => void {
+        return this.events.on('tokensSet', callback);
+    }
+
+    /**
+     * Subscribe to token removed events (fires when tokens are cleared)
+     * Callback can be async and will be awaited
+     */
+    onTokensRemoved(callback: () => void | Promise<void>): () => void {
+        return this.events.on('tokensRemoved', callback);
     }
 }
