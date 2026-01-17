@@ -114,8 +114,14 @@ export class AuthClient {
         this.refreshQueue = new RefreshQueue();
         this.retryTracker = new RetryTracker();
 
-        // Load persisted state
-        this.loadPersistedState();
+        // Load persisted state and emit tokensSet event if tokens are restored
+        this.loadPersistedState().then(() => {
+            // After loading persisted state, check if tokens exist and emit tokensSet event
+            // This ensures onTokensSet callback is called when tokens are restored from storage
+            this.emitTokensSetIfRestored();
+        }).catch((error) => {
+            this.log('warn', 'Failed to load persisted state', error);
+        });
     }
 
     // ============================================================================
@@ -141,6 +147,45 @@ export class AuthClient {
             }
         } catch (error) {
             this.log('warn', 'Failed to load persisted auth state', error);
+        }
+    }
+
+    /**
+     * Emit tokensSet event if tokens were restored from storage
+     * This ensures onTokensSet callback is called when tokens are restored on app reload
+     */
+    private async emitTokensSetIfRestored(): Promise<void> {
+        try {
+            // Only emit in header mode (in cookie mode, tokens are managed by server)
+            if (!this.tokenManager.isHeaderMode()) {
+                return;
+            }
+
+            // Check if tokens exist in storage
+            const tokens = await this.tokenManager.getTokens();
+            if (tokens && tokens.accessToken && tokens.refreshToken) {
+                const trustToken = await this.tokenManager.getTrustToken();
+                
+                this.log('debug', 'emitTokensSetIfRestored: Tokens found in storage, emitting tokensSet event', {
+                    hasAccessToken: !!tokens.accessToken,
+                    hasRefreshToken: !!tokens.refreshToken,
+                    hasTrustToken: !!trustToken,
+                });
+
+                // Emit tokensSet event to notify listeners (e.g., AuthProvider's onTokensSet callback)
+                // This ensures global HTTP clients (like Axios) can sync their headers on app reload
+                await this.events.emitAsync('tokensSet', {
+                    accessToken: tokens.accessToken,
+                    refreshToken: tokens.refreshToken,
+                    trustToken: trustToken || undefined,
+                });
+
+                this.log('debug', 'emitTokensSetIfRestored: tokensSet event emitted successfully');
+            } else {
+                this.log('debug', 'emitTokensSetIfRestored: No tokens found in storage');
+            }
+        } catch (error) {
+            this.log('warn', 'emitTokensSetIfRestored: Failed to emit tokensSet event', error);
         }
     }
 
