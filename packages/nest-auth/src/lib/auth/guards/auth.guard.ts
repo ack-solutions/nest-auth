@@ -7,7 +7,7 @@ import { SessionManagerService } from '../../session/services/session-manager.se
 import { AccessKeyService } from '../../user/services/access-key.service';
 import { JWTTokenPayload } from '../../core/interfaces/token-payload.interface';
 import { SKIP_MFA_KEY } from '../../core/decorators/skip-mfa.decorator';
-import { PERMISSIONS_KEY } from '../../core/decorators/permissions.decorator';
+import { PERMISSIONS_KEY, PERMISSIONS_REQUIRE_ALL_KEY } from '../../core/decorators/permissions.decorator';
 import { ROLES_KEY, GUARD_KEY } from '../../core/decorators/role.decorator';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { CookieHelper } from '../../utils/cookie.helper';
@@ -384,7 +384,8 @@ export class NestAuthAuthGuard implements CanActivate {
 
         // Check permissions if required
         if (requiredPermissions.length > 0) {
-            await this.checkPermissions(user, rolesForAuth, permissionsForAuth, requiredPermissions);
+            const requireAll = this.getPermissionsRequireAll(context);
+            await this.checkPermissions(user, rolesForAuth, permissionsForAuth, requiredPermissions, requireAll);
         }
     }
 
@@ -413,6 +414,18 @@ export class NestAuthAuthGuard implements CanActivate {
         }
 
         return [];
+    }
+
+    /**
+     * Get whether all permissions are required (true) or any one (false) from decorator.
+     * Defaults to false for backward compatibility.
+     */
+    private getPermissionsRequireAll(context: ExecutionContext): boolean {
+        const requireAll = this.reflector.getAllAndOverride<boolean>(
+            PERMISSIONS_REQUIRE_ALL_KEY,
+            [context.getHandler(), context.getClass()],
+        );
+        return requireAll !== false;
     }
 
     /**
@@ -518,9 +531,16 @@ export class NestAuthAuthGuard implements CanActivate {
     }
 
     /**
-     * Check if user has required permissions
+     * Check if user has required permissions.
+     * @param requireAll - If true, user must have ALL permissions; if false, user must have ANY ONE.
      */
-    private async checkPermissions(user: any, rolesForAuth: any[], permissionsForAuth: string[] | undefined, requiredPermissions: string[]): Promise<void> {
+    private async checkPermissions(
+        user: any,
+        rolesForAuth: any[],
+        permissionsForAuth: string[] | undefined,
+        requiredPermissions: string[],
+        requireAll: boolean = true,
+    ): Promise<void> {
         const config = this.authConfigService.getConfig();
         let userPermissions: string[] = [];
 
@@ -547,18 +567,17 @@ export class NestAuthAuthGuard implements CanActivate {
             }
         }
 
-        // Check if user has all required permissions
-        const hasAllPermissions = requiredPermissions.every(permission =>
-            userPermissions.includes(permission)
-        );
+        const hasRequired = requireAll
+            ? requiredPermissions.every((p) => userPermissions.includes(p))
+            : requiredPermissions.some((p) => userPermissions.includes(p));
 
-        if (!hasAllPermissions) {
-            const missingPermissions = requiredPermissions.filter(permission =>
-                !userPermissions.includes(permission)
-            );
-
+        if (!hasRequired) {
+            const missing = requiredPermissions.filter((p) => !userPermissions.includes(p));
+            const message = requireAll
+                ? `Access denied: Missing required permissions: ${missing.join(', ')}`
+                : `Access denied: Requires at least one of: ${requiredPermissions.join(', ')}`;
             throw new ForbiddenException({
-                message: `Access denied: Missing required permissions: ${missingPermissions.join(', ')}`,
+                message,
                 code: ERROR_CODES.MISSING_REQUIRED_PERMISSIONS,
             });
         }
