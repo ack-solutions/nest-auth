@@ -159,14 +159,6 @@ export class PermissionService {
         await this.permissionRepository.remove(permission);
     }
 
-    async getPermissionsByNames(names: string[]): Promise<NestAuthPermission[]> {
-        if (names.length === 0) {
-            return [];
-        }
-        return this.permissionRepository.find({
-            where: names.map(name => ({ name })),
-        });
-    }
 
     async searchPermissions(query: string, guard?: string, limit: number = 20): Promise<NestAuthPermission[]> {
         const whereConditions: any[] = [
@@ -208,19 +200,18 @@ export class PermissionService {
         category?: string;
         metadata?: Record<string, any>;
     }>): Promise<NestAuthPermission[]> {
-        const existing = await this.permissionRepository.find({
-            where: permissions.map(p => ({ name: p.name })),
-        });
+        const existingPermissions = await this.permissionRepository.find();
 
-        const existingNames = new Set(existing.map(p => p.name));
-        const toCreate = permissions.filter(p => !existingNames.has(p.name));
+        
+        const existingKeySet = new Set(existingPermissions.map((p) => `${p.name}-${p.guard}`));
+        const toCreatePermissions = permissions.filter(p => !existingKeySet.has(`${p.name}-${p.guard}`));
 
-        if (toCreate.length === 0) {
-            return existing;
+        if (toCreatePermissions.length === 0) {
+            return existingPermissions;
         }
 
         const newPermissions = this.permissionRepository.create(
-            toCreate.map(p => ({
+            toCreatePermissions.map(p => ({
                 name: p.name.trim(),
                 description: p.description?.trim(),
                 guard: p.guard || DEFAULT_GUARD_NAME,
@@ -230,6 +221,6 @@ export class PermissionService {
         );
 
         const saved = await this.permissionRepository.save(newPermissions);
-        return [...existing, ...saved];
+        return [...existingPermissions, ...saved];
     }
 }

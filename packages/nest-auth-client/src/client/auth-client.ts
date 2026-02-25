@@ -16,7 +16,6 @@ import {
     IChangePasswordRequest as ChangePasswordDto,
     IVerify2faRequest as Verify2faDto,
     IAuthResponse as AuthResponse,
-    IAuthUser as MeResponse,
     IMessageResponse as MessageResponse,
     IVerifyOtpResponse as VerifyOtpResponse,
     IVerify2faResponse as Verify2faResponse,

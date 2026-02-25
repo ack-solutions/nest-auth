@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Plus, X, Search, Trash2, List, Grid } from 'lucide-react';
+import { Plus, X, Search, List } from 'lucide-react';
 import { api } from '../services/api';
 
 export interface PermissionInputProps {
@@ -37,7 +37,6 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
     const suggestionsRef = useRef<HTMLDivElement>(null);
     const searchTimeoutRef = useRef<NodeJS.Timeout>();
     const [listSearchQuery, setListSearchQuery] = useState('');
-    const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set());
     const [previewPermissions, setPreviewPermissions] = useState<string[]>([]);
     const [showAllPermissions, setShowAllPermissions] = useState(false);
     const [allPermissions, setAllPermissions] = useState<PermissionSuggestion[]>([]);
@@ -267,18 +266,6 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
         onChange(value.filter((p) => p !== perm));
     };
 
-    const handleToggleSelect = (perm: string) => {
-        setSelectedPermissions(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(perm)) {
-                newSet.delete(perm);
-            } else {
-                newSet.add(perm);
-            }
-            return newSet;
-        });
-    };
-
     const handleTogglePermission = (permName: string) => {
         if (value.includes(permName)) {
             // Remove permission
@@ -299,20 +286,6 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
             perm.description?.toLowerCase().includes(query) ||
             perm.category?.toLowerCase().includes(query)
         );
-    };
-
-    const handleSelectAll = () => {
-        const filteredPerms = getFilteredPermissions();
-        setSelectedPermissions(new Set(filteredPerms));
-    };
-
-    const handleDeselectAll = () => {
-        setSelectedPermissions(new Set());
-    };
-
-    const handleBulkDelete = () => {
-        onChange(value.filter(perm => !selectedPermissions.has(perm)));
-        setSelectedPermissions(new Set());
     };
 
     const getFilteredPermissions = () => {
@@ -566,7 +539,7 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
                 </div>
             )}
 
-            {/* Selected Permissions List (when not in show all mode) */}
+            {/* Selected Permissions List (when not in show all mode) - checkboxes show assigned state */}
             {!showAllPermissions && value.length > 0 && (
                 <div className="mt-3">
                     <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
@@ -575,16 +548,6 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
                                 <span className="text-sm font-medium text-gray-700">
                                     {value.length} permission{value.length !== 1 ? 's' : ''} added
                                 </span>
-                                {selectedPermissions.size > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={handleBulkDelete}
-                                        className="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 transition-colors"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                        Delete ({selectedPermissions.size})
-                                    </button>
-                                )}
                             </div>
 
                             {/* Search Box */}
@@ -598,30 +561,11 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
                                     className="input-field text-xs pl-7 pr-2 py-1.5 w-full"
                                 />
                             </div>
-
-                            {/* Bulk Actions */}
-                            <div className="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    onClick={handleSelectAll}
-                                    className="text-xs text-primary-600 hover:text-primary-700 transition-colors"
-                                >
-                                    Select All
-                                </button>
-                                <span className="text-xs text-gray-400">|</span>
-                                <button
-                                    type="button"
-                                    onClick={handleDeselectAll}
-                                    className="text-xs text-primary-600 hover:text-primary-700 transition-colors"
-                                >
-                                    Deselect All
-                                </button>
-                            </div>
                         </div>
                         <div className="max-h-[200px] overflow-y-auto">
                             {getFilteredPermissions().length > 0 ? (
                                 getFilteredPermissions().map((perm) => {
-                                    const isSelected = selectedPermissions.has(perm);
+                                    const isAssigned = value.includes(perm);
                                     return (
                                         <div
                                             key={perm}
@@ -629,9 +573,10 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
                                         >
                                             <input
                                                 type="checkbox"
-                                                checked={isSelected}
-                                                onChange={() => handleToggleSelect(perm)}
+                                                checked={isAssigned}
+                                                onChange={() => handleTogglePermission(perm)}
                                                 className="w-4 h-4 text-primary-600 rounded focus:ring-2 focus:ring-primary-500 cursor-pointer"
+                                                title={isAssigned ? 'Uncheck to remove from role' : 'Check to add to role'}
                                             />
                                             <span className="flex-1 text-sm text-gray-900 font-mono break-words">{perm}</span>
                                             <button

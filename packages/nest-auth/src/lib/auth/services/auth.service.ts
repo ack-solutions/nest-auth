@@ -765,7 +765,7 @@ export class AuthService {
         if (user.roles) {
             for (const role of user.roles) {
                 if (role.permissions) {
-                    for (const perm of role.permissions) {
+                    for (const perm of (role?.permissions || [])) {
                         // Permissions are stored as strings in the role entity
                         permissions.add(perm);
                     }

@@ -75,6 +75,33 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
     const [permissions, setPermissions] = useState<string[]>(role?.permissions || []);
     const permissionsRef = React.useRef<string[]>(role?.permissions || []);
 
+    // Reset form when dialog opens or role changes (defaultValues only apply on mount)
+    React.useEffect(() => {
+        if (!isOpen) return;
+        if (role) {
+            const values: RoleFormData = {
+                name: role.name,
+                guard: role.guard,
+                tenantId: role.tenantId || '',
+                isSystem: role.isSystem ?? false,
+                permissions: role.permissions || [],
+            };
+            reset(values);
+            setPermissions(role.permissions || []);
+            permissionsRef.current = role.permissions || [];
+        } else {
+            reset({
+                name: '',
+                guard: 'web',
+                tenantId: '',
+                isSystem: false,
+                permissions: [],
+            });
+            setPermissions([]);
+            permissionsRef.current = [];
+        }
+    }, [isOpen, role, reset]);
+
     // Clear tenantId when isSystem is checked
     React.useEffect(() => {
         if (isSystem && !isEdit) {
