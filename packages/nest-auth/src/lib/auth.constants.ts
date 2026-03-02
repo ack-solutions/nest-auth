@@ -31,6 +31,11 @@ export const AUTH_ERROR_CODES = {
     INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
     INVALID_PROVIDER: 'INVALID_PROVIDER',
     MISSING_REQUIRED_FIELDS: 'MISSING_REQUIRED_FIELDS',
+    IDENTIFIER_FIRST_DISABLED: 'IDENTIFIER_FIRST_DISABLED',
+    LOOKUP_TOKEN_INVALID: 'LOOKUP_TOKEN_INVALID',
+    LOOKUP_TOKEN_EXPIRED: 'LOOKUP_TOKEN_EXPIRED',
+    TENANT_SELECTION_REQUIRED: 'TENANT_SELECTION_REQUIRED',
+    IDENTIFIER_LOGIN_METHOD_DISABLED: 'IDENTIFIER_LOGIN_METHOD_DISABLED',
 
     // Account Status
     USER_NOT_FOUND: 'USER_NOT_FOUND',
@@ -176,6 +181,8 @@ export const NestAuthEvents = {
     REFRESH_TOKEN: 'nest_auth.refresh_token',
     PASSWORD_RESET_REQUESTED: 'nest_auth.password_reset_requested',
     PASSWORD_RESET: 'nest_auth.password_reset',
+    IDENTIFIER_LOGIN_OTP_SENT: 'nest_auth.identifier_login_otp_sent',
+    IDENTIFIER_MAGIC_LINK_SENT: 'nest_auth.identifier_magic_link_sent',
     LOGGED_OUT: 'nest_auth.logged_out',
     LOGGED_OUT_ALL: 'nest_auth.logged_out_all',
     PASSWORD_CHANGED: 'nest_auth.password_changed',

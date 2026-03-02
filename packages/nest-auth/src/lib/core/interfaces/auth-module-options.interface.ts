@@ -208,6 +208,80 @@ export interface IOtpOptions {
     format?: 'numeric' | 'alphanumeric';
 }
 
+export type IdentifierLoginMode = 'central' | 'tenant-specific';
+
+export interface IIdentifierFirstAuthOptions {
+    /** @deprecated Use top-level `login` options instead */
+    /** Enable login lookup + passwordless endpoints */
+    enabled?: boolean;
+    /** @deprecated Use `login.mode` */
+    /** Login mode: central discovery or tenant-specific selection */
+    loginMode?: IdentifierLoginMode;
+    /** @deprecated Use `login.lookupTokenExpiresIn` */
+    /** Lookup token expiry duration */
+    lookupTokenExpiresIn?: string | number;
+    /** @deprecated Use `login.otpExpiresIn` */
+    /** OTP expiry duration for identifier-first OTP login */
+    otpExpiresIn?: string | number;
+    /** @deprecated Use `login.otpLength` */
+    /** OTP length for identifier-first OTP login */
+    otpLength?: number;
+    /** @deprecated Use `login.magicLinkExpiresIn` */
+    /** Magic link token expiry duration */
+    magicLinkExpiresIn?: string | number;
+    /** @deprecated Use `login.requireLookupToken` */
+    /** Require lookup token for identifier-first login steps */
+    requireLookupToken?: boolean;
+    /** @deprecated Use `login.allowIdentifierEnumeration` */
+    /** Allow returning identifier matches in lookup response */
+    allowIdentifierEnumeration?: boolean;
+    /** @deprecated Use `login.password`, `login.passwordless`, and `login.social` */
+    methods?: {
+        password?: boolean;
+        otp?: boolean;
+        magicLink?: boolean;
+        social?: boolean;
+    };
+}
+
+export interface IPasswordlessLoginOptions {
+    /** Enable OTP passwordless login */
+    otp?: boolean;
+    /** Enable magic-link passwordless login */
+    magicLink?: boolean;
+    /** @deprecated Use `login.social` */
+    social?: boolean;
+}
+
+export interface ILoginOptions {
+    /** Enable login lookup + passwordless endpoints */
+    enabled?: boolean;
+    /**
+     * Tenant resolution mode for login lookup/authentication.
+     * - central: lookup can discover tenants across tenant scope
+     * - tenant-specific: prefer explicit/default tenant resolution
+     */
+    mode?: IdentifierLoginMode;
+    /** Enable password login in lookup/auth flows */
+    password?: boolean;
+    /** Enable social login in lookup/auth flows */
+    social?: boolean;
+    /** Require lookup token before password/passwordless/social follow-up login steps */
+    requireLookupToken?: boolean;
+    /** Return actual discovery details in lookup (otherwise anti-enumeration-safe defaults) */
+    allowIdentifierEnumeration?: boolean;
+    /** Enable/disable passwordless methods */
+    passwordless?: boolean | IPasswordlessLoginOptions;
+    /** Lookup token expiry duration */
+    lookupTokenExpiresIn?: string | number;
+    /** OTP expiry duration for login OTP */
+    otpExpiresIn?: string | number;
+    /** OTP length for login OTP */
+    otpLength?: number;
+    /** Magic-link token expiry duration */
+    magicLinkExpiresIn?: string | number;
+}
+
 /**
  * Guard customization hooks for pre/post auth validation
  */
@@ -309,6 +383,17 @@ export interface IAuthModuleOptions {
     emailAuth?: {
         enabled: boolean;
     };
+    /**
+     * Identifier-first authentication flow configuration.
+     * Adds lookup -> tenant discovery -> method-specific login APIs.
+     * @deprecated Use top-level `login` options.
+     */
+    identifierFirstAuth?: IIdentifierFirstAuthOptions;
+    /**
+     * Login flow configuration.
+     * This extends existing auth login to support tenant discovery and passwordless flows.
+     */
+    login?: ILoginOptions;
     /**
      * Registration configuration
      * Controls user registration/signup behavior and profile fields

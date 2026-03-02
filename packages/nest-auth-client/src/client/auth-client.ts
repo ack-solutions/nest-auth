@@ -7,6 +7,14 @@ import {
     IAuthUser as AuthUser,
     ITokenPair as TokenPair,
     ILoginRequest as LoginDto,
+    IIdentifierLookupRequest as IdentifierLookupDto,
+    IIdentifierLookupResponse as IdentifierLookupResponse,
+    IIdentifierPasswordLoginRequest as IdentifierPasswordLoginDto,
+    IIdentifierOtpLoginChallengeRequest as IdentifierOtpChallengeDto,
+    IIdentifierOtpLoginVerifyRequest as IdentifierOtpVerifyDto,
+    IIdentifierMagicLinkLoginChallengeRequest as IdentifierMagicLinkChallengeDto,
+    IIdentifierMagicLinkLoginVerifyRequest as IdentifierMagicLinkVerifyDto,
+    IIdentifierSocialLoginRequest as IdentifierSocialLoginDto,
     ISignupRequest as SignupDto,
     IRefreshRequest as RefreshDto,
     IForgotPasswordRequest as ForgotPasswordDto,
@@ -456,6 +464,150 @@ export class AuthClient {
     // ============================================================================
     // Public API - Authentication
     // ============================================================================
+
+    /**
+     * Login lookup (email/phone -> tenant discovery + methods)
+     */
+    async identifierLookup(dto: IdentifierLookupDto, options?: RequestOptions): Promise<IdentifierLookupResponse> {
+        const endpoint = this.getEndpoint('identifierLookup');
+        const response = await this.request<IdentifierLookupResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        return response.data;
+    }
+
+    /**
+     * Login password
+     */
+    async identifierPasswordLogin(dto: IdentifierPasswordLoginDto, options?: RequestOptions): Promise<AuthResponse> {
+        const endpoint = this.getEndpoint('identifierPasswordLogin');
+        const response = await this.request<AuthResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        if (response.data.isRequiresMfa) {
+            await this.storeTokensOnly({
+                accessToken: response.data.accessToken,
+                refreshToken: response.data.refreshToken,
+                trustToken: (response.data as any).trustToken,
+            });
+            return response.data;
+        }
+
+        await this.handleAuthResponse(response.data);
+        return response.data;
+    }
+
+    /**
+     * Login OTP challenge
+     */
+    async identifierOtpChallenge(dto: IdentifierOtpChallengeDto, options?: RequestOptions): Promise<MessageResponse> {
+        const endpoint = this.getEndpoint('identifierOtpChallenge');
+        const response = await this.request<MessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        return response.data;
+    }
+
+    /**
+     * Login OTP verify/login
+     */
+    async identifierOtpVerify(dto: IdentifierOtpVerifyDto, options?: RequestOptions): Promise<AuthResponse> {
+        const endpoint = this.getEndpoint('identifierOtpVerify');
+        const response = await this.request<AuthResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        if (response.data.isRequiresMfa) {
+            await this.storeTokensOnly({
+                accessToken: response.data.accessToken,
+                refreshToken: response.data.refreshToken,
+                trustToken: (response.data as any).trustToken,
+            });
+            return response.data;
+        }
+
+        await this.handleAuthResponse(response.data);
+        return response.data;
+    }
+
+    /**
+     * Login magic link challenge
+     */
+    async identifierMagicLinkChallenge(
+        dto: IdentifierMagicLinkChallengeDto,
+        options?: RequestOptions
+    ): Promise<MessageResponse & { token?: string }> {
+        const endpoint = this.getEndpoint('identifierMagicLinkChallenge');
+        const response = await this.request<MessageResponse & { token?: string }>('POST', endpoint, dto, {
+            ...options,
+            skipRefresh: true,
+        });
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        return response.data;
+    }
+
+    /**
+     * Login magic link verify/login
+     */
+    async identifierMagicLinkVerify(dto: IdentifierMagicLinkVerifyDto, options?: RequestOptions): Promise<AuthResponse> {
+        const endpoint = this.getEndpoint('identifierMagicLinkVerify');
+        const response = await this.request<AuthResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        if (response.data.isRequiresMfa) {
+            await this.storeTokensOnly({
+                accessToken: response.data.accessToken,
+                refreshToken: response.data.refreshToken,
+                trustToken: (response.data as any).trustToken,
+            });
+            return response.data;
+        }
+
+        await this.handleAuthResponse(response.data);
+        return response.data;
+    }
+
+    /**
+     * Login social login
+     */
+    async identifierSocialLogin(dto: IdentifierSocialLoginDto, options?: RequestOptions): Promise<AuthResponse> {
+        const endpoint = this.getEndpoint('identifierSocialLogin');
+        const response = await this.request<AuthResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        if (response.data.isRequiresMfa) {
+            await this.storeTokensOnly({
+                accessToken: response.data.accessToken,
+                refreshToken: response.data.refreshToken,
+                trustToken: (response.data as any).trustToken,
+            });
+            return response.data;
+        }
+
+        await this.handleAuthResponse(response.data);
+        return response.data;
+    }
 
     /**
      * Login with credentials

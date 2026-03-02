@@ -1,61 +1,78 @@
 # @ackplus/nest-auth-react
 
-React SDK for `@ackplus/nest-auth`. Provides hooks and components for easy authentication integration in React applications.
-
-> **Note:** This package is designed to work with the `@ackplus/nest-auth` backend module. Make sure your API is set up with it.
-
-## Features
-
-- 🪝 **useAuth Hook** - Easy access to user, login, logout, and token state.
-- 🔒 **Protected Routes** - Helper components for auth guarding.
-- 🔄 **Auto Refresh** - Handles token refresh automatically (coming soon).
+React SDK for `@ackplus/nest-auth` built on top of `@ackplus/nest-auth-client`.
 
 ## Installation
 
 ```bash
-npm install @ackplus/nest-auth-react
+npm install @ackplus/nest-auth-react @ackplus/nest-auth-client
 # or
-pnpm add @ackplus/nest-auth-react
+pnpm add @ackplus/nest-auth-react @ackplus/nest-auth-client
 ```
 
 ## Quick Start
 
-1. Wrap your app in `AuthProvider`:
-
 ```tsx
-import { AuthProvider } from '@ackplus/nest-auth-react';
+import React from 'react';
+import { AuthClient } from '@ackplus/nest-auth-client';
+import { AuthProvider, useNestAuth } from '@ackplus/nest-auth-react';
 
-function App() {
+const client = new AuthClient({
+  baseUrl: 'http://localhost:3000',
+  accessTokenType: 'header',
+});
+
+function LoginButton() {
+  const { login } = useNestAuth();
+
   return (
-    <AuthProvider config={{ apiUrl: 'http://localhost:3000' }}>
-      <YourApp />
+    <button
+      onClick={() =>
+        login({
+          providerName: 'email',
+          credentials: {
+            email: 'user@example.com',
+            password: 'SecurePass123!',
+          },
+        })
+      }
+    >
+      Login
+    </button>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider client={client}>
+      <LoginButton />
     </AuthProvider>
   );
 }
 ```
 
-2. Use hooks in your components:
+## Login Lookup in React
 
 ```tsx
-import { useAuth } from '@ackplus/nest-auth-react';
+const {
+  identifierLookup,
+  identifierPasswordLogin,
+  identifierOtpChallenge,
+  identifierOtpVerify,
+  identifierMagicLinkChallenge,
+  identifierMagicLinkVerify,
+  identifierSocialLogin,
+} = useNestAuth();
 
-function UserProfile() {
-  const { user, login, logout } = useAuth();
-
-  if (!user) {
-    return <button onClick={() => login(credentials)}>Login</button>;
-  }
-
-  return (
-    <div>
-      <h1>Welcome, {{user.firstName}}</h1>
-      <button onClick={logout}>Logout</button>
-    </div>
-  );
-}
+const lookup = await identifierLookup({ identifier: 'user@example.com' });
+await identifierPasswordLogin({
+  lookupToken: lookup.lookupToken,
+  password: 'SecurePass123!',
+});
 ```
 
-## Related Packages
+Methods are named `identifier*` for compatibility, but default API routes are `/auth/login/*`.
 
-- [@ackplus/nest-auth](../nest-auth) - The backend NestJS module.
-- [@ackplus/nest-auth-client](../nest-auth-client) - The underlying JS client.
+## Next.js Helpers
+
+This package also exports `createNextAuthHelpers` and `NextAuthProvider` for App Router usage.

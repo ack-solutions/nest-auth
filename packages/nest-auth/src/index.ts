@@ -20,6 +20,8 @@ export type {
   IAuthModuleAsyncOptions,
   IAuthModuleOptionsFactory,
   IDefaultTenantOptions,
+  IdentifierLoginMode,
+  IIdentifierFirstAuthOptions,
   IAdminConsoleOptions,
 } from './lib/core/interfaces/auth-module-options.interface';
 

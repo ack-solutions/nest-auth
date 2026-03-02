@@ -23,7 +23,7 @@ export class NestAuthModule {
     const mergedOptions = this.getOptions(options);
 
     // Set options in static service
-    AuthConfigService.setOptions(mergedOptions);
+    AuthConfigService.setOptions(options);
 
     // Conditionally add refresh token interceptor (enabled by default)
     const providers: Provider[] = [AuditService];
@@ -119,7 +119,7 @@ export class NestAuthModule {
         useFactory: async (...args: any[]) => {
           const userOptions = await options.useFactory(...args);
           const mergedOptions = this.getOptions(userOptions);
-          AuthConfigService.setOptions(mergedOptions);
+          AuthConfigService.setOptions(userOptions);
           return mergedOptions;
         },
         inject: options.inject || [],
@@ -131,7 +131,7 @@ export class NestAuthModule {
       useFactory: async (optionsFactory: IAuthModuleOptionsFactory) => {
         const userOptions = await optionsFactory.createAuthModuleOptions();
         const mergedOptions = this.getOptions(userOptions);
-        AuthConfigService.setOptions(mergedOptions);
+        AuthConfigService.setOptions(userOptions);
         return mergedOptions;
       },
       inject: [options.useExisting || options.useClass!],

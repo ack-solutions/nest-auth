@@ -91,6 +91,20 @@ export interface Logger {
  * Customize API endpoint paths
  */
 export interface EndpointConfig {
+    /** Login lookup endpoint (default: /auth/login/lookup) */
+    identifierLookup?: string;
+    /** Login password endpoint (default: /auth/login/password) */
+    identifierPasswordLogin?: string;
+    /** Login OTP challenge endpoint (default: /auth/login/otp/challenge) */
+    identifierOtpChallenge?: string;
+    /** Login OTP verify endpoint (default: /auth/login/otp/verify) */
+    identifierOtpVerify?: string;
+    /** Login magic-link challenge endpoint (default: /auth/login/magic-link/challenge) */
+    identifierMagicLinkChallenge?: string;
+    /** Login magic-link verify endpoint (default: /auth/login/magic-link/verify) */
+    identifierMagicLinkVerify?: string;
+    /** Login social endpoint (default: /auth/login/social) */
+    identifierSocialLogin?: string;
     /** Login endpoint (default: /auth/login) */
     login?: string;
     /** Signup endpoint (default: /auth/signup) */
@@ -143,6 +157,13 @@ export interface EndpointConfig {
  * Default endpoint paths
  */
 export const DEFAULT_ENDPOINTS: Required<EndpointConfig> = {
+    identifierLookup: '/auth/login/lookup',
+    identifierPasswordLogin: '/auth/login/password',
+    identifierOtpChallenge: '/auth/login/otp/challenge',
+    identifierOtpVerify: '/auth/login/otp/verify',
+    identifierMagicLinkChallenge: '/auth/login/magic-link/challenge',
+    identifierMagicLinkVerify: '/auth/login/magic-link/verify',
+    identifierSocialLogin: '/auth/login/social',
     login: '/auth/login',
     signup: '/auth/signup',
     logout: '/auth/logout',

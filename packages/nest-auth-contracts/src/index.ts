@@ -11,6 +11,17 @@ export {
     ISocialCredentials,
     ILoginCredentials,
     ILoginRequest,
+    IIdentifierType,
+    IIdentifierLoginMethod,
+    IIdentifierLookupTenant,
+    IIdentifierLookupRequest,
+    IIdentifierLookupResponse,
+    IIdentifierPasswordLoginRequest,
+    IIdentifierOtpLoginChallengeRequest,
+    IIdentifierOtpLoginVerifyRequest,
+    IIdentifierMagicLinkLoginChallengeRequest,
+    IIdentifierMagicLinkLoginVerifyRequest,
+    IIdentifierSocialLoginRequest,
     ISignupRequest,
     IRefreshRequest,
     ITokenPair,
@@ -95,4 +106,3 @@ export {
 export {
     INestAuthTenant,
 } from './tenant';
-

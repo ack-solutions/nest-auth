@@ -22,7 +22,21 @@ import { NestAuthSignupRequestDto } from '../dto/requests/signup.request.dto';
 import { AuthResponseDto } from '../dto/responses/auth.response.dto';
 import { NestAuthLoginRequestDto } from '../dto/requests/login.request.dto';
 import { NestAuthVerify2faRequestDto } from '../dto/requests/verify-2fa.request.dto';
-import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
+import {
+    IIdentifierLoginMethod,
+    IIdentifierLookupRequest,
+    IIdentifierLookupResponse,
+    IIdentifierLookupTenant,
+    IIdentifierMagicLinkLoginChallengeRequest,
+    IIdentifierMagicLinkLoginVerifyRequest,
+    IIdentifierOtpLoginChallengeRequest,
+    IIdentifierOtpLoginVerifyRequest,
+    IIdentifierPasswordLoginRequest,
+    IIdentifierSocialLoginRequest,
+    IIdentifierType,
+    NestAuthMFAMethodEnum,
+    NestAuthOTPTypeEnum
+} from '@ackplus/nest-auth-contracts';
 import { JWTTokenPayload, SessionPayload } from '../../core/interfaces/token-payload.interface';
 import { UserRegisteredEvent } from '../events/user-registered.event';
 import { UserLoggedInEvent } from '../events/user-logged-in.event';
@@ -39,6 +53,32 @@ import { CookieHelper } from '../../utils/cookie.helper';
 import { NestAuthSession } from '../../session/entities/session.entity';
 import { AuthTokensResponseDto } from '../dto/responses/auth.response.dto';
 import { UserService } from '../../user/services/user.service';
+import { NestAuthOTP } from '../entities/otp.entity';
+import {
+    IIdentifierFirstAuthOptions,
+    ILoginOptions,
+    IPasswordlessLoginOptions,
+} from '../../core/interfaces/auth-module-options.interface';
+import { generateOtp } from '../../utils/otp';
+import ms from 'ms';
+import { MagicLinkChallengeResponseDto } from '../dto/responses/magic-link-challenge.response.dto';
+
+interface IdentifierLookupTokenPayload {
+    identifier: string;
+    identifierType: IIdentifierType;
+    tenantId?: string | null;
+    tenantIds?: string[];
+    guard?: string;
+    type?: string;
+}
+
+interface IdentifierResolutionContext {
+    identifier: string;
+    identifierType: IIdentifierType;
+    tenantId?: string | null;
+    tenantIds: string[];
+    guard?: string;
+}
 
 
 
@@ -49,6 +89,9 @@ export class AuthService {
     constructor(
         @InjectRepository(NestAuthUser)
         private readonly userRepository: Repository<NestAuthUser>,
+
+        @InjectRepository(NestAuthOTP)
+        private readonly otpRepository: Repository<NestAuthOTP>,
 
         private readonly authProviderRegistry: AuthProviderRegistryService,
 
@@ -95,6 +138,399 @@ export class AuthService {
         }
 
         return fullUser;
+    }
+
+    async identifierLookup(input: IIdentifierLookupRequest): Promise<IIdentifierLookupResponse> {
+        this.assertIdentifierFirstEnabled();
+
+        const options = this.getIdentifierFirstOptions();
+        const { identifier, identifierType } = this.normalizeIdentifier(input.identifier);
+        let resolvedTenantId = await this.resolveTenantIdFromInput(input.tenantId, input.tenantSlug);
+
+        if (resolvedTenantId === undefined && options.loginMode === 'tenant-specific') {
+            const defaultTenantId = await this.tenantService.resolveTenantId(null);
+            if (defaultTenantId) {
+                resolvedTenantId = defaultTenantId;
+            }
+        }
+
+        const users = await this.findUsersByIdentifier(identifier, identifierType, resolvedTenantId);
+        const tenants = this.mapLookupTenants(users);
+
+        let requiresTenantSelection = false;
+        if (resolvedTenantId === undefined) {
+            const uniqueTenantKeys = Array.from(new Set(users.map(user => user.tenantId || '__global__')));
+            if (uniqueTenantKeys.length > 1) {
+                requiresTenantSelection = true;
+                resolvedTenantId = null;
+            } else if (uniqueTenantKeys.length === 1) {
+                resolvedTenantId = uniqueTenantKeys[0] === '__global__' ? null : uniqueTenantKeys[0];
+            } else {
+                resolvedTenantId = null;
+            }
+        }
+
+        const tenantIds = Array.from(new Set(users.map(user => user.tenantId).filter(Boolean))) as string[];
+        const lookupToken = await this.jwtService.generateIdentifierLookupToken({
+            identifier,
+            identifierType,
+            tenantId: resolvedTenantId ?? null,
+            tenantIds,
+            guard: input.guard,
+        });
+
+        const fallbackMethods = this.getEnabledIdentifierMethods();
+        const availableMethods = users.length > 0 ? this.getEnabledIdentifierMethods(users) : fallbackMethods;
+
+        if (!options.allowIdentifierEnumeration && users.length === 0) {
+            return {
+                message: 'Lookup successful',
+                identifier,
+                identifierType,
+                lookupToken,
+                resolvedTenantId: resolvedTenantId ?? null,
+                requiresTenantSelection: false,
+                tenants: [],
+                availableMethods: fallbackMethods,
+            };
+        }
+
+        return {
+            message: 'Lookup successful',
+            identifier,
+            identifierType,
+            lookupToken,
+            resolvedTenantId: resolvedTenantId ?? null,
+            requiresTenantSelection,
+            tenants,
+            availableMethods,
+        };
+    }
+
+    async identifierPasswordLogin(input: IIdentifierPasswordLoginRequest): Promise<AuthResponseDto> {
+        this.assertIdentifierFirstEnabled();
+        this.ensureIdentifierMethodEnabled('password');
+
+        const context = await this.resolveIdentifierContext({
+            lookupToken: input.lookupToken,
+            identifier: input.identifier,
+            tenantId: input.tenantId,
+            tenantSlug: input.tenantSlug,
+            guard: input.guard,
+        });
+
+        const user = await this.resolveUserFromIdentifierContext(context);
+
+        if (!user || !(await user.validatePassword(input.password))) {
+            throw new UnauthorizedException({
+                message: 'Invalid credentials',
+                code: ERROR_CODES.INVALID_CREDENTIALS,
+            });
+        }
+
+        const provider = this.authProviderRegistry.getProvider(
+            context.identifierType === 'email' ? EMAIL_AUTH_PROVIDER : PHONE_AUTH_PROVIDER,
+        );
+
+        return this.completeUserLogin(
+            user,
+            {
+                method: 'identifier_password',
+                identifier: context.identifier,
+                identifierType: context.identifierType,
+                tenantId: context.tenantId,
+            },
+            provider,
+            input.guard || context.guard,
+            false,
+        );
+    }
+
+    async identifierOtpChallenge(input: IIdentifierOtpLoginChallengeRequest): Promise<{ message: string }> {
+        this.assertIdentifierFirstEnabled();
+        this.ensureIdentifierMethodEnabled('otp');
+
+        const context = await this.resolveIdentifierContext({
+            lookupToken: input.lookupToken,
+            identifier: input.identifier,
+            tenantId: input.tenantId,
+            tenantSlug: input.tenantSlug,
+        });
+
+        const user = await this.resolveUserFromIdentifierContext(context);
+        if (!user) {
+            return { message: 'If the account exists, an OTP has been sent' };
+        }
+
+        const options = AuthConfigService.getOptions();
+        const otpConfig = this.getIdentifierFirstOptions();
+        const code = options.otp?.generate
+            ? await options.otp.generate(otpConfig.otpLength)
+            : generateOtp(otpConfig.otpLength);
+
+        let expiresAtMs: number;
+        if (typeof otpConfig.otpExpiresIn === 'string') {
+            expiresAtMs = ms(otpConfig.otpExpiresIn);
+        } else {
+            expiresAtMs = otpConfig.otpExpiresIn;
+        }
+        if (!expiresAtMs || Number.isNaN(expiresAtMs) || expiresAtMs <= 0) {
+            expiresAtMs = 10 * 60 * 1000;
+        }
+
+        await this.otpRepository.delete({
+            userId: user.id,
+            type: NestAuthOTPTypeEnum.LOGIN,
+        });
+
+        const otp = this.otpRepository.create({
+            userId: user.id,
+            type: NestAuthOTPTypeEnum.LOGIN,
+            code,
+            expiresAt: new Date(Date.now() + expiresAtMs),
+        });
+        await this.otpRepository.save(otp);
+
+        await this.eventEmitter.emitAsync(
+            NestAuthEvents.IDENTIFIER_LOGIN_OTP_SENT,
+            {
+                user,
+                tenantId: user.tenantId,
+                otp,
+                identifier: context.identifier,
+                identifierType: context.identifierType,
+            }
+        );
+
+        return { message: 'If the account exists, an OTP has been sent' };
+    }
+
+    async identifierOtpVerify(input: IIdentifierOtpLoginVerifyRequest): Promise<AuthResponseDto> {
+        this.assertIdentifierFirstEnabled();
+        this.ensureIdentifierMethodEnabled('otp');
+
+        const context = await this.resolveIdentifierContext({
+            lookupToken: input.lookupToken,
+            identifier: input.identifier,
+            tenantId: input.tenantId,
+            tenantSlug: input.tenantSlug,
+            guard: input.guard,
+        });
+
+        const user = await this.resolveUserFromIdentifierContext(context);
+        if (!user) {
+            throw new UnauthorizedException({
+                message: 'Invalid credentials',
+                code: ERROR_CODES.INVALID_CREDENTIALS,
+            });
+        }
+
+        const otp = await this.otpRepository.findOne({
+            where: {
+                userId: user.id,
+                type: NestAuthOTPTypeEnum.LOGIN,
+                code: input.otp,
+                used: false,
+            },
+        });
+
+        if (!otp) {
+            throw new UnauthorizedException({
+                message: 'Invalid OTP code',
+                code: ERROR_CODES.OTP_INVALID,
+            });
+        }
+
+        if (otp.expiresAt && otp.expiresAt.getTime() < Date.now()) {
+            throw new UnauthorizedException({
+                message: 'OTP has expired',
+                code: ERROR_CODES.OTP_EXPIRED,
+            });
+        }
+
+        otp.used = true;
+        await this.otpRepository.save(otp);
+
+        return this.completeUserLogin(
+            user,
+            {
+                method: 'identifier_otp',
+                identifier: context.identifier,
+                identifierType: context.identifierType,
+                tenantId: context.tenantId,
+            },
+            undefined,
+            input.guard || context.guard,
+            true,
+        );
+    }
+
+    async identifierMagicLinkChallenge(
+        input: IIdentifierMagicLinkLoginChallengeRequest
+    ): Promise<MagicLinkChallengeResponseDto> {
+        this.assertIdentifierFirstEnabled();
+        this.ensureIdentifierMethodEnabled('magic_link');
+
+        const context = await this.resolveIdentifierContext({
+            lookupToken: input.lookupToken,
+            identifier: input.identifier,
+            tenantId: input.tenantId,
+            tenantSlug: input.tenantSlug,
+        });
+
+        const user = await this.resolveUserFromIdentifierContext(context);
+        if (!user) {
+            return { message: 'If the account exists, a magic link has been sent' };
+        }
+
+        const token = await this.jwtService.generateMagicLinkLoginToken({
+            userId: user.id,
+            tenantId: user.tenantId || null,
+            identifier: context.identifier,
+            identifierType: context.identifierType,
+        });
+
+        await this.eventEmitter.emitAsync(
+            NestAuthEvents.IDENTIFIER_MAGIC_LINK_SENT,
+            {
+                user,
+                tenantId: user.tenantId,
+                token,
+                redirectUri: input.redirectUri,
+                identifier: context.identifier,
+                identifierType: context.identifierType,
+            }
+        );
+
+        const response: MagicLinkChallengeResponseDto = {
+            message: 'If the account exists, a magic link has been sent',
+        };
+
+        if (this.authConfigService.getConfig().debug?.enabled) {
+            response.token = token;
+        }
+
+        return response;
+    }
+
+    async identifierMagicLinkVerify(input: IIdentifierMagicLinkLoginVerifyRequest): Promise<AuthResponseDto> {
+        this.assertIdentifierFirstEnabled();
+        this.ensureIdentifierMethodEnabled('magic_link');
+
+        let payload: any;
+        try {
+            payload = await this.jwtService.verifyMagicLinkLoginToken(input.token);
+        } catch (error) {
+            if ((error as any)?.name === 'TokenExpiredError') {
+                throw new UnauthorizedException({
+                    message: 'Magic link has expired',
+                    code: ERROR_CODES.LOOKUP_TOKEN_EXPIRED,
+                });
+            }
+            throw new UnauthorizedException({
+                message: 'Invalid magic link token',
+                code: ERROR_CODES.LOOKUP_TOKEN_INVALID,
+            });
+        }
+
+        if (!payload?.userId || payload?.type !== 'magic_link_login') {
+            throw new UnauthorizedException({
+                message: 'Invalid magic link token',
+                code: ERROR_CODES.LOOKUP_TOKEN_INVALID,
+            });
+        }
+
+        const user = await this.getUserWithRolesAndPermissions(payload.userId);
+        if (!user) {
+            throw new UnauthorizedException({
+                message: 'Invalid credentials',
+                code: ERROR_CODES.INVALID_CREDENTIALS,
+            });
+        }
+
+        if (Object.prototype.hasOwnProperty.call(payload, 'tenantId') && payload.tenantId !== user.tenantId) {
+            throw new UnauthorizedException({
+                message: 'Invalid magic link token',
+                code: ERROR_CODES.LOOKUP_TOKEN_INVALID,
+            });
+        }
+
+        return this.completeUserLogin(
+            user,
+            {
+                method: 'identifier_magic_link',
+                identifier: payload.identifier,
+                identifierType: payload.identifierType,
+                tenantId: payload.tenantId,
+            },
+            undefined,
+            input.guard,
+            true,
+        );
+    }
+
+    async identifierSocialLogin(input: IIdentifierSocialLoginRequest): Promise<AuthResponseDto> {
+        this.assertIdentifierFirstEnabled();
+        this.ensureIdentifierMethodEnabled('social');
+
+        if (input.providerName === EMAIL_AUTH_PROVIDER || input.providerName === PHONE_AUTH_PROVIDER) {
+            throw new BadRequestException({
+                message: 'Email and phone providers are not supported in social login endpoint',
+                code: ERROR_CODES.INVALID_PROVIDER,
+            });
+        }
+
+        let lookupPayload: IdentifierLookupTokenPayload | null = null;
+        const identifierOptions = this.getIdentifierFirstOptions();
+
+        if (input.lookupToken) {
+            lookupPayload = await this.verifyLookupToken(input.lookupToken);
+        } else if (identifierOptions.requireLookupToken) {
+            throw new UnauthorizedException({
+                message: 'Lookup token is required',
+                code: ERROR_CODES.LOOKUP_TOKEN_INVALID,
+            });
+        }
+
+        const tenantIdFromInput = await this.resolveTenantIdFromInput(input.tenantId, input.tenantSlug);
+        if (
+            tenantIdFromInput !== undefined &&
+            lookupPayload?.tenantIds?.length &&
+            tenantIdFromInput &&
+            !lookupPayload.tenantIds.includes(tenantIdFromInput)
+        ) {
+            throw new UnauthorizedException({
+                message: 'Lookup token does not allow this tenant',
+                code: ERROR_CODES.LOOKUP_TOKEN_INVALID,
+            });
+        }
+
+        let tenantId = tenantIdFromInput !== undefined ? tenantIdFromInput : lookupPayload?.tenantId;
+        if (
+            tenantIdFromInput === undefined &&
+            lookupPayload?.tenantIds?.length > 1 &&
+            (lookupPayload.tenantId === null || lookupPayload.tenantId === undefined)
+        ) {
+            throw new BadRequestException({
+                message: 'Tenant selection is required',
+                code: ERROR_CODES.TENANT_SELECTION_REQUIRED,
+            });
+        }
+
+        if (tenantId === undefined && identifierOptions.loginMode === 'tenant-specific') {
+            const defaultTenantId = await this.tenantService.resolveTenantId(null);
+            if (defaultTenantId) {
+                tenantId = defaultTenantId;
+            }
+        }
+
+        return this.login({
+            providerName: input.providerName,
+            credentials: input.credentials as any,
+            createUserIfNotExists: input.createUserIfNotExists,
+            tenantId: tenantId as any,
+            guard: input.guard || lookupPayload?.guard,
+        });
     }
 
     async signup(input: NestAuthSignupRequestDto): Promise<AuthResponseDto> {
@@ -275,7 +711,6 @@ export class AuthService {
         let { tenantId = null } = input;
 
         try {
-            const config = this.authConfigService.getConfig();
             // Resolve tenant ID - use provided or default
             tenantId = await this.tenantService.resolveTenantId(tenantId);
             this.debugLogger.logAuthOperation('login', providerName, undefined, { resolvedTenantId: tenantId, createUserIfNotExists });
@@ -314,76 +749,13 @@ export class AuthService {
                 user = await this.handleSocialLogin(provider, authProviderUser!, tenantId);
             }
 
-            if (user.isActive === false) {
-                throw new UnauthorizedException({
-                    message: 'Your account is suspended, please contact support',
-                    code: ERROR_CODES.ACCOUNT_INACTIVE,
-                });
-            }
-
-            // Apply onLogin hook if configured - BEFORE session creation
-            // This allows role sync to be reflected in the session
-            if (config.loginHooks?.onLogin) {
-                this.debugLogger.debug('Applying loginHooks.onLogin hook', 'AuthService', { userId: user.id });
-                const request = RequestContext.currentRequest();
-                const modifiedUser = await config.loginHooks.onLogin(user, input, { request, provider });
-                if (modifiedUser) {
-                    user = modifiedUser;
-                }
-            }
-            
-            user = await this.getUserWithRolesAndPermissions(user!.id);
-
-
-            let isRequiresMfa = false;
-            let isTrusted = false;
-
-            if (!provider.skipMfa) {
-                isRequiresMfa = await this.mfaService.isRequiresMfa(user.id);
-            }
-            user.isMfaEnabled = isRequiresMfa;
-
-            if (guard && user.roles) {
-               const isExistsGuard = user.roles.some(r => r.guard === guard);
-                if (!isExistsGuard) {
-                    throw new UnauthorizedException({
-                        message: 'Invalid credentials',
-                        code: ERROR_CODES.INVALID_CREDENTIALS,
-                    });
-                }
-            }
-
-            let session = await this.sessionManager.createSessionFromUser(user);
-
-            if (isRequiresMfa) {
-                isTrusted = await this.checkTrustedDevice(user);
-
-                if (isTrusted) {
-                    isRequiresMfa = false;
-                }
-
-                session = await this.sessionManager.updateSession(session.id, {
-                    data: { ...session.data, isMfaEnabled: true, isMfaVerified: isTrusted }
-                });
-            }
-
-            const tokens = await this.generateTokensFromSession(session);
-
-            // Emit login event
-            await this.eventEmitter.emitAsync(
-                NestAuthEvents.LOGGED_IN,
-                new UserLoggedInEvent({
-                    user,
-                    tenantId: user.tenantId,
-                    input,
-                    provider,
-                    session,
-                    tokens,
-                    isRequiresMfa
-                })
+            return this.completeUserLogin(
+                user,
+                input,
+                provider,
+                guard,
+                provider.skipMfa,
             );
-
-            return this.generateAuthResponse(user, session, tokens, isRequiresMfa);
         } catch (error) {
             this.debugLogger.logError(error, 'login', { providerName, createUserIfNotExists });
             this.handleError(error, 'login');
@@ -492,7 +864,12 @@ export class AuthService {
         const linkUserWith = provider.linkUserWith();
         const linkUserValue = providerUser?.[linkUserWith] || providerUser.userId;
 
-        let user = await this.userRepository.findOne({ where: { [linkUserWith]: linkUserValue } });
+        let user = await this.userRepository.findOne({
+            where: {
+                [linkUserWith]: linkUserValue,
+                ...(tenantId !== undefined ? { tenantId: tenantId ?? null } : {}),
+            }
+        });
 
         if (!user) {
             // Create new user via UserService to ensure hooks and events are triggered
@@ -653,6 +1030,449 @@ export class AuthService {
     // sendEmailVerification, verifyEmail moved to VerificationService
 
 
+
+    private getIdentifierFirstOptions() {
+        const config = this.authConfigService.getConfig();
+        const loginOptions = (config.login || {}) as ILoginOptions;
+        const legacyOptions = (config.identifierFirstAuth || {}) as IIdentifierFirstAuthOptions;
+        const legacyMethods = legacyOptions.methods || {};
+
+        const passwordless = loginOptions.passwordless;
+        const passwordlessOptions: IPasswordlessLoginOptions =
+            typeof passwordless === 'object' && passwordless !== null ? passwordless : {};
+        const passwordlessEnabled = typeof passwordless === 'boolean' ? passwordless : undefined;
+        const deprecatedPasswordlessSocial = passwordlessOptions.social;
+
+        const mode = (loginOptions as any).loginMode || loginOptions.mode || legacyOptions.loginMode || 'tenant-specific';
+        const passwordEnabled = loginOptions.password !== undefined
+            ? loginOptions.password !== false
+            : legacyMethods.password !== false;
+        const otpEnabled = passwordlessEnabled !== undefined
+            ? passwordlessEnabled
+            : passwordlessOptions.otp !== undefined
+                ? passwordlessOptions.otp !== false
+                : legacyMethods.otp !== false;
+        const magicLinkEnabled = passwordlessEnabled !== undefined
+            ? passwordlessEnabled
+            : passwordlessOptions.magicLink !== undefined
+                ? passwordlessOptions.magicLink !== false
+                : legacyMethods.magicLink !== false;
+        const socialEnabled = loginOptions.social !== undefined
+            ? loginOptions.social !== false
+            : deprecatedPasswordlessSocial !== undefined
+                ? deprecatedPasswordlessSocial !== false
+                : legacyMethods.social !== false;
+
+        return {
+            enabled: loginOptions.enabled !== undefined
+                ? loginOptions.enabled === true
+                : legacyOptions.enabled === true,
+            loginMode: mode,
+            lookupTokenExpiresIn: loginOptions.lookupTokenExpiresIn || legacyOptions.lookupTokenExpiresIn || '10m',
+            otpExpiresIn: loginOptions.otpExpiresIn || legacyOptions.otpExpiresIn || '10m',
+            otpLength: loginOptions.otpLength || legacyOptions.otpLength || 6,
+            magicLinkExpiresIn: loginOptions.magicLinkExpiresIn || legacyOptions.magicLinkExpiresIn || '15m',
+            requireLookupToken: loginOptions.requireLookupToken !== undefined
+                ? loginOptions.requireLookupToken === true
+                : legacyOptions.requireLookupToken === true,
+            allowIdentifierEnumeration: loginOptions.allowIdentifierEnumeration !== undefined
+                ? loginOptions.allowIdentifierEnumeration === true
+                : legacyOptions.allowIdentifierEnumeration === true,
+            methods: {
+                password: passwordEnabled,
+                otp: otpEnabled,
+                magicLink: magicLinkEnabled,
+                social: socialEnabled,
+            },
+        };
+    }
+
+    private assertIdentifierFirstEnabled(): void {
+        if (!this.getIdentifierFirstOptions().enabled) {
+            throw new ForbiddenException({
+                message: 'Login lookup flow is disabled',
+                code: ERROR_CODES.IDENTIFIER_FIRST_DISABLED,
+            });
+        }
+    }
+
+    private ensureIdentifierMethodEnabled(method: IIdentifierLoginMethod): void {
+        const methods = this.getIdentifierFirstOptions().methods;
+        const isEnabled = method === 'password'
+            ? methods.password
+            : method === 'otp'
+                ? methods.otp
+                : method === 'magic_link'
+                    ? methods.magicLink
+                    : methods.social;
+
+        if (!isEnabled) {
+            throw new ForbiddenException({
+                message: `${method} login method is disabled`,
+                code: ERROR_CODES.IDENTIFIER_LOGIN_METHOD_DISABLED,
+            });
+        }
+    }
+
+    private isEmailIdentifier(value: string): boolean {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    }
+
+    private isPhoneIdentifier(value: string): boolean {
+        return /^\+?[0-9]{6,20}$/.test(value);
+    }
+
+    private normalizeIdentifier(identifier: string): { identifier: string; identifierType: IIdentifierType } {
+        const normalized = (identifier || '').trim();
+        if (!normalized) {
+            throw new BadRequestException({
+                message: 'Identifier is required',
+                code: ERROR_CODES.EMAIL_OR_PHONE_REQUIRED,
+            });
+        }
+
+        if (this.isEmailIdentifier(normalized)) {
+            return {
+                identifier: normalized.toLowerCase(),
+                identifierType: 'email',
+            };
+        }
+
+        const normalizedPhone = normalized.replace(/\s+/g, '');
+        if (this.isPhoneIdentifier(normalizedPhone)) {
+            return {
+                identifier: normalizedPhone,
+                identifierType: 'phone',
+            };
+        }
+
+        throw new BadRequestException({
+            message: 'Identifier must be a valid email or phone number',
+            code: ERROR_CODES.INVALID_INPUT,
+        });
+    }
+
+    private async resolveTenantIdFromInput(tenantId?: string, tenantSlug?: string): Promise<string | null | undefined> {
+        if (tenantId) {
+            return tenantId;
+        }
+
+        if (tenantSlug) {
+            const tenant = await this.tenantService.getTenantBySlug(tenantSlug);
+            if (!tenant) {
+                throw new BadRequestException({
+                    message: 'Invalid tenant slug',
+                    code: ERROR_CODES.TENANT_NOT_FOUND,
+                });
+            }
+            return tenant.id;
+        }
+
+        return undefined;
+    }
+
+    private mapLookupTenants(users: NestAuthUser[]): IIdentifierLookupTenant[] {
+        const map = new Map<string, IIdentifierLookupTenant>();
+        for (const user of users) {
+            if (!user.tenantId) {
+                continue;
+            }
+            if (!map.has(user.tenantId)) {
+                map.set(user.tenantId, {
+                    id: user.tenantId,
+                    slug: user.tenant?.slug,
+                    name: user.tenant?.name,
+                });
+            }
+        }
+        return Array.from(map.values());
+    }
+
+    private getEnabledIdentifierMethods(users?: NestAuthUser[]): IIdentifierLoginMethod[] {
+        const options = this.getIdentifierFirstOptions();
+        const methods: IIdentifierLoginMethod[] = [];
+
+        if (options.methods.password) {
+            if (!users || users.some(user => !!user.passwordHash)) {
+                methods.push('password');
+            }
+        }
+
+        if (options.methods.otp) {
+            methods.push('otp');
+        }
+
+        if (options.methods.magicLink) {
+            methods.push('magic_link');
+        }
+
+        if (options.methods.social) {
+            const hasSocialProvider = this.authProviderRegistry
+                .getEnabledProviders()
+                .some(provider => {
+                    return (
+                        provider.providerName !== EMAIL_AUTH_PROVIDER &&
+                        provider.providerName !== PHONE_AUTH_PROVIDER &&
+                        provider.providerName !== 'jwt'
+                    );
+                });
+
+            if (hasSocialProvider) {
+                methods.push('social');
+            }
+        }
+
+        return methods;
+    }
+
+    private async verifyLookupToken(token: string): Promise<IdentifierLookupTokenPayload> {
+        try {
+            const payload = await this.jwtService.verifyIdentifierLookupToken(token) as IdentifierLookupTokenPayload;
+            if (payload?.type !== 'identifier_lookup' || !payload?.identifier || !payload?.identifierType) {
+                throw new UnauthorizedException({
+                    message: 'Invalid lookup token',
+                    code: ERROR_CODES.LOOKUP_TOKEN_INVALID,
+                });
+            }
+            return payload;
+        } catch (error) {
+            if ((error as any)?.name === 'TokenExpiredError') {
+                throw new UnauthorizedException({
+                    message: 'Lookup token has expired',
+                    code: ERROR_CODES.LOOKUP_TOKEN_EXPIRED,
+                });
+            }
+            if (error instanceof UnauthorizedException) {
+                throw error;
+            }
+            throw new UnauthorizedException({
+                message: 'Invalid lookup token',
+                code: ERROR_CODES.LOOKUP_TOKEN_INVALID,
+            });
+        }
+    }
+
+    private async resolveIdentifierContext(input: {
+        lookupToken?: string;
+        identifier?: string;
+        tenantId?: string;
+        tenantSlug?: string;
+        guard?: string;
+    }): Promise<IdentifierResolutionContext> {
+        const options = this.getIdentifierFirstOptions();
+        let lookupPayload: IdentifierLookupTokenPayload | null = null;
+
+        if (input.lookupToken) {
+            lookupPayload = await this.verifyLookupToken(input.lookupToken);
+        } else if (options.requireLookupToken) {
+            throw new UnauthorizedException({
+                message: 'Lookup token is required',
+                code: ERROR_CODES.LOOKUP_TOKEN_INVALID,
+            });
+        }
+
+        let normalizedIdentifier: { identifier: string; identifierType: IIdentifierType } | null = null;
+
+        if (input.identifier) {
+            normalizedIdentifier = this.normalizeIdentifier(input.identifier);
+        } else if (lookupPayload?.identifier && lookupPayload?.identifierType) {
+            normalizedIdentifier = {
+                identifier: lookupPayload.identifier,
+                identifierType: lookupPayload.identifierType,
+            };
+        }
+
+        if (!normalizedIdentifier) {
+            throw new BadRequestException({
+                message: 'Identifier is required',
+                code: ERROR_CODES.EMAIL_OR_PHONE_REQUIRED,
+            });
+        }
+
+        if (
+            lookupPayload?.identifier &&
+            lookupPayload?.identifierType &&
+            (
+                normalizedIdentifier.identifier !== lookupPayload.identifier ||
+                normalizedIdentifier.identifierType !== lookupPayload.identifierType
+            )
+        ) {
+            throw new UnauthorizedException({
+                message: 'Lookup token does not match identifier',
+                code: ERROR_CODES.LOOKUP_TOKEN_INVALID,
+            });
+        }
+
+        const tenantIdFromInput = await this.resolveTenantIdFromInput(input.tenantId, input.tenantSlug);
+        const tokenTenantIds = Array.isArray(lookupPayload?.tenantIds) ? lookupPayload.tenantIds : [];
+
+        if (
+            tenantIdFromInput !== undefined &&
+            tokenTenantIds.length > 0 &&
+            tenantIdFromInput &&
+            !tokenTenantIds.includes(tenantIdFromInput)
+        ) {
+            throw new UnauthorizedException({
+                message: 'Lookup token does not allow this tenant',
+                code: ERROR_CODES.LOOKUP_TOKEN_INVALID,
+            });
+        }
+
+        let tenantId = tenantIdFromInput !== undefined ? tenantIdFromInput : lookupPayload?.tenantId;
+
+        if (
+            tenantIdFromInput === undefined &&
+            lookupPayload &&
+            lookupPayload?.tenantIds?.length > 1 &&
+            (lookupPayload.tenantId === null || lookupPayload.tenantId === undefined)
+        ) {
+            tenantId = undefined;
+        }
+
+        if (tenantId === undefined && options.loginMode === 'tenant-specific') {
+            const defaultTenantId = await this.tenantService.resolveTenantId(null);
+            if (defaultTenantId) {
+                tenantId = defaultTenantId;
+            }
+        }
+
+        return {
+            identifier: normalizedIdentifier.identifier,
+            identifierType: normalizedIdentifier.identifierType,
+            tenantId,
+            tenantIds: tokenTenantIds,
+            guard: input.guard || lookupPayload?.guard,
+        };
+    }
+
+    private async findUsersByIdentifier(
+        identifier: string,
+        identifierType: IIdentifierType,
+        tenantId?: string | null
+    ): Promise<NestAuthUser[]> {
+        const where: any = identifierType === 'email'
+            ? { email: identifier }
+            : { phone: identifier };
+
+        if (tenantId !== undefined) {
+            where.tenantId = tenantId;
+        }
+
+        return this.userRepository.find({
+            where,
+            relations: ['roles', 'tenant'],
+            order: {
+                createdAt: 'ASC',
+            },
+        });
+    }
+
+    private async resolveUserFromIdentifierContext(context: IdentifierResolutionContext): Promise<NestAuthUser | null> {
+        const users = await this.findUsersByIdentifier(
+            context.identifier,
+            context.identifierType,
+            context.tenantId,
+        );
+
+        if (!users.length) {
+            return null;
+        }
+
+        if (context.tenantId === undefined) {
+            const uniqueTenantKeys = Array.from(new Set(users.map(user => user.tenantId || '__global__')));
+            if (uniqueTenantKeys.length > 1) {
+                throw new BadRequestException({
+                    message: 'Tenant selection is required',
+                    code: ERROR_CODES.TENANT_SELECTION_REQUIRED,
+                    tenants: this.mapLookupTenants(users),
+                });
+            }
+        }
+
+        if (context.tenantId === undefined) {
+            return users[0];
+        }
+
+        const matchedByTenant = users.find(user => user.tenantId === context.tenantId);
+        return matchedByTenant || users[0];
+    }
+
+    private async completeUserLogin(
+        user: NestAuthUser,
+        input: any,
+        provider?: BaseAuthProvider,
+        guard?: string,
+        skipMfa: boolean = false,
+    ): Promise<AuthResponseDto> {
+        if (user.isActive === false) {
+            throw new UnauthorizedException({
+                message: 'Your account is suspended, please contact support',
+                code: ERROR_CODES.ACCOUNT_INACTIVE,
+            });
+        }
+
+        const config = this.authConfigService.getConfig();
+        let resolvedUser = user;
+
+        if (config.loginHooks?.onLogin) {
+            this.debugLogger.debug('Applying loginHooks.onLogin hook', 'AuthService', { userId: resolvedUser.id });
+            const request = RequestContext.currentRequest();
+            const modifiedUser = await config.loginHooks.onLogin(resolvedUser, input, { request, provider });
+            if (modifiedUser) {
+                resolvedUser = modifiedUser;
+            }
+        }
+
+        resolvedUser = await this.getUserWithRolesAndPermissions(resolvedUser.id);
+
+        let isRequiresMfa = false;
+        let isTrusted = false;
+        if (!skipMfa) {
+            isRequiresMfa = await this.mfaService.isRequiresMfa(resolvedUser.id);
+        }
+        resolvedUser.isMfaEnabled = isRequiresMfa;
+
+        if (guard && resolvedUser.roles) {
+            const isExistsGuard = resolvedUser.roles.some(role => role.guard === guard);
+            if (!isExistsGuard) {
+                throw new UnauthorizedException({
+                    message: 'Invalid credentials',
+                    code: ERROR_CODES.INVALID_CREDENTIALS,
+                });
+            }
+        }
+
+        let session = await this.sessionManager.createSessionFromUser(resolvedUser);
+
+        if (isRequiresMfa) {
+            isTrusted = await this.checkTrustedDevice(resolvedUser);
+
+            if (isTrusted) {
+                isRequiresMfa = false;
+            }
+
+            session = await this.sessionManager.updateSession(session.id, {
+                data: { ...session.data, isMfaEnabled: true, isMfaVerified: isTrusted }
+            });
+        }
+
+        const tokens = await this.generateTokensFromSession(session);
+
+        await this.eventEmitter.emitAsync(
+            NestAuthEvents.LOGGED_IN,
+            new UserLoggedInEvent({
+                user: resolvedUser,
+                tenantId: resolvedUser.tenantId,
+                input,
+                provider,
+                session,
+                tokens,
+                isRequiresMfa
+            })
+        );
+
+        return this.generateAuthResponse(resolvedUser, session, tokens, isRequiresMfa);
+    }
 
     private async generateTokensPayload(session: SessionPayload, otherPayload: Partial<JWTTokenPayload> = {}): Promise<JWTTokenPayload> {
 

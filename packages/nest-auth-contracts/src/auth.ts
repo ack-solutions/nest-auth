@@ -8,6 +8,7 @@ export enum NestAuthOTPTypeEnum {
     PASSWORD_RESET = 'password_reset',
     VERIFICATION = 'verification',
     MFA = 'mfa',
+    LOGIN = 'login',
 }
 
 // MFA Method Enum (Needed for AuthResponse and others)
@@ -91,6 +92,83 @@ export interface ILoginRequest {
     credentials: ILoginCredentials;
     tenantId?: string;
     createUserIfNotExists?: boolean;
+}
+
+export type IIdentifierType = 'email' | 'phone';
+
+export type IIdentifierLoginMethod = 'password' | 'otp' | 'magic_link' | 'social';
+
+export interface IIdentifierLookupTenant {
+    id: string;
+    slug?: string;
+    name?: string;
+}
+
+export interface IIdentifierLookupRequest {
+    identifier: string;
+    tenantId?: string;
+    tenantSlug?: string;
+    guard?: string;
+}
+
+export interface IIdentifierLookupResponse {
+    message: string;
+    identifier: string;
+    identifierType: IIdentifierType;
+    lookupToken: string;
+    resolvedTenantId?: string | null;
+    requiresTenantSelection: boolean;
+    tenants: IIdentifierLookupTenant[];
+    availableMethods: IIdentifierLoginMethod[];
+}
+
+export interface IIdentifierPasswordLoginRequest {
+    lookupToken?: string;
+    identifier?: string;
+    password: string;
+    tenantId?: string;
+    tenantSlug?: string;
+    guard?: string;
+}
+
+export interface IIdentifierOtpLoginChallengeRequest {
+    lookupToken?: string;
+    identifier?: string;
+    tenantId?: string;
+    tenantSlug?: string;
+}
+
+export interface IIdentifierOtpLoginVerifyRequest {
+    lookupToken?: string;
+    identifier?: string;
+    otp: string;
+    tenantId?: string;
+    tenantSlug?: string;
+    trustDevice?: boolean;
+    guard?: string;
+}
+
+export interface IIdentifierMagicLinkLoginChallengeRequest {
+    lookupToken?: string;
+    identifier?: string;
+    tenantId?: string;
+    tenantSlug?: string;
+    redirectUri?: string;
+}
+
+export interface IIdentifierMagicLinkLoginVerifyRequest {
+    token: string;
+    guard?: string;
+}
+
+export interface IIdentifierSocialLoginRequest {
+    lookupToken?: string;
+    tenantId?: string;
+    tenantSlug?: string;
+    providerName: 'google' | 'facebook' | 'apple' | 'github' | string;
+    credentials: ISocialCredentials & { type?: 'idToken' | 'accessToken' };
+    createUserIfNotExists?: boolean;
+    guard?: string;
 }
 
 export interface ISignupRequest {

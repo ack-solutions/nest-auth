@@ -3,8 +3,7 @@ import { AuthService } from '../services/auth.service';
 import { NestAuthVerify2faRequestDto } from '../dto/requests/verify-2fa.request.dto';
 import { NestAuthRefreshTokenRequestDto } from '../dto/requests/refresh-token.request.dto';
 import { Request, Response } from 'express';
-import { ApiResponse } from '@nestjs/swagger';
-import { ApiOperation } from '@nestjs/swagger';
+import { ApiExcludeEndpoint, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthWithTokensResponseDto, UserResponseDto, Verify2faWithTokensResponseDto } from '../dto/responses/auth.response.dto';
 import { AuthCookieResponseDto } from '../dto/responses/auth-cookie.response.dto';
 import { NestAuthSignupRequestDto } from '../dto/requests/signup.request.dto';
@@ -30,6 +29,15 @@ import { NestAuthChangePasswordRequestDto } from '../dto/requests/change-passwor
 import { NestAuthSendEmailVerificationRequestDto } from '../dto/requests/send-email-verification.request.dto';
 import { NestAuthVerifyEmailRequestDto } from '../dto/requests/verify-email.request.dto';
 import { ACCESS_TOKEN_COOKIE_NAME, REFRESH_TOKEN_COOKIE_NAME } from '../../auth.constants';
+import { NestAuthIdentifierLookupRequestDto } from '../dto/requests/identifier-lookup.request.dto';
+import { NestAuthIdentifierPasswordLoginRequestDto } from '../dto/requests/identifier-password-login.request.dto';
+import { NestAuthIdentifierOtpChallengeRequestDto } from '../dto/requests/identifier-otp-challenge.request.dto';
+import { NestAuthIdentifierOtpVerifyRequestDto } from '../dto/requests/identifier-otp-verify.request.dto';
+import { NestAuthIdentifierMagicLinkChallengeRequestDto } from '../dto/requests/identifier-magic-link-challenge.request.dto';
+import { NestAuthIdentifierMagicLinkVerifyRequestDto } from '../dto/requests/identifier-magic-link-verify.request.dto';
+import { NestAuthIdentifierSocialLoginRequestDto } from '../dto/requests/identifier-social-login.request.dto';
+import { IdentifierLookupResponseDto } from '../dto/responses/identifier-lookup.response.dto';
+import { MagicLinkChallengeResponseDto } from '../dto/responses/magic-link-challenge.response.dto';
 
 
 
@@ -88,6 +96,196 @@ export class AuthController {
             ...response,
             message: 'Login successful',
         };
+    }
+
+    private async handleLoginLookup(input: NestAuthIdentifierLookupRequestDto): Promise<IdentifierLookupResponseDto> {
+        return await this.authService.identifierLookup(input);
+    }
+
+    private async handleLoginPassword(input: NestAuthIdentifierPasswordLoginRequestDto): Promise<AuthWithTokensResponseDto> {
+        const response = await this.authService.identifierPasswordLogin(input);
+        return {
+            ...response,
+            message: 'Login successful',
+        };
+    }
+
+    private async handleLoginOtpChallenge(input: NestAuthIdentifierOtpChallengeRequestDto): Promise<NestAuthMfaCodeSentResponseDto> {
+        return await this.authService.identifierOtpChallenge(input);
+    }
+
+    private async handleLoginOtpVerify(input: NestAuthIdentifierOtpVerifyRequestDto): Promise<AuthWithTokensResponseDto> {
+        const response = await this.authService.identifierOtpVerify(input);
+        return {
+            ...response,
+            message: 'Login successful',
+        };
+    }
+
+    private async handleLoginMagicLinkChallenge(
+        input: NestAuthIdentifierMagicLinkChallengeRequestDto
+    ): Promise<MagicLinkChallengeResponseDto> {
+        return await this.authService.identifierMagicLinkChallenge(input);
+    }
+
+    private async handleLoginMagicLinkVerify(
+        input: NestAuthIdentifierMagicLinkVerifyRequestDto
+    ): Promise<AuthWithTokensResponseDto> {
+        const response = await this.authService.identifierMagicLinkVerify(input);
+        return {
+            ...response,
+            message: 'Login successful',
+        };
+    }
+
+    private async handleLoginSocial(input: NestAuthIdentifierSocialLoginRequestDto): Promise<AuthWithTokensResponseDto> {
+        const response = await this.authService.identifierSocialLogin(input);
+        return {
+            ...response,
+            message: 'Login successful',
+        };
+    }
+
+    @ApiOperation({
+        summary: 'Login Lookup',
+        description: 'Resolve email/phone, discover tenant context, and return available login methods.'
+    })
+    @ApiResponse({ status: 200, type: IdentifierLookupResponseDto })
+    @HttpCode(200)
+    @Post('login/lookup')
+    async loginLookup(@Body() input: NestAuthIdentifierLookupRequestDto): Promise<IdentifierLookupResponseDto> {
+        return await this.handleLoginLookup(input);
+    }
+
+    @ApiOperation({
+        summary: 'Login Password',
+        description: 'Password login using lookup token or identifier + tenant input.'
+    })
+    @ApiResponse({ status: 200, type: AuthWithTokensResponseDto, description: 'Header mode: Returns message + tokens in body' })
+    @ApiResponse({ status: 200, type: AuthCookieResponseDto, description: 'Cookie mode: Returns message only, tokens in cookies' })
+    @HttpCode(200)
+    @Post('login/password')
+    @UseInterceptors(TokenResponseInterceptor)
+    async loginPassword(@Body() input: NestAuthIdentifierPasswordLoginRequestDto): Promise<AuthWithTokensResponseDto> {
+        return await this.handleLoginPassword(input);
+    }
+
+    @ApiOperation({
+        summary: 'Login OTP Challenge',
+        description: 'Sends OTP for passwordless login (email/phone).'
+    })
+    @ApiResponse({ status: 200, type: NestAuthMfaCodeSentResponseDto })
+    @HttpCode(200)
+    @Post('login/otp/challenge')
+    async loginOtpChallenge(@Body() input: NestAuthIdentifierOtpChallengeRequestDto): Promise<NestAuthMfaCodeSentResponseDto> {
+        return await this.handleLoginOtpChallenge(input);
+    }
+
+    @ApiOperation({
+        summary: 'Login OTP Verify',
+        description: 'Verifies OTP and returns authenticated session tokens.'
+    })
+    @ApiResponse({ status: 200, type: AuthWithTokensResponseDto, description: 'Header mode: Returns message + tokens in body' })
+    @ApiResponse({ status: 200, type: AuthCookieResponseDto, description: 'Cookie mode: Returns message only, tokens in cookies' })
+    @HttpCode(200)
+    @Post('login/otp/verify')
+    @UseInterceptors(TokenResponseInterceptor)
+    async loginOtpVerify(@Body() input: NestAuthIdentifierOtpVerifyRequestDto): Promise<AuthWithTokensResponseDto> {
+        return await this.handleLoginOtpVerify(input);
+    }
+
+    @ApiOperation({
+        summary: 'Login Magic Link Challenge',
+        description: 'Creates a magic-link login token (delivery handled by event listeners).'
+    })
+    @ApiResponse({ status: 200, type: MagicLinkChallengeResponseDto })
+    @HttpCode(200)
+    @Post('login/magic-link/challenge')
+    async loginMagicLinkChallenge(@Body() input: NestAuthIdentifierMagicLinkChallengeRequestDto): Promise<MagicLinkChallengeResponseDto> {
+        return await this.handleLoginMagicLinkChallenge(input);
+    }
+
+    @ApiOperation({
+        summary: 'Login Magic Link Verify',
+        description: 'Verifies magic-link token and returns authenticated session tokens.'
+    })
+    @ApiResponse({ status: 200, type: AuthWithTokensResponseDto, description: 'Header mode: Returns message + tokens in body' })
+    @ApiResponse({ status: 200, type: AuthCookieResponseDto, description: 'Cookie mode: Returns message only, tokens in cookies' })
+    @HttpCode(200)
+    @Post('login/magic-link/verify')
+    @UseInterceptors(TokenResponseInterceptor)
+    async loginMagicLinkVerify(@Body() input: NestAuthIdentifierMagicLinkVerifyRequestDto): Promise<AuthWithTokensResponseDto> {
+        return await this.handleLoginMagicLinkVerify(input);
+    }
+
+    @ApiOperation({
+        summary: 'Login Social',
+        description: 'Social login with optional lookup token + tenant context.'
+    })
+    @ApiResponse({ status: 200, type: AuthWithTokensResponseDto, description: 'Header mode: Returns message + tokens in body' })
+    @ApiResponse({ status: 200, type: AuthCookieResponseDto, description: 'Cookie mode: Returns message only, tokens in cookies' })
+    @HttpCode(200)
+    @Post('login/social')
+    @UseInterceptors(TokenResponseInterceptor)
+    async loginSocial(@Body() input: NestAuthIdentifierSocialLoginRequestDto): Promise<AuthWithTokensResponseDto> {
+        return await this.handleLoginSocial(input);
+    }
+
+    @ApiExcludeEndpoint()
+    @HttpCode(200)
+    @Post('identifier/lookup')
+    async identifierLookupLegacy(@Body() input: NestAuthIdentifierLookupRequestDto): Promise<IdentifierLookupResponseDto> {
+        return await this.handleLoginLookup(input);
+    }
+
+    @ApiExcludeEndpoint()
+    @HttpCode(200)
+    @Post('identifier/login/password')
+    @UseInterceptors(TokenResponseInterceptor)
+    async identifierPasswordLoginLegacy(@Body() input: NestAuthIdentifierPasswordLoginRequestDto): Promise<AuthWithTokensResponseDto> {
+        return await this.handleLoginPassword(input);
+    }
+
+    @ApiExcludeEndpoint()
+    @HttpCode(200)
+    @Post('identifier/login/otp/challenge')
+    async identifierOtpChallengeLegacy(@Body() input: NestAuthIdentifierOtpChallengeRequestDto): Promise<NestAuthMfaCodeSentResponseDto> {
+        return await this.handleLoginOtpChallenge(input);
+    }
+
+    @ApiExcludeEndpoint()
+    @HttpCode(200)
+    @Post('identifier/login/otp/verify')
+    @UseInterceptors(TokenResponseInterceptor)
+    async identifierOtpVerifyLegacy(@Body() input: NestAuthIdentifierOtpVerifyRequestDto): Promise<AuthWithTokensResponseDto> {
+        return await this.handleLoginOtpVerify(input);
+    }
+
+    @ApiExcludeEndpoint()
+    @HttpCode(200)
+    @Post('identifier/login/magic-link/challenge')
+    async identifierMagicLinkChallengeLegacy(
+        @Body() input: NestAuthIdentifierMagicLinkChallengeRequestDto
+    ): Promise<MagicLinkChallengeResponseDto> {
+        return await this.handleLoginMagicLinkChallenge(input);
+    }
+
+    @ApiExcludeEndpoint()
+    @HttpCode(200)
+    @Post('identifier/login/magic-link/verify')
+    @UseInterceptors(TokenResponseInterceptor)
+    async identifierMagicLinkVerifyLegacy(
+        @Body() input: NestAuthIdentifierMagicLinkVerifyRequestDto
+    ): Promise<AuthWithTokensResponseDto> {
+        return await this.handleLoginMagicLinkVerify(input);
+    }
+
+    @ApiExcludeEndpoint()
+    @HttpCode(200)
+    @Post('identifier/login/social')
+    @UseInterceptors(TokenResponseInterceptor)
+    async identifierSocialLoginLegacy(@Body() input: NestAuthIdentifierSocialLoginRequestDto): Promise<AuthWithTokensResponseDto> {
+        return await this.handleLoginSocial(input);
     }
 
     @ApiOperation({

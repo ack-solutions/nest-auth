@@ -104,6 +104,16 @@ export class JwtService {
         return this.options;
     }
 
+    private getLoginTokenConfig(): { lookupTokenExpiresIn: string | number; magicLinkExpiresIn: string | number } {
+        const login = this.options.login || {};
+        const legacy = this.options.identifierFirstAuth || {};
+
+        return {
+            lookupTokenExpiresIn: login.lookupTokenExpiresIn || legacy.lookupTokenExpiresIn || '10m',
+            magicLinkExpiresIn: login.magicLinkExpiresIn || legacy.magicLinkExpiresIn || '15m',
+        };
+    }
+
     async generatePasswordResetToken(payload: { userId: string; passwordHashPrefix: string; type: string }): Promise<string> {
         return new Promise((resolve, reject) => {
             const expiresIn = this.options.passwordResetTokenExpiresIn || '1h';
@@ -123,6 +133,81 @@ export class JwtService {
     }
 
     async verifyPasswordResetToken(token: string): Promise<any> {
+        return new Promise((resolve, reject) => {
+            jwt.verify(
+                token,
+                this.options.jwt.secret,
+                (err, decoded) => {
+                    if (err) reject(err);
+                    else resolve(decoded);
+                },
+            );
+        });
+    }
+
+    async generateIdentifierLookupToken(payload: {
+        identifier: string;
+        identifierType: 'email' | 'phone';
+        tenantId?: string | null;
+        tenantIds?: string[];
+        guard?: string;
+    }): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const expiresIn = this.getLoginTokenConfig().lookupTokenExpiresIn;
+            jwt.sign(
+                {
+                    ...payload,
+                    type: 'identifier_lookup',
+                    exp: Math.floor(Date.now() / 1000) + ms(expiresIn),
+                    iat: Math.floor(Date.now() / 1000),
+                },
+                this.options.jwt.secret,
+                (err, token) => {
+                    if (err) reject(err);
+                    else resolve(token);
+                },
+            );
+        });
+    }
+
+    async verifyIdentifierLookupToken(token: string): Promise<any> {
+        return new Promise((resolve, reject) => {
+            jwt.verify(
+                token,
+                this.options.jwt.secret,
+                (err, decoded) => {
+                    if (err) reject(err);
+                    else resolve(decoded);
+                },
+            );
+        });
+    }
+
+    async generateMagicLinkLoginToken(payload: {
+        userId: string;
+        tenantId?: string | null;
+        identifier: string;
+        identifierType: 'email' | 'phone';
+    }): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const expiresIn = this.getLoginTokenConfig().magicLinkExpiresIn;
+            jwt.sign(
+                {
+                    ...payload,
+                    type: 'magic_link_login',
+                    exp: Math.floor(Date.now() / 1000) + ms(expiresIn),
+                    iat: Math.floor(Date.now() / 1000),
+                },
+                this.options.jwt.secret,
+                (err, token) => {
+                    if (err) reject(err);
+                    else resolve(token);
+                },
+            );
+        });
+    }
+
+    async verifyMagicLinkLoginToken(token: string): Promise<any> {
         return new Promise((resolve, reject) => {
             jwt.verify(
                 token,

@@ -29,6 +29,14 @@ import {
     IMfaStatusResponse,
     IMfaDevice,
     IToggleMfaRequest,
+    IIdentifierLookupRequest,
+    IIdentifierLookupResponse,
+    IIdentifierPasswordLoginRequest,
+    IIdentifierOtpLoginChallengeRequest,
+    IIdentifierOtpLoginVerifyRequest,
+    IIdentifierMagicLinkLoginChallengeRequest,
+    IIdentifierMagicLinkLoginVerifyRequest,
+    IIdentifierSocialLoginRequest,
 } from '@ackplus/nest-auth-client';
 
 /**
@@ -65,6 +73,15 @@ export interface AuthContextValue {
     verifySession: () => Promise<boolean>;
     /** Verify 2FA code */
     verify2fa: (dto: IVerify2faRequest) => Promise<IVerify2faResponse>;
+
+    // Actions - Identifier-First Authentication
+    identifierLookup: (dto: IIdentifierLookupRequest) => Promise<IIdentifierLookupResponse>;
+    identifierPasswordLogin: (dto: IIdentifierPasswordLoginRequest) => Promise<IAuthResponse>;
+    identifierOtpChallenge: (dto: IIdentifierOtpLoginChallengeRequest) => Promise<IMessageResponse>;
+    identifierOtpVerify: (dto: IIdentifierOtpLoginVerifyRequest) => Promise<IAuthResponse>;
+    identifierMagicLinkChallenge: (dto: IIdentifierMagicLinkLoginChallengeRequest) => Promise<IMessageResponse & { token?: string }>;
+    identifierMagicLinkVerify: (dto: IIdentifierMagicLinkLoginVerifyRequest) => Promise<IAuthResponse>;
+    identifierSocialLogin: (dto: IIdentifierSocialLoginRequest) => Promise<IAuthResponse>;
 
     // Actions - Password Management
     /** Request password reset (forgot password) */
@@ -134,6 +151,14 @@ const defaultContextValue: AuthContextValue = {
     refresh: () => Promise.reject(new Error('AuthProvider not found')),
     verifySession: () => Promise.reject(new Error('AuthProvider not found')),
     verify2fa: () => Promise.reject(new Error('AuthProvider not found')),
+    // Login lookup authentication
+    identifierLookup: () => Promise.reject(new Error('AuthProvider not found')),
+    identifierPasswordLogin: () => Promise.reject(new Error('AuthProvider not found')),
+    identifierOtpChallenge: () => Promise.reject(new Error('AuthProvider not found')),
+    identifierOtpVerify: () => Promise.reject(new Error('AuthProvider not found')),
+    identifierMagicLinkChallenge: () => Promise.reject(new Error('AuthProvider not found')),
+    identifierMagicLinkVerify: () => Promise.reject(new Error('AuthProvider not found')),
+    identifierSocialLogin: () => Promise.reject(new Error('AuthProvider not found')),
     // Password management
     forgotPassword: () => Promise.reject(new Error('AuthProvider not found')),
     verifyForgotPasswordOtp: () => Promise.reject(new Error('AuthProvider not found')),

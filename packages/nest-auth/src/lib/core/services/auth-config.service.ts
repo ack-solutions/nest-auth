@@ -1,6 +1,10 @@
 import { Injectable, Inject, Optional } from '@nestjs/common';
 import { randomBytes } from 'crypto';
-import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
+import {
+    IAuthModuleOptions,
+    IIdentifierFirstAuthOptions,
+    ILoginOptions,
+} from '../interfaces/auth-module-options.interface';
 import { SessionStorageType } from '../interfaces/session-options.interface';
 import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
 import { NEST_AUTH_TRUST_DEVICE_KEY } from '../../auth.constants';
@@ -34,6 +38,22 @@ export class AuthConfigService {
         },
         phoneAuth: {
             enabled: false,
+        },
+        login: {
+            enabled: false,
+            mode: 'tenant-specific',
+            password: true,
+            social: true,
+            passwordless: {
+                otp: true,
+                magicLink: true,
+            },
+            requireLookupToken: false,
+            allowIdentifierEnumeration: false,
+            lookupTokenExpiresIn: '10m',
+            otpExpiresIn: '10m',
+            otpLength: 6,
+            magicLinkExpiresIn: '15m',
         },
         mfa: {
             enabled: false,
@@ -106,6 +126,46 @@ export class AuthConfigService {
         return randomBytes(length).toString('base64');
     }
 
+    private static mapLegacyIdentifierFirstAuthToLogin(options: IIdentifierFirstAuthOptions): ILoginOptions {
+        const methods = options.methods || {};
+        const mapped: ILoginOptions = {
+            enabled: options.enabled,
+            mode: options.loginMode,
+            password: methods.password,
+            social: methods.social,
+            requireLookupToken: options.requireLookupToken,
+            allowIdentifierEnumeration: options.allowIdentifierEnumeration,
+            lookupTokenExpiresIn: options.lookupTokenExpiresIn,
+            otpExpiresIn: options.otpExpiresIn,
+            otpLength: options.otpLength,
+            magicLinkExpiresIn: options.magicLinkExpiresIn,
+        };
+
+        if (methods.otp !== undefined || methods.magicLink !== undefined) {
+            mapped.passwordless = {
+                ...(methods.otp !== undefined ? { otp: methods.otp } : {}),
+                ...(methods.magicLink !== undefined ? { magicLink: methods.magicLink } : {}),
+            };
+        }
+
+        return mapped;
+    }
+
+    private static normalizeOptions(options: IAuthModuleOptions): IAuthModuleOptions {
+        if (!options) {
+            return {} as IAuthModuleOptions;
+        }
+
+        if (options.login || !options.identifierFirstAuth) {
+            return options;
+        }
+
+        return {
+            ...options,
+            login: this.mapLegacyIdentifierFirstAuthToLogin(options.identifierFirstAuth),
+        };
+    }
+
     /**
      * Resolves the Nest Auth Admin Console Secret Key from configuration.
      * This key is used for:
@@ -140,7 +200,8 @@ export class AuthConfigService {
 
     static setOptions(options: IAuthModuleOptions): void {
         const deepmerge = require('deepmerge');
-        const mergedOptions = deepmerge(this.defaultOptions, options, { clone: false });
+        const normalizedOptions = this.normalizeOptions(options);
+        const mergedOptions = deepmerge(this.defaultOptions, normalizedOptions, { clone: false });
 
         // avoid duplicate mfa methods
         if (mergedOptions.mfa?.methods) {

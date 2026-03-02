@@ -113,6 +113,70 @@ NestAuthModule.forRoot({
 })
 ```
 
+## Multi-Tenant Login (Password + Passwordless)
+
+Enable login lookup (email/phone -> tenant discovery -> method login):
+
+```typescript
+NestAuthModule.forRoot({
+  login: {
+    enabled: true,
+    mode: 'central', // 'central' | 'tenant-specific'
+    password: true,
+    social: true,
+    passwordless: {
+      otp: true,
+      magicLink: true,
+    },
+    requireLookupToken: false,
+    allowIdentifierEnumeration: false,
+    lookupTokenExpiresIn: '10m',
+    otpExpiresIn: '10m',
+    otpLength: 6,
+    magicLinkExpiresIn: '15m',
+  },
+});
+```
+
+Legacy `identifierFirstAuth` config is still supported for backward compatibility.
+
+### Login Lookup Endpoints
+
+- `POST /auth/login/lookup`
+- `POST /auth/login/password`
+- `POST /auth/login/otp/challenge`
+- `POST /auth/login/otp/verify`
+- `POST /auth/login/magic-link/challenge`
+- `POST /auth/login/magic-link/verify`
+- `POST /auth/login/social`
+
+Legacy aliases are still available:
+- `POST /auth/identifier/lookup`
+- `POST /auth/identifier/login/password`
+- `POST /auth/identifier/login/otp/challenge`
+- `POST /auth/identifier/login/otp/verify`
+- `POST /auth/identifier/login/magic-link/challenge`
+- `POST /auth/identifier/login/magic-link/verify`
+- `POST /auth/identifier/login/social`
+
+### Running Example (Local Testing)
+
+Use the ready-to-run script:
+
+```bash
+bash packages/nest-auth/examples/identifier-first-auth-flow.sh
+```
+
+Set variables as needed:
+
+- `API_URL` (default: `http://localhost:3000`)
+- `IDENTIFIER` (required)
+- `PASSWORD` (optional, for password login test)
+- `TENANT_ID` (optional, required if lookup returns multiple tenants)
+- `OTP_CODE` (optional, for OTP verify step)
+- `MAGIC_TOKEN` (optional, for magic link verify step when not in debug mode)
+- `SOCIAL_PROVIDER` + `SOCIAL_TOKEN` (optional, for social login test)
+
 ## Session Storage Options
 
 By default, sessions are stored in the database via TypeORM. You can switch to Redis for

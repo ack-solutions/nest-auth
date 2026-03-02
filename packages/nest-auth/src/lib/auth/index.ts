@@ -26,6 +26,13 @@ export * from './controllers/mfa.controller';
 
 // DTOs
 export * from './dto/requests/login.request.dto';
+export * from './dto/requests/identifier-lookup.request.dto';
+export * from './dto/requests/identifier-password-login.request.dto';
+export * from './dto/requests/identifier-otp-challenge.request.dto';
+export * from './dto/requests/identifier-otp-verify.request.dto';
+export * from './dto/requests/identifier-magic-link-challenge.request.dto';
+export * from './dto/requests/identifier-magic-link-verify.request.dto';
+export * from './dto/requests/identifier-social-login.request.dto';
 export * from './dto/requests/signup.request.dto';
 export * from './dto/credentials/social-credentials.dto';
 export * from './dto/credentials/email-credentials.dto';
@@ -42,6 +49,8 @@ export * from './dto/requests/verify-totp-setup.request.dto';
 export * from './dto/responses/auth.response.dto';
 export * from './dto/responses/auth-cookie.response.dto';
 export * from './dto/responses/verify-otp.response.dto';
+export * from './dto/responses/identifier-lookup.response.dto';
+export * from './dto/responses/magic-link-challenge.response.dto';
 export * from './dto/responses/mfa-status.response.dto';
 export * from './dto/responses/client-config.response.dto';
 

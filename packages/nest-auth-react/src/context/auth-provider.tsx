@@ -21,6 +21,13 @@ import {
     IResetPasswordWithTokenRequest,
     IVerifyTotpSetupRequest,
     IToggleMfaRequest,
+    IIdentifierLookupRequest,
+    IIdentifierPasswordLoginRequest,
+    IIdentifierOtpLoginChallengeRequest,
+    IIdentifierOtpLoginVerifyRequest,
+    IIdentifierMagicLinkLoginChallengeRequest,
+    IIdentifierMagicLinkLoginVerifyRequest,
+    IIdentifierSocialLoginRequest,
 } from '@ackplus/nest-auth-client';
 import { AuthContext, AuthContextValue } from './auth-context';
 
@@ -291,6 +298,101 @@ export function AuthProvider({
         }
     }, [client]);
 
+    // Identifier-First Authentication
+    const identifierLookup = useCallback(async (dto: IIdentifierLookupRequest) => {
+        setError(null);
+        try {
+            return await client.identifierLookup(dto);
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const identifierPasswordLogin = useCallback(async (dto: IIdentifierPasswordLoginRequest) => {
+        setError(null);
+        try {
+            const response = await client.identifierPasswordLogin(dto);
+            if (!response.isRequiresMfa) {
+                setUser(client.getUser());
+                setSession(client.getSession());
+                setStatus('authenticated');
+            }
+            return response;
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const identifierOtpChallenge = useCallback(async (dto: IIdentifierOtpLoginChallengeRequest) => {
+        setError(null);
+        try {
+            return await client.identifierOtpChallenge(dto);
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const identifierOtpVerify = useCallback(async (dto: IIdentifierOtpLoginVerifyRequest) => {
+        setError(null);
+        try {
+            const response = await client.identifierOtpVerify(dto);
+            if (!response.isRequiresMfa) {
+                setUser(client.getUser());
+                setSession(client.getSession());
+                setStatus('authenticated');
+            }
+            return response;
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const identifierMagicLinkChallenge = useCallback(async (dto: IIdentifierMagicLinkLoginChallengeRequest) => {
+        setError(null);
+        try {
+            return await client.identifierMagicLinkChallenge(dto);
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const identifierMagicLinkVerify = useCallback(async (dto: IIdentifierMagicLinkLoginVerifyRequest) => {
+        setError(null);
+        try {
+            const response = await client.identifierMagicLinkVerify(dto);
+            if (!response.isRequiresMfa) {
+                setUser(client.getUser());
+                setSession(client.getSession());
+                setStatus('authenticated');
+            }
+            return response;
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const identifierSocialLogin = useCallback(async (dto: IIdentifierSocialLoginRequest) => {
+        setError(null);
+        try {
+            const response = await client.identifierSocialLogin(dto);
+            if (!response.isRequiresMfa) {
+                setUser(client.getUser());
+                setSession(client.getSession());
+                setStatus('authenticated');
+            }
+            return response;
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
     // Password Management
     const forgotPassword = useCallback(async (dto: IForgotPasswordRequest) => {
         setError(null);
@@ -484,6 +586,14 @@ export function AuthProvider({
         refresh,
         verifySession,
         verify2fa,
+        // Login lookup authentication
+        identifierLookup,
+        identifierPasswordLogin,
+        identifierOtpChallenge,
+        identifierOtpVerify,
+        identifierMagicLinkChallenge,
+        identifierMagicLinkVerify,
+        identifierSocialLogin,
         // Password management
         forgotPassword,
         verifyForgotPasswordOtp,
@@ -521,6 +631,13 @@ export function AuthProvider({
         refresh,
         verifySession,
         verify2fa,
+        identifierLookup,
+        identifierPasswordLogin,
+        identifierOtpChallenge,
+        identifierOtpVerify,
+        identifierMagicLinkChallenge,
+        identifierMagicLinkVerify,
+        identifierSocialLogin,
         forgotPassword,
         verifyForgotPasswordOtp,
         resetPassword,
