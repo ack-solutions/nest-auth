@@ -12,7 +12,7 @@ export class RequestContext {
 
     response: Response;
 
-    private constructor(request: Request, response: Response) {
+    constructor(request: Request, response: Response) {
         this.id = Math.random();
         this.request = request;
         this.response = response;
