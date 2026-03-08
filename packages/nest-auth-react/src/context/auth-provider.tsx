@@ -176,16 +176,18 @@ export function AuthProvider({
         loadUser();
     }, [client, autoLoadMe, initialState]);
 
+    const updatedSession = useCallback(async () => {
+        setUser(client.getUser());
+        setSession(client.getSession());
+        setStatus('authenticated');
+    }, [onTokensSet]);
+
     // Actions
     const login = useCallback(async (dto: ILoginRequest) => {
         setError(null);
         try {
             const response = await client.login(dto);
-            if (!response.isRequiresMfa) {
-                setUser(client.getUser());
-                setSession(client.getSession());
-                setStatus('authenticated');
-            }
+            updatedSession();
             return response;
         } catch (err) {
             setError(err as AuthError);
@@ -197,9 +199,7 @@ export function AuthProvider({
         setError(null);
         try {
             const response = await client.signup(dto);
-            setUser(client.getUser());
-            setSession(client.getSession());
-            setStatus('authenticated');
+            updatedSession();
             return response;
         } catch (err) {
             setError(err as AuthError);
@@ -257,9 +257,7 @@ export function AuthProvider({
         try {
             const verifyResponce = await client.verifySession();
             if (verifyResponce?.valid) {
-                setUser(client.getUser());
-                setSession(client.getSession());
-                setStatus('authenticated');
+                updatedSession();
             }
             return verifyResponce?.valid;
         } catch (err) {
@@ -272,18 +270,7 @@ export function AuthProvider({
         setError(null);
         try {
             const response = await client.verify2fa(dto);
-            // handleAuthResponse should have completed and set user/session
-            // Get updated state from client (event listener will also update, but this ensures immediate update)
-            const updatedUser = client.getUser();
-            const updatedSession = client.getSession();
-            if (updatedUser) {
-                setUser(updatedUser);
-                setSession(updatedSession);
-                setStatus('authenticated');
-            } else {
-                // If user is not set, something went wrong - log for debugging
-                console.warn('[AuthProvider] verify2fa: User not set after verification');
-            }
+            updatedSession();
             return response;
         } catch (err) {
             setError(err as AuthError);
@@ -477,6 +464,7 @@ export function AuthProvider({
         isAuthenticated: status === 'authenticated' && user !== null,
         client,
         // Core auth
+        updatedSession,
         login,
         signup,
         logout,
@@ -514,6 +502,7 @@ export function AuthProvider({
         session,
         error,
         client,
+        updatedSession,
         login,
         signup,
         logout,
