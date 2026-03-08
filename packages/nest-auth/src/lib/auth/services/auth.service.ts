@@ -331,7 +331,7 @@ export class AuthService {
                     user = modifiedUser;
                 }
             }
-            
+
             user = await this.getUserWithRolesAndPermissions(user!.id);
 
 
@@ -344,7 +344,7 @@ export class AuthService {
             user.isMfaEnabled = isRequiresMfa;
 
             if (guard && user.roles) {
-               const isExistsGuard = user.roles.some(r => r.guard === guard);
+                const isExistsGuard = user.roles.some(r => r.guard === guard);
                 if (!isExistsGuard) {
                     throw new UnauthorizedException({
                         message: 'Invalid credentials',
@@ -450,7 +450,7 @@ export class AuthService {
             );
 
             this.debugLogger.logFunctionExit('verify2fa', 'AuthService', { userId: user.id });
-            
+
             // Return response with user data (similar to generateAuthResponse)
             return this.generateAuthResponse(user as NestAuthUser, payload, tokens, false, trustToken);
 
@@ -697,13 +697,13 @@ export class AuthService {
         }
     }
 
-    private async generateTokensFromSession(session: NestAuthSession): Promise<AuthTokensResponseDto> {
+    async generateTokensFromSession(session: NestAuthSession): Promise<AuthTokensResponseDto> {
         const payload = await this.generateTokensPayload(session);
         const tokens = await this.jwtService.generateTokens(payload);
         return tokens
     }
 
-    private async generateAuthResponse(
+    async generateAuthResponse(
         user: NestAuthUser,
         session: any, // NestAuthSession
         tokens: { accessToken: string; refreshToken: string },
