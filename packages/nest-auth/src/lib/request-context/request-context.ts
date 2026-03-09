@@ -52,6 +52,15 @@ export class RequestContext {
         return request ? request['session'] : null;
     }
 
+    public static currentTenantId(): string | null {
+        const request = RequestContext.currentRequest() as any;
+        if (request?.tenantId) {
+            return request.tenantId;
+        }
+        const session = RequestContext.currentSession();
+        return (session?.data as any)?.tenantId || (session?.data as any)?.user?.tenantId || null;
+    }
+
     public static getDeviceInfo(): { deviceName: string; ipAddress: string; browser: string } {
         return {
             deviceName: this.getDeviceName(),

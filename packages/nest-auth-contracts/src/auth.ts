@@ -105,6 +105,10 @@ export interface IRefreshRequest {
     refreshToken?: string;
 }
 
+export interface ISwitchTenantRequest {
+    tenantId: string;
+}
+
 export interface ITokenPair {
     accessToken: string;
     refreshToken: string;
@@ -120,6 +124,7 @@ export interface IAuthUser {
     permissions?: string[];
     metadata?: Record<string, any>;
     tenantId?: string;
+    tenants?: import('./tenant').INestAuthTenant[];
 }
 
 export interface IAuthResponse extends ITokenPair {
@@ -161,6 +166,7 @@ export interface IUserResponse {
     permissions?: string[];
     metadata?: Record<string, any>;
     tenantId?: string;
+    tenants?: import('./tenant').INestAuthTenant[];
 }
 
 export interface ITokensResponse {

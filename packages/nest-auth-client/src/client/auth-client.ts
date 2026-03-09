@@ -24,6 +24,8 @@ import {
     IMfaStatusResponse,
     IMfaDevice,
     IToggleMfaRequest,
+    ISwitchTenantRequest,
+    INestAuthTenantMembership,
 } from '@ackplus/nest-auth-contracts';
 import {
     AuthClientConfig,
@@ -76,6 +78,9 @@ export class AuthClient {
 
     private user: AuthUser | null = null;
     private session: ClientSession | null = null;
+
+    private tenantMemberships: INestAuthTenantMembership[] | undefined;
+
     private tenantId: string | undefined;
 
     private timeout: number = 30000;
@@ -90,7 +95,6 @@ export class AuthClient {
             httpAdapter: config.httpAdapter ?? new FetchAdapter(),
             autoRefresh: config.autoRefresh ?? true,
             refreshThreshold: config.refreshThreshold ?? 60,
-            tenantHeader: config.tenantHeader ?? 'x-tenant-id',
         };
 
         // Initialize tenant ID
@@ -261,12 +265,6 @@ export class AuthClient {
             }
         }
 
-        // Add tenant header
-        const tenantId = this.getTenantIdValue();
-        if (tenantId) {
-            headers[this.config.tenantHeader!] = tenantId;
-        }
-
         return headers;
     }
 
@@ -431,6 +429,9 @@ export class AuthClient {
         // Update user if present
         if (response.user) {
             this.user = response.user;
+            if (response.user.tenantMemberships) {
+                this.tenantMemberships = response.user.tenantMemberships;
+            }
         }
 
         // Create session
@@ -664,6 +665,22 @@ export class AuthClient {
         }
 
         return response.data;
+    }
+
+    /**
+     * Switch active tenant (multi-tenant mode)
+     */
+    async switchTenant(dto: ISwitchTenantRequest, options?: RequestOptions): Promise<AuthResponse> {
+        const endpoint = this.getEndpoint('switchTenant');
+        const response = await this.request<AuthResponse>('POST', endpoint, dto, options);
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        await this.handleAuthResponse(response.data as AuthResponse);
+
+        return response.data as AuthResponse;
     }
 
     // ============================================================================

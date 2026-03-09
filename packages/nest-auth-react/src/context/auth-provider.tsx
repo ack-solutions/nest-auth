@@ -21,6 +21,7 @@ import {
     IResetPasswordWithTokenRequest,
     IVerifyTotpSetupRequest,
     IToggleMfaRequest,
+    ISwitchTenantRequest,
 } from '@ackplus/nest-auth-client';
 import { AuthContext, AuthContextValue } from './auth-context';
 
@@ -278,6 +279,18 @@ export function AuthProvider({
         }
     }, [client]);
 
+    const switchTenant = useCallback(async (dto: ISwitchTenantRequest) => {
+        setError(null);
+        try {
+            const response = await client.switchTenant(dto);
+            updatedSession();
+            return response;
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
     // Password Management
     const forgotPassword = useCallback(async (dto: IForgotPasswordRequest) => {
         setError(null);
@@ -472,6 +485,7 @@ export function AuthProvider({
         refresh,
         verifySession,
         verify2fa,
+        switchTenant,
         // Password management
         forgotPassword,
         verifyForgotPasswordOtp,
@@ -510,6 +524,7 @@ export function AuthProvider({
         refresh,
         verifySession,
         verify2fa,
+        switchTenant,
         forgotPassword,
         verifyForgotPasswordOtp,
         resetPassword,

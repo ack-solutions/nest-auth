@@ -22,6 +22,7 @@ import { NestAuthTrustedDevice } from '../entities/trusted-device.entity';
 import { randomBytes } from 'crypto';
 import { User2faEnabledEvent } from '../events/user-2fa-enabled.event';
 import { User2faDisabledEvent } from '../events/user-2fa-disabled.event';
+import { RequestContext } from '../../request-context/request-context';
 
 
 @Injectable()
@@ -180,7 +181,7 @@ export class MfaService {
                     NestAuthEvents.TWO_FACTOR_CODE_SENT,
                     new TwoFactorCodeSentEvent({
                         user,
-                        tenantId: user.tenantId,
+                        tenantId: RequestContext.currentTenantId() || user.tenantId,
                         method,
                         code,
                     })

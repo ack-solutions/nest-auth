@@ -22,7 +22,7 @@ import { NestAuthSignupRequestDto } from '../dto/requests/signup.request.dto';
 import { AuthResponseDto } from '../dto/responses/auth.response.dto';
 import { NestAuthLoginRequestDto } from '../dto/requests/login.request.dto';
 import { NestAuthVerify2faRequestDto } from '../dto/requests/verify-2fa.request.dto';
-import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
+import { NestAuthMFAMethodEnum, TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { JWTTokenPayload, SessionPayload } from '../../core/interfaces/token-payload.interface';
 import { UserRegisteredEvent } from '../events/user-registered.event';
 import { UserLoggedInEvent } from '../events/user-logged-in.event';
@@ -83,6 +83,7 @@ export class AuthService {
 
     async getUser() {
         const user = RequestContext.currentUser();
+        const session = RequestContext.currentSession();
         if (!user) {
             return null
         }
@@ -90,11 +91,24 @@ export class AuthService {
 
         // Apply user.serialize hook if configured
         const config = this.authConfigService.getConfig();
+        let serializedUser: any = fullUser;
         if (config.user?.serialize) {
-            return await config.user.serialize(fullUser);
+            serializedUser = await config.user.serialize(fullUser);
         }
 
-        return fullUser;
+        const activeTenantId = session?.data?.tenantId ?? fullUser.tenantId;
+        let tenants = await this.userService.getUserTenants(fullUser.id);
+        if (!tenants.length && fullUser.tenantId) {
+            const fallbackTenant = await this.tenantService.getTenantById(fullUser.tenantId);
+            if (fallbackTenant) {
+                tenants = [fallbackTenant];
+            }
+        }
+        return {
+            ...serializedUser,
+            tenantId: activeTenantId || serializedUser?.tenantId || fullUser.tenantId,
+            tenants,
+        };
     }
 
     async signup(input: NestAuthSignupRequestDto): Promise<AuthResponseDto> {
@@ -118,8 +132,8 @@ export class AuthService {
                 await config.registrationHooks.beforeSignup(input, { request: req });
             }
 
-            // Resolve tenant ID - use provided or default
-            tenantId = await this.tenantService.resolveTenantId(tenantId);
+            // Resolve tenant ID - use provided, header, or default
+            tenantId = await this.resolveActiveTenantId(tenantId);
             this.debugLogger.logAuthOperation('signup', 'email|phone', undefined, { email, phone, resolvedTenantId: tenantId });
 
             if (!email && !phone) {
@@ -183,10 +197,9 @@ export class AuthService {
             let user = await this.userService.createUser({
                 email,
                 phone,
-                tenantId,
                 isVerified: false,
                 password
-            } as any, input);
+            } as any, tenantId, input);
 
             this.debugLogger.info('User created successfully', 'AuthService', { userId: user.id, tenantId });
 
@@ -223,7 +236,7 @@ export class AuthService {
             }
 
             this.debugLogger.debug('Creating session for new user', 'AuthService', { userId: user.id });
-            const session = await this.sessionManager.createSessionFromUser(user);
+            const session = await this.sessionManager.createSessionFromUser(user, { tenantId });
             const tokens = await this.generateTokensFromSession(session);
             const isRequiresMfa = await this.mfaService.isRequiresMfa(user.id);
             this.debugLogger.debug('Signup tokens generated', 'AuthService', { userId: user.id, isRequiresMfa });
@@ -235,7 +248,7 @@ export class AuthService {
                 NestAuthEvents.REGISTERED,
                 new UserRegisteredEvent({
                     user,
-                    tenantId: user.tenantId,
+                    tenantId,
                     input,
                     provider,
                     session,
@@ -276,8 +289,8 @@ export class AuthService {
 
         try {
             const config = this.authConfigService.getConfig();
-            // Resolve tenant ID - use provided or default
-            tenantId = await this.tenantService.resolveTenantId(tenantId);
+            // Resolve tenant ID - use provided, header, or default
+            tenantId = await this.resolveActiveTenantId(tenantId);
             this.debugLogger.logAuthOperation('login', providerName, undefined, { resolvedTenantId: tenantId, createUserIfNotExists });
 
             const provider = this.authProviderRegistry.getProvider(providerName);
@@ -334,6 +347,8 @@ export class AuthService {
 
             user = await this.getUserWithRolesAndPermissions(user!.id);
 
+            await this.ensureTenantAccess(user, tenantId, createUserIfNotExists);
+
 
             let isRequiresMfa = false;
             let isTrusted = false;
@@ -353,7 +368,7 @@ export class AuthService {
                 }
             }
 
-            let session = await this.sessionManager.createSessionFromUser(user);
+            let session = await this.sessionManager.createSessionFromUser(user, { tenantId });
 
             if (isRequiresMfa) {
                 isTrusted = await this.checkTrustedDevice(user);
@@ -374,7 +389,7 @@ export class AuthService {
                 NestAuthEvents.LOGGED_IN,
                 new UserLoggedInEvent({
                     user,
-                    tenantId: user.tenantId,
+                    tenantId,
                     input,
                     provider,
                     session,
@@ -442,7 +457,7 @@ export class AuthService {
                 NestAuthEvents.TWO_FACTOR_VERIFIED,
                 new User2faVerifiedEvent({
                     user: user as NestAuthUser,
-                    tenantId: user?.tenantId!,
+                    tenantId: payload.data?.tenantId ?? (user as any)?.tenantId,
                     input,
                     session: payload,
                     tokens
@@ -459,6 +474,44 @@ export class AuthService {
             this.handleError(error, 'mfa');
             throw error;
         }
+    }
+
+    async switchTenant(tenantId?: string | null): Promise<AuthResponseDto> {
+        const session = RequestContext.currentSession();
+        if (!session) {
+            throw new UnauthorizedException({
+                message: 'Session not found',
+                code: ERROR_CODES.SESSION_NOT_FOUND,
+            });
+        }
+
+        const resolvedTenantId = await this.resolveActiveTenantId(tenantId || null);
+        const user = await this.userRepository.findOne({ where: { id: session.userId } });
+        if (!user) {
+            throw new UnauthorizedException({
+                message: 'User not found',
+                code: ERROR_CODES.USER_NOT_FOUND,
+            });
+        }
+
+        await this.ensureTenantAccess(user, resolvedTenantId, false);
+
+        const roles = await user.getRoles(resolvedTenantId);
+        const permissions = await user.getPermissions(resolvedTenantId);
+        const sessionUser = { ...user, tenantId: resolvedTenantId } as NestAuthUser;
+
+        const updatedSession = await this.sessionManager.updateSession(session.id!, {
+            data: {
+                ...(session.data || {}),
+                user: sessionUser,
+                roles,
+                permissions,
+                tenantId: resolvedTenantId || undefined,
+            }
+        });
+
+        const tokens = await this.generateTokensFromSession(updatedSession);
+        return this.generateAuthResponse(user, updatedSession, tokens, false);
     }
 
     async send2faCode(userId: string, method: NestAuthMFAMethodEnum) {
@@ -497,19 +550,22 @@ export class AuthService {
         if (!user) {
             // Create new user via UserService to ensure hooks and events are triggered
             try {
-                user = await this.userService.createUser({
-                    [linkUserWith]: linkUserValue,
-                    isVerified: true,
-                    metadata: providerUser.metadata || {},
-                    tenantId: tenantId,
-                }, {
-                    [linkUserWith]: linkUserValue,
-                    ...providerUser,
-                    firstName: providerUser.metadata?.name?.split(' ')[0],
-                    lastName: providerUser.metadata?.name?.split(' ').slice(1).join(' '),
-                    provider: provider.providerName,
-                    description: 'Social login auto-creation'
-                });
+                user = await this.userService.createUser(
+                    {
+                        [linkUserWith]: linkUserValue,
+                        isVerified: true,
+                        metadata: providerUser.metadata || {},
+                    },
+                    tenantId,
+                    {
+                        [linkUserWith]: linkUserValue,
+                        ...providerUser,
+                        firstName: providerUser.metadata?.name?.split(' ')[0],
+                        lastName: providerUser.metadata?.name?.split(' ').slice(1).join(' '),
+                        provider: provider.providerName,
+                        description: 'Social login auto-creation'
+                    }
+                );
             } catch (error) {
                 // Handle race condition: user might have been created by another process
                 if (error instanceof ConflictException || error.status === 409) {
@@ -613,7 +669,7 @@ export class AuthService {
                 NestAuthEvents.LOGGED_OUT,
                 new LoggedOutEvent({
                     user: user as NestAuthUser,
-                    tenantId: user?.tenantId,
+                    tenantId: session?.data?.tenantId ?? (user as any)?.tenantId,
                     session,
                     logoutType,
                     reason,
@@ -652,6 +708,57 @@ export class AuthService {
 
     // sendEmailVerification, verifyEmail moved to VerificationService
 
+    private getTenantMode(): TenantModeEnum {
+        return this.authConfigService.getConfig().tenantMode || TenantModeEnum.ISOLATED;
+    }
+
+    private async resolveActiveTenantId(inputTenantId?: string | null): Promise<string | null> {
+        const tenantId = await this.tenantService.resolveTenantId(inputTenantId);
+        if (this.getTenantMode() === TenantModeEnum.SHARED && !tenantId) {
+            throw new BadRequestException({
+                message: 'Tenant ID is required',
+                code: ERROR_CODES.TENANT_ID_REQUIRED,
+            });
+        }
+        return tenantId;
+    }
+
+    private async ensureTenantAccess(
+        user: NestAuthUser,
+        tenantId: string | null,
+        allowAutoJoin = false
+    ): Promise<void> {
+        if (!tenantId) {
+            return;
+        }
+
+        if (this.getTenantMode() === TenantModeEnum.ISOLATED) {
+            if (user.tenantId && user.tenantId !== tenantId) {
+                throw new ForbiddenException({
+                    message: 'User does not belong to this tenant',
+                    code: ERROR_CODES.ACCESS_DENIED,
+                });
+            }
+            return;
+        }
+
+        const isMember = await this.userService.isUserInTenant(user.id, tenantId);
+        if (!isMember) {
+            if (user.tenantId && user.tenantId === tenantId) {
+                await this.userService.ensureTenantMembership(user.id, tenantId);
+                return;
+            }
+            if (allowAutoJoin) {
+                await this.userService.ensureTenantMembership(user.id, tenantId);
+                return;
+            }
+            throw new ForbiddenException({
+                message: 'User does not belong to this tenant',
+                code: ERROR_CODES.ACCESS_DENIED,
+            });
+        }
+    }
+
 
 
     private async generateTokensPayload(session: SessionPayload, otherPayload: Partial<JWTTokenPayload> = {}): Promise<JWTTokenPayload> {
@@ -667,7 +774,7 @@ export class AuthService {
                 delete r?.permissions;
                 return { ...r }
             }),
-            tenantId: session.data?.user?.tenantId,
+            tenantId: session.data?.tenantId ?? session.data?.user?.tenantId,
             isMfaEnabled: session.data?.user?.isMfaEnabled,
             isMfaVerified: session.data?.isMfaVerified,
             ...otherPayload,
@@ -717,9 +824,19 @@ export class AuthService {
             serializedUser = await config.user.serialize(user);
         }
 
+        const activeTenantId = session?.data?.tenantId ?? user.tenantId;
+        let tenants = await this.userService.getUserTenants(user.id);
+        if (!tenants.length && user.tenantId) {
+            const fallbackTenant = await this.tenantService.getTenantById(user.tenantId);
+            if (fallbackTenant) {
+                tenants = [fallbackTenant];
+            }
+        }
+
         // Extract role names and permissions
-        const roleNames = user.roles?.map(r => r.name) || [];
-        const permissions = this.extractPermissions(user);
+        const rolesForResponse = session?.data?.roles || user.roles || [];
+        const roleNames = rolesForResponse?.map(r => r.name) || [];
+        const permissions = session?.data?.permissions || this.extractPermissions(user);
 
         let response: AuthResponseDto = {
             accessToken: tokens.accessToken,
@@ -735,7 +852,8 @@ export class AuthService {
                 roles: roleNames,
                 permissions,
                 metadata: serializedUser.metadata,
-                tenantId: serializedUser.tenantId,
+                tenantId: activeTenantId || serializedUser.tenantId,
+                tenants,
             },
         };
 

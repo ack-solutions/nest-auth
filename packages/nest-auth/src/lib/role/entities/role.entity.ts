@@ -4,6 +4,7 @@ import { DEFAULT_GUARD_NAME } from "../../auth.constants";
 import { NestAuthTenant } from "../../tenant/entities/tenant.entity";
 import { BadRequestException, ConflictException } from "@nestjs/common";
 import { NestAuthUser } from "../../user/entities/user.entity";
+import { NestAuthTenantUser } from "../../tenant/entities/tenant-user.entity";
 
 @Entity('nest_auth_roles')
 @Unique(['name', 'guard', 'tenantId'])
@@ -43,6 +44,9 @@ export class NestAuthRole extends BaseEntity {
     @UpdateDateColumn()
     updatedAt: Date;
 
+    /**
+     * @deprecated Use 'tenantMemberships' instead. Will be removed in v2.0.0
+     */
     @ManyToMany(() => NestAuthUser, user => user.roles, { onDelete: 'CASCADE' })
     @JoinTable({
         name: 'nest_auth_role_nest_auth_users',
@@ -56,6 +60,9 @@ export class NestAuthRole extends BaseEntity {
         },
     })
     users: NestAuthUser[];
+
+    @ManyToMany(() => NestAuthTenantUser, membership => membership.roles, { onDelete: 'CASCADE' })
+    tenantMemberships: NestAuthTenantUser[];
 
     static async createRole(
         name: string,

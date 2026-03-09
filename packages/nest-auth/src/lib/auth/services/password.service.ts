@@ -93,7 +93,7 @@ export class PasswordService {
             phone: session.data?.user?.phone,
             isVerified: session.data?.user?.isVerified,
             roles: session.data?.roles,
-            tenantId: session.data?.user?.tenantId,
+            tenantId: session.data?.tenantId ?? session.data?.user?.tenantId,
             isMfaEnabled: session.data?.user?.isMfaEnabled,
             isMfaVerified: session.data?.isMfaVerified,
             ...otherPayload,
@@ -427,7 +427,7 @@ export class PasswordService {
                 NestAuthEvents.PASSWORD_RESET,
                 new PasswordResetEvent({
                     user,
-                    tenantId: user.tenantId,
+                    tenantId: RequestContext.currentTenantId() || user.tenantId,
                     input: { token, newPassword } as any,
                 })
             );

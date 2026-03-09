@@ -13,16 +13,25 @@ export interface User {
     id: string;
     email: string;
     phone?: string;
-    tenantId?: string;
+    tenantMemberships?: TenantMembership[];
     isActive: boolean;
     isVerified: boolean;
     metadata: Record<string, any>;
-    roles: string[];
     createdAt: string;
     updatedAt: string;
     emailVerifiedAt?: string;
     phoneVerifiedAt?: string;
     isMfaEnabled?: boolean;
+}
+
+export interface TenantMembership {
+    id: string;
+    tenantId: string;
+    tenant?: Tenant;
+    roles: string[];
+    roleIds: string[];
+    createdAt: string;
+    updatedAt: string;
 }
 
 export interface TotpDevice {
@@ -74,13 +83,7 @@ export interface Role {
     updatedAt: string;
 }
 
-/**
- * Role assignment for create/update operations - includes name and guard for proper identification
- */
-export interface RoleAssignment {
-    name: string;
-    guard: string;
-}
+
 
 export interface Tenant {
     id: string;
@@ -109,9 +112,9 @@ export interface LoginForm {
 
 export interface CreateUserForm {
     email: string;
-    tenantId: string;
+    tenantIds: string[];
     password?: string;
-    roles: string;
+    roleIds: string[];
 }
 
 export interface CreateRoleForm {

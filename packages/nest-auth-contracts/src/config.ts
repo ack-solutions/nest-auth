@@ -49,9 +49,14 @@ export interface ITenantOption {
 }
 
 export interface ITenantsConfig {
-    mode: 'single' | 'multi';
-    defaultTenantId: string | null;
+    mode: TenantModeEnum;
     options?: ITenantOption[];
+}
+
+
+export enum TenantModeEnum {
+    ISOLATED = 'isolated',
+    SHARED = 'shared',
 }
 
 export interface ISsoProviderConfig {

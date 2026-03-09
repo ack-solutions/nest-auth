@@ -2,7 +2,6 @@ import {
   IsArray,
   IsBoolean,
   IsEmail,
-  IsNotEmpty,
   IsOptional,
   IsString,
   Matches,
@@ -11,17 +10,14 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
-/**
- * Role assignment DTO - includes name and guard for proper role identification
- */
-export class RoleAssignmentDto {
+/** Roles to set for one tenant (used in bulk update). */
+export class AdminTenantRolesDto {
   @IsString()
-  @IsNotEmpty()
-  name: string;
+  tenantId: string;
 
-  @IsString()
-  @IsNotEmpty()
-  guard: string;
+  @IsArray()
+  @IsString({ each: true })
+  roleIds: string[];
 }
 
 export class AdminCreateUserDto {
@@ -41,9 +37,14 @@ export class AdminCreateUserDto {
   )
   password?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  tenantId: string;
+  tenantId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tenantIds?: string[];
 
   @IsOptional()
   @IsBoolean()
@@ -54,13 +55,13 @@ export class AdminCreateUserDto {
   isVerified?: boolean;
 
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => RoleAssignmentDto)
-  roles?: RoleAssignmentDto[];
-
-  @IsOptional()
   metadata?: Record<string, any>;
+
+  /** Role IDs for the first tenant (when creating user). */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  roleIds?: string[];
 }
 
 export class AdminUpdateUserDto {
@@ -91,11 +92,11 @@ export class AdminUpdateUserDto {
 
   @IsOptional()
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => RoleAssignmentDto)
-  roles?: RoleAssignmentDto[];
+  @IsString({ each: true })
+  tenantIds?: string[];
 
   @IsOptional()
+  @IsString()
   metadata?: Record<string, any>;
 
   @IsOptional()
@@ -109,5 +110,22 @@ export class AdminUpdateUserDto {
   @IsOptional()
   @IsBoolean()
   phoneLoginEnabled?: boolean;
-}
 
+  /** Role IDs for a specific tenant. When provided, tenantId is required. */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  roleIds?: string[];
+
+  /** Tenant to apply roleIds to. Required when roleIds is provided. */
+  @IsOptional()
+  @IsString()
+  tenantId?: string;
+
+  /** Update roles per tenant (all user's tenants). When provided, applies each entry. */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AdminTenantRolesDto)
+  tenantRoles?: AdminTenantRolesDto[];
+}

@@ -29,6 +29,7 @@ import { VerifyOtpResponseDto } from '../dto/responses/verify-otp.response.dto';
 import { NestAuthChangePasswordRequestDto } from '../dto/requests/change-password.request.dto';
 import { NestAuthSendEmailVerificationRequestDto } from '../dto/requests/send-email-verification.request.dto';
 import { NestAuthVerifyEmailRequestDto } from '../dto/requests/verify-email.request.dto';
+import { NestAuthSwitchTenantRequestDto } from '../dto/requests/switch-tenant.request.dto';
 import { ACCESS_TOKEN_COOKIE_NAME, REFRESH_TOKEN_COOKIE_NAME } from '../../auth.constants';
 
 
@@ -189,6 +190,21 @@ export class AuthController {
         res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, { path: '/' });
 
         return { message: 'Logged out from all devices successfully' };
+    }
+
+    @ApiOperation({ summary: 'Switch Active Tenant' })
+    @ApiResponse({ status: 200, type: AuthWithTokensResponseDto })
+    @HttpCode(200)
+    @Post('switch-tenant')
+    @SkipMfa()
+    @UseGuards(NestAuthAuthGuard)
+    @UseInterceptors(TokenResponseInterceptor)
+    async switchTenant(@Body() input: NestAuthSwitchTenantRequestDto): Promise<AuthWithTokensResponseDto> {
+        const response = await this.authService.switchTenant(input.tenantId);
+        return {
+            ...response,
+            message: 'Tenant switched successfully',
+        };
     }
 
     @ApiOperation({ summary: 'Change Password' })

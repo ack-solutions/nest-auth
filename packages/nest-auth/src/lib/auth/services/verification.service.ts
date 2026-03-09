@@ -97,7 +97,7 @@ export class VerificationService {
                 NestAuthEvents.EMAIL_VERIFICATION_REQUESTED,
                 {
                     user: fullUser,
-                    tenantId: fullUser.tenantId,
+                    tenantId: RequestContext.currentTenantId() || fullUser.tenantId,
                     otp: otpEntity,
                 }
             );
@@ -188,7 +188,7 @@ export class VerificationService {
                 NestAuthEvents.EMAIL_VERIFIED,
                 {
                     user: fullUser,
-                    tenantId: fullUser.tenantId,
+                    tenantId: RequestContext.currentTenantId() || fullUser.tenantId,
                 }
             );
 

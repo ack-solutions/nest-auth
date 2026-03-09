@@ -4,7 +4,8 @@ import {
     IUserResponse,
     IAuthResponse,
     IVerify2faResponse,
-    NestAuthMFAMethodEnum
+    NestAuthMFAMethodEnum,
+    INestAuthTenant,
 } from '@ackplus/nest-auth-contracts';
 
 /**
@@ -83,6 +84,12 @@ export class UserResponseDto implements IUserResponse {
         example: 'tenant-123',
     })
     tenantId?: string;
+
+    @ApiPropertyOptional({
+        description: 'Tenants the user belongs to',
+        type: [Object],
+    })
+    tenants?: INestAuthTenant[];
 }
 
 /**

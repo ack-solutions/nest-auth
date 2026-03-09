@@ -11,8 +11,8 @@ import {
     BeforeInsert,
     BeforeUpdate,
     ManyToMany,
-    In,
 } from "typeorm";
+import { In } from 'typeorm';
 import { hash, verify, Algorithm } from '@node-rs/argon2';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { NestAuthTenant } from "../../tenant/entities/tenant.entity";
@@ -22,6 +22,8 @@ import { chain } from "lodash";
 import { NestAuthOTP } from "../../auth/entities/otp.entity";
 import { NestAuthMFASecret } from "../../auth/entities/mfa-secret.entity";
 import { NestAuthRole } from "../../role/entities/role.entity";
+import { NestAuthTenantUser } from "../../tenant/entities/tenant-user.entity";
+import { EMAIL_AUTH_PROVIDER, PHONE_AUTH_PROVIDER } from "../../auth.constants";
 
 @Entity('nest_auth_users')
 export class NestAuthUser extends BaseEntity {
@@ -80,16 +82,14 @@ export class NestAuthUser extends BaseEntity {
     @OneToMany(() => NestAuthOTP, otp => otp.user)
     otps: NestAuthOTP[];
 
+    /**
+     * @deprecated Use roles on tenantMemberships instead. Will be removed in v2.0.0
+     */
     @ManyToMany(() => NestAuthRole, role => role.users, { onDelete: 'CASCADE' })
     roles: NestAuthRole[];
 
-    @Index('IDX_USER_EMAIL_TENANT', { unique: true })
-    @Column({ nullable: true })
-    emailTenant: string;
-
-    @Index('IDX_USER_PHONE_TENANT', { unique: true })
-    @Column({ nullable: true })
-    phoneTenant: string;
+    @OneToMany(() => NestAuthTenantUser, membership => membership.user)
+    tenantMemberships: NestAuthTenantUser[];
 
     @CreateDateColumn()
     createdAt: Date;
@@ -97,79 +97,55 @@ export class NestAuthUser extends BaseEntity {
     @UpdateDateColumn()
     updatedAt: Date;
 
-
-
     @BeforeInsert()
     @BeforeUpdate()
     updateTenantFields() {
-        // Normalize email to lowercase for consistency
         if (this.email) {
             this.email = this.email.toLowerCase().trim();
         }
-        this.emailTenant = this.email ? `${this.email}:${this.tenantId || 'global'}` : null;
-        this.phoneTenant = this.phone ? `${this.phone}:${this.tenantId || 'global'}` : null;
     }
 
-    async getPermissions(): Promise<string[]> {
-        if (!this.roles) {
-            this.roles = await NestAuthRole.find({
-                select: {
-                    id: true,
-                    name: true,
-                    permissions: true
-                },
-                where: { users: { id: this.id }, tenantId: this.tenantId }
-            });
-        }
-        return chain(this.roles)
-            .map(role => role.permissions)
+    async getPermissions(tenantId: string): Promise<string[]> {
+        const roles = await this.getRoles(tenantId);
+        return chain(roles)
+            .map(role => role?.permissions ?? [])
             .flatten()
             .uniq()
             .value();
     }
 
-    async getRoles(): Promise<NestAuthRole[]> {
-        if (!this.roles) {
-            this.roles = await NestAuthRole.find({
-                select: {
-                    id: true,
-                    name: true,
-                    isSystem: true,
-                    guard: true,
-                },
-                where: { users: { id: this.id }, tenantId: this.tenantId }
-            });
-        }
-        return this.roles;
-    }
-
-    async assignRoles(roles: string | string[], guard: string): Promise<void> {
-        // Find both system roles and tenant - specific roles
-        this.roles = await NestAuthRole.find({
-            where: [
-            // System roles (tenantId is null)
-                { name: In(Array.isArray(roles) ? roles : [roles]), isSystem: true, guard },
-            // Tenant-specific roles
-                { name: In(Array.isArray(roles) ? roles : [roles]), tenantId: this.tenantId, isSystem: false, guard }
-            ]
+    async getRoles(tenantId: string): Promise<NestAuthRole[]> {
+        const membership = await NestAuthTenantUser.findOne({
+            where: { userId: this.id, tenantId: tenantId },
+            relations: ['roles'],
         });
-    }
-
-    async assignRolesWithMultipleGuard(roles: { name: string; guard: string } | { name: string; guard: string }[]): Promise<void> {
-        const roleAssignments = Array.isArray(roles) ? roles : [roles];
-        if (roleAssignments.length === 0) {
-            this.roles = [];
-            return;
+        if (membership?.roles?.length) {
+            return membership.roles;
         }
-
-        // Build where conditions for each role with its specific guard
-        const whereConditions = roleAssignments.flatMap(({ name, guard }) => [
-            { name, isSystem: true, guard },
-            { name, tenantId: this.tenantId, isSystem: false, guard }
-        ]);
-
-        this.roles = await NestAuthRole.find({ where: whereConditions });
     }
+
+    /** Assign roles for a specific tenant by role IDs (stores on tenant membership). */
+    async assignRoles(tenantId: string, roleIds: string | string[]): Promise<void> {
+        const membership = await this.getOrCreateTenantMembership(tenantId);
+        const ids = Array.isArray(roleIds) ? roleIds : [roleIds];
+        membership.roles = ids.length
+            ? await NestAuthRole.find({ where: { id: In(ids) } })
+            : [];
+        await membership.save();
+    }
+
+    private async getOrCreateTenantMembership(tenantId: string): Promise<NestAuthTenantUser> {
+        let membership = await NestAuthTenantUser.findOne({
+            where: { userId: this.id, tenantId },
+            relations: ['roles'],
+        });
+        if (!membership) {
+            membership = NestAuthTenantUser.create({ userId: this.id, tenantId });
+            await membership.save();
+        }
+        return membership;
+    }
+
     async findOrCreateIdentity(provider: string, providerId: string) {
         const existingIdentity = await NestAuthIdentity.findOne({
             where: { provider, providerId, userId: this.id }
@@ -209,6 +185,52 @@ export class NestAuthUser extends BaseEntity {
             ...data,
         });
         return newIdentity.save();
+    }
+
+    /**
+     * Update user email and sync the email identity (providerId). Clears emailVerifiedAt when email changes.
+     */
+    async updateEmail(newEmail: string): Promise<void> {
+        const normalized = newEmail ? newEmail.toLowerCase().trim() : null;
+        const previousEmail = this.email?.toLowerCase().trim() ?? null;
+        this.email = normalized ?? undefined;
+        if (previousEmail !== normalized) {
+            this.emailVerifiedAt = null;
+        }
+        if (normalized) {
+            await this.updateOrCreateIdentity(EMAIL_AUTH_PROVIDER, { providerId: normalized });
+        } else {
+            const identity = await NestAuthIdentity.findOne({
+                where: { userId: this.id, provider: EMAIL_AUTH_PROVIDER },
+            });
+            if (identity) {
+                await identity.remove();
+            }
+        }
+        await this.save();
+    }
+
+    /**
+     * Update user phone and sync the phone identity (providerId). Clears phoneVerifiedAt when phone changes.
+     */
+    async updatePhone(newPhone: string | null | undefined): Promise<void> {
+        const value = newPhone?.trim() || null;
+        const previousPhone = this.phone?.trim() ?? null;
+        this.phone = value ?? undefined;
+        if (previousPhone !== value) {
+            this.phoneVerifiedAt = null;
+        }
+        if (value) {
+            await this.updateOrCreateIdentity(PHONE_AUTH_PROVIDER, { providerId: value });
+        } else {
+            const identity = await NestAuthIdentity.findOne({
+                where: { userId: this.id, provider: PHONE_AUTH_PROVIDER },
+            });
+            if (identity) {
+                await identity.remove();
+            }
+        }
+        await this.save();
     }
 
     async validatePassword(password: string): Promise<boolean> {

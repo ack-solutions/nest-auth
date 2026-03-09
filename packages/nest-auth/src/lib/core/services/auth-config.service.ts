@@ -2,7 +2,7 @@ import { Injectable, Inject, Optional } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
 import { SessionStorageType } from '../interfaces/session-options.interface';
-import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
+import { NestAuthMFAMethodEnum, TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { NEST_AUTH_TRUST_DEVICE_KEY } from '../../auth.constants';
 
 @Injectable()
@@ -46,7 +46,7 @@ export class AuthConfigService {
             trustDeviceStorageName: NEST_AUTH_TRUST_DEVICE_KEY, // it work only when pass 'trustDevice' true in verify2fa request
             trustedDeviceDuration: '30m',
         },
-        defaultTenant: undefined,
+        tenantMode: TenantModeEnum.ISOLATED,
         adminConsole: {
             enabled: true,
             basePath: '/api/auth/admin',
