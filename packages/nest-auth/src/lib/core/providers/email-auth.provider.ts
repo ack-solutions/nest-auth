@@ -6,6 +6,7 @@ import { EMAIL_AUTH_PROVIDER } from '../../auth.constants';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
 import { EmailCredentialsDto } from 'src/lib/auth';
+import { normalizedEmail } from '../../utils';
 
 @Injectable()
 export class EmailAuthProvider extends BaseAuthProvider {
@@ -23,46 +24,29 @@ export class EmailAuthProvider extends BaseAuthProvider {
     }
 
     /**
-     * Normalize email to lowercase for case-insensitive matching
-     */
-    private normalizeEmail(email: string | null | undefined): string | null {
-        if (!email) return null;
-        return email.toLowerCase().trim();
-    }
-
-    /**
-     * Validate email format
-     */
-    private isValidEmail(email: string): boolean {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    }
-
-    /**
      * Override findIdentity to normalize email before searching
      */
     async findIdentity(providerUserId: string): Promise<NestAuthIdentity | null> {
-        const normalizedEmail = this.normalizeEmail(providerUserId);
-        return super.findIdentity(normalizedEmail || providerUserId);
+        const emailNorm = normalizedEmail(providerUserId);
+        return super.findIdentity(emailNorm || providerUserId);
     }
 
     /**
      * Override linkToUser to normalize email before linking
      */
     async linkToUser(userId: string, providerUserId: string, metadata?: Record<string, any>): Promise<void> {
-        const normalizedEmail = this.normalizeEmail(providerUserId);
-        return super.linkToUser(userId, normalizedEmail || providerUserId, metadata);
+        const emailNorm = normalizedEmail(providerUserId);
+        return super.linkToUser(userId, emailNorm || providerUserId, metadata);
     }
 
     async validate(credentials: EmailCredentialsDto) {
-        // Normalize email to lowercase for case-insensitive matching
-        const normalizedEmail = this.normalizeEmail(credentials.email);
+        const emailNorm = normalizedEmail(credentials.email);
 
-        if (!normalizedEmail) {
+        if (!emailNorm) {
             throw new BadRequestException('Email is required');
         }
 
-        const identity = await this.findIdentity(normalizedEmail);
+        const identity = await this.findIdentity(emailNorm);
 
         if (!identity?.user || !(await identity.user.validatePassword(credentials.password))) {
             throw new UnauthorizedException('Invalid credentials');

@@ -1,6 +1,9 @@
 import { AsyncLocalStorage } from 'async_hooks';
 import { Request, Response } from 'express';
 import { JWTTokenPayload, SessionPayload } from '../core/interfaces/token-payload.interface';
+import { NestAuthTenantMembership } from '../tenant/entities/tenant-membership.entity';
+import { FindOneOptions } from 'typeorm';
+import { NestAuthUser } from '../user/entities/user.entity';
 
 export class RequestContext {
 
@@ -36,7 +39,43 @@ export class RequestContext {
         return requestContext ? requestContext.request : null;
     }
 
-    public static currentUser(): JWTTokenPayload | null {
+    public static currentTenantId(): string | null {
+        const session = RequestContext.currentSession();
+        return session ? session.data?.tenantId : null;
+    }
+
+    public static async currentUserMembership(findOptions?: FindOneOptions<NestAuthTenantMembership>): Promise<NestAuthTenantMembership | null> {
+        const session = RequestContext.currentSession();
+
+        const membership = await NestAuthTenantMembership.findOne({
+            ...findOptions,
+            where: { 
+                ...findOptions?.where,
+                userId: session.userId, 
+                tenantId: session.data?.tenantId
+             },
+        });
+        return membership;
+    }
+
+    public static currentUserUserId(): string | null {
+        const session = RequestContext.currentSession();
+        return session ? session.userId : null;
+    }
+
+    public static async currentUser(findOptions?: FindOneOptions<NestAuthUser>): Promise<NestAuthUser | null> {
+        const session = RequestContext.currentSession();
+        const user = await NestAuthUser.findOne({
+            ...findOptions,
+            where: { 
+                ...findOptions?.where,
+                id: session.userId 
+             },
+        });
+        return user;
+    }
+
+    public static getJwtTokenPayload(): JWTTokenPayload | null {
         const request = RequestContext.currentRequest();
         if (!request['user']) {
             return null;
@@ -50,15 +89,6 @@ export class RequestContext {
     public static currentSession(): SessionPayload | null {
         const request = RequestContext.currentRequest();
         return request ? request['session'] : null;
-    }
-
-    public static currentTenantId(): string | null {
-        const request = RequestContext.currentRequest() as any;
-        if (request?.tenantId) {
-            return request.tenantId;
-        }
-        const session = RequestContext.currentSession();
-        return (session?.data as any)?.tenantId || (session?.data as any)?.user?.tenantId || null;
     }
 
     public static getDeviceInfo(): { deviceName: string; ipAddress: string; browser: string } {

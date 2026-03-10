@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from "typeorm";
-import { NestAuthTenantUser } from "./tenant-user.entity";
+import { NestAuthTenantMembership } from "./tenant-membership.entity";
 
 @Entity('nest_auth_tenants')
 export class NestAuthTenant {
@@ -12,8 +12,8 @@ export class NestAuthTenant {
     @Column({ unique: true, nullable: true })
     slug: string;
 
-    @OneToMany(() => NestAuthTenantUser, membership => membership.tenant)
-    tenantMemberships: NestAuthTenantUser[];
+    @OneToMany(() => NestAuthTenantMembership, membership => membership.tenant)
+    tenantMemberships: NestAuthTenantMembership[];
 
     @Column({ nullable: true })
     description: string;

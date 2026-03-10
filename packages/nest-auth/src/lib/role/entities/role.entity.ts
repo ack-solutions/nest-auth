@@ -1,10 +1,10 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, BaseEntity, Unique, ManyToOne, RelationId, ManyToMany, JoinTable } from "typeorm";
-import { uniq } from "lodash";
 import { DEFAULT_GUARD_NAME } from "../../auth.constants";
 import { NestAuthTenant } from "../../tenant/entities/tenant.entity";
 import { BadRequestException, ConflictException } from "@nestjs/common";
 import { NestAuthUser } from "../../user/entities/user.entity";
-import { NestAuthTenantUser } from "../../tenant/entities/tenant-user.entity";
+import { NestAuthTenantMembership } from "../../tenant/entities/tenant-membership.entity";
+import { isUniqueConstraintViolation } from "../../utils";
 
 @Entity('nest_auth_roles')
 @Unique(['name', 'guard', 'tenantId'])
@@ -61,8 +61,8 @@ export class NestAuthRole extends BaseEntity {
     })
     users: NestAuthUser[];
 
-    @ManyToMany(() => NestAuthTenantUser, membership => membership.roles, { onDelete: 'CASCADE' })
-    tenantMemberships: NestAuthTenantUser[];
+    @ManyToMany(() => NestAuthTenantMembership, membership => membership.roles, { onDelete: 'CASCADE' })
+    tenantMemberships: NestAuthTenantMembership[];
 
     static async createRole(
         name: string,
@@ -80,7 +80,7 @@ export class NestAuthRole extends BaseEntity {
         }
 
         if (!isSystem && !tenantId) {
-            throw new BadRequestException('Tenant ID is required');
+            throw new BadRequestException('Tenant ID is required when creating a non-system role');
         }
 
         const role = new NestAuthRole();
@@ -88,23 +88,34 @@ export class NestAuthRole extends BaseEntity {
         role.guard = guard;
         role.isSystem = isSystem;
         role.tenantId = isSystem ? null : tenantId;
-        await role.save();
-        return role;
+
+        try {
+            await role.save();
+            return role;
+        } catch (err) {
+            if (isUniqueConstraintViolation(err)) {
+                const scope = isSystem ? 'system' : `tenant ${tenantId}`;
+                throw new ConflictException(
+                    `Role with name '${name}' and guard '${guard}' already exists for ${scope}`,
+                );
+            }
+            console.error(err);
+            throw err;
+        }
     }
 
     async syncPermissions(permissions: string | string[]): Promise<void> {
-        const newPermissions = Array.isArray(permissions) ? permissions : [permissions];
-        this.permissions = newPermissions;
+        const arr = Array.isArray(permissions) ? permissions : [permissions];
+        this.permissions = [...new Set(arr)];
     }
 
     async removePermissions(permissions: string | string[]): Promise<void> {
-        const removingPermissions = Array.isArray(permissions) ? permissions : [permissions];
-        this.permissions = this.permissions.filter(permission => !removingPermissions.includes(permission));
+        const toRemove = new Set(Array.isArray(permissions) ? permissions : [permissions]);
+        this.permissions = (this.permissions ?? []).filter((p) => !toRemove.has(p));
     }
 
     async attachPermissions(permissions: string | string[]): Promise<void> {
-        const existingPermissions = this.permissions;
-        const newPermissions = Array.isArray(permissions) ? permissions : [permissions];
-        this.permissions = uniq([...existingPermissions, ...newPermissions]);
+        const arr = Array.isArray(permissions) ? permissions : [permissions];
+        this.permissions = [...new Set([...(this.permissions ?? []), ...arr])];
     }
 }

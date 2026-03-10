@@ -26,7 +26,7 @@ import { MfaService } from '../../auth/services/mfa.service';
 import { SessionManagerService } from '../../session/services/session-manager.service';
 import { NestAuthSession } from '../../session/entities/session.entity';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import { NestAuthTenantUser } from 'src/lib/core';
+import { NestAuthTenantMembership } from 'src/lib/core';
 import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
 
 @Controller('auth/admin/api/users')
@@ -198,9 +198,9 @@ export class AdminUsersController {
 
     // Assign tenants only when tenant array is passed; otherwise admin can assign later via edit
     if (resolvedTenantIds.length > 0) {
-      await this.adminUserManagement.syncTenantUsers(user.id, resolvedTenantIds);
+      await this.adminUserManagement.syncTenantMemberships(user.id, resolvedTenantIds);
       if (firstTenantId && dto.roleIds?.length) {
-        await this.users.setTenantUserRoles(user.id, firstTenantId, dto.roleIds);
+        await this.users.setTenantMembershipRoles(user.id, firstTenantId, dto.roleIds);
       }
     }
 
@@ -356,7 +356,7 @@ export class AdminUsersController {
 
     if (dto.tenantIds) {
       const resolvedTenantIds = await this.resolveTenantIds(dto.tenantIds);
-      await this.adminUserManagement.syncTenantUsers(user.id, resolvedTenantIds);
+      await this.adminUserManagement.syncTenantMemberships(user.id, resolvedTenantIds);
     }
 
     if (dto.roleIds?.length) {
@@ -364,13 +364,13 @@ export class AdminUsersController {
         throw new BadRequestException('tenantId is required when updating roleIds');
       }
       const roleTenantId = await this.tenantService.resolveTenantId(dto.tenantId);
-      await this.users.setTenantUserRoles(user.id, roleTenantId, dto.roleIds);
+      await this.users.setTenantMembershipRoles(user.id, roleTenantId, dto.roleIds);
     }
 
     if (dto.tenantRoles?.length) {
       for (const tr of dto.tenantRoles) {
         const resolvedTenantId = await this.tenantService.resolveTenantId(tr.tenantId);
-        await this.users.setTenantUserRoles(user.id, resolvedTenantId, tr.roleIds ?? []);
+        await this.users.setTenantMembershipRoles(user.id, resolvedTenantId, tr.roleIds ?? []);
       }
     }
 
@@ -456,7 +456,7 @@ export class AdminUsersController {
     }
 
     if (!user.tenantMemberships?.length) {
-      user.tenantMemberships = await NestAuthTenantUser.find({
+      user.tenantMemberships = await NestAuthTenantMembership.find({
         where: { userId: user.id },
         relations: ['tenant', 'roles'],
       });

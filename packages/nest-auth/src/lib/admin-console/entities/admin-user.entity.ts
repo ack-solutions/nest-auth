@@ -10,6 +10,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { hash, verify, Algorithm } from '@node-rs/argon2';
+import { normalizedEmail } from '../../utils';
 
 @Entity('nest_auth_admin_users')
 export class NestAuthAdminUser extends BaseEntity {
@@ -42,14 +43,14 @@ export class NestAuthAdminUser extends BaseEntity {
   @BeforeInsert()
   normalizeEmail() {
     if (this.email) {
-      this.email = this.email.toLowerCase();
+      this.email = normalizedEmail(this.email) ?? this.email;
     }
   }
 
   @BeforeUpdate()
   normalizeEmailOnUpdate() {
     if (this.email) {
-      this.email = this.email.toLowerCase();
+      this.email = normalizedEmail(this.email) ?? this.email;
     }
   }
 

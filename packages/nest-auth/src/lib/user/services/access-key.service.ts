@@ -15,6 +15,7 @@ export class AccessKeyService {
 
         @InjectRepository(NestAuthUser)
         private userRepository: Repository<NestAuthUser>,
+        
         private eventEmitter: EventEmitter2
     ) { }
 

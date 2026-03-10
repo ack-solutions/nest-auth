@@ -22,8 +22,9 @@ import { chain } from "lodash";
 import { NestAuthOTP } from "../../auth/entities/otp.entity";
 import { NestAuthMFASecret } from "../../auth/entities/mfa-secret.entity";
 import { NestAuthRole } from "../../role/entities/role.entity";
-import { NestAuthTenantUser } from "../../tenant/entities/tenant-user.entity";
+import { NestAuthTenantMembership } from "../../tenant/entities/tenant-membership.entity";
 import { EMAIL_AUTH_PROVIDER, PHONE_AUTH_PROVIDER } from "../../auth.constants";
+import { normalizedPhone } from '../../utils';
 
 @Entity('nest_auth_users')
 export class NestAuthUser extends BaseEntity {
@@ -88,8 +89,8 @@ export class NestAuthUser extends BaseEntity {
     @ManyToMany(() => NestAuthRole, role => role.users, { onDelete: 'CASCADE' })
     roles: NestAuthRole[];
 
-    @OneToMany(() => NestAuthTenantUser, membership => membership.user)
-    tenantMemberships: NestAuthTenantUser[];
+    @OneToMany(() => NestAuthTenantMembership, membership => membership.user)
+    tenantMemberships: NestAuthTenantMembership[];
 
     @CreateDateColumn()
     createdAt: Date;
@@ -115,7 +116,7 @@ export class NestAuthUser extends BaseEntity {
     }
 
     async getRoles(tenantId: string): Promise<NestAuthRole[]> {
-        const membership = await NestAuthTenantUser.findOne({
+        const membership = await NestAuthTenantMembership.findOne({
             where: { userId: this.id, tenantId: tenantId },
             relations: ['roles'],
         });
@@ -134,13 +135,13 @@ export class NestAuthUser extends BaseEntity {
         await membership.save();
     }
 
-    private async getOrCreateTenantMembership(tenantId: string): Promise<NestAuthTenantUser> {
-        let membership = await NestAuthTenantUser.findOne({
+    private async getOrCreateTenantMembership(tenantId: string): Promise<NestAuthTenantMembership> {
+        let membership = await NestAuthTenantMembership.findOne({
             where: { userId: this.id, tenantId },
             relations: ['roles'],
         });
         if (!membership) {
-            membership = NestAuthTenantUser.create({ userId: this.id, tenantId });
+            membership = NestAuthTenantMembership.create({ userId: this.id, tenantId });
             await membership.save();
         }
         return membership;
@@ -214,8 +215,8 @@ export class NestAuthUser extends BaseEntity {
      * Update user phone and sync the phone identity (providerId). Clears phoneVerifiedAt when phone changes.
      */
     async updatePhone(newPhone: string | null | undefined): Promise<void> {
-        const value = newPhone?.trim() || null;
-        const previousPhone = this.phone?.trim() ?? null;
+        const value = normalizedPhone(newPhone);
+        const previousPhone = normalizedPhone(this.phone) ?? null;
         this.phone = value ?? undefined;
         if (previousPhone !== value) {
             this.phoneVerifiedAt = null;

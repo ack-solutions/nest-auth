@@ -7,11 +7,11 @@ import { AuthModule } from '../auth/auth.module';
 import { NestAuthAccessKey } from './entities/access-key.entity';
 import { NestAuthIdentity } from './entities/identity.entity';
 import { TenantModule } from '../tenant/tenant.module';
-import { NestAuthTenantUser } from '../tenant/entities/tenant-user.entity';
+import { NestAuthTenantMembership } from '../tenant/entities/tenant-membership.entity';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([NestAuthUser, NestAuthAccessKey, NestAuthIdentity, NestAuthTenantUser]),
+        TypeOrmModule.forFeature([NestAuthUser, NestAuthAccessKey, NestAuthIdentity, NestAuthTenantMembership]),
         forwardRef(() => AuthModule),
         forwardRef(() => TenantModule),
     ],

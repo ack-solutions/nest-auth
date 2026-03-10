@@ -11,38 +11,50 @@ import { UserCreatedEvent } from '../events/user-created.event';
 import { TenantService } from '../../tenant';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import { NestAuthTenantUser } from '../../tenant/entities/tenant-user.entity';
+import { NestAuthTenantMembership } from '../../tenant/entities/tenant-membership.entity';
 import { NestAuthTenant } from '../../tenant/entities/tenant.entity';
 import { NestAuthRole } from '../../role/entities/role.entity';
 import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
+import { IAuthModuleOptions } from '../../core/interfaces/auth-module-options.interface';
+import { normalizedEmail, normalizedPhone } from '../../utils';
 
 @Injectable()
 export class UserService {
+    private authConfig: IAuthModuleOptions;
     constructor(
         @InjectRepository(NestAuthUser)
         private readonly userRepository: Repository<NestAuthUser>,
-        @InjectRepository(NestAuthTenantUser)
-        private readonly tenantUserRepository: Repository<NestAuthTenantUser>,
+        @InjectRepository(NestAuthTenantMembership)
+        private readonly tenantMembershipRepository: Repository<NestAuthTenantMembership>,
         private readonly tenantService: TenantService,
         private readonly eventEmitter: EventEmitter2,
         private readonly authConfigService: AuthConfigService,
         private readonly debugLogger: DebugLoggerService
-    ) { }
+    ) {
+        this.authConfig = this.authConfigService.getConfig();
+    }
 
     async createUser(data: Partial<NestAuthUser>, tenantId?: string, context?: any): Promise<NestAuthUser> {
         this.debugLogger.logFunctionEntry('createUser', 'UserService', { email: data.email, phone: data.phone, hasPassword: !!(data as any).password });
 
         try {
-            const { email, phone } = data;
+            const email = normalizedEmail(data.email);
+            const phone = normalizedPhone(data.phone);
 
-            // Resolve tenant ID for duplicate check and membership; do not set user.tenantId (use tenantMemberships only)
-            tenantId = await this.tenantService.resolveTenantId(tenantId);
+            if (this.authConfig.tenantMode === TenantModeEnum.ISOLATED) {
+                if (!tenantId) {
+                    throw new BadRequestException('Tenant ID is required for isolated tenant mode');
+                }
+            }
 
             // Check if user already exists (by email in same tenant context)
             if (email) {
-                // Normalize email before checking for duplicates
-
-                const existingUser = await this.getUserByEmail(email, tenantId);
+                let existingUser = null;
+                if (this.authConfig.tenantMode === TenantModeEnum.ISOLATED) {
+                    existingUser = await this.getUserByEmail(email, tenantId);
+                } else {
+                    existingUser = await this.getUserByEmail(email);
+                }
                 if (existingUser) {
                     this.debugLogger.warn('User with email already exists', 'UserService', { email, tenantId });
                     throw new ConflictException({
@@ -53,7 +65,13 @@ export class UserService {
             }
 
             if (phone) {
-                const existingUser = await this.getUserByPhone(phone, tenantId);
+                let existingUser = null;
+                if (this.authConfig.tenantMode === TenantModeEnum.ISOLATED) {
+                    existingUser = await this.getUserByPhone(phone, tenantId);
+                } else {
+                    existingUser = await this.getUserByPhone(phone);
+                }
+
                 if (existingUser) {
                     this.debugLogger.warn('User with phone already exists', 'UserService', { phone, tenantId });
                     throw new ConflictException({
@@ -63,16 +81,19 @@ export class UserService {
                 }
             }
 
-            // Apply user.beforeCreate hook if configured
-            const config = this.authConfigService.getConfig();
-            if (config.user?.beforeCreate) {
+
+            if (this.authConfig.user?.beforeCreate) {
                 this.debugLogger.debug('Applying user.beforeCreate hook', 'UserService');
-                data = await config.user.beforeCreate(data, context);
+                data = await this.authConfig.user.beforeCreate?.(data, context) ?? data;
             }
 
             this.debugLogger.debug('Creating new user entity', 'UserService');
-            delete (data as any).tenantId;
-            const user = this.userRepository.create(data);
+
+            const user = this.userRepository.create({
+                ...data,
+                ...(email != null && { email: email }),
+                ...(phone != null && { phone: phone }),
+            });
 
             // Handle password if provided in data (even though it's not a column)
             if ((data as any).password) {
@@ -87,11 +108,11 @@ export class UserService {
             this.debugLogger.info('User created successfully', 'UserService', { userId: user.id });
 
             // Create identities
-            const normalizedEmail = email?.toLowerCase().trim();
-            if (normalizedEmail && config.emailAuth?.enabled !== false) {
-                await user.findOrCreateIdentity(EMAIL_AUTH_PROVIDER, normalizedEmail);
+            if (email && this.authConfig.emailAuth?.enabled !== false) {
+                await user.findOrCreateIdentity(EMAIL_AUTH_PROVIDER, email);
             }
-            if (phone && config.phoneAuth?.enabled === true) {
+
+            if (phone && this.authConfig.phoneAuth?.enabled === true) {
                 await user.findOrCreateIdentity(PHONE_AUTH_PROVIDER, phone);
             }
 
@@ -102,14 +123,14 @@ export class UserService {
                 new UserCreatedEvent({
                     user,
                     input: context,
-                    tenantId: tenantId ?? (await this.getFirstTenantIdForUser(user.id)) ?? undefined
+                    tenantId: tenantId
                 })
             );
 
             // Apply user.afterCreate hook if configured
-            if (config.user?.afterCreate) {
+            if (this.authConfig.user?.afterCreate) {
                 this.debugLogger.debug('Applying user.afterCreate hook', 'UserService', { userId: user.id });
-                await config.user.afterCreate(user, context);
+                await this.authConfig.user.afterCreate?.(user, context);
             }
 
             this.debugLogger.logFunctionExit('createUser', 'UserService', { userId: user.id });
@@ -146,75 +167,91 @@ export class UserService {
     async getUserByEmail(email: string, tenantId?: string, options?: FindOneOptions<NestAuthUser>): Promise<NestAuthUser> {
         this.debugLogger.debug('Getting user by email', 'UserService', { email: !!email, tenantId });
 
-        const resolvedTenantId = await this.tenantService.resolveTenantId(tenantId || null);
-        if (!email) {
+        const emailNorm = normalizedEmail(email);
+        if (!emailNorm) {
             this.debugLogger.warn('No email provided for user lookup', 'UserService');
             return null;
         }
 
-        const normalizedEmail = email.toLowerCase().trim();
+        if (this.authConfig.tenantMode === TenantModeEnum.ISOLATED) {
+            if (!tenantId) {
+                this.debugLogger.warn('No tenant ID provided for user lookup', 'UserService');
+                throw new BadRequestException('Tenant ID is required for isolated tenant mode');
+            }
 
-        if (resolvedTenantId) {
             // Find user by email who has a membership in this tenant
             const user = await this.userRepository
                 .createQueryBuilder('u')
                 .innerJoin('u.tenantMemberships', 'm', 'm.tenantId = :tid AND m.isActive = :active', {
-                    tid: resolvedTenantId,
+                    tid: tenantId,
                     active: true,
                 })
-                .where('u.email = :email', { email: normalizedEmail, tid: resolvedTenantId, active: true })
+                .where('u.email = :email', { email: emailNorm, tid: tenantId, active: true })
                 .getOne();
             if (user) {
-                this.debugLogger.debug('User found by email', 'UserService', { userId: user.id, tenantId: resolvedTenantId });
+                this.debugLogger.debug('User found by email', 'UserService', { userId: user.id, tenantId: tenantId });
             } else {
-                this.debugLogger.debug('No user found with email in tenant', 'UserService', { tenantId: resolvedTenantId });
+                this.debugLogger.debug('No user found with email in tenant', 'UserService', { tenantId: tenantId });
+            }
+            return user;
+        } else {
+            const user = await this.userRepository.findOne({
+                ...(options ? options : {}),
+                relations: ['tenantMemberships', ...(Array.isArray(options?.relations) ? options.relations : [])],
+                where: {
+                    email: emailNorm,
+                    ...(tenantId ? { tenantMemberships: { tenantId: tenantId } } : {}),
+                },
+            });
+            if (user) {
+                this.debugLogger.debug('User found by email', 'UserService', { userId: user.id });
+            } else {
+                this.debugLogger.debug('No user found with email', 'UserService');
             }
             return user;
         }
-
-        // No tenant context: find by email (any user)
-        const user = await this.userRepository.findOne({
-            ...(options ? options : {}),
-            where: { email: normalizedEmail },
-        });
-        if (user) {
-            this.debugLogger.debug('User found by email', 'UserService', { userId: user.id });
-        } else {
-            this.debugLogger.debug('No user found with email', 'UserService');
-        }
-        return user;
     }
 
     async getUserByPhone(phone: string, tenantId?: string, options?: FindOneOptions<NestAuthUser>): Promise<NestAuthUser> {
         this.debugLogger.debug('Getting user by phone', 'UserService', { phone: !!phone, tenantId });
 
-        const resolvedTenantId = await this.tenantService.resolveTenantId(tenantId || null);
-        if (!phone) {
+        const phoneNorm = normalizedPhone(phone);
+        if (!phoneNorm) {
             this.debugLogger.warn('No phone provided for user lookup', 'UserService');
             return null;
         }
 
-        if (resolvedTenantId) {
+        if (this.authConfig.tenantMode === TenantModeEnum.ISOLATED) {
+            if (!tenantId) {
+                this.debugLogger.warn('No tenant ID provided for user lookup', 'UserService');
+                throw new BadRequestException('Tenant ID is required for isolated tenant mode');
+            }
+
             const user = await this.userRepository
                 .createQueryBuilder('u')
                 .innerJoin('u.tenantMemberships', 'm', 'm.tenantId = :tid AND m.isActive = :active', {
-                    tid: resolvedTenantId,
+                    tid: tenantId,
                     active: true,
                 })
-                .where('u.phone = :phone', { phone, tid: resolvedTenantId, active: true })
+                .where('u.phone = :phone', { phone: phoneNorm, tid: tenantId, active: true })
                 .getOne();
             if (user) {
-                this.debugLogger.debug('User found by phone', 'UserService', { userId: user.id, tenantId: resolvedTenantId });
+                this.debugLogger.debug('User found by phone', 'UserService', { userId: user.id, tenantId: tenantId });
             } else {
-                this.debugLogger.debug('No user found with phone in tenant', 'UserService', { tenantId: resolvedTenantId });
+                this.debugLogger.debug('No user found with phone in tenant', 'UserService', { tenantId: tenantId });
             }
             return user;
         }
 
         const user = await this.userRepository.findOne({
             ...(options ? options : {}),
-            where: { phone },
+            relations: ['tenantMemberships', ...(Array.isArray(options?.relations) ? options.relations : [])],
+            where: {
+                phone: phoneNorm,
+                ...(tenantId ? { tenantMemberships: { tenantId: tenantId } } : {}),
+            },
         });
+
         if (user) {
             this.debugLogger.debug('User found by phone', 'UserService', { userId: user.id });
         } else {
@@ -228,19 +265,15 @@ export class UserService {
     }
 
     async getUsersByTenant(tenantId: string, options?: FindManyOptions<NestAuthUser>): Promise<NestAuthUser[]> {
-        const resolvedTenantId = await this.tenantService.resolveTenantId(tenantId || null);
-        if (!resolvedTenantId) {
-            return [];
-        }
-
         const relations = Array.isArray(options?.relations)
             ? Array.from(new Set([...(options?.relations || []), 'tenantMemberships']))
             : options?.relations;
+
         return this.userRepository.find({
             ...(options ? options : {}),
             relations,
             where: {
-                tenantMemberships: { tenantId: resolvedTenantId, isActive: true },
+                tenantMemberships: { tenantId: tenantId, isActive: true },
                 ...(options?.where ? options.where : {}),
             },
         });
@@ -267,42 +300,30 @@ export class UserService {
                 const userWithMemberships = await this.getUserById(id, {
                     relations: ['tenantMemberships'],
                 });
-                const tenantIds = (userWithMemberships?.tenantMemberships ?? [])
-                    .filter((m) => m.isActive)
-                    .map((m) => m.tenantId) ?? [];
+
+                let tenantId = null;
+                if (this.authConfig.tenantMode === TenantModeEnum.ISOLATED) {
+                    tenantId = userWithMemberships?.tenantMemberships[0]?.tenantId;
+                }
 
                 let existingUser: NestAuthUser | null = null;
 
-                if (data.phone) {
-                    if (tenantIds.length) {
-                        existingUser = await this.userRepository
-                            .createQueryBuilder('u')
-                            .innerJoin('u.tenantMemberships', 'm', 'm.isActive = :active', { active: true })
-                            .where('m.tenantId IN (:...tenantIds)', { tenantIds })
-                            .andWhere('u.phone = :phone', { phone: data.phone })
-                            .andWhere('u.id != :id', { id })
-                            .getOne();
-                    } else {
-                        existingUser = await this.userRepository.findOne({
-                            where: { phone: data.phone, id: Not(id) },
-                        });
+                const phone = normalizedPhone(data.phone);
+                const email = normalizedEmail(data.email);
+                if (data.email != null) data.email = email;
+                if (data.phone != null) data.phone = phone;
+
+                if (phone != null) {
+                    const userByPhone = await this.getUserByPhone(phone, tenantId, { select: ['id'] });
+                    if (userByPhone && userByPhone.id !== id) {
+                        existingUser = userByPhone;
                     }
                 }
 
-                if (!existingUser && data.email) {
-                    const normalizedEmail = data.email.toLowerCase().trim();
-                    if (tenantIds.length) {
-                        existingUser = await this.userRepository
-                            .createQueryBuilder('u')
-                            .innerJoin('u.tenantMemberships', 'm', 'm.isActive = :active', { active: true })
-                            .where('m.tenantId IN (:...tenantIds)', { tenantIds })
-                            .andWhere('u.email = :email', { email: normalizedEmail })
-                            .andWhere('u.id != :id', { id })
-                            .getOne();
-                    } else {
-                        existingUser = await this.userRepository.findOne({
-                            where: { email: normalizedEmail, id: Not(id) },
-                        });
+                if (!existingUser && email != null) {
+                    const userByEmail = await this.getUserByEmail(email, tenantId, { select: ['id'] });
+                    if (userByEmail && userByEmail.id !== id) {
+                        existingUser = userByEmail;
                     }
                 }
 
@@ -315,22 +336,18 @@ export class UserService {
                 }
             }
 
-            // Prevent changing tenant
-            delete data.tenantId;
 
             this.debugLogger.debug('Updating user data', 'UserService', { userId: id, fields: Object.keys(data) });
             Object.assign(user, data);
             const updatedUser = await this.userRepository.save(user);
             this.debugLogger.info('User updated successfully', 'UserService', { userId: updatedUser.id });
 
-            const config = this.authConfigService.getConfig();
-
-            if (data.email && config.emailAuth?.enabled !== false) {
+            if (data.email && this.authConfig.emailAuth?.enabled !== false) {
                 this.debugLogger.debug('Updating email identity', 'UserService', { userId: id });
                 await user.updateOrCreateIdentity(EMAIL_AUTH_PROVIDER, { providerId: data.email });
             }
 
-            if (data.phone && config.phoneAuth?.enabled === true) {
+            if (data.phone && this.authConfig.phoneAuth?.enabled === true) {
                 this.debugLogger.debug('Updating phone identity', 'UserService', { userId: id });
                 await user.updateOrCreateIdentity(PHONE_AUTH_PROVIDER, { providerId: data.phone });
             }
@@ -341,7 +358,6 @@ export class UserService {
                 NestAuthEvents.USER_UPDATED,
                 new UserUpdatedEvent({
                     user: updatedUser,
-                    tenantId: (await this.getFirstTenantIdForUser(updatedUser.id)) ?? undefined,
                     updatedFields: Object.keys(data)
                 })
             );
@@ -358,12 +374,12 @@ export class UserService {
     async ensureTenantMembership(
         userId: string,
         tenantId: string,
-    ): Promise<NestAuthTenantUser> {
+    ): Promise<NestAuthTenantMembership> {
         if (!userId || !tenantId) {
             return null;
         }
 
-        const existing = await this.tenantUserRepository.findOne({
+        const existing = await this.tenantMembershipRepository.findOne({
             where: { userId, tenantId }
         });
 
@@ -371,41 +387,41 @@ export class UserService {
             return existing;
         }
 
-        const membership = this.tenantUserRepository.create({
+        const membership = this.tenantMembershipRepository.create({
             userId,
             tenantId,
         });
-        return await this.tenantUserRepository.save(membership);
+        return await this.tenantMembershipRepository.save(membership);
     }
 
     async isUserInTenant(userId: string, tenantId: string): Promise<boolean> {
         if (!userId || !tenantId) {
             return false;
         }
-        const membership = await this.tenantUserRepository.findOne({
-            where: { userId, tenantId, isActive: true }
-        });
+        const membership = await this.userRepository.createQueryBuilder('u')
+            .innerJoin('u.tenantMemberships', 'm', 'm.tenantId = :tenantId', {
+                tenantId,
+            })
+            .where('u.id = :userId', { userId })
+            .select('m.id')
+            .getRawOne();
         return !!membership;
     }
 
     /**
      * Set roles for a tenant membership by role IDs (per-tenant roles).
      */
-    async setTenantUserRoles(
+    async setTenantMembershipRoles(
         userId: string,
         tenantId: string,
         roleIds: string[]
-    ): Promise<NestAuthTenantUser> {
-        const resolvedTenantId = await this.tenantService.resolveTenantId(tenantId);
-        if (!resolvedTenantId) {
-            throw new BadRequestException('Invalid tenant');
-        }
-        let membership = await this.tenantUserRepository.findOne({
-            where: { userId, tenantId: resolvedTenantId },
+    ): Promise<NestAuthTenantMembership> {
+        let membership = await this.tenantMembershipRepository.findOne({
+            where: { userId, tenantId: tenantId },
             relations: ['roles'],
         });
         if (!membership) {
-            membership = await this.ensureTenantMembership(userId, resolvedTenantId);
+            membership = await this.ensureTenantMembership(userId, tenantId);
         }
         if (!roleIds?.length) {
             membership.roles = [];
@@ -413,14 +429,14 @@ export class UserService {
             const roleEntities = await NestAuthRole.find({ where: { id: In(roleIds) } });
             membership.roles = roleEntities;
         }
-        return this.tenantUserRepository.save(membership);
+        return this.tenantMembershipRepository.save(membership);
     }
 
     async getUserTenants(userId: string): Promise<NestAuthTenant[]> {
         if (!userId) {
             return [];
         }
-        const memberships = await this.tenantUserRepository.find({
+        const memberships = await this.tenantMembershipRepository.find({
             where: { userId, isActive: true },
             relations: ['tenant']
         });
@@ -429,16 +445,21 @@ export class UserService {
             .filter(Boolean);
     }
 
-    private getTenantMode(): TenantModeEnum {
-        return this.authConfigService.getConfig().tenantMode || TenantModeEnum.ISOLATED;
-    }
-
-    /** Get first active tenant id for user (from tenantMemberships). */
-    private async getFirstTenantIdForUser(userId: string): Promise<string | null> {
-        const m = await this.tenantUserRepository.findOne({
-            where: { userId, isActive: true },
+    /**
+     * Remove a user's membership in a tenant. The user record is not deleted; only the
+     * tenant membership is removed so the user no longer belongs to that tenant.
+     */
+    async deleteTenantMembership(userId: string, tenantId: string): Promise<void> {
+        if (!userId || !tenantId) {
+            return;
+        }
+        const membership = await this.tenantMembershipRepository.findOne({
+            where: { userId, tenantId },
         });
-        return m?.tenantId ?? null;
+        if (membership) {
+            await this.tenantMembershipRepository.remove(membership);
+            this.debugLogger.debug('Tenant membership deleted', 'UserService', { userId, tenantId });
+        }
     }
 
     async deleteUser(id: string): Promise<void> {
@@ -461,7 +482,6 @@ export class UserService {
                 NestAuthEvents.USER_DELETED,
                 new UserDeletedEvent({
                     user,
-                    tenantId: (await this.getFirstTenantIdForUser(user.id)) ?? undefined
                 })
             );
 
@@ -586,15 +606,22 @@ export class UserService {
         return this.userRepository.findAndCount(options);
     }
 
-    async getUsersByRole(roleName: string, guard: string): Promise<NestAuthUser[]> {
+    async getUsersByRole(roleName: string, guard: string, tenantId?: string): Promise<NestAuthUser[]> {
         this.debugLogger.debug('Getting users by role', 'UserService', { roleName, guard });
 
-        const users = await this.userRepository
+        const usersQuery = this.userRepository
             .createQueryBuilder('user')
-            .leftJoinAndSelect('user.roles', 'role')
-            .where('role.name = :roleName', { roleName })
-            .andWhere('role.guard = :guard', { guard })
-            .getMany();
+            .innerJoin('user.tenantMemberships', 'm')
+            .innerJoin('m.roles', 'role', 'role.name = :roleName AND role.guard = :guard', {
+                roleName,
+                guard,
+            })
+
+        if (tenantId) {
+            usersQuery.andWhere('m.tenantId = :tenantId', { tenantId });
+        }
+
+        const users = await usersQuery.getMany();
 
         this.debugLogger.debug('Found users with role', 'UserService', { roleName, count: users.length });
         return users;
