@@ -220,12 +220,6 @@ export interface AuthClientConfig {
     logger?: Logger;
 
     /**
-     * Tenant ID for multi-tenant applications
-     * Can be a static string or a function that returns the tenant ID
-     */
-    tenantId?: string | (() => string | undefined);
-
-    /**
      * Whether to automatically refresh tokens before they expire
      * Default: true
      */

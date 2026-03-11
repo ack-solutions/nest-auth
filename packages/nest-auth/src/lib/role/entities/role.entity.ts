@@ -3,7 +3,7 @@ import { DEFAULT_GUARD_NAME } from "../../auth.constants";
 import { NestAuthTenant } from "../../tenant/entities/tenant.entity";
 import { BadRequestException, ConflictException } from "@nestjs/common";
 import { NestAuthUser } from "../../user/entities/user.entity";
-import { NestAuthTenantMembership } from "../../tenant/entities/tenant-membership.entity";
+import { NestAuthUserAccess } from "../../tenant/entities/user-access.entity";
 import { isUniqueConstraintViolation } from "../../utils";
 
 @Entity('nest_auth_roles')
@@ -45,7 +45,7 @@ export class NestAuthRole extends BaseEntity {
     updatedAt: Date;
 
     /**
-     * @deprecated Use 'tenantMemberships' instead. Will be removed in v2.0.0
+     * @deprecated Use 'userAccesses' instead. Will be removed in v2.0.0
      */
     @ManyToMany(() => NestAuthUser, user => user.roles, { onDelete: 'CASCADE' })
     @JoinTable({
@@ -61,8 +61,8 @@ export class NestAuthRole extends BaseEntity {
     })
     users: NestAuthUser[];
 
-    @ManyToMany(() => NestAuthTenantMembership, membership => membership.roles, { onDelete: 'CASCADE' })
-    tenantMemberships: NestAuthTenantMembership[];
+    @ManyToMany(() => NestAuthUserAccess, access => access.roles, { onDelete: 'CASCADE' })
+    userAccesses: NestAuthUserAccess[];
 
     static async createRole(
         name: string,

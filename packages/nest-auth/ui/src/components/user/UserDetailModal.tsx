@@ -303,23 +303,24 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({ user: initialU
                                                         </Button>
                                                     </div>
                                                 </div>
-                                                {currentUser.tenantMemberships?.length ? (
+                                                {currentUser.userAccesses?.length ? (
                                                     <div className="space-y-3 mt-1">
-                                                        {currentUser.tenantMemberships.map((membership) => {
-                                                            const tenant = membership.tenant;
-                                                            const roles = membership.roles ?? [];
+                                                        {currentUser.userAccesses.map((access) => {
+                                                            const tenant = access.tenant;
+                                                            const roleList = access.roles ?? [];
+                                                            const roleNames = roleList.map((r: any) => (typeof r === 'string' ? r : r.name));
                                                             return (
-                                                                <div key={membership.tenantId} className="rounded-lg border border-gray-200 bg-gray-50/50 p-2">
+                                                                <div key={access.tenantId} className="rounded-lg border border-gray-200 bg-gray-50/50 p-2">
                                                                     <div className="mb-1.5">
                                                                         <span className="text-xs font-medium text-gray-900">
-                                                                            {tenant?.name || tenant?.slug || membership.tenantId}
+                                                                            {tenant?.name || tenant?.slug || access.tenantId}
                                                                         </span>
                                                                     </div>
-                                                                    {roles.length > 0 ? (
+                                                                    {roleNames.length > 0 ? (
                                                                         <div className="flex flex-wrap gap-1">
-                                                                            {roles.map((role) => (
-                                                                                <span key={role} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-50 text-primary-700 border border-primary-200">
-                                                                                    {role}
+                                                                            {roleNames.map((name) => (
+                                                                                <span key={name} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-50 text-primary-700 border border-primary-200">
+                                                                                    {name}
                                                                                 </span>
                                                                             ))}
                                                                         </div>

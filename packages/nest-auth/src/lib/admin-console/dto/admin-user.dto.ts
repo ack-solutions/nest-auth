@@ -2,17 +2,21 @@ import {
   IsArray,
   IsBoolean,
   IsEmail,
+  IsNotEmpty,
+  IsObject,
   IsOptional,
   IsString,
   Matches,
   MinLength,
   ValidateNested,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
 /** Roles to set for one tenant (used in bulk update). */
 export class AdminTenantRolesDto {
   @IsString()
+  @IsNotEmpty()
   tenantId: string;
 
   @IsArray()
@@ -55,9 +59,17 @@ export class AdminCreateUserDto {
   isVerified?: boolean;
 
   @IsOptional()
+  @IsObject()
   metadata?: Record<string, any>;
 
-  /** Role IDs for the first tenant (when creating user). */
+  /** Per-tenant role assignments on create. When provided, applied to each entry; roleIds is ignored. */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AdminTenantRolesDto)
+  tenantRoles?: AdminTenantRolesDto[];
+
+  /** When tenantRoles is not provided, apply these role IDs to every assigned tenant. */
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -96,7 +108,7 @@ export class AdminUpdateUserDto {
   tenantIds?: string[];
 
   @IsOptional()
-  @IsString()
+  @IsObject()
   metadata?: Record<string, any>;
 
   @IsOptional()
@@ -118,7 +130,9 @@ export class AdminUpdateUserDto {
   roleIds?: string[];
 
   /** Tenant to apply roleIds to. Required when roleIds is provided. */
+  @ValidateIf((o) => o.roleIds?.length > 0)
   @IsOptional()
+  @IsNotEmpty()
   @IsString()
   tenantId?: string;
 

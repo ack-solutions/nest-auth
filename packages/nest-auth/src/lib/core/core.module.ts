@@ -11,7 +11,6 @@ import { GitHubAuthProvider } from './providers/github-auth.provider';
 import { PhoneAuthProvider } from './providers/phone-auth.provider';
 import { JwtService } from './services/jwt.service';
 import { AuthConfigService } from './services/auth-config.service';
-import { InitializationService } from './services/initialization.service';
 import { DebugLoggerService } from './services/debug-logger.service';
 import { TenantModule } from '../tenant/tenant.module';
 import { NestAuthUser } from '../user/entities/user.entity';
@@ -39,7 +38,6 @@ import { NestAuthIdentity } from '../user/entities/identity.entity';
         FacebookAuthProvider,
         AppleAuthProvider,
         GitHubAuthProvider,
-        InitializationService,
     ],
     exports: [
         Reflector,
@@ -47,7 +45,6 @@ import { NestAuthIdentity } from '../user/entities/identity.entity';
         AuthProviderRegistryService,
         AuthConfigService,
         DebugLoggerService,
-        InitializationService,
     ],
 })
 export class CoreModule { }

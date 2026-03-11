@@ -323,7 +323,7 @@ export class SessionManagerService {
             isMfaVerified,
             roles,
             permissions,
-            tenantId: activeTenantId || undefined,
+            tenantId: activeTenantId ?? undefined,
         };
 
         // Apply custom session data hook if configured

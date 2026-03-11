@@ -3,58 +3,64 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TenantService } from '../../tenant/services/tenant.service';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import { NestAuthTenantMembership } from '../../tenant/entities/tenant-membership.entity';
+import { NestAuthUserAccess } from '../../tenant/entities/user-access.entity';
 import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
 
 /**
- * Admin-only service for managing app users' tenant memberships.
- * Same database structure for isolated and shared: always use nest_auth_tenant_memberships.
+ * Admin-only service for managing user access (tenant + roles).
+ * Uses nest_auth_user_accesses.
  * - ISOLATED: one tenant per user (sync only first tenant).
  * - SHARED: multiple tenants per user.
  */
 @Injectable()
 export class AdminUserManagementService {
   constructor(
-    @InjectRepository(NestAuthTenantMembership)
-    private readonly tenantMembershipRepository: Repository<NestAuthTenantMembership>,
+    @InjectRepository(NestAuthUserAccess)
+    private readonly userAccessRepository: Repository<NestAuthUserAccess>,
     private readonly tenantService: TenantService,
     private readonly authConfigService: AuthConfigService,
-  ) {}
+  ) { }
 
   private getTenantMode(): TenantModeEnum {
-    return this.authConfigService.getConfig().tenantMode ?? TenantModeEnum.ISOLATED;
+    const config = this.authConfigService.getConfig();
+    const mode = config.tenant?.mode;
+    return mode === TenantModeEnum.SHARED ? TenantModeEnum.SHARED : TenantModeEnum.ISOLATED;
   }
 
-  private async ensureTenantMembership(
+  private async ensureUserAccess(
     userId: string,
     tenantId: string,
-  ): Promise<NestAuthTenantMembership> {
+  ): Promise<NestAuthUserAccess | null> {
     if (!userId || !tenantId) {
       return null;
     }
-    const existing = await this.tenantMembershipRepository.findOne({
+    const existing = await this.userAccessRepository.findOne({
       where: { userId, tenantId },
     });
+
     if (existing) {
+      if (!existing.isActive) {
+        existing.isActive = true;
+        await this.userAccessRepository.save(existing);
+      }
       return existing;
     }
-    const membership = this.tenantMembershipRepository.create({
+    const access = this.userAccessRepository.create({
       userId,
       tenantId,
     });
-    return await this.tenantMembershipRepository.save(membership);
+    return await this.userAccessRepository.save(access);
   }
 
   /**
-   * Sync a user's tenant memberships to the given list of tenant IDs (admin only).
-   * Same table structure for both modes: always uses nest_auth_tenant_memberships.
-   * - ISOLATED: only first tenant is synced (one membership).
-   * - SHARED: all resolved tenant IDs are synced (multiple memberships).
+   * Sync a user's accesses to the given list of tenant IDs (admin only).
+   * - ISOLATED: only first tenant is synced.
+   * - SHARED: all resolved tenant IDs are synced.
    */
-  async syncTenantMemberships(
+  async syncUserAccesses(
     userId: string,
     tenantIds: string[],
-  ): Promise<NestAuthTenantMembership[]> {
+  ): Promise<NestAuthUserAccess[]> {
     if (!userId) {
       return [];
     }
@@ -62,18 +68,17 @@ export class AdminUserManagementService {
     const tenantMode = this.getTenantMode();
 
     if (tenantMode === TenantModeEnum.ISOLATED) {
-      // One tenant per user: sync only the first, deactivate any others
       if (tenantIds?.length) {
         const resolvedTenantId = await this.tenantService.resolveTenantId(tenantIds[0]);
         if (resolvedTenantId) {
-          const existing = await this.tenantMembershipRepository.find({ where: { userId } });
-          const toDeactivate = existing.filter((m) => m.tenantId !== resolvedTenantId && m.isActive);
+          const existing = await this.userAccessRepository.find({ where: { userId } });
+          const toDeactivate = existing.filter((a) => a.tenantId !== resolvedTenantId && a.isActive);
           if (toDeactivate.length) {
-            toDeactivate.forEach((m) => { m.isActive = false; });
-            await this.tenantMembershipRepository.save(toDeactivate);
+            toDeactivate.forEach((a) => { a.isActive = false; });
+            await this.userAccessRepository.save(toDeactivate);
           }
-          await this.ensureTenantMembership(userId, resolvedTenantId);
-          return this.tenantMembershipRepository.find({
+          await this.ensureUserAccess(userId, resolvedTenantId);
+          return this.userAccessRepository.find({
             where: { userId, isActive: true },
             relations: ['tenant'],
           });
@@ -82,7 +87,6 @@ export class AdminUserManagementService {
       return [];
     }
 
-    // SHARED: multiple tenants per user
     const resolvedTenantIds = (
       await Promise.all(
         (tenantIds || [])
@@ -93,36 +97,37 @@ export class AdminUserManagementService {
     ).filter(Boolean);
 
     if (resolvedTenantIds.length === 0) {
-      const existingMemberships = await this.tenantMembershipRepository.find({ where: { userId } });
-      const updates = existingMemberships
-        .filter((m) => m.isActive)
-        .map((m) => {
-          m.isActive = false;
-          return m;
+      const existingList = await this.userAccessRepository.find({ where: { userId } });
+      const updates = existingList
+        .filter((a) => a.isActive)
+        .map((a) => {
+          a.isActive = false;
+          return a;
         });
       if (updates.length) {
-        await this.tenantMembershipRepository.save(updates);
+        await this.userAccessRepository.save(updates);
       }
       return [];
     }
 
-    const existingMemberships = await this.tenantMembershipRepository.find({ where: { userId } });
-    const membershipByTenant = new Map(existingMemberships.map((m) => [m.tenantId, m]));
+    const existingList = await this.userAccessRepository.find({ where: { userId } });
+    const accessByTenant = new Map(existingList.map((a) => [a.tenantId, a]));
+    const tenantIdSet = new Set(resolvedTenantIds);
 
-    const updates: NestAuthTenantMembership[] = [];
+    const updates: NestAuthUserAccess[] = [];
 
-    for (const membership of existingMemberships) {
-      const shouldBeActive = resolvedTenantIds.includes(membership.tenantId);
-      if (membership.isActive !== shouldBeActive) {
-        membership.isActive = shouldBeActive;
-        updates.push(membership);
+    for (const access of existingList) {
+      const shouldBeActive = tenantIdSet.has(access.tenantId);
+      if (access.isActive !== shouldBeActive) {
+        access.isActive = shouldBeActive;
+        updates.push(access);
       }
     }
 
     for (const tenantId of resolvedTenantIds) {
-      if (!membershipByTenant.has(tenantId)) {
+      if (!accessByTenant.has(tenantId)) {
         updates.push(
-          this.tenantMembershipRepository.create({
+          this.userAccessRepository.create({
             userId,
             tenantId,
             isActive: true,
@@ -132,10 +137,10 @@ export class AdminUserManagementService {
     }
 
     if (updates.length) {
-      await this.tenantMembershipRepository.save(updates);
+      await this.userAccessRepository.save(updates);
     }
 
-    return this.tenantMembershipRepository.find({
+    return this.userAccessRepository.find({
       where: { userId, isActive: true },
       relations: ['tenant'],
     });

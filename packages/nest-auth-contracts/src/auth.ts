@@ -3,6 +3,8 @@
  * Contains: Login/Signup/Token types + Auth Entities (Session, Identity, AccessKey, OTP)
  */
 
+import type { INestAuthTenant, INestAuthUserAccess } from './tenant';
+
 // OTP Type Enum
 export enum NestAuthOTPTypeEnum {
     PASSWORD_RESET = 'password_reset',
@@ -123,8 +125,7 @@ export interface IAuthUser {
     roles?: string[];
     permissions?: string[];
     metadata?: Record<string, any>;
-    tenantId?: string;
-    tenants?: import('./tenant').INestAuthTenant[];
+    userAccesses?: INestAuthUserAccess[];
 }
 
 export interface IAuthResponse extends ITokenPair {
@@ -166,7 +167,7 @@ export interface IUserResponse {
     permissions?: string[];
     metadata?: Record<string, any>;
     tenantId?: string;
-    tenants?: import('./tenant').INestAuthTenant[];
+    tenants?: INestAuthTenant[];
 }
 
 export interface ITokensResponse {

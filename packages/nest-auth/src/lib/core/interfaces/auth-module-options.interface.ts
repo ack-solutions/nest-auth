@@ -6,7 +6,7 @@ import { DebugLogOptions } from '../services/debug-logger.service';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { SessionPayload, JWTTokenPayload } from './token-payload.interface';
 import { NestAuthSignupRequestDto } from 'src/lib/auth';
-import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
+import { INestAuthTenantOptions, TenantModeEnum } from '@ackplus/nest-auth-contracts';
 
 /**
  * Default Tenant Options
@@ -130,7 +130,7 @@ export interface IRegistrationHooks {
      * })
      * ```
      */
-    beforeSignup?: (input: NestAuthSignupRequestDto, context: { request: any }) => Promise<any> | any;
+    beforeSignup?: (input: NestAuthSignupRequestDto, context: { request: any }) => Promise<NestAuthSignupRequestDto> | NestAuthSignupRequestDto;
     /**
      * Called after user is created but BEFORE session is created.
      * Use this to assign roles, create related records, etc.
@@ -341,35 +341,27 @@ export interface IAuthModuleOptions {
     customAuthProviders?: BaseAuthProvider[];
     passwordResetOtpExpiresIn?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
     passwordResetTokenExpiresIn?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
-    
+
     /**
-     * Tenant mode:
-     * - 'single' (default): one tenant per user (legacy behavior)
-     * - 'multi': users can belong to multiple tenants and switch active tenant per session
-     */
-    tenantMode?: TenantModeEnum;
-    /**
-     * Configure a default tenant for single-tenant applications.
-     * When set, tenantId becomes optional in all authentication requests.
-     * The default tenant is automatically created on module initialization.
+     * Tenant support configuration.
+     * When tenant.enabled is false, auth works without tenant checks.
+     * When tenant.enabled is true, multi-tenant is on and tenant is required; mode is ISOLATED or SHARED.
      *
      * Example:
      * ```typescript
-     * defaultTenant: {
-     *   name: 'My App',
-     *   slug: 'my-app'  // lowercase, no spaces, only a-z0-9_-
+     * tenant: {
+     *   enabled: true,
+     *   mode: TenantModeEnum.ISOLATED,  // or SHARED
      * }
      * ```
      *
-     * Legacy (deprecated):
-     * ```typescript
-     * defaultTenant: {
-     *   name: 'My App',
-     *   domain: 'myapp'  // Still supported but use 'slug' instead
-     * }
-     * ```
+     * Legacy: tenantMode at root is still supported and maps to tenant options.
      */
-    defaultTenant?: IDefaultTenantOptions;
+    tenant?: INestAuthTenantOptions;
+    /**
+     * @deprecated Use tenant.mode instead.
+     */
+    tenantMode?: TenantModeEnum;
     /**
      * Embedded admin console configuration.
      * Provides a password-protected dashboard for managing users, roles, tenants, and system settings.
@@ -384,7 +376,7 @@ export interface IAuthModuleOptions {
     // ============================================
 
     /**
-     * User lifecycle hooks
+     * User lifecycle hooks 
      * Customize user creation, validation, and serialization
      */
     user?: IUserHooks;

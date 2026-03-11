@@ -13,7 +13,7 @@ export interface User {
     id: string;
     email: string;
     phone?: string;
-    tenantMemberships?: TenantMembership[];
+    userAccesses?: UserAccess[];
     isActive: boolean;
     isVerified: boolean;
     metadata: Record<string, any>;
@@ -24,15 +24,21 @@ export interface User {
     isMfaEnabled?: boolean;
 }
 
-export interface TenantMembership {
+export interface UserAccess {
     id: string;
     tenantId: string;
     tenant?: Tenant;
-    roles: string[];
-    roleIds: string[];
+    roles?: Role[];
+    roleIds?: string[];
+    isActive: boolean;
+    isDefault?: boolean;
+    status?: string;
     createdAt: string;
     updatedAt: string;
 }
+
+/** @deprecated Use UserAccess instead */
+export type TenantMembership = UserAccess;
 
 export interface TotpDevice {
     id: string;

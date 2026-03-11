@@ -181,7 +181,7 @@ export function AuthProvider({
         setUser(client.getUser());
         setSession(client.getSession());
         setStatus('authenticated');
-    }, [onTokensSet]);
+    }, []);
 
     // Actions
     const login = useCallback(async (dto: ILoginRequest) => {
@@ -194,7 +194,7 @@ export function AuthProvider({
             setError(err as AuthError);
             throw err;
         }
-    }, [client]);
+    }, [client, updatedSession]);
 
     const signup = useCallback(async (dto: ISignupRequest) => {
         setError(null);
@@ -206,7 +206,7 @@ export function AuthProvider({
             setError(err as AuthError);
             throw err;
         }
-    }, [client]);
+    }, [client, updatedSession]);
 
     const logout = useCallback(async () => {
         setError(null);
@@ -265,7 +265,7 @@ export function AuthProvider({
             setError(err as AuthError);
             throw err;
         }
-    }, [client]);
+    }, [client, updatedSession]);
 
     const verify2fa = useCallback(async (dto: IVerify2faRequest) => {
         setError(null);
@@ -277,7 +277,7 @@ export function AuthProvider({
             setError(err as AuthError);
             throw err;
         }
-    }, [client]);
+    }, [client, updatedSession]);
 
     const switchTenant = useCallback(async (dto: ISwitchTenantRequest) => {
         setError(null);
@@ -289,7 +289,7 @@ export function AuthProvider({
             setError(err as AuthError);
             throw err;
         }
-    }, [client]);
+    }, [client, updatedSession]);
 
     // Password Management
     const forgotPassword = useCallback(async (dto: IForgotPasswordRequest) => {

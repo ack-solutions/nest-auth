@@ -1,5 +1,4 @@
 import { Module, DynamicModule, MiddlewareConsumer, Provider } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
 import { IAuthModuleAsyncOptions, IAuthModuleOptions, IAuthModuleOptionsFactory } from './core/interfaces/auth-module-options.interface';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { RequestContextMiddleware } from './request-context/request-context.middleware';

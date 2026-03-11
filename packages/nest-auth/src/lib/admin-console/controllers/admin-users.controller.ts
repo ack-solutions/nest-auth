@@ -26,7 +26,7 @@ import { MfaService } from '../../auth/services/mfa.service';
 import { SessionManagerService } from '../../session/services/session-manager.service';
 import { NestAuthSession } from '../../session/entities/session.entity';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import { NestAuthTenantMembership } from 'src/lib/core';
+import { NestAuthUserAccess } from '../../tenant/entities/user-access.entity';
 import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
 
 @Controller('auth/admin/api/users')
@@ -41,6 +41,8 @@ export class AdminUsersController {
     private readonly sessionManager: SessionManagerService,
     @InjectRepository(NestAuthMFASecret)
     private readonly mfaSecretRepository: Repository<NestAuthMFASecret>,
+    @InjectRepository(NestAuthUserAccess)
+    private readonly userAccessRepository: Repository<NestAuthUserAccess>,
   ) { }
 
   private async ensureUserExists(id: string): Promise<NestAuthUser> {
@@ -83,15 +85,22 @@ export class AdminUsersController {
     return value.replace(/[%_\\]/g, '\\$&');
   }
 
-  private getTenantMode(): TenantModeEnum {
-    return this.authConfigService.getConfig().tenantMode || TenantModeEnum.ISOLATED;
-  }
 
   private async resolveTenantIds(tenantIds: string[] = []): Promise<string[]> {
+    if (!tenantIds.length) {
+      return [];
+    }
     const resolved = await Promise.all(
       tenantIds.map((id) => this.tenantService.resolveTenantId(id))
     );
-    return Array.from(new Set(resolved.filter(Boolean)));
+    const resolvedSet = Array.from(new Set(resolved.filter(Boolean))) as string[];
+    const unresolved = tenantIds.filter((id, i) => !resolved[i]);
+    if (unresolved.length > 0) {
+      throw new BadRequestException(
+        `Invalid or unresolved tenant ID(s): ${unresolved.join(', ')}`
+      );
+    }
+    return resolvedSet;
   }
 
   @Get()
@@ -127,9 +136,9 @@ export class AdminUsersController {
       ...this.buildStatusFilter(status),
     };
 
-    // Add tenant filter if provided (same table structure for isolated and shared: filter by tenantMemberships)
+    // Add tenant filter if provided (same table structure for isolated and shared: filter by userAccesses)
     if (tenantId && tenantId.trim()) {
-      baseFilter.tenantMemberships = { tenantId: tenantId.trim() };
+      baseFilter.userAccesses = { tenantId: tenantId.trim() };
     }
 
     // Add role filter if provided
@@ -157,7 +166,7 @@ export class AdminUsersController {
     // Get users and total count in a single query
     const [users, total] = await this.users.getUsersAndCount({
       where,
-      relations: ['tenantMemberships', 'tenantMemberships.tenant', 'tenantMemberships.roles'],
+      relations: ['userAccesses', 'userAccesses.tenant', 'userAccesses.roles'],
       order: { createdAt: 'DESC' },
       skip,
       take: limitNum,
@@ -178,10 +187,10 @@ export class AdminUsersController {
 
   @Post()
   async createUser(@Body() dto: AdminCreateUserDto) {
-    const resolvedTenantIds = await this.resolveTenantIds(
-      dto.tenantIds?.length ? dto.tenantIds : (dto.tenantId ? [dto.tenantId] : [])
-    );
-    const firstTenantId = resolvedTenantIds[0] || null;
+    const fromTenantIds = dto.tenantIds?.length ? dto.tenantIds : (dto.tenantId ? [dto.tenantId] : []);
+    const fromTenantRoles = (dto.tenantRoles ?? []).map((tr) => tr.tenantId).filter(Boolean);
+    const allTenantIds = Array.from(new Set([...fromTenantIds, ...fromTenantRoles]));
+    const resolvedTenantIds = await this.resolveTenantIds(allTenantIds);
 
     const user = await this.users.createUser({
       email: dto.email,
@@ -196,11 +205,20 @@ export class AdminUsersController {
       await user.save();
     }
 
-    // Assign tenants only when tenant array is passed; otherwise admin can assign later via edit
     if (resolvedTenantIds.length > 0) {
-      await this.adminUserManagement.syncTenantMemberships(user.id, resolvedTenantIds);
-      if (firstTenantId && dto.roleIds?.length) {
-        await this.users.setTenantMembershipRoles(user.id, firstTenantId, dto.roleIds);
+            await this.adminUserManagement.syncUserAccesses(user.id, resolvedTenantIds);
+
+      if (dto.tenantRoles?.length) {
+        for (const tr of dto.tenantRoles) {
+          const resolvedTenantId = await this.tenantService.resolveTenantId(tr.tenantId);
+          if (resolvedTenantId) {
+            await this.users.setUserAccessRoles(user.id, resolvedTenantId, tr.roleIds ?? []);
+          }
+        }
+      } else if (dto.roleIds?.length) {
+        for (const tenantId of resolvedTenantIds) {
+          await this.users.setUserAccessRoles(user.id, tenantId, dto.roleIds);
+        }
       }
     }
 
@@ -211,7 +229,7 @@ export class AdminUsersController {
   @Get(':id')
   async getUser(@Param('id') id: string) {
     const user = await this.users.getUserById(id, {
-      relations: ['mfaSecrets', 'identities', 'tenantMemberships', 'tenantMemberships.tenant', 'tenantMemberships.roles']
+      relations: ['mfaSecrets', 'identities', 'userAccesses', 'userAccesses.tenant', 'userAccesses.roles']
     });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -260,7 +278,7 @@ export class AdminUsersController {
 
   @Patch(':id')
   async updateUser(@Param('id') id: string, @Body() dto: AdminUpdateUserDto) {
-    let user = await this.users.getUserById(id, { relations: ['identities', 'tenantMemberships', 'tenantMemberships.tenant', 'tenantMemberships.roles'] });
+    let user = await this.users.getUserById(id, { relations: ['identities', 'userAccesses', 'userAccesses.tenant', 'userAccesses.roles'] });
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -356,7 +374,7 @@ export class AdminUsersController {
 
     if (dto.tenantIds) {
       const resolvedTenantIds = await this.resolveTenantIds(dto.tenantIds);
-      await this.adminUserManagement.syncTenantMemberships(user.id, resolvedTenantIds);
+            await this.adminUserManagement.syncUserAccesses(user.id, resolvedTenantIds);
     }
 
     if (dto.roleIds?.length) {
@@ -364,13 +382,20 @@ export class AdminUsersController {
         throw new BadRequestException('tenantId is required when updating roleIds');
       }
       const roleTenantId = await this.tenantService.resolveTenantId(dto.tenantId);
-      await this.users.setTenantMembershipRoles(user.id, roleTenantId, dto.roleIds);
+      await this.users.setUserAccessRoles(user.id, roleTenantId, dto.roleIds);
     }
 
     if (dto.tenantRoles?.length) {
       for (const tr of dto.tenantRoles) {
+        if (!tr?.tenantId || typeof tr.tenantId !== 'string' || !tr.tenantId.trim()) {
+          throw new BadRequestException('Each tenantRoles entry must have a non-empty tenantId');
+        }
+        const roleIds = Array.isArray(tr.roleIds) ? tr.roleIds : [];
         const resolvedTenantId = await this.tenantService.resolveTenantId(tr.tenantId);
-        await this.users.setTenantMembershipRoles(user.id, resolvedTenantId, tr.roleIds ?? []);
+        if (!resolvedTenantId) {
+          throw new BadRequestException(`Invalid or unresolved tenantId: ${tr.tenantId}`);
+        }
+        await this.users.setUserAccessRoles(user.id, resolvedTenantId, roleIds);
       }
     }
 
@@ -381,6 +406,9 @@ export class AdminUsersController {
 
     // Save all changes
     await user.save();
+
+    // Reload memberships so toSafeUser returns current state
+    (user as { userAccesses?: unknown }).userAccesses = undefined;
 
     const safeUser = await this.toSafeUser(user);
     return { user: safeUser };
@@ -455,20 +483,21 @@ export class AdminUsersController {
       return null;
     }
 
-    if (!user.tenantMemberships?.length) {
-      user.tenantMemberships = await NestAuthTenantMembership.find({
+    let userAccesses = user.userAccesses;
+    if (!userAccesses?.length) {
+      userAccesses = await this.userAccessRepository.find({
         where: { userId: user.id },
         relations: ['tenant', 'roles'],
       });
     }
 
-    const tenantMemberships = user.tenantMemberships?.filter((membership) => membership.isActive) ?? [];
+    const activeAccesses = userAccesses?.filter((access) => access.isActive) ?? [];
 
     return {
       id: user.id,
       email: user.email,
       phone: user.phone,
-      tenantMemberships,
+      userAccesses: activeAccesses,
       isActive: user.isActive,
       isVerified: user.isVerified,
       metadata: user.metadata ?? {},

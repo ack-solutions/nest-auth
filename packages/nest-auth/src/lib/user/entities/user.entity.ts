@@ -22,7 +22,7 @@ import { chain } from "lodash";
 import { NestAuthOTP } from "../../auth/entities/otp.entity";
 import { NestAuthMFASecret } from "../../auth/entities/mfa-secret.entity";
 import { NestAuthRole } from "../../role/entities/role.entity";
-import { NestAuthTenantMembership } from "../../tenant/entities/tenant-membership.entity";
+import { NestAuthUserAccess } from "../../tenant/entities/user-access.entity";
 import { EMAIL_AUTH_PROVIDER, PHONE_AUTH_PROVIDER } from "../../auth.constants";
 import { normalizedPhone } from '../../utils';
 
@@ -84,13 +84,13 @@ export class NestAuthUser extends BaseEntity {
     otps: NestAuthOTP[];
 
     /**
-     * @deprecated Use roles on tenantMemberships instead. Will be removed in v2.0.0
+     * @deprecated Use roles on userAccesses instead. Will be removed in v2.0.0
      */
     @ManyToMany(() => NestAuthRole, role => role.users, { onDelete: 'CASCADE' })
     roles: NestAuthRole[];
 
-    @OneToMany(() => NestAuthTenantMembership, membership => membership.user)
-    tenantMemberships: NestAuthTenantMembership[];
+    @OneToMany(() => NestAuthUserAccess, access => access.user)
+    userAccesses: NestAuthUserAccess[];
 
     @CreateDateColumn()
     createdAt: Date;
@@ -116,35 +116,36 @@ export class NestAuthUser extends BaseEntity {
     }
 
     async getRoles(tenantId: string): Promise<NestAuthRole[]> {
-        const membership = await NestAuthTenantMembership.findOne({
+        const access = await NestAuthUserAccess.findOne({
             where: { userId: this.id, tenantId: tenantId },
             relations: ['roles'],
         });
-        if (membership?.roles?.length) {
-            return membership.roles;
+        if (access?.roles?.length) {
+            return access.roles;
         }
+        return [];
     }
 
-    /** Assign roles for a specific tenant by role IDs (stores on tenant membership). */
+    /** Assign multiple roles for a specific tenant (stores on user access). */
     async assignRoles(tenantId: string, roleIds: string | string[]): Promise<void> {
-        const membership = await this.getOrCreateTenantMembership(tenantId);
+        const access = await this.getOrCreateUserAccess(tenantId);
         const ids = Array.isArray(roleIds) ? roleIds : [roleIds];
-        membership.roles = ids.length
+        access.roles = ids.length
             ? await NestAuthRole.find({ where: { id: In(ids) } })
             : [];
-        await membership.save();
+        await access.save();
     }
 
-    private async getOrCreateTenantMembership(tenantId: string): Promise<NestAuthTenantMembership> {
-        let membership = await NestAuthTenantMembership.findOne({
+    private async getOrCreateUserAccess(tenantId: string): Promise<NestAuthUserAccess> {
+        let access = await NestAuthUserAccess.findOne({
             where: { userId: this.id, tenantId },
             relations: ['roles'],
         });
-        if (!membership) {
-            membership = NestAuthTenantMembership.create({ userId: this.id, tenantId });
-            await membership.save();
+        if (!access) {
+            access = NestAuthUserAccess.create({ userId: this.id, tenantId });
+            await access.save();
         }
-        return membership;
+        return access;
     }
 
     async findOrCreateIdentity(provider: string, providerId: string) {

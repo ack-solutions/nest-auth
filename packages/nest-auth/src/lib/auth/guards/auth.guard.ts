@@ -13,9 +13,8 @@ import { AuthConfigService } from '../../core/services/auth-config.service';
 import { CookieHelper } from '../../utils/cookie.helper';
 import { uniq } from 'lodash';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
+import { RequestContext } from '../../request-context/request-context';
 
 /**
  * NestAuthAuthGuard
@@ -57,6 +56,8 @@ export class NestAuthAuthGuard implements CanActivate {
         request.session = null;
         request.accessKey = null;
         request.authType = null;
+        request.tenantId = null;
+        request.userAccess = null;
 
         // Get token from header or cookie based on configuration
         const { token, authType } = this.extractToken(request);
@@ -176,6 +177,8 @@ export class NestAuthAuthGuard implements CanActivate {
         request.session = null;
         request.accessKey = null;
         request.authType = null;
+        request.tenantId = null;
+        request.userAccess = null;
     }
 
     private async handleJwtAuth(
@@ -242,7 +245,13 @@ export class NestAuthAuthGuard implements CanActivate {
             }
 
             const sessionTenantId = session?.data?.tenantId;
-            request.tenantId = sessionTenantId || payload.tenantId;
+            request.tenantId = sessionTenantId ?? payload.tenantId;
+
+            if (session?.userId && request.tenantId) {
+                request.userAccess = await RequestContext.currentUserAccess();
+            } else {
+                request.userAccess = null;
+            }
 
             await this.checkMfa(context, payload, isOptional);
 

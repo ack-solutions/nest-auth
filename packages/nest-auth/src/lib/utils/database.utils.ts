@@ -14,7 +14,7 @@ export function isUniqueConstraintViolation(err: unknown): boolean {
     const e = err as Record<string, unknown>;
     const code = e.code ?? (e.driverError as Record<string, unknown>)?.code;
     const errno = (e.driverError as Record<string, unknown>)?.errno;
-    if (code === '23505' || code === 'ER_DUP_ENTRY' || errno === 1062) return true;
+    if (code === '23505' || code === 'ER_DUP_ENTRY' || Number(errno) === 1062) return true;
     const msg = String(e.message ?? '').toLowerCase();
     return msg.includes('unique constraint') || msg.includes('duplicate key');
 }

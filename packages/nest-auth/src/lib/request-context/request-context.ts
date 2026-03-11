@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'async_hooks';
 import { Request, Response } from 'express';
 import { JWTTokenPayload, SessionPayload } from '../core/interfaces/token-payload.interface';
-import { NestAuthTenantMembership } from '../tenant/entities/tenant-membership.entity';
+import { NestAuthUserAccess } from '../tenant/entities/user-access.entity';
 import { FindOneOptions } from 'typeorm';
 import { NestAuthUser } from '../user/entities/user.entity';
 
@@ -44,33 +44,38 @@ export class RequestContext {
         return session ? session.data?.tenantId : null;
     }
 
-    public static async currentUserMembership(findOptions?: FindOneOptions<NestAuthTenantMembership>): Promise<NestAuthTenantMembership | null> {
+    public static async currentUserAccess(findOptions?: FindOneOptions<NestAuthUserAccess>): Promise<NestAuthUserAccess | null> {
         const session = RequestContext.currentSession();
-
-        const membership = await NestAuthTenantMembership.findOne({
+        if (!session?.userId) {
+            return null;
+        }
+        const access = await NestAuthUserAccess.findOne({
             ...findOptions,
-            where: { 
-                ...findOptions?.where,
-                userId: session.userId, 
-                tenantId: session.data?.tenantId
-             },
+            where: {
+                ...(findOptions?.where as object),
+                userId: session.userId,
+                tenantId: session.data?.tenantId,
+            },
         });
-        return membership;
+        return access;
     }
 
-    public static currentUserUserId(): string | null {
+    public static currentUserId(): string | null {
         const session = RequestContext.currentSession();
         return session ? session.userId : null;
     }
 
     public static async currentUser(findOptions?: FindOneOptions<NestAuthUser>): Promise<NestAuthUser | null> {
-        const session = RequestContext.currentSession();
+        const userId = RequestContext.currentUserId();
+        if (!userId) {
+            return null;
+        }
         const user = await NestAuthUser.findOne({
             ...findOptions,
-            where: { 
+            where: {
                 ...findOptions?.where,
-                id: session.userId 
-             },
+                id: userId,
+            },
         });
         return user;
     }

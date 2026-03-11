@@ -130,7 +130,7 @@ export const UsersPage: React.FC = () => {
                 email: data.email.trim(),
                 tenantIds: data.tenantIds || [],
                 password: data.password || undefined,
-                roleIds: (data.roleIds?.length ?? 0) > 0 ? (data.roleIds ?? []) : undefined,
+                roleIds: data.roleIds?.length ? data.roleIds : undefined,
             });
             setShowCreateModal(false);
             await loadUsers();
@@ -225,16 +225,16 @@ export const UsersPage: React.FC = () => {
         {
             key: 'roles',
             label: 'Roles',
-            render: (user) => {
-                const memberships = user.tenantMemberships ?? [];
-                const totalRoles = memberships.reduce((s, m) => s + (m.roles?.length ?? 0), 0);
-                const roleLabels = memberships.flatMap((m) => m.roles ?? []);
-                const tenantCount = memberships.length;
+                render: (user) => {
+                const accesses = user.userAccesses ?? [];
+                const roleNames = accesses.flatMap((a) => (a.roles ?? []).map((r: any) => (typeof r === 'string' ? r : r.name)));
+                const totalRoles = roleNames.length;
+                const tenantCount = accesses.length;
                 return (
                     <div className="flex flex-wrap gap-1 items-center">
                         {totalRoles > 0 ? (
                             <>
-                                {roleLabels.slice(0, 2).map((role, i) => (
+                                {roleNames.slice(0, 2).map((role, i) => (
                                     <span key={`${role}-${i}`} className="badge bg-purple-100 text-purple-800 text-xs">
                                         {role}
                                     </span>

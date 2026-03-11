@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindManyOptions, FindOneOptions, Not, Repository } from 'typeorm';
-import { In } from 'typeorm';
+import { FindManyOptions, FindOneOptions, In, Not, Repository } from 'typeorm';
 import { NestAuthUser } from '../entities/user.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EMAIL_AUTH_PROVIDER, NestAuthEvents, PHONE_AUTH_PROVIDER } from '../../auth.constants';
@@ -11,7 +10,7 @@ import { UserCreatedEvent } from '../events/user-created.event';
 import { TenantService } from '../../tenant';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import { NestAuthTenantMembership } from '../../tenant/entities/tenant-membership.entity';
+import { NestAuthUserAccess } from '../../tenant/entities/user-access.entity';
 import { NestAuthTenant } from '../../tenant/entities/tenant.entity';
 import { NestAuthRole } from '../../role/entities/role.entity';
 import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
@@ -24,12 +23,12 @@ export class UserService {
     constructor(
         @InjectRepository(NestAuthUser)
         private readonly userRepository: Repository<NestAuthUser>,
-        @InjectRepository(NestAuthTenantMembership)
-        private readonly tenantMembershipRepository: Repository<NestAuthTenantMembership>,
+        @InjectRepository(NestAuthUserAccess)
+        private readonly userAccessRepository: Repository<NestAuthUserAccess>,
         private readonly tenantService: TenantService,
         private readonly eventEmitter: EventEmitter2,
         private readonly authConfigService: AuthConfigService,
-        private readonly debugLogger: DebugLoggerService
+        private readonly debugLogger: DebugLoggerService,
     ) {
         this.authConfig = this.authConfigService.getConfig();
     }
@@ -41,20 +40,11 @@ export class UserService {
             const email = normalizedEmail(data.email);
             const phone = normalizedPhone(data.phone);
 
-            if (this.authConfig.tenantMode === TenantModeEnum.ISOLATED) {
-                if (!tenantId) {
-                    throw new BadRequestException('Tenant ID is required for isolated tenant mode');
-                }
-            }
+            await this.tenantService.resolveTenantId(tenantId);
 
             // Check if user already exists (by email in same tenant context)
             if (email) {
-                let existingUser = null;
-                if (this.authConfig.tenantMode === TenantModeEnum.ISOLATED) {
-                    existingUser = await this.getUserByEmail(email, tenantId);
-                } else {
-                    existingUser = await this.getUserByEmail(email);
-                }
+                const existingUser = await this.getUserByEmail(email, tenantId);
                 if (existingUser) {
                     this.debugLogger.warn('User with email already exists', 'UserService', { email, tenantId });
                     throw new ConflictException({
@@ -65,13 +55,7 @@ export class UserService {
             }
 
             if (phone) {
-                let existingUser = null;
-                if (this.authConfig.tenantMode === TenantModeEnum.ISOLATED) {
-                    existingUser = await this.getUserByPhone(phone, tenantId);
-                } else {
-                    existingUser = await this.getUserByPhone(phone);
-                }
-
+                const existingUser = await this.getUserByPhone(phone, tenantId);
                 if (existingUser) {
                     this.debugLogger.warn('User with phone already exists', 'UserService', { phone, tenantId });
                     throw new ConflictException({
@@ -103,7 +87,7 @@ export class UserService {
             await this.userRepository.save(user);
 
             if (tenantId) {
-                await this.ensureTenantMembership(user.id, tenantId);
+                await this.ensureUserAccess(user.id, tenantId);
             }
             this.debugLogger.info('User created successfully', 'UserService', { userId: user.id });
 
@@ -173,43 +157,20 @@ export class UserService {
             return null;
         }
 
-        if (this.authConfig.tenantMode === TenantModeEnum.ISOLATED) {
-            if (!tenantId) {
-                this.debugLogger.warn('No tenant ID provided for user lookup', 'UserService');
-                throw new BadRequestException('Tenant ID is required for isolated tenant mode');
-            }
-
-            // Find user by email who has a membership in this tenant
-            const user = await this.userRepository
-                .createQueryBuilder('u')
-                .innerJoin('u.tenantMemberships', 'm', 'm.tenantId = :tid AND m.isActive = :active', {
-                    tid: tenantId,
-                    active: true,
-                })
-                .where('u.email = :email', { email: emailNorm, tid: tenantId, active: true })
-                .getOne();
-            if (user) {
-                this.debugLogger.debug('User found by email', 'UserService', { userId: user.id, tenantId: tenantId });
-            } else {
-                this.debugLogger.debug('No user found with email in tenant', 'UserService', { tenantId: tenantId });
-            }
-            return user;
+        const user = await this.userRepository.findOne({
+            ...(options ? options : {}),
+            relations: ['userAccesses', ...(Array.isArray(options?.relations) ? options.relations : [])],
+            where: {
+                email: emailNorm,
+                ...(tenantId ? { userAccesses: { tenantId: tenantId } } : {}),
+            },
+        });
+        if (user) {
+            this.debugLogger.debug('User found by email', 'UserService', { userId: user.id });
         } else {
-            const user = await this.userRepository.findOne({
-                ...(options ? options : {}),
-                relations: ['tenantMemberships', ...(Array.isArray(options?.relations) ? options.relations : [])],
-                where: {
-                    email: emailNorm,
-                    ...(tenantId ? { tenantMemberships: { tenantId: tenantId } } : {}),
-                },
-            });
-            if (user) {
-                this.debugLogger.debug('User found by email', 'UserService', { userId: user.id });
-            } else {
-                this.debugLogger.debug('No user found with email', 'UserService');
-            }
-            return user;
+            this.debugLogger.debug('No user found with email', 'UserService');
         }
+        return user;
     }
 
     async getUserByPhone(phone: string, tenantId?: string, options?: FindOneOptions<NestAuthUser>): Promise<NestAuthUser> {
@@ -221,34 +182,12 @@ export class UserService {
             return null;
         }
 
-        if (this.authConfig.tenantMode === TenantModeEnum.ISOLATED) {
-            if (!tenantId) {
-                this.debugLogger.warn('No tenant ID provided for user lookup', 'UserService');
-                throw new BadRequestException('Tenant ID is required for isolated tenant mode');
-            }
-
-            const user = await this.userRepository
-                .createQueryBuilder('u')
-                .innerJoin('u.tenantMemberships', 'm', 'm.tenantId = :tid AND m.isActive = :active', {
-                    tid: tenantId,
-                    active: true,
-                })
-                .where('u.phone = :phone', { phone: phoneNorm, tid: tenantId, active: true })
-                .getOne();
-            if (user) {
-                this.debugLogger.debug('User found by phone', 'UserService', { userId: user.id, tenantId: tenantId });
-            } else {
-                this.debugLogger.debug('No user found with phone in tenant', 'UserService', { tenantId: tenantId });
-            }
-            return user;
-        }
-
         const user = await this.userRepository.findOne({
             ...(options ? options : {}),
-            relations: ['tenantMemberships', ...(Array.isArray(options?.relations) ? options.relations : [])],
+            relations: ['userAccesses', ...(Array.isArray(options?.relations) ? options.relations : [])],
             where: {
                 phone: phoneNorm,
-                ...(tenantId ? { tenantMemberships: { tenantId: tenantId } } : {}),
+                ...(tenantId ? { userAccesses: { tenantId: tenantId } } : {}),
             },
         });
 
@@ -266,15 +205,15 @@ export class UserService {
 
     async getUsersByTenant(tenantId: string, options?: FindManyOptions<NestAuthUser>): Promise<NestAuthUser[]> {
         const relations = Array.isArray(options?.relations)
-            ? Array.from(new Set([...(options?.relations || []), 'tenantMemberships']))
+            ? Array.from(new Set([...(options?.relations || []), 'userAccesses']))
             : options?.relations;
 
         return this.userRepository.find({
             ...(options ? options : {}),
             relations,
             where: {
-                tenantMemberships: { tenantId: tenantId, isActive: true },
                 ...(options?.where ? options.where : {}),
+                userAccesses: { tenantId: tenantId },
             },
         });
     }
@@ -298,12 +237,12 @@ export class UserService {
                 this.debugLogger.debug('Checking for conflicts during user update', 'UserService', { userId: id, email: !!data.email, phone: !!data.phone });
 
                 const userWithMemberships = await this.getUserById(id, {
-                    relations: ['tenantMemberships'],
+                    relations: ['userAccesses'],
                 });
 
                 let tenantId = null;
-                if (this.authConfig.tenantMode === TenantModeEnum.ISOLATED) {
-                    tenantId = userWithMemberships?.tenantMemberships[0]?.tenantId;
+                if (this.authConfig.tenant?.mode === TenantModeEnum.ISOLATED || this.authConfig.tenantMode === TenantModeEnum.ISOLATED) {
+                    tenantId = userWithMemberships?.userAccesses?.[0]?.tenantId;
                 }
 
                 let existingUser: NestAuthUser | null = null;
@@ -371,15 +310,15 @@ export class UserService {
         }
     }
 
-    async ensureTenantMembership(
+    async ensureUserAccess(
         userId: string,
         tenantId: string,
-    ): Promise<NestAuthTenantMembership> {
+    ): Promise<NestAuthUserAccess> {
         if (!userId || !tenantId) {
             return null;
         }
 
-        const existing = await this.tenantMembershipRepository.findOne({
+        const existing = await this.userAccessRepository.findOne({
             where: { userId, tenantId }
         });
 
@@ -387,78 +326,77 @@ export class UserService {
             return existing;
         }
 
-        const membership = this.tenantMembershipRepository.create({
+        const access = this.userAccessRepository.create({
             userId,
             tenantId,
         });
-        return await this.tenantMembershipRepository.save(membership);
+        return await this.userAccessRepository.save(access);
     }
 
     async isUserInTenant(userId: string, tenantId: string): Promise<boolean> {
         if (!userId || !tenantId) {
             return false;
         }
-        const membership = await this.userRepository.createQueryBuilder('u')
-            .innerJoin('u.tenantMemberships', 'm', 'm.tenantId = :tenantId', {
+        const access = await this.userRepository.createQueryBuilder('u')
+            .innerJoin('u.userAccesses', 'm', 'm.tenantId = :tenantId', {
                 tenantId,
             })
             .where('u.id = :userId', { userId })
             .select('m.id')
             .getRawOne();
-        return !!membership;
+        return !!access;
     }
 
     /**
-     * Set roles for a tenant membership by role IDs (per-tenant roles).
+     * Set multiple roles for a user's access in a tenant.
      */
-    async setTenantMembershipRoles(
+    async setUserAccessRoles(
         userId: string,
         tenantId: string,
         roleIds: string[]
-    ): Promise<NestAuthTenantMembership> {
-        let membership = await this.tenantMembershipRepository.findOne({
+    ): Promise<NestAuthUserAccess> {
+        let access = await this.userAccessRepository.findOne({
             where: { userId, tenantId: tenantId },
             relations: ['roles'],
         });
-        if (!membership) {
-            membership = await this.ensureTenantMembership(userId, tenantId);
+        if (!access) {
+            access = await this.ensureUserAccess(userId, tenantId);
         }
         if (!roleIds?.length) {
-            membership.roles = [];
+            access.roles = [];
         } else {
             const roleEntities = await NestAuthRole.find({ where: { id: In(roleIds) } });
-            membership.roles = roleEntities;
+            access.roles = roleEntities;
         }
-        return this.tenantMembershipRepository.save(membership);
+        return this.userAccessRepository.save(access);
     }
 
     async getUserTenants(userId: string): Promise<NestAuthTenant[]> {
         if (!userId) {
             return [];
         }
-        const memberships = await this.tenantMembershipRepository.find({
+        const accessList = await this.userAccessRepository.find({
             where: { userId, isActive: true },
             relations: ['tenant']
         });
-        return memberships
-            .map(m => m.tenant)
+        return accessList
+            .map(a => a.tenant)
             .filter(Boolean);
     }
 
     /**
-     * Remove a user's membership in a tenant. The user record is not deleted; only the
-     * tenant membership is removed so the user no longer belongs to that tenant.
+     * Remove a user's access for a tenant.
      */
-    async deleteTenantMembership(userId: string, tenantId: string): Promise<void> {
+    async deleteUserAccess(userId: string, tenantId: string): Promise<void> {
         if (!userId || !tenantId) {
             return;
         }
-        const membership = await this.tenantMembershipRepository.findOne({
+        const access = await this.userAccessRepository.findOne({
             where: { userId, tenantId },
         });
-        if (membership) {
-            await this.tenantMembershipRepository.remove(membership);
-            this.debugLogger.debug('Tenant membership deleted', 'UserService', { userId, tenantId });
+        if (access) {
+            await this.userAccessRepository.remove(access);
+            this.debugLogger.debug('User access deleted', 'UserService', { userId, tenantId });
         }
     }
 
@@ -611,7 +549,7 @@ export class UserService {
 
         const usersQuery = this.userRepository
             .createQueryBuilder('user')
-            .innerJoin('user.tenantMemberships', 'm')
+            .innerJoin('user.userAccesses', 'm')
             .innerJoin('m.roles', 'role', 'role.name = :roleName AND role.guard = :guard', {
                 roleName,
                 guard,

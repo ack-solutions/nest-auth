@@ -83,7 +83,8 @@ export {
     ISsoProviderConfig,
     ISsoConfig,
     IUiConfig,
-    TenantModeEnum
+    TenantModeEnum,
+    INestAuthTenantOptions,
 } from './config';
 
 // User & Role (from user.ts)
@@ -96,4 +97,5 @@ export {
 // Tenant (from tenant.ts)
 export {
     INestAuthTenant,
+    INestAuthUserAccess,
 } from './tenant';

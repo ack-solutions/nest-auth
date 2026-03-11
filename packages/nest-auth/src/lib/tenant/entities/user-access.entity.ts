@@ -16,20 +16,20 @@ import { NestAuthTenant } from './tenant.entity';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthRole } from '../../role/entities/role.entity';
 
-@Entity('nest_auth_tenant_memberships')
+@Entity('nest_auth_user_accesses')
 @Unique(['userId', 'tenantId'])
-export class NestAuthTenantMembership extends BaseEntity {
+export class NestAuthUserAccess extends BaseEntity {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
     @Column({ nullable: true })
     @Index()
-    @RelationId((membership: NestAuthTenantMembership) => membership.user)
+    @RelationId((access: NestAuthUserAccess) => access.user)
     userId: string;
 
     @Column({ nullable: true })
     @Index()
-    @RelationId((membership: NestAuthTenantMembership) => membership.tenant)
+    @RelationId((access: NestAuthUserAccess) => access.tenant)
     tenantId: string;
 
     @ManyToOne(() => NestAuthUser, { onDelete: 'CASCADE' })
@@ -38,17 +38,23 @@ export class NestAuthTenantMembership extends BaseEntity {
     @ManyToOne(() => NestAuthTenant, { onDelete: 'CASCADE' })
     tenant: NestAuthTenant;
 
-    /** Roles for this tenant membership. When set, they override user-level roles for this tenant. */
-    @ManyToMany(() => NestAuthRole, role => role.tenantMemberships, { onDelete: 'CASCADE' })
+    /** Multiple roles for this user access (tenant-specific). */
+    @ManyToMany(() => NestAuthRole, role => role.userAccesses, { onDelete: 'CASCADE' })
     @JoinTable({
-        name: 'nest_auth_tenant_membership_roles',
-        joinColumn: { name: 'nestAuthTenantMembershipId', referencedColumnName: 'id' },
+        name: 'nest_auth_user_access_roles',
+        joinColumn: { name: 'nestAuthUserAccessId', referencedColumnName: 'id' },
         inverseJoinColumn: { name: 'nestAuthRolesId', referencedColumnName: 'id' },
     })
     roles: NestAuthRole[];
 
     @Column({ default: true })
     isActive: boolean;
+
+    @Column({ default: false })
+    isDefault: boolean;
+
+    @Column({ default: 'active' })
+    status: string;
 
     @Column({ type: 'simple-json', nullable: true, default: '{}' })
     metadata?: Record<string, any>;
