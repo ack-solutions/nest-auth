@@ -1,32 +1,26 @@
 import React from 'react';
+import { Tabs as MuiTabs, Tab, Box } from '@mui/material';
 
-interface Tab {
+interface TabItem {
     id: string;
     label: string;
 }
 
 interface TabsProps {
-    tabs: Tab[];
+    tabs: TabItem[];
     activeTab: string;
     onTabChange: (tabId: string) => void;
 }
 
 export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onTabChange }) => {
+    const value = tabs.findIndex((t) => t.id === activeTab);
     return (
-        <div className="flex border-b border-gray-200">
-            {tabs.map((tab) => (
-                <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => onTabChange(tab.id)}
-                    className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${activeTab === tab.id
-                        ? 'text-primary-600 border-b-2 border-primary-600'
-                        : 'text-gray-600 hover:text-gray-900'
-                        }`}
-                >
-                    {tab.label}
-                </button>
-            ))}
-        </div>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+            <MuiTabs value={value >= 0 ? value : 0} onChange={(_, v) => onTabChange(tabs[v]?.id ?? tabs[0].id)}>
+                {tabs.map((tab) => (
+                    <Tab key={tab.id} label={tab.label} sx={{ flex: 1, minHeight: 42 }} />
+                ))}
+            </MuiTabs>
+        </Box>
     );
 };

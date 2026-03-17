@@ -1,128 +1,113 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import IconButton from '@mui/material/IconButton';
+import CloseIcon from '@mui/icons-material/Close';
+import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
 
 export interface ModalProps {
-    isOpen: boolean;
+    /** MUI standard prop */
+    open?: boolean;
+    /** @deprecated Use open */
+    isOpen?: boolean;
     onClose: () => void;
     title: string;
-    description?: string;
-    icon?: React.ReactNode;
     children: React.ReactNode;
+    /** Optional subtitle below title */
+    subTitle?: string;
+    /** @deprecated Use subTitle */
+    description?: string;
     footer?: React.ReactNode;
+    /** MUI standard: xs, sm, md, lg, xl. Legacy 2xl/3xl/5xl map to xl. Default sm. */
+    maxWidth?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '5xl';
+    fullScreen?: boolean;
+    icon?: React.ReactNode;
     tabs?: React.ReactNode;
-    maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl';
-    showCloseButton?: boolean;
-    animate?: boolean;
-    fullscreen?: boolean;
-    fixedHeight?: boolean;
 }
 
-const maxWidthMap = {
-    sm: 'max-w-sm',
-    md: 'max-w-md',
-    lg: 'max-w-lg',
-    xl: 'max-w-xl',
-    '2xl': 'max-w-2xl',
-    '3xl': 'max-w-3xl',
-    '4xl': 'max-w-4xl',
-    '5xl': 'max-w-5xl',
-};
+export const ModalFooter = ({ footer }: { footer: React.ReactNode }) => (
+    <DialogActions sx={{ px: 2, py: 1.5 }}>{footer}</DialogActions>
+);
 
-export const ModalFooter = ({ footer, className }: { footer: React.ReactNode; className?: string }) => {
-    return (
-        <div className={`p-4 border-t border-gray-200 bg-gray-50 flex-shrink-0 rounded-b-xl ${className || ''}`}>
-            {footer}
-        </div>
-    );
-};
-export const ModalContent = ({ children, className }: { children: React.ReactNode; className?: string }) => {
-    return (
-        <div className={`flex-1 overflow-y-auto px-4 ${className || ''}`}>
-            {children}
-        </div>
-    );
-};
+export const ModalContent = ({ children }: { children: React.ReactNode }) => (
+    <DialogContent>{children}</DialogContent>
+);
 
 export const Modal: React.FC<ModalProps> = ({
+    open: openProp,
     isOpen,
     onClose,
     title,
+    subTitle,
     description,
-    icon,
     children,
     footer,
+    maxWidth = 'sm',
+    fullScreen = false,
+    icon,
     tabs,
-    maxWidth = 'md',
-    showCloseButton = true,
-    animate = false,
-    fullscreen = false,
-    fixedHeight = true,
 }) => {
-    if (!isOpen) return null;
-
-    const paddingClass = fullscreen ? '' : 'p-4';
-    const wrapperClasses = animate
-        ? `fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${paddingClass} animate-fade-in`
-        : `fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 ${paddingClass}`;
-
-    // Determine height classes based on fullscreen and fixedHeight
-    let heightClass = '';
-    if (fullscreen) {
-        heightClass = 'h-full';
-    } else if (fixedHeight) {
-        heightClass = 'h-[90vh]';
-    } else {
-        heightClass = 'max-h-[90vh]'; // Dynamic height with max constraint
-    }
-
-    const contentClasses = fullscreen
-        ? `bg-white shadow-2xl w-full ${heightClass} overflow-hidden flex flex-col ${animate ? 'animate-slide-up' : ''}`
-        : `bg-white rounded-xl shadow-2xl ${maxWidthMap[maxWidth]} w-full ${heightClass} ${animate ? 'animate-slide-up' : ''} flex flex-col`;
-
+    const open = openProp ?? isOpen ?? false;
+    const subtitle = subTitle ?? description;
+    const muiMaxWidth = fullScreen ? false : (['2xl', '3xl', '5xl'].includes(maxWidth ?? '') ? 'xl' : maxWidth ?? 'sm');
     return (
-        <div className={wrapperClasses}>
-            {/* Header - Fixed */}
-            <div className={contentClasses}>
-                <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-primary-50 to-primary-100 flex items-center justify-between flex-shrink-0">
-                    <div className="flex-1">
-                        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                            {icon && icon}
+        <Dialog
+            open={open}
+            onClose={onClose}
+            maxWidth={muiMaxWidth}
+            fullWidth={!fullScreen && maxWidth !== 'xs'}
+            fullScreen={fullScreen}
+            PaperProps={{
+                sx: { ...(fullScreen ? {} : { maxHeight: '90vh' }) },
+            }}
+        >
+            <DialogTitle
+                component="div"
+                sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 1,
+                    py: 1.5,
+                    px: 2,
+                    borderBottom: tabs ? 1 : 0,
+                    borderColor: 'divider',
+                }}
+            >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
+                    {icon}
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="h6" component="span" fontWeight={600}>
                             {title}
-                        </h3>
-                        {description && (
-                            <p className="text-xs text-gray-600 mt-0.5">
-                                {description}
-                            </p>
+                        </Typography>
+                        {subtitle && (
+                            <Typography variant="body2" color="text.secondary" display="block">
+                                {subtitle}
+                            </Typography>
                         )}
-                    </div>
-                    {showCloseButton && (
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="text-gray-400 hover:text-gray-600 transition-colors p-1"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-                    )}
-                </div>
-
-                {/* Sticky Tabs */}
-                {tabs && (
-                    <div className="sticky top-0 z-10 bg-white border-b border-gray-200 flex-shrink-0">
-                        {tabs}
-                    </div>
-                )}
-
-                {/* Content - Scrollable */}
-                <ModalContent className={`py-4 ${!footer ? 'pb-4' : ''} ${tabs ? 'pt-4' : ''}`}>
-                    {children}
-                </ModalContent>
-
-                {/* Footer - Fixed */}
-                {footer && (
-                    <ModalFooter footer={footer} />
-                )}
-            </div>
-        </div>
+                    </Box>
+                </Box>
+                <IconButton
+                    onClick={onClose}
+                    size="small"
+                    sx={{ color: 'text.secondary', flexShrink: 0 }}
+                    aria-label="Close"
+                >
+                    <CloseIcon fontSize="small" />
+                </IconButton>
+            </DialogTitle>
+            {tabs && (
+                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                    {tabs}
+                </Box>
+            )}
+            <DialogContent sx={{ px: 2, py: 2 }}>
+                {children}
+            </DialogContent>
+            {footer != null && <DialogActions sx={{ px: 2, py: 1.5 }}>{footer}</DialogActions>}
+        </Dialog>
     );
 };

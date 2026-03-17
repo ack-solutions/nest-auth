@@ -1,4 +1,8 @@
 import React, { useId } from 'react';
+import MuiSelect from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
 
 interface SelectProps {
     options: Array<{ value: string; label: string }>;
@@ -25,30 +29,39 @@ export const Select: React.FC<SelectProps> = ({
 }) => {
     const generatedId = useId();
     const id = providedId || generatedId;
+    const labelId = `${id}-label`;
 
     return (
-        <div className="w-full">
+        <FormControl fullWidth size="small" required={required} disabled={disabled}>
             {label && (
-                <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-2">
+                <InputLabel id={labelId} htmlFor={id}>
                     {label}
-                    {required && <span className="text-red-500 ml-1">*</span>}
-                </label>
+                </InputLabel>
             )}
-            <select
+            <MuiSelect
                 id={id}
+                labelId={labelId}
                 value={value}
-                onChange={(e) => onChange(e.target.value)}
-                required={required}
-                disabled={disabled}
-                className={`input-field appearance-none bg-white ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                label={label}
+                onChange={(e) => onChange(e.target.value as string)}
+                displayEmpty={allowEmpty}
+                renderValue={(v) => {
+                    if (!v) return placeholder;
+                    const opt = options.find((o) => o.value === v);
+                    return opt?.label ?? v;
+                }}
             >
-                {allowEmpty && <option value="">{placeholder}</option>}
+                {allowEmpty && (
+                    <MenuItem value="">
+                        <em>{placeholder}</em>
+                    </MenuItem>
+                )}
                 {options.map((option) => (
-                    <option key={option.value} value={option.value}>
+                    <MenuItem key={option.value} value={option.value}>
                         {option.label}
-                    </option>
+                    </MenuItem>
                 ))}
-            </select>
-        </div>
+            </MuiSelect>
+        </FormControl>
     );
 };

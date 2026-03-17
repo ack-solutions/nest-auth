@@ -1,4 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import Avatar from '@mui/material/Avatar';
+import Button from '@mui/material/Button';
+import { useTheme } from '@mui/material/styles';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Users, Shield, Building2, BookOpen, UserCog, LogOut, FileText, Key } from 'lucide-react';
 import { api } from '../services/api';
@@ -11,7 +17,10 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children, config, onLogout }) => {
+    const theme = useTheme();
     const navigate = useNavigate();
+    const sidebarBg = theme.palette.grey[800];
+    const sidebarLight = theme.palette.grey[700];
     const [currentAdmin, setCurrentAdmin] = useState<Admin | null>(null);
 
     useEffect(() => {
@@ -42,71 +51,93 @@ export const Layout: React.FC<LayoutProps> = ({ children, config, onLogout }) =>
     ];
 
     return (
-        <div className="flex h-screen bg-gray-50">
-            {/* Sidebar */}
-            <aside className="w-64 bg-sidebar text-white flex flex-col shadow-xl">
-                {/* Header */}
-                <div className="p-6 border-b border-sidebar-light">
-                    <h1 className="text-2xl font-bold bg-gradient-to-r from-primary-400 to-primary-600 bg-clip-text text-transparent">
+        <Stack direction="row" sx={{ height: '100vh' }}>
+            <Stack
+                component="aside"
+                direction="column"
+                sx={{
+                    width: 256,
+                    bgcolor: sidebarBg,
+                    color: 'white',
+                    boxShadow: 3,
+                }}
+            >
+                <Box sx={{ p: 3, borderBottom: 1, borderColor: sidebarLight }}>
+                    <Typography
+                        variant="h5"
+                        fontWeight="bold"
+                        sx={{
+                            background: `linear-gradient(to right, ${theme.palette.primary.light}, ${theme.palette.primary.main})`,
+                            backgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                        }}
+                    >
                         Nest Auth
-                    </h1>
-                    <p className="text-sm text-gray-400 mt-1">Admin Dashboard</p>
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'grey.400', mt: 0.5 }}>
+                        Admin Dashboard
+                    </Typography>
                     {currentAdmin && (
-                        <div className="mt-3 pt-3 border-t border-sidebar-light">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                        <Stack sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderColor: sidebarLight }} spacing={1} direction="row" alignItems="center">
+                                <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: '0.875rem' }}>
                                     {currentAdmin.email.charAt(0).toUpperCase()}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-medium text-white truncate">{currentAdmin.email}</p>
+                                </Avatar>
+                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography variant="caption" fontWeight="medium" noWrap sx={{ color: 'white' }}>
+                                        {currentAdmin.email}
+                                    </Typography>
                                     {currentAdmin.name && (
-                                        <p className="text-xs text-gray-400 truncate">{currentAdmin.name}</p>
+                                        <Typography variant="caption" noWrap sx={{ color: 'grey.400', display: 'block' }}>
+                                            {currentAdmin.name}
+                                        </Typography>
                                     )}
-                                </div>
-                            </div>
-                        </div>
+                                </Box>
+                        </Stack>
                     )}
-                </div>
+                </Box>
 
-                {/* Navigation */}
-                <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+                <Stack component="nav" spacing={0.5} sx={{ flex: 1, p: 2, overflow: 'auto' }}>
                     {navItems.map((item) => (
                         <NavLink
                             key={item.to}
                             to={item.to}
                             end
-                            className={({ isActive }) =>
-                                `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${isActive
-                                    ? 'bg-primary-600 text-white'
-                                    : 'text-gray-300 hover:bg-sidebar-light hover:text-white'
-                                }`
-                            }
+                            style={({ isActive }) => ({
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 12,
+                                padding: '12px 16px',
+                                borderRadius: 8,
+                                color: isActive ? theme.palette.primary.contrastText : 'rgba(255,255,255,0.7)',
+                                backgroundColor: isActive ? theme.palette.primary.main : 'transparent',
+                                textDecoration: 'none',
+                                fontWeight: 600,
+                                transition: 'all 0.2s',
+                            })}
                         >
-                            <item.icon className="w-5 h-5" />
-                            <span className="font-medium">{item.label}</span>
+                            <item.icon style={{ width: 20, height: 20, flexShrink: 0 }} />
+                            <span>{item.label}</span>
                         </NavLink>
                     ))}
-                </nav>
+                </Stack>
 
-                {/* Footer */}
-                <div className="p-4 border-t border-sidebar-light">
-                    <button
-                        type="button"
+                <Box sx={{ p: 2, borderTop: 1, borderColor: sidebarLight }}>
+                    <Button
+                        fullWidth
+                        variant="contained"
+                        color="error"
                         onClick={handleLogout}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-200"
+                        startIcon={<LogOut style={{ width: 20, height: 20 }} />}
+                        sx={{ py: 1.5, fontWeight: 600 }}
                     >
-                        <LogOut className="w-5 h-5" />
-                        <span className="font-medium">Sign out</span>
-                    </button>
-                </div>
-            </aside>
+                        Sign out
+                    </Button>
+                </Box>
+            </Stack>
 
-            {/* Main Content */}
-            <main className="flex-1 overflow-auto">
-                <div className="p-8">
-                    {children}
-                </div>
-            </main>
-        </div>
+            <Box component="main" sx={{ flex: 1, overflow: 'auto' }}>
+                <Box sx={{ p: 4 }}>{children}</Box>
+            </Box>
+        </Stack>
     );
 };

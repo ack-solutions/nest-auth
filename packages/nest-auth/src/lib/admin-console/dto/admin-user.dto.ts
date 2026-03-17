@@ -19,9 +19,10 @@ export class AdminTenantRolesDto {
   @IsNotEmpty()
   tenantId: string;
 
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  roleIds: string[];
+  roleIds?: string[];
 }
 
 export class AdminCreateUserDto {
@@ -100,4 +101,17 @@ export class AdminUpdateUserDto {
   @IsOptional()
   @IsBoolean()
   phoneLoginEnabled?: boolean;
+
+  /** SHARED mode only: set user's tenant memberships (add/remove tenants). Ignored in ISOLATED mode. */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tenantIds?: string[];
+
+  /** Set roles per tenant. Each entry: { tenantId, roleIds }. Applied in both SHARED and ISOLATED mode. */
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AdminTenantRolesDto)
+  tenantRoles?: AdminTenantRolesDto[];
 }

@@ -1,0 +1,83 @@
+---
+description: UI package file naming, component organization, and formatting
+globs: packages/nest-auth/ui/**/*
+alwaysApply: false
+---
+
+# UI Package Conventions
+
+## File naming
+
+- Use **lowercase with dashes** for all UI file names.
+- Examples: `page-header.tsx`, `user-detail-modal.tsx`, `create-user-dialog.tsx`, `use-confirm.ts`
+- Do not use: `PageHeader.tsx`, `UserDetailModal.tsx`, `useConfirm.ts` (PascalCase or camelCase in filenames).
+
+## Components and organization
+
+- **One component per file** when the component is non-trivial (more than a few lines or reused).
+- **Extract small components** into their own files instead of defining them in the same file as the page or parent.
+- **Use directories** to group related files:
+  - `components/user/` for user-related components
+  - `components/role/`, `components/tenant/`, `components/auth/`, etc.
+  - `pages/` for page components
+  - `hooks/` for custom hooks
+- Keep each file focused: one main export (component or hook) per file; small helpers can stay in the same file if they are not reused.
+
+## Props and formatting
+
+- **Component props**: If a component receives **more than 2 props**, put **one prop per line**.
+- **Arrays** (e.g. list of items, options): If **more than 2 elements**, put one element per line.
+- **Objects** (e.g. `sx`, config, style): If **more than 2 keys**, put one key-value per line.
+
+### Examples
+
+**Props (more than 2 → one per line):**
+
+```tsx
+// ✅ GOOD
+<PageHeader
+  title="User Management"
+  description="Manage users and roles"
+  onRefresh={loadUsers}
+  loading={loading}
+  action={createButton}
+/>
+
+// ❌ BAD (3+ props on one line)
+<PageHeader title="User Management" description="Manage users" onRefresh={loadUsers} loading={loading} />
+```
+
+**Arrays (more than 2 → one per line):**
+
+```tsx
+// ✅ GOOD
+const options = [
+  { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+];
+```
+
+**Objects (more than 2 keys → one per line):**
+
+```tsx
+// ✅ GOOD
+<Box
+  sx={{
+    display: 'flex',
+    alignItems: 'center',
+    gap: 2,
+    p: 2,
+  }}
+/>
+```
+
+## Summary
+
+| Rule | Do |
+|------|-----|
+| File names | `lowercase-with-dashes.tsx` |
+| Components | One main component per file; extract small components to new files |
+| Directories | Use folders to organize by feature (user, role, auth, etc.) |
+| Props | 1 prop per line when there are more than 2 props |
+| Arrays / objects | 1 item per line when there are more than 2 items |

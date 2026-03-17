@@ -1,41 +1,41 @@
 import React, { useEffect, useState } from 'react';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import CircularProgress from '@mui/material/CircularProgress';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { api } from './services/api';
-import { ConfirmProvider } from './hooks/useConfirm';
+import { ConfirmProvider } from './hooks/use-confirm';
 import type { DashboardConfig } from './types';
-import { Layout } from './components/Layout';
-import { LoginPage } from './pages/LoginPage';
-import { DashboardPage } from './pages/DashboardPage';
-import { UsersPage } from './pages/UsersPage';
-import { RolesPage } from './pages/RolesPage';
-import { TenantsPage } from './pages/TenantsPage';
-import { AdminsPage } from './pages/AdminsPage';
-import { PermissionsPage } from './pages/PermissionsPage';
-import { ApiPage } from './pages/ApiPage';
+import { Layout } from './components/layout';
+import { LoginPage } from './pages/login-page';
+import { DashboardPage } from './pages/dashboard-page';
+import { UsersPage } from './pages/users-page';
+import { UserDetailPage } from './pages/user-detail-page';
+import { RolesPage } from './pages/roles-page';
+import { TenantsPage } from './pages/tenants-page';
+import { AdminsPage } from './pages/admins-page';
+import { PermissionsPage } from './pages/permissions-page';
+import { ApiPage } from './pages/api-page';
 
-// Protected Route Wrapper
 const ProtectedRoute: React.FC<{
     children: React.ReactNode;
     authenticated: boolean | null;
 }> = ({ children, authenticated }) => {
-    // While checking auth, show loading
     if (authenticated === null) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600 font-medium">Verifying authentication...</p>
-                </div>
-            </div>
+            <Box sx={{ minHeight: '100vh', bgcolor: 'grey.50', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Box sx={{ textAlign: 'center' }}>
+                    <CircularProgress size={64} sx={{ mb: 2 }} />
+                    <Typography color="text.secondary" fontWeight="medium">
+                        Verifying authentication...
+                    </Typography>
+                </Box>
+            </Box>
         );
     }
-
-    // If not authenticated, redirect to login
     if (!authenticated) {
         return <Navigate to="/login" replace />;
     }
-
-    // If authenticated, render children
     return <>{children}</>;
 };
 
@@ -51,27 +51,19 @@ export const App: React.FC = () => {
 
     const checkAuthAndLoadConfig = async () => {
         try {
-            // First check authentication
             await api.get('/me');
             setAuthenticated(true);
-
-            // Then load config
             const configData = await api.get<DashboardConfig>('/config');
             setConfig(configData);
         } catch (err: any) {
             console.error('Auth check failed:', err);
             setAuthenticated(false);
-
-            // Still load config for login page
             try {
                 const configData = await api.get<DashboardConfig>('/config');
                 setConfig(configData);
             } catch (configErr) {
                 console.error('Failed to load config:', configErr);
-                // Set default config
-                setConfig({
-                    allowAdminManagement: false,
-                });
+                setConfig({ allowAdminManagement: false });
             }
         } finally {
             setAuthChecked(true);
@@ -83,7 +75,6 @@ export const App: React.FC = () => {
         try {
             await api.post('/login', credentials);
             setAuthenticated(true);
-            // Recheck auth after successful login
             await checkAuthAndLoadConfig();
         } catch (err: any) {
             setAuthenticated(false);
@@ -101,21 +92,27 @@ export const App: React.FC = () => {
         setAuthenticated(false);
     };
 
-    // Show loading screen while checking auth or loading config
     if (!authChecked || config === null) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-primary-50 via-blue-50 to-purple-50 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-full mb-4 shadow-lg">
-                        <svg className="w-8 h-8 text-white animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                    </div>
-                    <p className="text-gray-700 font-medium text-lg">Loading Nest Auth Dashboard...</p>
-                    <p className="text-gray-500 text-sm mt-2">Verifying authentication</p>
-                </div>
-            </div>
+            <Box
+                sx={{
+                    minHeight: '100vh',
+                    background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #e9d5ff 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                }}
+            >
+                <Box sx={{ textAlign: 'center' }}>
+                    <CircularProgress size={64} sx={{ color: 'primary.main', mb: 2 }} />
+                    <Typography color="text.primary" fontWeight="medium" variant="h6">
+                        Loading Nest Auth Dashboard...
+                    </Typography>
+                    <Typography color="text.secondary" variant="body2" sx={{ mt: 1 }}>
+                        Verifying authentication
+                    </Typography>
+                </Box>
+            </Box>
         );
     }
 
@@ -123,7 +120,6 @@ export const App: React.FC = () => {
         <ConfirmProvider>
             <HashRouter>
                 <Routes>
-                    {/* Login Route - Only accessible when NOT authenticated */}
                     <Route
                         path="/login"
                         element={
@@ -134,8 +130,6 @@ export const App: React.FC = () => {
                             )
                         }
                     />
-
-                    {/* Protected Routes - Only accessible when authenticated */}
                     <Route
                         path="/dashboard"
                         element={
@@ -146,7 +140,6 @@ export const App: React.FC = () => {
                             </ProtectedRoute>
                         }
                     />
-
                     <Route
                         path="/users"
                         element={
@@ -157,7 +150,16 @@ export const App: React.FC = () => {
                             </ProtectedRoute>
                         }
                     />
-
+                    <Route
+                        path="/users/:id"
+                        element={
+                            <ProtectedRoute authenticated={authenticated}>
+                                <Layout config={config} onLogout={handleLogout}>
+                                    <UserDetailPage />
+                                </Layout>
+                            </ProtectedRoute>
+                        }
+                    />
                     <Route
                         path="/roles"
                         element={
@@ -168,7 +170,6 @@ export const App: React.FC = () => {
                             </ProtectedRoute>
                         }
                     />
-
                     <Route
                         path="/tenants"
                         element={
@@ -179,7 +180,6 @@ export const App: React.FC = () => {
                             </ProtectedRoute>
                         }
                     />
-
                     <Route
                         path="/permissions"
                         element={
@@ -190,7 +190,6 @@ export const App: React.FC = () => {
                             </ProtectedRoute>
                         }
                     />
-
                     <Route
                         path="/api"
                         element={
@@ -201,7 +200,6 @@ export const App: React.FC = () => {
                             </ProtectedRoute>
                         }
                     />
-
                     {config.allowAdminManagement && (
                         <Route
                             path="/admins"
@@ -214,8 +212,6 @@ export const App: React.FC = () => {
                             }
                         />
                     )}
-
-                    {/* Default redirects */}
                     <Route
                         path="/"
                         element={
@@ -226,8 +222,6 @@ export const App: React.FC = () => {
                             )
                         }
                     />
-
-                    {/* Catch all - redirect based on auth status */}
                     <Route
                         path="*"
                         element={

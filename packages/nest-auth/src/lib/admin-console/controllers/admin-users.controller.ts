@@ -373,6 +373,27 @@ export class AdminUsersController {
 
     // Save all changes
     await user.save();
+
+    const config = this.authConfigService.getConfig();
+    const tenantEnabled = config.tenant?.enabled === true;
+    const tenantMode = config.tenant?.mode ?? TenantModeEnum.ISOLATED;
+
+    // SHARED mode only: sync tenant memberships (add/remove tenants)
+    if (tenantEnabled && tenantMode === TenantModeEnum.SHARED && dto.tenantIds !== undefined) {
+      const resolvedIds = await this.resolveTenantIds(dto.tenantIds);
+      await this.adminUserManagement.syncUserAccesses(id, resolvedIds);
+    }
+
+    // Set roles per tenant (both SHARED and ISOLATED)
+    if (dto.tenantRoles?.length) {
+      for (const tr of dto.tenantRoles) {
+        const resolved = await this.resolveTenantIds([tr.tenantId]);
+        if (resolved.length) {
+          await this.users.setUserAccessRoles(id, resolved[0], tr.roleIds ?? []);
+        }
+      }
+    }
+
     // Reload user with fresh memberships
     const reloadedUser = await this.users.getUserById(user.id, {
       relations: ['userAccesses', 'userAccesses.tenant', 'userAccesses.roles'],
