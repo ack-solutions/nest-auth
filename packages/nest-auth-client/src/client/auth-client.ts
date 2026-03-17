@@ -546,7 +546,7 @@ export class AuthClient {
      * Logout from all devices
      * This revokes all sessions for the current user
      */
-    async logoutAll(options?: RequestOptions){
+    async logoutAll(options?: RequestOptions): Promise<MessageResponse> {
         const endpoint = this.getEndpoint('logoutAll');
         const response = await this.request<MessageResponse>('POST', endpoint, undefined, options);
 
@@ -555,6 +555,7 @@ export class AuthClient {
         }
 
         await this.clearAuthState();
+        return response.data;
     }
 
     /**

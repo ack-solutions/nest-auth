@@ -8,6 +8,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
     AuthClient,
     IAuthUser,
+    IMessageResponse,
     ClientSession,
     AuthError,
     AuthStatus,
@@ -223,7 +224,7 @@ export function AuthProvider({
         }
     }, [client]);
 
-    const logoutAll = useCallback(async () => {
+    const logoutAll = useCallback(async (): Promise<IMessageResponse> => {
         setError(null);
         try {
             const response = await client.logoutAll();

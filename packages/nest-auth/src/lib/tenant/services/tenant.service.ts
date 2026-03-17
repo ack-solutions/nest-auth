@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindManyOptions, FindOneOptions, Repository } from 'typeorm';
 import { NestAuthTenant } from '../entities/tenant.entity';
@@ -6,10 +6,10 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TenantCreatedEvent } from '../events/tenant-created.event';
 import { TenantUpdatedEvent } from '../events/tenant-updated.event';
 import { TenantDeletedEvent } from '../events/tenant-deleted.event';
-import { ERROR_CODES, NEST_AUTH_TENANT_CONTEXT_SERVICE, NestAuthEvents } from '../../auth.constants';
+import { ERROR_CODES, NestAuthEvents } from '../../auth.constants';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
 import { isValidSlug } from '../../utils/slug.util';
-import { ITenantContextService } from '../tenant-context/tenant-context.interface';
+import { AuthConfigService } from '../../core/services/auth-config.service';
 
 @Injectable()
 export class TenantService {
@@ -19,9 +19,7 @@ export class TenantService {
         private tenantRepository: Repository<NestAuthTenant>,
         private eventEmitter: EventEmitter2,
         private debugLogger: DebugLoggerService,
-
-        @Inject(NEST_AUTH_TENANT_CONTEXT_SERVICE)
-        readonly tenantContext: ITenantContextService,
+        private readonly authConfigService: AuthConfigService,
     ) { }
 
     async createTenant(data: Partial<NestAuthTenant>): Promise<NestAuthTenant> {
@@ -202,7 +200,8 @@ export class TenantService {
 
 
     async resolveTenantId(inputTenantId?: string | null): Promise<string | null> {
-        if (this.tenantContext.isEnabled()) {
+        const config = this.authConfigService.getConfig();
+        if (config.tenant?.enabled) {
             if (inputTenantId) {
                 const tenant = await this.getTenantById(inputTenantId);
                 if (!tenant) {

@@ -832,6 +832,13 @@
             "items": {
               "type": "object"
             }
+          },
+          "userAccesses": {
+            "description": "User access per tenant (includes roles)",
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
           }
         },
         "required": [
@@ -1166,7 +1173,10 @@
             "description": "Tenant ID to switch into",
             "example": "123e4567-e89b-12d3-a456-426614174000"
           }
-        }
+        },
+        "required": [
+          "tenantId"
+        ]
       },
       "NestAuthChangePasswordRequestDto": {
         "type": "object",
