@@ -25,7 +25,11 @@ export class PhoneAuthProvider extends BaseAuthProvider {
 
     async findIdentity(providerUserId: string) {
         const phoneNorm = normalizedPhone(providerUserId);
-        return super.findIdentity(phoneNorm || providerUserId);
+        if (phoneNorm) {
+            const normalizedIdentity = await super.findIdentity(phoneNorm);
+            if (normalizedIdentity) return normalizedIdentity;
+        }
+        return super.findIdentity(providerUserId);
     }
 
     async validate(credentials: PhoneCredentialsDto) {

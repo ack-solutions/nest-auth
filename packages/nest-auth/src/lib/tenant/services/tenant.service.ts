@@ -207,7 +207,7 @@ export class TenantService {
                 if (!tenant) {
                     throw new BadRequestException({
                         message: `Tenant with ID '${inputTenantId}' not found`,
-                        code: 'TENANT_NOT_FOUND',
+                        code: ERROR_CODES.TENANT_NOT_FOUND,
                     });
                 }
             } else {

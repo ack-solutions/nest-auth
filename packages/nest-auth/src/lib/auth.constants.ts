@@ -4,7 +4,6 @@ export const NEST_AUTH_ASYNC_OPTIONS_PROVIDER = 'NEST_AUTH_ASYNC_OPTIONS_PROVIDE
 /** Injection token for tenant context service (abstraction for disabled / ISOLATED / SHARED). */
 export const NEST_AUTH_TENANT_CONTEXT_SERVICE = 'NEST_AUTH_TENANT_CONTEXT_SERVICE';
 
-/** Injection token for optional tenant resolver (header, subdomain, jwt, custom). */
 export const JWT_AUTH_PROVIDER = 'jwt';
 export const GOOGLE_AUTH_PROVIDER = 'google';
 export const FACEBOOK_AUTH_PROVIDER = 'facebook';

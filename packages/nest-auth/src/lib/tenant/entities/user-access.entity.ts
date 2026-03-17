@@ -17,12 +17,19 @@ import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthRole } from '../../role/entities/role.entity';
 
 @Entity('nest_auth_user_accesses')
-@Unique(['userId', 'tenantId'])
+@Index('UQ_user_tenant_not_null', ['userId', 'tenantId'], {
+    unique: true,
+    where: `"tenantId" IS NOT NULL`,
+})
+@Index('UQ_user_null_tenant', ['userId'], {
+    unique: true,
+    where: `"tenantId" IS NULL`,
+})
 export class NestAuthUserAccess extends BaseEntity {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @Column({ nullable:false })
+    @Column({ nullable: false })
     @Index()
     @RelationId((access: NestAuthUserAccess) => access.user)
     userId: string;
@@ -35,7 +42,7 @@ export class NestAuthUserAccess extends BaseEntity {
     @ManyToOne(() => NestAuthUser, { onDelete: 'CASCADE' })
     user: NestAuthUser;
 
-    @ManyToOne(() => NestAuthTenant, { onDelete: 'CASCADE' })
+    @ManyToOne(() => NestAuthTenant, { onDelete: 'CASCADE', nullable: true })
     tenant: NestAuthTenant;
 
     /** Multiple roles for this user access (tenant-specific). */

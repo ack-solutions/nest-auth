@@ -24,11 +24,23 @@ export interface User {
     isMfaEnabled?: boolean;
 }
 
+/**
+ * User's access within a tenant (membership + roles).
+ * Use roleIds for lightweight/write operations; use roles when relations are loaded.
+ */
 export interface UserAccess {
     id: string;
     tenantId: string;
     tenant?: Tenant;
+    /**
+     * Full Role objects. Populated when the access is loaded with role relations (read/display).
+     * Prefer this when you need role names, guards, or permissions for UI.
+     */
     roles?: Role[];
+    /**
+     * Role IDs only. Use for lightweight payloads and write operations (e.g. PATCH/PUT).
+     * Authoritative for serialization and persistence when saving access; keep in sync with roles when editing.
+     */
     roleIds?: string[];
     isActive: boolean;
     isDefault?: boolean;

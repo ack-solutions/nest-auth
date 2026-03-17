@@ -1,10 +1,10 @@
-import { Injectable, UnauthorizedException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan } from 'typeorm';
+import { Repository } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthOTP } from '../../auth/entities/otp.entity';
-import { NestAuthOTPTypeEnum, TenantModeEnum } from '@ackplus/nest-auth-contracts';
-import { JWTTokenPayload, SessionPayload } from '../../core/interfaces/token-payload.interface';
+import { NestAuthOTPTypeEnum } from '@ackplus/nest-auth-contracts';
+import { JWTTokenPayload } from '../../core/interfaces/token-payload.interface';
 import {
     EMAIL_AUTH_PROVIDER,
     PHONE_AUTH_PROVIDER,

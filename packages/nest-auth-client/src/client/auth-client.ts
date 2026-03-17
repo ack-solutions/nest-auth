@@ -958,7 +958,7 @@ export class AuthClient {
         this.tenantId = id;
         if (this.session) {
             this.session = { ...this.session, tenantId: id };
-            this.persistState().catch(() => {});
+            this.persistState().catch((error) =>  this.log('warn', 'Failed to persist tenant change', error))
         }
     }
 

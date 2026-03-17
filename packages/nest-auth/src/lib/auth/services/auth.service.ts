@@ -120,7 +120,7 @@ export class AuthService {
                 });
             }
 
-            const { email, phone, password , tenantId} = input;
+            const { email, phone, password, tenantId } = input;
 
             // Resolve guard from config if available (Server-side enforcement)
             if (this.authConfig.registrationHooks?.beforeSignup) {
@@ -281,13 +281,13 @@ export class AuthService {
 
     async login(input: NestAuthLoginRequestDto): Promise<AuthResponseDto> {
         let { credentials, providerName, createUserIfNotExists = false, guard, tenantId } = input;
-       
+
         this.debugLogger.logFunctionEntry('login', 'AuthService', { providerName, createUserIfNotExists, guard, tenantId });
 
         try {
             // Resolve tenant ID
             await this.tenantService.resolveTenantId(tenantId);
-            
+
             this.debugLogger.logAuthOperation('login', providerName, undefined, { resolvedTenantId: tenantId, createUserIfNotExists });
 
             const provider = this.authProviderRegistry.getProvider(providerName);
@@ -483,7 +483,10 @@ export class AuthService {
         }
 
         const resolvedTenantId = await this.tenantService.resolveTenantId(tenantId || null);
-        const user = await this.userRepository.findOne({ where: { id: session.userId } });
+        const user = await this.userRepository.findOne({
+            where: { id: session.userId },
+            relations: ['userAccesses', 'userAccesses.tenant', 'userAccesses.roles'],
+        });
         if (!user) {
             throw new UnauthorizedException({
                 message: 'User not found',
