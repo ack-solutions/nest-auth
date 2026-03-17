@@ -137,6 +137,7 @@ export class AuthClient {
             const userJson = await Promise.resolve(this.config.storage!.get(STORAGE_KEYS.USER));
             if (userJson) {
                 this.user = JSON.parse(userJson);
+                this.userAccesses = this.user?.userAccesses ?? undefined;
             }
 
             const sessionJson = await Promise.resolve(this.config.storage!.get(STORAGE_KEYS.SESSION));

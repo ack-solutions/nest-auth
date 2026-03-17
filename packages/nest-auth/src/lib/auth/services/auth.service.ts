@@ -120,13 +120,13 @@ export class AuthService {
                 });
             }
 
-            const { email, phone, password, tenantId } = input;
-
             // Resolve guard from config if available (Server-side enforcement)
             if (this.authConfig.registrationHooks?.beforeSignup) {
                 const req = RequestContext.currentRequest();
                 input = await this.authConfig.registrationHooks.beforeSignup(input, { request: req });
             }
+            
+            const { email, phone, password, tenantId } = input;
 
             // Resolve tenant ID
             await this.tenantService.resolveTenantId(tenantId);
