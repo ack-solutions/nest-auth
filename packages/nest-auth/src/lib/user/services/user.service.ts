@@ -14,12 +14,10 @@ import { NestAuthUserAccess } from '../../tenant/entities/user-access.entity';
 import { NestAuthTenant } from '../../tenant/entities/tenant.entity';
 import { NestAuthRole } from '../../role/entities/role.entity';
 import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
-import { IAuthModuleOptions } from '../../core/interfaces/auth-module-options.interface';
 import { normalizedEmail, normalizedPhone } from '../../utils';
 
 @Injectable()
 export class UserService {
-    private authConfig: IAuthModuleOptions;
     constructor(
         @InjectRepository(NestAuthUser)
         private readonly userRepository: Repository<NestAuthUser>,
@@ -29,9 +27,7 @@ export class UserService {
         private readonly eventEmitter: EventEmitter2,
         private readonly authConfigService: AuthConfigService,
         private readonly debugLogger: DebugLoggerService,
-    ) {
-        this.authConfig = this.authConfigService.getConfig();
-    }
+    ) {}
 
     async createUser(data: Partial<NestAuthUser>, tenantId?: string, context?: any): Promise<NestAuthUser> {
         this.debugLogger.logFunctionEntry('createUser', 'UserService', { email: data.email, phone: data.phone, hasPassword: !!(data as any).password });
@@ -66,9 +62,9 @@ export class UserService {
             }
 
 
-            if (this.authConfig.user?.beforeCreate) {
+            if (config.user?.beforeCreate) {
                 this.debugLogger.debug('Applying user.beforeCreate hook', 'UserService');
-                data = await this.authConfig.user.beforeCreate?.(data, context) ?? data;
+                data = await config.user.beforeCreate?.(data, context) ?? data;
             }
 
             this.debugLogger.debug('Creating new user entity', 'UserService');
@@ -92,11 +88,11 @@ export class UserService {
             this.debugLogger.info('User created successfully', 'UserService', { userId: user.id });
 
             // Create identities
-            if (email && this.authConfig.emailAuth?.enabled !== false) {
+            if (email && config.emailAuth?.enabled !== false) {
                 await user.findOrCreateIdentity(EMAIL_AUTH_PROVIDER, email);
             }
 
-            if (phone && this.authConfig.phoneAuth?.enabled === true) {
+            if (phone && config.phoneAuth?.enabled === true) {
                 await user.findOrCreateIdentity(PHONE_AUTH_PROVIDER, phone);
             }
 
@@ -112,9 +108,9 @@ export class UserService {
             );
 
             // Apply user.afterCreate hook if configured
-            if (this.authConfig.user?.afterCreate) {
+            if (config.user?.afterCreate) {
                 this.debugLogger.debug('Applying user.afterCreate hook', 'UserService', { userId: user.id });
-                await this.authConfig.user.afterCreate?.(user, context);
+                await config.user.afterCreate?.(user, context);
             }
 
             this.debugLogger.logFunctionExit('createUser', 'UserService', { userId: user.id });
@@ -234,6 +230,7 @@ export class UserService {
 
             // If email or phone is being changed, check for conflicts (same tenant context via memberships)
             if (data.email || data.phone) {
+                const config = this.authConfigService.getConfig();
                 this.debugLogger.debug('Checking for conflicts during user update', 'UserService', { userId: id, email: !!data.email, phone: !!data.phone });
 
                 const userWithMemberships = await this.getUserById(id, {
@@ -241,7 +238,7 @@ export class UserService {
                 });
 
                 let tenantId = null;
-                if (this.authConfig.tenant?.mode === TenantModeEnum.ISOLATED || this.authConfig.tenantMode === TenantModeEnum.ISOLATED) {
+                if (config.tenant?.mode === TenantModeEnum.ISOLATED) {
                     tenantId = userWithMemberships?.userAccesses?.[0]?.tenantId;
                 }
 
@@ -281,12 +278,13 @@ export class UserService {
             const updatedUser = await this.userRepository.save(user);
             this.debugLogger.info('User updated successfully', 'UserService', { userId: updatedUser.id });
 
-            if (data.email && this.authConfig.emailAuth?.enabled !== false) {
+            const updateConfig = this.authConfigService.getConfig();
+            if (data.email && updateConfig.emailAuth?.enabled !== false) {
                 this.debugLogger.debug('Updating email identity', 'UserService', { userId: id });
                 await user.updateOrCreateIdentity(EMAIL_AUTH_PROVIDER, { providerId: data.email });
             }
 
-            if (data.phone && this.authConfig.phoneAuth?.enabled === true) {
+            if (data.phone && updateConfig.phoneAuth?.enabled === true) {
                 this.debugLogger.debug('Updating phone identity', 'UserService', { userId: id });
                 await user.updateOrCreateIdentity(PHONE_AUTH_PROVIDER, { providerId: data.phone });
             }
@@ -315,6 +313,7 @@ export class UserService {
         tenantId: string,
     ): Promise<NestAuthUserAccess> {
         if (!userId || !tenantId) {
+            this.debugLogger.warn('ensureUserAccess called with missing parameters', 'UserService', { userId: !!userId, tenantId: !!tenantId });
             return null;
         }
 

@@ -187,11 +187,6 @@ export class AdminUsersController {
 
   @Post()
   async createUser(@Body() dto: AdminCreateUserDto) {
-    const fromTenantIds = dto.tenantIds?.length ? dto.tenantIds : (dto.tenantId ? [dto.tenantId] : []);
-    const fromTenantRoles = (dto.tenantRoles ?? []).map((tr) => tr.tenantId).filter(Boolean);
-    const allTenantIds = Array.from(new Set([...fromTenantIds, ...fromTenantRoles]));
-    const resolvedTenantIds = await this.resolveTenantIds(allTenantIds);
-
     const user = await this.users.createUser({
       email: dto.email,
       phone: dto.phone,
@@ -203,23 +198,6 @@ export class AdminUsersController {
     if (dto.password) {
       await user.setPassword(dto.password);
       await user.save();
-    }
-
-    if (resolvedTenantIds.length > 0) {
-            await this.adminUserManagement.syncUserAccesses(user.id, resolvedTenantIds);
-
-      if (dto.tenantRoles?.length) {
-        for (const tr of dto.tenantRoles) {
-          const resolvedTenantId = await this.tenantService.resolveTenantId(tr.tenantId);
-          if (resolvedTenantId) {
-            await this.users.setUserAccessRoles(user.id, resolvedTenantId, tr.roleIds ?? []);
-          }
-        }
-      } else if (dto.roleIds?.length) {
-        for (const tenantId of resolvedTenantIds) {
-          await this.users.setUserAccessRoles(user.id, tenantId, dto.roleIds);
-        }
-      }
     }
 
     const safeUser = await this.toSafeUser(user);
@@ -304,7 +282,7 @@ export class AdminUsersController {
     if (dto.email !== undefined && dto.email !== oldEmail) {
       // Remove old email identity if it exists
       if (oldEmail) {
-        const oldEmailIdentity = user.identities?.find(i => 
+        const oldEmailIdentity = user.identities?.find(i =>
           i.provider === EMAIL_AUTH_PROVIDER && i.providerId === oldEmail
         );
         if (oldEmailIdentity) {
@@ -321,7 +299,7 @@ export class AdminUsersController {
     if (dto.phone !== undefined && dto.phone !== oldPhone) {
       // Remove old phone identity if it exists
       if (oldPhone) {
-        const oldPhoneIdentity = user.identities?.find(i => 
+        const oldPhoneIdentity = user.identities?.find(i =>
           i.provider === PHONE_AUTH_PROVIDER && i.providerId === oldPhone
         );
         if (oldPhoneIdentity) {
@@ -372,33 +350,6 @@ export class AdminUsersController {
       }
     }
 
-    if (dto.tenantIds) {
-      const resolvedTenantIds = await this.resolveTenantIds(dto.tenantIds);
-            await this.adminUserManagement.syncUserAccesses(user.id, resolvedTenantIds);
-    }
-
-    if (dto.roleIds?.length) {
-      if (!dto.tenantId) {
-        throw new BadRequestException('tenantId is required when updating roleIds');
-      }
-      const roleTenantId = await this.tenantService.resolveTenantId(dto.tenantId);
-      await this.users.setUserAccessRoles(user.id, roleTenantId, dto.roleIds);
-    }
-
-    if (dto.tenantRoles?.length) {
-      for (const tr of dto.tenantRoles) {
-        if (!tr?.tenantId || typeof tr.tenantId !== 'string' || !tr.tenantId.trim()) {
-          throw new BadRequestException('Each tenantRoles entry must have a non-empty tenantId');
-        }
-        const roleIds = Array.isArray(tr.roleIds) ? tr.roleIds : [];
-        const resolvedTenantId = await this.tenantService.resolveTenantId(tr.tenantId);
-        if (!resolvedTenantId) {
-          throw new BadRequestException(`Invalid or unresolved tenantId: ${tr.tenantId}`);
-        }
-        await this.users.setUserAccessRoles(user.id, resolvedTenantId, roleIds);
-      }
-    }
-
     // Apply password change in-memory
     if (dto.password) {
       await user.setPassword(dto.password);
@@ -406,11 +357,11 @@ export class AdminUsersController {
 
     // Save all changes
     await user.save();
-
-    // Reload memberships so toSafeUser returns current state
-    (user as { userAccesses?: unknown }).userAccesses = undefined;
-
-    const safeUser = await this.toSafeUser(user);
+    // Reload user with fresh memberships
+    const reloadedUser = await this.users.getUserById(user.id, {
+      relations: ['userAccesses', 'userAccesses.tenant', 'userAccesses.roles'],
+    });
+    const safeUser = await this.toSafeUser(reloadedUser);
     return { user: safeUser };
   }
 

@@ -57,7 +57,6 @@ export class NestAuthAuthGuard implements CanActivate {
         request.accessKey = null;
         request.authType = null;
         request.tenantId = null;
-        request.userAccess = null;
 
         // Get token from header or cookie based on configuration
         const { token, authType } = this.extractToken(request);
@@ -178,7 +177,6 @@ export class NestAuthAuthGuard implements CanActivate {
         request.accessKey = null;
         request.authType = null;
         request.tenantId = null;
-        request.userAccess = null;
     }
 
     private async handleJwtAuth(
@@ -246,12 +244,6 @@ export class NestAuthAuthGuard implements CanActivate {
 
             const sessionTenantId = session?.data?.tenantId;
             request.tenantId = sessionTenantId ?? payload.tenantId;
-
-            if (session?.userId && request.tenantId) {
-                request.userAccess = await RequestContext.currentUserAccess();
-            } else {
-                request.userAccess = null;
-            }
 
             await this.checkMfa(context, payload, isOptional);
 

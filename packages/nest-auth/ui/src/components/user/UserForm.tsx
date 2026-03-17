@@ -20,7 +20,11 @@ export interface UserFormData {
 const userSchema = yup.object({
     email: yup.string().email('Invalid email address').required('Email is required'),
     tenantIds: yup.array().of(yup.string()).default([]),
-    password: yup.string().min(8, 'Password must be at least 8 characters').optional(),
+    password: yup
+        .string()
+        .transform((value, originalValue) => (originalValue === '' ? undefined : value))
+        .optional()
+        .min(8, 'Password must be at least 8 characters'),
     roleIds: yup.array().of(yup.string()).default([]),
 });
 
@@ -56,7 +60,7 @@ export const UserForm: React.FC<UserFormProps> = ({
         defaultValues: initialData || {
             email: '',
             tenantIds: [],
-            password: '',
+            password: undefined,
             roleIds: [],
         },
     });

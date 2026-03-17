@@ -22,7 +22,7 @@ export class NestAuthUserAccess extends BaseEntity {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @Column({ nullable: true })
+    @Column({ nullable:false })
     @Index()
     @RelationId((access: NestAuthUserAccess) => access.user)
     userId: string;

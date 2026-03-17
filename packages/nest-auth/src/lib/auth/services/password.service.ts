@@ -281,7 +281,7 @@ export class PasswordService {
                 NestAuthEvents.PASSWORD_RESET_REQUESTED,
                 new PasswordResetRequestedEvent({
                     user: identity.user,
-                    tenantId: identity.user?.tenantId,
+                    tenantId,
                     input,
                     otp: otpEntity,
                     provider,

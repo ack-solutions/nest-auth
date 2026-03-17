@@ -359,10 +359,6 @@ export interface IAuthModuleOptions {
      */
     tenant?: INestAuthTenantOptions;
     /**
-     * @deprecated Use tenant.mode instead.
-     */
-    tenantMode?: TenantModeEnum;
-    /**
      * Embedded admin console configuration.
      * Provides a password-protected dashboard for managing users, roles, tenants, and system settings.
      *

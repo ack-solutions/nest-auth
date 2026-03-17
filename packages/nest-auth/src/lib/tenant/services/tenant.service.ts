@@ -202,12 +202,23 @@ export class TenantService {
 
 
     async resolveTenantId(inputTenantId?: string | null): Promise<string | null> {
-        if (this.tenantContext.isEnabled() && !inputTenantId) {
-            throw new BadRequestException({
-                message: 'Tenant ID is required',
-                code: ERROR_CODES.TENANT_ID_REQUIRED,
-            });
+        if (this.tenantContext.isEnabled()) {
+            if (inputTenantId) {
+                const tenant = await this.getTenantById(inputTenantId);
+                if (!tenant) {
+                    throw new BadRequestException({
+                        message: `Tenant with ID '${inputTenantId}' not found`,
+                        code: 'TENANT_NOT_FOUND',
+                    });
+                }
+            } else {
+                throw new BadRequestException({
+                    message: 'Tenant ID is required',
+                    code: ERROR_CODES.TENANT_ID_REQUIRED,
+                });
+            }
         }
+
         return inputTenantId;
     }
 

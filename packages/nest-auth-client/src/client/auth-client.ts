@@ -534,8 +534,9 @@ export class AuthClient {
 
         try {
             await this.request<MessageResponse>('POST', endpoint, undefined, { ...options, skipRefresh: true });
-        } catch {
+        } catch (error) {
             // Ignore logout errors - we'll clear local state anyway
+            this.log('debug', 'Logout API call failed (state will be cleared anyway)', error );
         }
 
         await this.clearAuthState();

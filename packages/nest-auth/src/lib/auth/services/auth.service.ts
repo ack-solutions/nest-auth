@@ -495,12 +495,11 @@ export class AuthService {
 
         const roles = await user.getRoles(resolvedTenantId);
         const permissions = await user.getPermissions(resolvedTenantId);
-        const sessionUser = { ...user, tenantId: resolvedTenantId } as NestAuthUser;
 
         const updatedSession = await this.sessionManager.updateSession(session.id!, {
             data: {
                 ...(session.data || {}),
-                user: sessionUser,
+                user,
                 roles,
                 permissions,
                 tenantId: resolvedTenantId || undefined,
@@ -692,7 +691,7 @@ export class AuthService {
                 NestAuthEvents.LOGGED_OUT_ALL,
                 new LoggedOutAllEvent({
                     user,
-                    tenantId: user.tenantId,
+                    tenantId: RequestContext.currentTenantId(),
                     logoutType,
                     reason,
                     sessions,
@@ -719,23 +718,8 @@ export class AuthService {
         if (!tenantId || !this.tenantContext.isEnabled()) {
             return;
         }
-
-        if (this.getTenantMode() === TenantModeEnum.ISOLATED) {
-            if (user.tenantId && user.tenantId !== tenantId) {
-                throw new ForbiddenException({
-                    message: 'User does not belong to this tenant',
-                    code: ERROR_CODES.ACCESS_DENIED,
-                });
-            }
-            return;
-        }
-
         const isMember = await this.userService.isUserInTenant(user.id, tenantId);
         if (!isMember) {
-            if (user.tenantId && user.tenantId === tenantId) {
-                await this.userService.ensureUserAccess(user.id, tenantId);
-                return;
-            }
             if (allowAutoJoin) {
                 await this.userService.ensureUserAccess(user.id, tenantId);
                 return;
@@ -762,7 +746,7 @@ export class AuthService {
                 delete r?.permissions;
                 return { ...r }
             }),
-            tenantId: session.data?.tenantId ?? session.data?.user?.tenantId,
+            tenantId: session.data?.tenantId,
             isMfaEnabled: session.data?.user?.isMfaEnabled,
             isMfaVerified: session.data?.isMfaVerified,
             ...otherPayload,
@@ -812,10 +796,10 @@ export class AuthService {
             serializedUser = await config.user.serialize(user);
         }
 
-        const activeTenantId = session?.data?.tenantId ?? user.tenantId;
+        const activeTenantId = session?.data?.tenantId;
         let tenants = await this.userService.getUserTenants(user.id);
-        if (!tenants.length && user.tenantId) {
-            const fallbackTenant = await this.tenantService.getTenantById(user.tenantId);
+        if (!tenants.length && activeTenantId) {
+            const fallbackTenant = await this.tenantService.getTenantById(activeTenantId);
             if (fallbackTenant) {
                 tenants = [fallbackTenant];
             }

@@ -42,15 +42,6 @@ export class AdminCreateUserDto {
   password?: string;
 
   @IsOptional()
-  @IsString()
-  tenantId?: string;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  tenantIds?: string[];
-
-  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 
@@ -61,19 +52,6 @@ export class AdminCreateUserDto {
   @IsOptional()
   @IsObject()
   metadata?: Record<string, any>;
-
-  /** Per-tenant role assignments on create. When provided, applied to each entry; roleIds is ignored. */
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => AdminTenantRolesDto)
-  tenantRoles?: AdminTenantRolesDto[];
-
-  /** When tenantRoles is not provided, apply these role IDs to every assigned tenant. */
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  roleIds?: string[];
 }
 
 export class AdminUpdateUserDto {
@@ -103,11 +81,6 @@ export class AdminUpdateUserDto {
   password?: string;
 
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  tenantIds?: string[];
-
-  @IsOptional()
   @IsObject()
   metadata?: Record<string, any>;
 
@@ -122,24 +95,4 @@ export class AdminUpdateUserDto {
   @IsOptional()
   @IsBoolean()
   phoneLoginEnabled?: boolean;
-
-  /** Role IDs for a specific tenant. When provided, tenantId is required. */
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  roleIds?: string[];
-
-  /** Tenant to apply roleIds to. Required when roleIds is provided. */
-  @ValidateIf((o) => o.roleIds?.length > 0)
-  @IsOptional()
-  @IsNotEmpty()
-  @IsString()
-  tenantId?: string;
-
-  /** Update roles per tenant (all user's tenants). When provided, applies each entry. */
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => AdminTenantRolesDto)
-  tenantRoles?: AdminTenantRolesDto[];
 }

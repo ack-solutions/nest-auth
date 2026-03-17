@@ -17,10 +17,8 @@ export interface INestAuthUser {
     isVerified: boolean;
     isActive: boolean;
     metadata?: Record<string, any>;
-    tenantId?: string;
     isMfaEnabled: boolean;
     mfaRecoveryCode?: string;
-    tenant?: INestAuthTenant;
     identities?: INestAuthIdentity[];
     mfaSecrets?: INestAuthMFASecret[];
     sessions?: INestAuthSession[];

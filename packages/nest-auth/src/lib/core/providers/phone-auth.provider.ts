@@ -46,6 +46,11 @@ export class PhoneAuthProvider extends BaseAuthProvider {
         return ['phone', 'password'];
     }
 
+    async linkToUser(userId: string, providerUserId: string, metadata?: Record<string, any>): Promise<void> {
+        const phoneNorm = normalizedPhone(providerUserId);
+        return super.linkToUser(userId, phoneNorm || providerUserId, metadata);
+    }
+
     override linkUserWith(): LinkUserWith {
         return 'phone';
     }

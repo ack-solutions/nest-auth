@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { Request } from 'express';
 import { ITenantContextService } from '../tenant-context.interface';
 import { NestAuthTenant } from '../../entities/tenant.entity';
 import { NestAuthUserAccess } from '../../entities/user-access.entity';

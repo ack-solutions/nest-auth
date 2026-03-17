@@ -5,7 +5,6 @@ import { NestAuthTenant } from './entities/tenant.entity';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import {
     NEST_AUTH_TENANT_CONTEXT_SERVICE,
-    NEST_AUTH_TENANT_RESOLVER,
 } from '../auth.constants';
 import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { AuthConfigService } from '../core/services/auth-config.service';
@@ -33,7 +32,7 @@ import { SharedTenantContextService } from './tenant-context/services/shared-ten
 
                 const mode = opts.mode ?? TenantModeEnum.ISOLATED;
                 if (mode === TenantModeEnum.SHARED) {
-                    return new SharedTenantContextService(tenantService, authConfig);
+                    return new SharedTenantContextService(tenantService);
                 }
                 
                 return new IsolatedTenantContextService(tenantService);
@@ -41,7 +40,6 @@ import { SharedTenantContextService } from './tenant-context/services/shared-ten
             inject: [
                 TenantService,
                 AuthConfigService,
-                { token: NEST_AUTH_TENANT_RESOLVER, optional: true },
             ],
         },
     ],

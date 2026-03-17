@@ -116,13 +116,6 @@ export interface LoginForm {
     password: string;
 }
 
-export interface CreateUserForm {
-    email: string;
-    tenantIds: string[];
-    password?: string;
-    roleIds: string[];
-}
-
 export interface CreateRoleForm {
     name: string;
     guard: string;

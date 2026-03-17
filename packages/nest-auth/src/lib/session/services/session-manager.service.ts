@@ -312,18 +312,16 @@ export class SessionManagerService {
             throw new UnauthorizedException('User not found');
         }
 
-        const activeTenantId = tenantId ?? user.tenantId ?? null;
-        const roles = await user.getRoles(activeTenantId);
-        const permissions = await user.getPermissions(activeTenantId);
-        const sessionUser = { ...user, tenantId: activeTenantId } as NestAuthUser;
+        const roles = await user.getRoles(tenantId);
+        const permissions = await user.getPermissions(tenantId);
 
         // Build default session data
         let sessionData: SessionDataPayload = {
-            user: sessionUser,
+            user,
             isMfaVerified,
             roles,
             permissions,
-            tenantId: activeTenantId ?? undefined,
+            tenantId,
         };
 
         // Apply custom session data hook if configured

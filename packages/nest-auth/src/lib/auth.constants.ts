@@ -5,7 +5,6 @@ export const NEST_AUTH_ASYNC_OPTIONS_PROVIDER = 'NEST_AUTH_ASYNC_OPTIONS_PROVIDE
 export const NEST_AUTH_TENANT_CONTEXT_SERVICE = 'NEST_AUTH_TENANT_CONTEXT_SERVICE';
 
 /** Injection token for optional tenant resolver (header, subdomain, jwt, custom). */
-export const NEST_AUTH_TENANT_RESOLVER = 'NEST_AUTH_TENANT_RESOLVER';
 export const JWT_AUTH_PROVIDER = 'jwt';
 export const GOOGLE_AUTH_PROVIDER = 'google';
 export const FACEBOOK_AUTH_PROVIDER = 'facebook';

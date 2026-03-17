@@ -1,12 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { ForbiddenException } from '@nestjs/common';
-import { Request } from 'express';
 import { ITenantContextService } from '../tenant-context.interface';
 import { NestAuthTenant } from '../../entities/tenant.entity';
 import { NestAuthUserAccess } from '../../entities/user-access.entity';
 import { TenantService } from '../../services/tenant.service';
 import { RequestContext } from '../../../request-context/request-context';
-import { ERROR_CODES } from '../../../auth.constants';
 
 /**
  * Tenant context when tenant.enabled is true and mode is ISOLATED.
@@ -21,8 +18,8 @@ export class IsolatedTenantContextService implements ITenantContextService {
     }
 
     async getCurrentTenantId(): Promise<string | null> {
-        const fromSession = RequestContext.currentSession()?.data?.tenantId;
-        return fromSession ?? null;
+        const tenantId = RequestContext.currentTenantId();
+        return tenantId ?? null;
     }
 
     async getCurrentTenant(): Promise<NestAuthTenant | null> {

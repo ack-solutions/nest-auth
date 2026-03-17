@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 import { Request, Response } from 'express';
 import { JWTTokenPayload, SessionPayload } from '../core/interfaces/token-payload.interface';
 import { NestAuthUserAccess } from '../tenant/entities/user-access.entity';
-import { FindOneOptions } from 'typeorm';
+import { FindOneOptions, IsNull } from 'typeorm';
 import { NestAuthUser } from '../user/entities/user.entity';
 
 export class RequestContext {
@@ -54,7 +54,7 @@ export class RequestContext {
             where: {
                 ...(findOptions?.where as object),
                 userId: session.userId,
-                tenantId: session.data?.tenantId,
+                tenantId: session.data?.tenantId || IsNull(),
             },
         });
         return access;

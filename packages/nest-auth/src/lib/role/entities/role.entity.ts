@@ -99,7 +99,6 @@ export class NestAuthRole extends BaseEntity {
                     `Role with name '${name}' and guard '${guard}' already exists for ${scope}`,
                 );
             }
-            console.error(err);
             throw err;
         }
     }

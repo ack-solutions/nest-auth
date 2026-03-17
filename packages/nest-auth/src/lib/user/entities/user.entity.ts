@@ -59,17 +59,11 @@ export class NestAuthUser extends BaseEntity {
     @Column({ type: 'simple-json', nullable: true, default: '{}' })
     metadata?: Record<string, any>;
 
-    @Column({ nullable: true })
-    tenantId?: string;
-
     @Column({ default: false })
     isMfaEnabled: boolean;
 
     @Column({ nullable: true })
     mfaRecoveryCode?: string;
-
-    @ManyToOne(() => NestAuthTenant, { onDelete: 'CASCADE' })
-    tenant: NestAuthTenant;
 
     @OneToMany(() => NestAuthIdentity, identity => identity.user)
     identities: NestAuthIdentity[];
@@ -144,6 +138,7 @@ export class NestAuthUser extends BaseEntity {
         if (!access) {
             access = NestAuthUserAccess.create({ userId: this.id, tenantId });
             await access.save();
+            access.roles = []; // Initialize for consistency
         }
         return access;
     }
