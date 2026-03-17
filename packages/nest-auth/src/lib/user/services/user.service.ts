@@ -32,6 +32,8 @@ export class UserService {
     async createUser(data: Partial<NestAuthUser>, tenantId?: string, context?: any): Promise<NestAuthUser> {
         this.debugLogger.logFunctionEntry('createUser', 'UserService', { email: data.email, phone: data.phone, hasPassword: !!(data as any).password });
 
+        const config = this.authConfigService.getConfig();
+
         try {
             const email = normalizedEmail(data.email);
             const phone = normalizedPhone(data.phone);

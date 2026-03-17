@@ -181,7 +181,7 @@ export class MfaService {
                     NestAuthEvents.TWO_FACTOR_CODE_SENT,
                     new TwoFactorCodeSentEvent({
                         user,
-                        tenantId: RequestContext.currentTenantId() || user.tenantId,
+                        tenantId: RequestContext.currentTenantId(),
                         method,
                         code,
                     })
