@@ -47,8 +47,8 @@ export class ProfileController {
     /**
      * Helper method to get current user or throw
      */
-    private getCurrentUserOrThrow() {
-        const user = RequestContext.currentUser();
+    private async getCurrentUserOrThrow() {
+        const user = await RequestContext.currentUser();
         if (!user) {
             throw new UnauthorizedException('User not found');
         }
@@ -81,7 +81,7 @@ export class ProfileController {
     @ApiResponse({ status: 401, description: 'Not authenticated' })
     @ApiResponse({ status: 404, description: 'User not found' })
     async getProfile(): Promise<ProfileResponseDto> {
-        const user = this.getCurrentUserOrThrow();
+        const user = await this.getCurrentUserOrThrow();
         return this.profileService.getProfile(user.id);
     }
 
@@ -119,7 +119,7 @@ export class ProfileController {
     async updateProfile(
         @Body() dto: UpdateProfileDto,
     ): Promise<UpdateProfileResponseDto> {
-        const user = this.getCurrentUserOrThrow();
+        const user = await this.getCurrentUserOrThrow();
         return this.profileService.updateProfile(user.id, dto);
     }
 }

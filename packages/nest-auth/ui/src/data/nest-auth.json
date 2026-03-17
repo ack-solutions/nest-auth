@@ -369,6 +369,22 @@
         ]
       }
     },
+    "/auth/client-config": {
+      "get": {
+        "description": "Public configuration for clients (tenant mode, auth methods, registration, MFA, etc.). No auth required.",
+        "operationId": "AuthController_getClientConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Client configuration"
+          }
+        },
+        "summary": "Client config",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/auth/user": {
       "get": {
         "operationId": "AuthController_getUser",

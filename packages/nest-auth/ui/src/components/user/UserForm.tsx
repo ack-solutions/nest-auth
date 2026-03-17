@@ -1,35 +1,32 @@
 import React from 'react';
-import { useForm, Controller, useWatch } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { EmailField } from '../form/EmailField';
 import { Select } from '../Select';
-import { MultiSelect } from '../MultiSelect';
-import { PasswordField } from '../form/PasswordField';
 import { FormFooterAction } from '../FormFooter';
 import { Plus } from 'lucide-react';
 import type { Tenant, Role } from '../../types';
 
+/** Create user form data: shared = email only; isolated = email + tenantId. */
 export interface UserFormData {
     email: string;
-    tenantIds: string[];
-    password?: string;
-    roleIds: string[];
+    tenantId?: string;
 }
 
-const userSchema = yup.object({
-    email: yup.string().email('Invalid email address').required('Email is required'),
-    tenantIds: yup.array().of(yup.string()).default([]),
-    password: yup
-        .string()
-        .transform((value, originalValue) => (originalValue === '' ? undefined : value))
-        .optional()
-        .min(8, 'Password must be at least 8 characters'),
-    roleIds: yup.array().of(yup.string()).default([]),
-});
+const makeSchema = (requireTenantId: boolean) =>
+    yup.object({
+        email: yup.string().email('Invalid email address').required('Email is required'),
+        tenantId: requireTenantId
+            ? yup.string().required('Tenant is required')
+            : yup.string().optional(),
+    });
+
+export type TenantMode = 'isolated' | 'shared' | null;
 
 export interface UserFormProps {
     initialData?: Partial<UserFormData>;
+    tenantMode: TenantMode;
     tenants: Tenant[];
     roles: Role[];
     onSubmit: (data: UserFormData) => Promise<void>;
@@ -41,6 +38,7 @@ export interface UserFormProps {
 
 export const UserForm: React.FC<UserFormProps> = ({
     initialData,
+    tenantMode,
     tenants,
     roles,
     onSubmit,
@@ -49,30 +47,27 @@ export const UserForm: React.FC<UserFormProps> = ({
     submitLabel = 'Create User',
     onActionsReady,
 }) => {
+    const isIsolated = tenantMode === 'isolated';
+    const schema = React.useMemo(() => makeSchema(isIsolated), [isIsolated]);
+
     const {
         control,
         handleSubmit,
         formState: { errors, isSubmitting },
         reset,
-        setValue,
     } = useForm<UserFormData>({
-        resolver: yupResolver(userSchema) as any,
+        resolver: yupResolver(schema) as any,
         defaultValues: initialData || {
             email: '',
-            tenantIds: [],
-            password: undefined,
-            roleIds: [],
+            tenantId: '',
         },
     });
-
-    const tenantIds = useWatch({ control, name: 'tenantIds' }) || [];
-    const firstTenantId = tenantIds[0];
 
     const handleFormSubmit = async (data: UserFormData) => {
         try {
             await onSubmit(data);
             reset();
-        } catch (err) {
+        } catch {
             // Error handled by parent
         }
     };
@@ -82,43 +77,31 @@ export const UserForm: React.FC<UserFormProps> = ({
         onCancel();
     }, [reset, onCancel]);
 
-    // Prepare footer actions - only depend on stable references
-    const footerActions: FormFooterAction[] = React.useMemo(() => [
-        {
-            label: 'Cancel',
-            onClick: handleCancel,
-            variant: 'secondary' as const,
-            disabled: isSubmitting,
-        },
-        {
-            label: submitLabel,
-            onClick: () => {
-                const form = document.getElementById('user-form') as HTMLFormElement;
-                if (form) {
-                    form.requestSubmit();
-                }
+    const footerActions: FormFooterAction[] = React.useMemo(
+        () => [
+            {
+                label: 'Cancel',
+                onClick: handleCancel,
+                variant: 'secondary' as const,
+                disabled: isSubmitting,
             },
-            variant: 'primary' as const,
-            disabled: isSubmitting,
-            icon: <Plus className="w-4 h-4" />,
-        },
-    ], [handleCancel, isSubmitting, submitLabel]);
+            {
+                label: submitLabel,
+                onClick: () => {
+                    const form = document.getElementById('user-form') as HTMLFormElement;
+                    if (form) form.requestSubmit();
+                },
+                variant: 'primary' as const,
+                disabled: isSubmitting,
+                icon: <Plus className="w-4 h-4" />,
+            },
+        ],
+        [handleCancel, isSubmitting, submitLabel]
+    );
 
-    // Track if we've notified parent to prevent unnecessary updates
-    const hasNotifiedRef = React.useRef(false);
-    const prevIsSubmittingRef = React.useRef(isSubmitting);
-
-    // Notify parent of actions - only on mount or when isSubmitting changes
     React.useEffect(() => {
-        if (onActionsReady) {
-            // Only call if this is first render or isSubmitting changed
-            if (!hasNotifiedRef.current || prevIsSubmittingRef.current !== isSubmitting) {
-                onActionsReady(footerActions);
-                hasNotifiedRef.current = true;
-                prevIsSubmittingRef.current = isSubmitting;
-            }
-        }
-    }, [onActionsReady, footerActions, isSubmitting]);
+        onActionsReady?.(footerActions);
+    }, [onActionsReady, footerActions]);
 
     return (
         <form id="user-form" onSubmit={handleSubmit(handleFormSubmit)} className="p-4 space-y-3">
@@ -144,64 +127,36 @@ export const UserForm: React.FC<UserFormProps> = ({
                 )}
             />
 
-            <div>
-                <Controller
-                    name="tenantIds"
-                    control={control}
-                    render={({ field }) => (
-                        <MultiSelect
-                            label="Tenants (optional – assign later in edit if needed)"
-                            value={field.value || []}
-                            onChange={field.onChange}
-                            options={tenants.map((t) => ({ value: t.id, label: `${t.name} (${t.slug})` }))}
-                            placeholder="Select tenants..."
-                        />
-                    )}
-                />
-                {errors.tenantIds && (
-                    <p className="text-xs text-red-600 mt-0.5">{errors.tenantIds.message}</p>
-                )}
-            </div>
-
-                <Controller
-                name="password"
-                control={control}
-                render={({ field }) => (
-                    <PasswordField
-                        id="user-password"
-                        label="Password (optional – set later in edit if needed)"
-                        value={field.value || ''}
-                        onChange={field.onChange}
-                        disabled={isSubmitting}
-                        error={errors.password?.message}
-                        placeholder="Enter password"
-                        showGenerateButton={true}
-                        showStrengthIndicator={true}
+            {isIsolated && (
+                <div>
+                    <Controller
+                        name="tenantId"
+                        control={control}
+                        render={({ field }) => (
+                            <Select
+                                label="Tenant"
+                                value={field.value || ''}
+                                onChange={field.onChange}
+                                options={[
+                                    { value: '', label: 'Select tenant...' },
+                                    ...tenants.map((t) => ({ value: t.id, label: `${t.name} (${t.slug})` })),
+                                ]}
+                                placeholder="Select tenant..."
+                                required={true}
+                            />
+                        )}
                     />
-                )}
-            />
-
-            <div>
-                <Controller
-                    name="roleIds"
-                    control={control}
-                    render={({ field }) => (
-                        <MultiSelect
-                            label="Roles (for first tenant when tenants selected)"
-                            value={field.value || []}
-                            onChange={field.onChange}
-                            options={roles.filter((r) => !r.tenantId || r.tenantId === firstTenantId).map((r) => ({
-                                value: r.id,
-                                label: r.tenantId ? `${r.name} (${r.guard})` : `${r.name} (${r.guard}) - Global`,
-                            }))}
-                            placeholder="Select roles..."
-                        />
+                    {errors.tenantId && (
+                        <p className="text-xs text-red-600 mt-0.5">{errors.tenantId.message}</p>
                     )}
-                />
-                {errors.roleIds && (
-                    <p className="text-xs text-red-600 mt-0.5">{errors.roleIds.message}</p>
-                )}
-            </div>
+                </div>
+            )}
+
+            {tenantMode === 'shared' && (
+                <p className="text-xs text-gray-500">
+                    Tenant and roles can be assigned when editing the user after creation.
+                </p>
+            )}
         </form>
     );
 };

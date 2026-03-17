@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, CheckCircle, XCircle, Eye, Trash2, UserPlus, Filter, X, Building2, Shield } from 'lucide-react';
 import { api } from '../services/api';
+import { getAuthApiBaseUrl } from '../components/auth/utils/utils';
 import { useConfirm } from '../hooks/useConfirm';
 import { usePagination } from '../hooks/usePagination';
 import type { User, Tenant, Role } from '../types';
@@ -13,12 +14,13 @@ import { SearchInput } from '../components/SearchInput';
 import { Table, Column, PaginationInfo } from '../components/Table';
 import { Card } from '../components/Card';
 import { CreateUserDialog } from '../components/user/CreateUserDialog';
-import { UserFormData } from '../components/user/UserForm';
+import { UserFormData, TenantMode } from '../components/user/UserForm';
 
 export const UsersPage: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [tenants, setTenants] = useState<Tenant[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
+    const [tenantMode, setTenantMode] = useState<TenantMode>(null);
     const [error, setError] = useState('');
     const [createError, setCreateError] = useState('');
     const [loading, setLoading] = useState(true);
@@ -118,20 +120,33 @@ export const UsersPage: React.FC = () => {
         loadUsers();
     }, [loadUsers]);
 
+    const loadConfig = useCallback(async () => {
+        try {
+            const authBase = getAuthApiBaseUrl();
+            const url = `${authBase}/client-config`;
+            const res = await fetch(url, { credentials: 'include' });
+            if (!res.ok) throw new Error('Failed to load config');
+            const config = await res.json() as { tenantMode?: 'isolated' | 'shared' | null };
+            setTenantMode(config.tenantMode ?? null);
+        } catch {
+            setTenantMode(null);
+        }
+    }, []);
+
     useEffect(() => {
         loadTenants();
         loadRoles();
-    }, [loadTenants, loadRoles]);
+        loadConfig();
+    }, [loadTenants, loadRoles, loadConfig]);
 
     const handleCreateUser = async (data: UserFormData) => {
         setCreateError('');
         try {
-            await api.post('/api/users', {
-                email: data.email.trim(),
-                tenantIds: data.tenantIds || [],
-                password: data.password || undefined,
-                roleIds: data.roleIds?.length ? data.roleIds : undefined,
-            });
+            const body: { email: string; tenantId?: string } = { email: data.email.trim() };
+            if (tenantMode === 'isolated' && data.tenantId) {
+                body.tenantId = data.tenantId;
+            }
+            await api.post('/api/users', body);
             setShowCreateModal(false);
             await loadUsers();
         } catch (err: any) {
@@ -196,14 +211,10 @@ export const UsersPage: React.FC = () => {
             key: 'tenantId',
             label: 'Tenants',
             render: (user) => {
-                const tenantIds = user.tenantIds ?? [];
-                const firstTenantId = tenantIds[0];
-                const firstTenant = (user.tenants ?? []).find(t => t.id === firstTenantId) || tenants.find(t => t.id === firstTenantId);
-                const extraCount = tenantIds.length > 1 ? tenantIds.length - 1 : 0;
+                const tenantNames = user.userAccesses?.map((a) => a.tenant?.name) ?? [];
                 return (
                     <span className="text-sm text-gray-900">
-                        {firstTenant ? (firstTenant.name || firstTenant.slug || firstTenant.id) : (firstTenantId || '—')}
-                        {extraCount > 0 && <span className="text-xs text-gray-500 ml-1">+{extraCount}</span>}
+                        {tenantNames.join(', ')}
                     </span>
                 );
             },
@@ -522,6 +533,7 @@ export const UsersPage: React.FC = () => {
                         setCreateError('');
                     }}
                     onSubmit={handleCreateUser}
+                    tenantMode={tenantMode}
                     tenants={tenants}
                     roles={roles}
                     error={createError}

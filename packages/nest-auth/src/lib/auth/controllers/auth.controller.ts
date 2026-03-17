@@ -39,6 +39,9 @@ import { TokenResponseInterceptor } from '../interceptors/token-response.interce
 import { AuthExceptionFilter } from '../filters/auth-exception.filter';
 
 import { Auth } from '../../core/decorators/auth.decorator';
+import { AuthConfigService } from '../../core/services/auth-config.service';
+import { TenantService } from '../../tenant/services/tenant.service';
+import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
 
 @Controller('auth')
 @UseFilters(AuthExceptionFilter)
@@ -47,6 +50,8 @@ export class AuthController {
         private readonly authService: AuthService,
         private readonly passwordService: PasswordService,
         private readonly verificationService: VerificationService,
+        private readonly authConfigService: AuthConfigService,
+        private readonly tenantService: TenantService,
     ) { }
 
     // Helper methods for response handling are now handled by TokenResponseInterceptor
@@ -156,7 +161,7 @@ export class AuthController {
         // Try safe logout if user is present
         try {
             if ((req as any).user) {
-               await this.authService.logout();
+                await this.authService.logout();
             }
         } catch (e) {
             // Ignore session revocation errors if user not found/invalid
@@ -247,6 +252,46 @@ export class AuthController {
     async resetPassword(@Body() input: NestAuthResetPasswordWithTokenRequestDto): Promise<NestAuthPasswordResetResponseDto> {
         await this.passwordService.resetPasswordWithToken(input);
         return { message: 'Password has been reset successfully' };
+    }
+
+    @ApiOperation({
+        summary: 'Client config',
+        description: 'Public configuration for clients (tenant mode, auth methods, registration, MFA, etc.). No auth required.',
+    })
+    @ApiResponse({ status: 200, description: 'Client configuration' })
+    @Get('client-config')
+    async getClientConfig() {
+        const config = this.authConfigService.getConfig();
+
+        const defaultResponse = {
+            tenants: {
+                enabled: config.tenant?.enabled,
+                mode: config.tenant!.mode ?? TenantModeEnum.ISOLATED,
+            },
+            emailAuth: { enabled: config.emailAuth?.enabled !== false },
+            phoneAuth: { enabled: config.phoneAuth?.enabled === true },
+            registration: {
+                enabled: config.registration?.enabled !== false,
+                requireInvitation: config.registration?.requireInvitation ?? false,
+                collectProfileFields: config.registration?.collectProfileFields,
+            },
+            mfa: config.mfa
+                ? {
+                    enabled: config.mfa.enabled ?? false,
+                    methods: config.mfa.methods,
+                    allowUserToggle: config.mfa.allowUserToggle,
+                    allowMethodSelection: config.mfa.allowMethodSelection,
+                }
+                : { enabled: false },
+        };
+
+        if (config.clientConfig?.factory) {
+            return config.clientConfig.factory(defaultResponse, {
+                configService: this.authConfigService,
+                tenantService: this.tenantService,
+            });
+        }
+        return defaultResponse;
     }
 
     @ApiOperation({ summary: 'Get Logged In User' })

@@ -38,7 +38,10 @@ export class UserService {
             const email = normalizedEmail(data.email);
             const phone = normalizedPhone(data.phone);
 
-            await this.tenantService.resolveTenantId(tenantId);
+            console.log(config.tenant?.enabled , config.tenant?.mode === TenantModeEnum.ISOLATED)
+            if(config.tenant?.enabled && config.tenant?.mode === TenantModeEnum.ISOLATED) {
+                await this.tenantService.resolveTenantId(tenantId);
+            }
 
             // Check if user already exists (by email in same tenant context)
             if (email) {

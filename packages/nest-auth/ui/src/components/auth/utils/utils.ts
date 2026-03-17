@@ -20,3 +20,14 @@ export const getAdminApiBaseUrl = (): string => {
 
     return `${origin}${basePath}`;
 };
+
+/**
+ * Gets the base URL for the auth API (e.g. /auth/client-config).
+ * Derived from admin base so both are on the same origin.
+ */
+export const getAuthApiBaseUrl = (): string => {
+    const adminBase = getAdminApiBaseUrl();
+    // e.g. origin/api/auth/admin -> origin/api/auth
+    const authBase = adminBase.replace(/\/admin\/?$/, '');
+    return authBase;
+};

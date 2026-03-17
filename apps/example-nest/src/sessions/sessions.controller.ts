@@ -56,8 +56,8 @@ export class SessionsController {
     /**
      * Helper method to get current user or throw
      */
-    private getCurrentUserOrThrow() {
-        const user = RequestContext.currentUser();
+    private async getCurrentUserOrThrow() {
+        const user = await RequestContext.currentUser();
         if (!user) {
             throw new UnauthorizedException('User not found');
         }
@@ -100,7 +100,7 @@ export class SessionsController {
     })
     @ApiResponse({ status: 401, description: 'Not authenticated' })
     async getSessions(): Promise<SessionListResponseDto> {
-        const user = this.getCurrentUserOrThrow();
+        const user = await this.getCurrentUserOrThrow();
         const session = this.getCurrentSessionOrThrow();
 
         return this.sessionsService.getUserSessions(user.id, session.id);
@@ -140,7 +140,7 @@ export class SessionsController {
     @ApiResponse({ status: 403, description: 'Cannot revoke current session' })
     @ApiResponse({ status: 404, description: 'Session not found' })
     async revokeSession(@Param('id') sessionId: string): Promise<RevokeSessionResponseDto> {
-        const user = this.getCurrentUserOrThrow();
+        const user = await this.getCurrentUserOrThrow();
         const currentSession = this.getCurrentSessionOrThrow();
 
         return this.sessionsService.revokeSession(
@@ -172,7 +172,7 @@ export class SessionsController {
     })
     @ApiResponse({ status: 401, description: 'Not authenticated' })
     async revokeOtherSessions(): Promise<RevokeSessionResponseDto> {
-        const user = this.getCurrentUserOrThrow();
+        const user = await this.getCurrentUserOrThrow();
         const currentSession = this.getCurrentSessionOrThrow();
 
         return this.sessionsService.revokeAllOtherSessions(
@@ -207,7 +207,7 @@ export class SessionsController {
     })
     @ApiResponse({ status: 401, description: 'Not authenticated' })
     async revokeAllSessions(): Promise<RevokeSessionResponseDto> {
-        const user = this.getCurrentUserOrThrow();
+        const user = await this.getCurrentUserOrThrow();
 
         return this.sessionsService.revokeAllSessions(user.id);
     }

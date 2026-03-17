@@ -187,18 +187,34 @@ export class AdminUsersController {
 
   @Post()
   async createUser(@Body() dto: AdminCreateUserDto) {
-    const user = await this.users.createUser({
-      email: dto.email,
-      phone: dto.phone,
-      metadata: dto.metadata ?? {},
-      isActive: dto.isActive ?? true,
-      isVerified: dto.isVerified ?? false,
-    });
+    const config = this.authConfigService.getConfig();
+    const tenantEnabled = config.tenant?.enabled === true;
+    const tenantMode = config.tenant?.mode ?? TenantModeEnum.ISOLATED;
 
-    if (dto.password) {
-      await user.setPassword(dto.password);
-      await user.save();
+    let tenantId: string | undefined;
+    console.log(tenantEnabled , tenantMode)
+    if (tenantEnabled && tenantMode === TenantModeEnum.ISOLATED) {
+      if (!dto.tenantId?.trim()) {
+        throw new BadRequestException('tenantId is required when tenant mode is isolated');
+      }
+      const tenant = await this.tenantService.getTenantById(dto.tenantId.trim());
+      if (!tenant) {
+        throw new NotFoundException('Tenant not found');
+      }
+      tenantId = dto.tenantId.trim();
     }
+    // SHARED or tenant disabled: no tenantId at create; assign tenant/roles in edit
+
+    const user = await this.users.createUser(
+      {
+        email: dto.email,
+        phone: dto.phone,
+        metadata: dto.metadata ?? {},
+        isActive: dto.isActive ?? true,
+        isVerified: dto.isVerified ?? false,
+      },
+      tenantId
+    );
 
     const safeUser = await this.toSafeUser(user);
     return { user: safeUser };

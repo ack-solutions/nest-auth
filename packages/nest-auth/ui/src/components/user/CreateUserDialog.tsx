@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FormDialog } from '../FormDialog';
-import { UserForm, UserFormData } from './UserForm';
+import { UserForm, UserFormData, TenantMode } from './UserForm';
 import type { FormFooterAction } from '../FormFooter';
 import type { Tenant, Role } from '../../types';
 
@@ -8,6 +8,7 @@ export interface CreateUserDialogProps {
     isOpen: boolean;
     onClose: () => void;
     onSubmit: (data: UserFormData) => Promise<void>;
+    tenantMode: TenantMode;
     tenants: Tenant[];
     roles: Role[];
     error?: string;
@@ -17,6 +18,7 @@ export const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     isOpen,
     onClose,
     onSubmit,
+    tenantMode,
     tenants,
     roles,
     error,
@@ -32,6 +34,7 @@ export const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
             actions={actions}
         >
             <UserForm
+                tenantMode={tenantMode}
                 tenants={tenants}
                 roles={roles}
                 onSubmit={onSubmit}

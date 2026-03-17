@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { IAdminConsoleOptions } from '../../core/interfaces/auth-module-options.interface';
 import { CookieOptions } from 'express';
+import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
 
 @Injectable()
 export class AdminConsoleConfigService {
@@ -66,5 +67,12 @@ export class AdminConsoleConfigService {
 
   getSecretKey(): string | undefined {
     return this.authConfigService.getConfig().adminConsole?.secretKey;
+  }
+
+  /** Tenant mode when tenant.enabled is true: 'isolated' | 'shared'. Null when tenant is disabled. */
+  getTenantMode(): TenantModeEnum | null {
+    const config = this.authConfigService.getConfig();
+    if (!config.tenant?.enabled) return null;
+    return config.tenant?.mode ?? TenantModeEnum.ISOLATED;
   }
 }

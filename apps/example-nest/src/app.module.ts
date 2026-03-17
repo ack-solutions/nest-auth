@@ -13,7 +13,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { NestAuthModule, NestAuthEntities } from '@ackplus/nest-auth';
 import { SessionStorageType } from '@ackplus/nest-auth';
-import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
+import { NestAuthMFAMethodEnum, TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SessionsModule } from './sessions/sessions.module';
@@ -36,7 +36,7 @@ import { ProfileModule } from './profile/profile.module';
       type: 'postgres',
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '5432'),
-      username: process.env.DB_USERNAME || 'postgres',
+      username: process.env.DB_USERNAME || 'ajaykhandla',
       password: process.env.DB_PASSWORD || '',
       database: process.env.DB_NAME || 'nest-auth-example',
       // Include nest-auth entities for user, session, and MFA storage
@@ -107,6 +107,10 @@ import { ProfileModule } from './profile/profile.module';
         // Extend session on activity
         slidingExpiration: true,
       },
+      tenant: {
+        enabled: true,
+        mode: TenantModeEnum.SHARED,
+      },
 
       /**
        * Multi-Factor Authentication (MFA) configuration
@@ -150,14 +154,6 @@ import { ProfileModule } from './profile/profile.module';
         sameSite: 'lax',
         // HTTP-only prevents JavaScript access to cookies
         httpOnly: true,
-      },
-
-      /**
-       * Default tenant for single-tenant applications
-       */
-      defaultTenant: {
-        name: 'Default',
-        slug: 'default',
       },
 
       /**

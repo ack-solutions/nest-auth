@@ -28,6 +28,11 @@ export class AdminCreateUserDto {
   @IsEmail()
   email: string;
 
+  /** Required when tenant is enabled and mode is ISOLATED. Omit when mode is SHARED (assign tenant in edit). */
+  @IsOptional()
+  @IsString()
+  tenantId?: string;
+
   @IsOptional()
   @IsString()
   phone?: string;
