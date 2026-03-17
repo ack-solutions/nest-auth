@@ -48,9 +48,27 @@ export interface ITenantOption {
     metadata?: Record<string, any>;
 }
 
+/**
+ * Tenant support configuration.
+ * - enabled: false → no tenant checks; auth works without tenant (future-safe: entities remain).
+ * - enabled: true → multi-tenant is on; tenant is required; mode controls behavior:
+ *   - ISOLATED: one tenant per user (user belongs to one tenant).
+ *   - SHARED: user can belong to multiple tenants; active tenant from header/subdomain/JWT/custom.
+ */
+export interface INestAuthTenantOptions {
+    /** When false, tenant resolution and validation are disabled. When true, multi-tenant is enabled and tenant is required. Default: false. */
+    enabled?: boolean;
+    /** When enabled, use ISOLATED (one tenant per user) or SHARED (multiple tenants per user). Default: ISOLATED. */
+    mode?: TenantModeEnum;
+}
+
+export enum TenantModeEnum {
+    ISOLATED = 'isolated',
+    SHARED = 'shared',
+}
+
 export interface ITenantsConfig {
-    mode: 'single' | 'multi';
-    defaultTenantId: string | null;
+    mode: TenantModeEnum;
     options?: ITenantOption[];
 }
 

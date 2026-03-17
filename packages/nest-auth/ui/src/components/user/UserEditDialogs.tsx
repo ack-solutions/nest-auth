@@ -6,7 +6,7 @@ import { EmailField } from '../form/EmailField';
 import { FormField } from '../form/FormField';
 import { MultiSelect } from '../MultiSelect';
 import { PasswordField } from '../form/PasswordField';
-import type { User, Role, RoleAssignment } from '../../types';
+import type { User, Role, Tenant } from '../../types';
 
 interface EditModalProps {
     isOpen: boolean;
@@ -194,33 +194,50 @@ export const EditPasswordModal: React.FC<EditModalProps> = ({ isOpen, onClose, o
     );
 };
 
-export const EditRolesModal: React.FC<EditModalProps & { roles: Role[] }> = ({ isOpen, onClose, onSave, user, loading, roles }) => {
-    const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+export const EditRolesModal: React.FC<EditModalProps & { roles: Role[]; tenants: Tenant[] }> = ({
+    isOpen,
+    onClose,
+    onSave,
+    user,
+    loading,
+    roles,
+    tenants,
+}) => {
+    /** Per-tenant role IDs: tenantId -> roleIds[] */
+    const [tenantRoleIds, setTenantRoleIds] = useState<Record<string, string[]>>({});
 
     useEffect(() => {
-        if (isOpen) {
-             // Initialize with composite keys based on user roles and available roles
-             const initialKeys = user.roles.map(roleName => {
-                const role = roles.find(r => r.name === roleName);
-                return role ? `${role.name}:${role.guard}` : roleName;
-             });
-            setSelectedRoles(initialKeys);
+        if (isOpen && user.userAccesses?.length) {
+            const next: Record<string, string[]> = {};
+            for (const m of user.userAccesses) {
+                next[m.tenantId] = m.roleIds ?? (Array.isArray(m.roles) ? m.roles.map((r: any) => (typeof r === 'string' ? r : r.id)) : []);
+            }
+            setTenantRoleIds(next);
         }
-    }, [isOpen, user, roles]);
+    }, [isOpen, user]);
 
     const handleSave = () => {
-         const roleAssignments: RoleAssignment[] = selectedRoles.map(key => {
-            const [name, guard] = key.split(':');
-            return { name, guard };
-        });
-        onSave({ roles: roleAssignments as any }); 
+        const tenantRoles = Object.entries(tenantRoleIds).map(([tenantId, roleIds]) => ({
+            tenantId,
+            roleIds: roleIds ?? [],
+        }));
+        onSave({ tenantRoles } as any);
     };
 
+    const updateRolesForTenant = (tenantId: string, roleIds: string[]) => {
+        setTenantRoleIds((prev) => ({ ...prev, [tenantId]: roleIds }));
+    };
+
+    const accessTenants = (user.userAccesses ?? []).map((m) => ({
+        tenantId: m.tenantId,
+        tenant: m.tenant ?? tenants.find((t) => t.id === m.tenantId),
+    }));
+
     return (
-        <Modal 
-            isOpen={isOpen} 
-            onClose={onClose} 
-            title="Manage Roles" 
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Manage Roles by Tenant"
             maxWidth="md"
             fixedHeight={false}
             footer={
@@ -232,15 +249,75 @@ export const EditRolesModal: React.FC<EditModalProps & { roles: Role[] }> = ({ i
                 </div>
             }
         >
-            <div className="py-4 min-h-[300px]">
+            <div className="py-4 space-y-4 min-h-[200px]">
+                {!accessTenants.length ? (
+                    <p className="text-sm text-gray-500">User has no tenants. Add tenants first, then assign roles.</p>
+                ) : (
+                    accessTenants.map(({ tenantId, tenant }) => (
+                        <div key={tenantId} className="rounded-lg border border-gray-200 bg-gray-50/50 p-3">
+                            <div className="mb-2">
+                                <span className="text-sm font-medium text-gray-900">
+                                    {tenant?.name ?? tenant?.slug ?? tenantId}
+                                </span>
+                            </div>
+                            <MultiSelect
+                                value={tenantRoleIds[tenantId] ?? []}
+                                onChange={(roleIds) => updateRolesForTenant(tenantId, roleIds)}
+                                options={roles
+                                    .filter((r) => !r.tenantId || r.tenantId === tenantId)
+                                    .map((r) => ({
+                                        value: r.id,
+                                        label: r.tenantId ? `${r.name} (${r.guard})` : `${r.name} (${r.guard}) – Global`,
+                                    }))}
+                                placeholder="Select roles..."
+                            />
+                        </div>
+                    ))
+                )}
+            </div>
+        </Modal>
+    );
+};
+
+export const EditTenantsModal: React.FC<EditModalProps & { tenants: Tenant[] }> = ({ isOpen, onClose, onSave, user, loading, tenants }) => {
+    const [selectedTenants, setSelectedTenants] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (isOpen) {
+            setSelectedTenants(user.tenantIds ?? []);
+        }
+    }, [isOpen, user]);
+
+    const handleSave = () => {
+        onSave({ tenantIds: selectedTenants } as any);
+    };
+
+    return (
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Manage Tenants"
+            maxWidth="md"
+            fixedHeight={false}
+            footer={
+                <div className="flex justify-end gap-3">
+                    <Button variant="secondary" onClick={onClose}>Cancel</Button>
+                    <Button onClick={handleSave} disabled={loading}>
+                        {loading ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                </div>
+            }
+        >
+            <div className="space-y-4 py-4">
                 <MultiSelect
-                    value={selectedRoles}
-                    onChange={setSelectedRoles}
-                    options={roles.map((r) => ({
-                        value: `${r.name}:${r.guard}`,
-                        label: r.tenantId ? `${r.name} (${r.guard})` : `${r.name} (${r.guard}) - Global`
+                    label="Tenants"
+                    value={selectedTenants}
+                    onChange={setSelectedTenants}
+                    options={tenants.map((t) => ({
+                        value: t.id,
+                        label: `${t.name || t.slug || t.id}`,
                     }))}
-                    placeholder="Select roles..."
+                    placeholder="Select tenants..."
                 />
             </div>
         </Modal>

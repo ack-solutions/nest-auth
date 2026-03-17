@@ -20,24 +20,6 @@ export class RoleService {
         permissionIds?: string | string[],
     ): Promise<NestAuthRole> {
 
-        tenantId = await this.tenantService.resolveTenantId(tenantId);
-
-        // Check for existing role with same name in the same guard and tenant
-        const existingRole = await this.roleRepository.findOne({
-            where: {
-                name,
-                guard,
-                tenantId: tenantId || IsNull()
-            },
-        });
-
-        if (existingRole) {
-            throw new ConflictException({
-                message: `Role with name '${name}' already exists in guard '${guard}'${tenantId ? ` for tenant '${tenantId}'` : ''}`,
-                code: 'ROLE_ALREADY_EXISTS'
-            });
-        }
-
         const role = await NestAuthRole.createRole(name, guard, isSystem, tenantId);
 
         if (permissionIds) {
@@ -128,14 +110,7 @@ export class RoleService {
     ): Promise<NestAuthRole[]> {
         const { guard, onlyTenantRoles, onlySystemRoles } = params;
         let { tenantId } = params;
-
-        if (!onlySystemRoles) {
-            tenantId = await this.tenantService.resolveTenantId(tenantId);
-        }
-
         const query = this.roleRepository.createQueryBuilder();
-
-        // const hasPagination = options?.skip !== undefined && options?.take !== undefined;
 
         if (guard) {
             query.andWhere(`${query.alias}.guard = :guard`, { guard });
@@ -172,12 +147,6 @@ export class RoleService {
             query.orderBy(`${query.alias}.name`, 'ASC');
         }
         query.take(1000);
-        // if (hasPagination) {
-        //     query.skip(options.skip);
-        //     query.take(options.take);
-
-        //     return query.getManyAndCount();
-        // }
 
         return query.getMany();
     }

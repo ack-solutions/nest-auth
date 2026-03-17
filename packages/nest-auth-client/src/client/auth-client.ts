@@ -24,6 +24,8 @@ import {
     IMfaStatusResponse,
     IMfaDevice,
     IToggleMfaRequest,
+    ISwitchTenantRequest,
+    INestAuthUserAccess,
 } from '@ackplus/nest-auth-contracts';
 import {
     AuthClientConfig,
@@ -76,6 +78,9 @@ export class AuthClient {
 
     private user: AuthUser | null = null;
     private session: ClientSession | null = null;
+
+    private userAccesses: INestAuthUserAccess[] | undefined;
+
     private tenantId: string | undefined;
 
     private timeout: number = 30000;
@@ -90,15 +95,9 @@ export class AuthClient {
             httpAdapter: config.httpAdapter ?? new FetchAdapter(),
             autoRefresh: config.autoRefresh ?? true,
             refreshThreshold: config.refreshThreshold ?? 60,
-            tenantHeader: config.tenantHeader ?? 'x-tenant-id',
         };
 
-        // Initialize tenant ID
-        if (typeof config.tenantId === 'function') {
-            this.tenantId = config.tenantId();
-        } else {
-            this.tenantId = config.tenantId;
-        }
+        // Active tenant is set from token/session after login or from loadPersistedState; use config.defaultTenantId only as fallback
 
         // Initialize token manager
         this.tokenManager = new TokenManager({
@@ -138,11 +137,13 @@ export class AuthClient {
             const userJson = await Promise.resolve(this.config.storage!.get(STORAGE_KEYS.USER));
             if (userJson) {
                 this.user = JSON.parse(userJson);
+                this.userAccesses = this.user?.userAccesses ?? undefined;
             }
 
             const sessionJson = await Promise.resolve(this.config.storage!.get(STORAGE_KEYS.SESSION));
             if (sessionJson) {
                 this.session = JSON.parse(sessionJson);
+                this.tenantId = this.session?.tenantId ?? undefined;
             }
         } catch (error) {
             this.log('warn', 'Failed to load persisted auth state', error);
@@ -216,11 +217,9 @@ export class AuthClient {
         return (this.config.endpoints as Record<string, string>)[key] || DEFAULT_ENDPOINTS[key];
     }
 
+
     private getTenantIdValue(): string | undefined {
-        if (typeof this.config.tenantId === 'function') {
-            return this.config.tenantId();
-        }
-        return this.tenantId ?? this.config.tenantId;
+        return this.tenantId;
     }
 
     private async buildHeaders(options?: RequestOptions): Promise<Record<string, string>> {
@@ -259,12 +258,6 @@ export class AuthClient {
                 headers[trustHeaderName] = trustToken;
                 this.log('debug', 'buildHeaders: Trust token header added', { headerName: trustHeaderName });
             }
-        }
-
-        // Add tenant header
-        const tenantId = this.getTenantIdValue();
-        if (tenantId) {
-            headers[this.config.tenantHeader!] = tenantId;
         }
 
         return headers;
@@ -431,13 +424,22 @@ export class AuthClient {
         // Update user if present
         if (response.user) {
             this.user = response.user;
+            this.userAccesses = response.user.userAccesses ?? undefined;
+        } else {
+            this.userAccesses = undefined;
         }
 
-        // Create session
+        // Create session and set active tenant from token, then user, then first membership, then config default
         const decoded = response.accessToken ? decodeJwt(response.accessToken) : null;
+        
+        const activeTenantId = decoded?.tenantId;
+
+        this.tenantId = activeTenantId;
+
         this.session = {
             id: decoded?.sessionId || '',
             userId: response.user?.id || getUserIdFromToken(response.accessToken) || '',
+            tenantId: activeTenantId,
             accessToken: this.tokenManager.isHeaderMode() ? response.accessToken : undefined,
             refreshToken: this.tokenManager.isHeaderMode() ? response.refreshToken : undefined,
             expiresAt: decoded?.exp ? new Date(decoded.exp * 1000) : undefined,
@@ -502,6 +504,30 @@ export class AuthClient {
     }
 
     /**
+     * Clear tokens, in-memory state, persisted state, and emit logout events.
+     * Shared by logout() and logoutAll().
+     */
+    private async clearAuthState(): Promise<void> {
+        await this.tokenManager.clearTokens();
+        await this.tokenManager.clearTrustToken();
+        await this.events.emitAsync('tokensRemoved', undefined);
+
+        this.user = null;
+        this.session = null;
+        this.tenantId = undefined;
+        this.userAccesses = undefined;
+
+        await this.persistState();
+        this.refreshQueue.cancel();
+        this.retryTracker.clear();
+
+        this.events.emit('logout', undefined);
+        this.events.emit('authStateChange', { user: null });
+        this.config.onLogout?.();
+        this.config.onAuthStateChange?.(null);
+    }
+
+    /**
      * Logout the current user
      */
     async logout(options?: RequestOptions): Promise<void> {
@@ -509,34 +535,12 @@ export class AuthClient {
 
         try {
             await this.request<MessageResponse>('POST', endpoint, undefined, { ...options, skipRefresh: true });
-        } catch {
+        } catch (error) {
             // Ignore logout errors - we'll clear local state anyway
+            this.log('debug', 'Logout API call failed (state will be cleared anyway)', error );
         }
 
-        // Clear tokens (including trust token)
-        await this.tokenManager.clearTokens();
-        // Also explicitly clear trust token
-        await this.tokenManager.clearTrustToken();
-
-        // Emit tokensRemoved event and wait for all listeners
-        await this.events.emitAsync('tokensRemoved', undefined);
-
-        // Clear state
-        this.user = null;
-        this.session = null;
-
-        // Clear persisted state
-        await this.persistState();
-
-        // Cancel any pending refreshes
-        this.refreshQueue.cancel();
-        this.retryTracker.clear();
-
-        // Emit events
-        this.events.emit('logout', undefined);
-        this.events.emit('authStateChange', { user: null });
-        this.config.onLogout?.();
-        this.config.onAuthStateChange?.(null);
+        await this.clearAuthState();
     }
 
     /**
@@ -551,31 +555,7 @@ export class AuthClient {
             throw this.handleError(response);
         }
 
-        // Clear local tokens and state (same as regular logout)
-        await this.tokenManager.clearTokens();
-        // Also explicitly clear trust token
-        await this.tokenManager.clearTrustToken();
-
-        // Emit tokensRemoved event and wait for all listeners
-        await this.events.emitAsync('tokensRemoved', undefined);
-
-        // Clear state
-        this.user = null;
-        this.session = null;
-
-        // Clear persisted state
-        await this.persistState();
-
-        // Cancel any pending refreshes
-        this.refreshQueue.cancel();
-        this.retryTracker.clear();
-
-        // Emit events
-        this.events.emit('logout', undefined);
-        this.events.emit('authStateChange', { user: null });
-        this.config.onLogout?.();
-        this.config.onAuthStateChange?.(null);
-
+        await this.clearAuthState();
         return response.data;
     }
 
@@ -662,6 +642,22 @@ export class AuthClient {
             }
             return { valid: false };
         }
+
+        return response.data;
+    }
+
+    /**
+     * Switch active tenant (multi-tenant mode)
+     */
+    async switchTenant(dto: ISwitchTenantRequest, options?: RequestOptions): Promise<AuthResponse> {
+        const endpoint = this.getEndpoint('switchTenant');
+        const response = await this.request<AuthResponse>('POST', endpoint, dto, options);
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        await this.handleAuthResponse(response.data);
 
         return response.data;
     }
@@ -961,6 +957,10 @@ export class AuthClient {
      */
     setTenantId(id: string): void {
         this.tenantId = id;
+        if (this.session) {
+            this.session = { ...this.session, tenantId: id };
+            this.persistState().catch((error) =>  this.log('warn', 'Failed to persist tenant change', error))
+        }
     }
 
     /**
@@ -986,6 +986,20 @@ export class AuthClient {
      */
     getSession(): ClientSession | null {
         return this.session;
+    }
+
+    /**
+     * Get the current user's accesses per tenant (when available from auth response).
+     */
+    getUserAccesses(): INestAuthUserAccess[] | undefined {
+        return this.userAccesses;
+    }
+
+    /**
+     * @deprecated Use getUserAccesses() instead.
+     */
+    getTenantMemberships(): INestAuthUserAccess[] | undefined {
+        return this.userAccesses;
     }
 
     /**

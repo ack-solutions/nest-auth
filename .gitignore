@@ -1,6 +1,7 @@
 node_modules
 dist
 /.pnpm-store
+*.tsbuildinfo
 
 apps/examples-next/.env
 apps/example-nest/.env

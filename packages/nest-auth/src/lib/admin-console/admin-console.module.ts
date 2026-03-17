@@ -21,10 +21,12 @@ import { NestAuthUser } from '../user/entities/user.entity';
 import { PermissionModule } from '../permission/permission.module';
 import { SessionModule } from '../session/session.module';
 import { NestAuthRole } from '../role/entities/role.entity';
+import { NestAuthUserAccess } from '../tenant/entities/user-access.entity';
+import { AdminUserManagementService } from './services/admin-user-management.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([NestAuthAdminUser, NestAuthMFASecret, NestAuthUser, NestAuthRole]),
+    TypeOrmModule.forFeature([NestAuthAdminUser, NestAuthMFASecret, NestAuthUser, NestAuthRole, NestAuthUserAccess]),
     forwardRef(() => AuthModule),
     forwardRef(() => UserModule),
     forwardRef(() => RoleModule),
@@ -37,6 +39,7 @@ import { NestAuthRole } from '../role/entities/role.entity';
     AdminAuthService,
     AdminSessionService,
     AdminConsoleConfigService,
+    AdminUserManagementService,
     AdminSessionGuard,
   ],
   controllers: [

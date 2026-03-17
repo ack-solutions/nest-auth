@@ -26,14 +26,6 @@ export class MfaController {
         private readonly authConfig: AuthConfigService,
     ) { }
 
-    private getCurrentUserOrThrow() {
-        const user = RequestContext.currentUser();
-        if (!user) {
-            throw new UnauthorizedException('User not found');
-        }
-        return user;
-    }
-
     @ApiOperation({ summary: 'Get MFA status for the current user' })
     @ApiResponse({ status: 200, type: MfaStatusResponseDto })
     @HttpCode(200)
@@ -41,7 +33,11 @@ export class MfaController {
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     async getStatus(): Promise<MfaStatusResponseDto> {
-        const user = this.getCurrentUserOrThrow();
+        
+        const user = await RequestContext.currentUser();
+        if (!user) {
+            throw new UnauthorizedException('User not found');
+        }
 
         const config = this.mfaService.mfaConfig;
         const globallyEnabled = config?.enabled ?? false;
@@ -85,7 +81,10 @@ export class MfaController {
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     async toggleMfa(@Body() input: NestAuthToggleMfaRequestDto): Promise<NestAuthMfaToggleResponseDto> {
-        const user = this.getCurrentUserOrThrow();
+        const user = await RequestContext.currentUser();
+        if (!user) {
+            throw new UnauthorizedException('User not found');
+        }
 
         this.mfaService.requireMfaEnabledForApp(true);
         // Check if user can toggle (accounts for required flag)
@@ -112,7 +111,10 @@ export class MfaController {
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     async listDevices(): Promise<MfaDeviceDto[]> {
-        const user = this.getCurrentUserOrThrow();
+        const user = await RequestContext.currentUser();
+        if (!user) {
+            throw new UnauthorizedException('User not found');
+        }
 
         this.mfaService.requireMfaEnabledForApp(true);
         return await this.mfaService.getTotpDevices(user.id);
@@ -125,7 +127,10 @@ export class MfaController {
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     async removeDevice(@Param('deviceId') deviceId: string): Promise<NestAuthMfaDeviceRemovedResponseDto> {
-        const user = this.getCurrentUserOrThrow();
+        const user = await RequestContext.currentUser();
+        if (!user) {
+            throw new UnauthorizedException('User not found');
+        }
 
         this.mfaService.requireMfaEnabledForApp(true);
         await this.mfaService.removeTotpDevice(deviceId);
@@ -139,7 +144,11 @@ export class MfaController {
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     async challenge(@Body() input: NestAuthSendMfaCodeRequestDto): Promise<NestAuthMfaCodeSentResponseDto> {
-        const user = this.getCurrentUserOrThrow();
+        const user = await RequestContext.currentUser();
+        if (!user) {
+            throw new UnauthorizedException('User not found');
+        }
+
         await this.mfaService.sendMfaCode(user.id, input.method);
         return { message: 'MFA code sent successfully' };
     }
@@ -151,7 +160,10 @@ export class MfaController {
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     async setupTotp() {
-        const user = this.getCurrentUserOrThrow();
+        const user = await RequestContext.currentUser();
+        if (!user) {
+            throw new UnauthorizedException('User not found');
+        }
 
         const config = this.authConfig.getConfig();
 
@@ -179,7 +191,7 @@ export class MfaController {
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     async verifyTotpSetup(@Body() input: NestAuthVerifyTotpSetupRequestDto): Promise<NestAuthMfaDeviceVerifiedResponseDto> {
-        const user = RequestContext.currentUser();
+        const user = await RequestContext.currentUser();
         if (!user) {
             throw new UnauthorizedException('User not found');
         }
@@ -200,7 +212,10 @@ export class MfaController {
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     async generateRecoveryCodes() {
-        const user = this.getCurrentUserOrThrow();
+        const user = await RequestContext.currentUser();
+        if (!user) {
+            throw new UnauthorizedException('User not found');
+        }
 
         // Generate recovery codes
         const code = await this.mfaService.generateRecoveryCode(user.id);
@@ -214,7 +229,11 @@ export class MfaController {
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     async resetTotp(@Body('code') code: string): Promise<NestAuthMfaResetResponseDto> {
-        const user = this.getCurrentUserOrThrow();
+        const user = await RequestContext.currentUser();
+        if (!user) {
+            throw new UnauthorizedException('User not found');
+        }
+        
         await this.mfaService.resetMfa(user.id, code);
         return { message: 'MFA reset successfully' };
     }

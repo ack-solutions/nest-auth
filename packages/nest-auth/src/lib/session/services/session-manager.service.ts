@@ -301,16 +301,19 @@ export class SessionManagerService {
      * Create session from user (helper method from old BaseSessionService)
      * For backward compatibility with AuthService
      */
-    async createSessionFromUser(user: NestAuthUser, extraData: { isMfaVerified?: boolean } = {}): Promise<NestAuthSession> {
+    async createSessionFromUser(
+        user: NestAuthUser,
+        extraData: { isMfaVerified?: boolean; tenantId?: string | null } = {}
+    ): Promise<NestAuthSession> {
         const { deviceName, ipAddress, browser } = RequestContext.getDeviceInfo();
-        const { isMfaVerified = false } = extraData;
+        const { isMfaVerified = false, tenantId = null } = extraData;
 
         if (!user) {
             throw new UnauthorizedException('User not found');
         }
 
-        const roles = await user.getRoles();
-        const permissions = await user.getPermissions();
+        const roles = await user.getRoles(tenantId);
+        const permissions = await user.getPermissions(tenantId);
 
         // Build default session data
         let sessionData: SessionDataPayload = {
@@ -318,6 +321,7 @@ export class SessionManagerService {
             isMfaVerified,
             roles,
             permissions,
+            tenantId,
         };
 
         // Apply custom session data hook if configured

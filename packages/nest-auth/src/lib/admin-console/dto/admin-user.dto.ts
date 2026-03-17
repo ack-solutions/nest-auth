@@ -3,25 +3,25 @@ import {
   IsBoolean,
   IsEmail,
   IsNotEmpty,
+  IsObject,
   IsOptional,
   IsString,
   Matches,
   MinLength,
   ValidateNested,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
-/**
- * Role assignment DTO - includes name and guard for proper role identification
- */
-export class RoleAssignmentDto {
+/** Roles to set for one tenant (used in bulk update). */
+export class AdminTenantRolesDto {
   @IsString()
   @IsNotEmpty()
-  name: string;
+  tenantId: string;
 
-  @IsString()
-  @IsNotEmpty()
-  guard: string;
+  @IsArray()
+  @IsString({ each: true })
+  roleIds: string[];
 }
 
 export class AdminCreateUserDto {
@@ -41,10 +41,6 @@ export class AdminCreateUserDto {
   )
   password?: string;
 
-  @IsString()
-  @IsNotEmpty()
-  tenantId: string;
-
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
@@ -54,12 +50,7 @@ export class AdminCreateUserDto {
   isVerified?: boolean;
 
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => RoleAssignmentDto)
-  roles?: RoleAssignmentDto[];
-
-  @IsOptional()
+  @IsObject()
   metadata?: Record<string, any>;
 }
 
@@ -90,12 +81,7 @@ export class AdminUpdateUserDto {
   password?: string;
 
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => RoleAssignmentDto)
-  roles?: RoleAssignmentDto[];
-
-  @IsOptional()
+  @IsObject()
   metadata?: Record<string, any>;
 
   @IsOptional()
@@ -110,4 +96,3 @@ export class AdminUpdateUserDto {
   @IsBoolean()
   phoneLoginEnabled?: boolean;
 }
-

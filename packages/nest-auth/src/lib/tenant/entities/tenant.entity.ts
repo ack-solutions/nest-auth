@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from "typeorm";
+import { NestAuthUserAccess } from "./user-access.entity";
 
 @Entity('nest_auth_tenants')
 export class NestAuthTenant {
@@ -8,20 +9,11 @@ export class NestAuthTenant {
     @Column()
     name: string;
 
-    /**
-     * Unique slug/identifier for the tenant
-     * Format: lowercase, letters, numbers, hyphens, underscores only
-     * Examples: 'my-app', 'acme_corp', 'tenant123'
-     */
     @Column({ unique: true, nullable: true })
     slug: string;
 
-    /**
-     * @deprecated Use 'slug' instead. Will be removed in v2.0.0
-     * Legacy domain field - kept for backward compatibility
-     */
-    @Column({ unique: true, nullable: true })
-    domain: string;
+    @OneToMany(() => NestAuthUserAccess, access => access.tenant)
+    userAccesses: NestAuthUserAccess[];
 
     @Column({ nullable: true })
     description: string;
@@ -37,4 +29,5 @@ export class NestAuthTenant {
 
     @UpdateDateColumn()
     updatedAt: Date;
+
 }

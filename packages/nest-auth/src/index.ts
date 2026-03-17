@@ -33,5 +33,8 @@ export type { DebugLogOptions } from './lib/core/services/debug-logger.service';
 // Admin console exports
 export { NestAuthAdminUser } from './lib/admin-console/entities/admin-user.entity';
 
+// Utils (for consistent email/phone normalization when integrating)
+export { normalizedEmail, normalizedPhone } from './lib/utils';
+
 // Re-export commonly used types from contracts for convenience
 export { NestAuthMFAMethodEnum, NestAuthOTPTypeEnum } from '@ackplus/nest-auth-contracts';

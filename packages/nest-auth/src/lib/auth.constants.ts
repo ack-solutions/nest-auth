@@ -1,8 +1,9 @@
 export const AUTH_MODULE_OPTIONS = 'NEST_AUTH_AUTH_MODULE_OPTIONS';
 export const NEST_AUTH_ASYNC_OPTIONS_PROVIDER = 'NEST_AUTH_ASYNC_OPTIONS_PROVIDER';
 
+/** Injection token for tenant context service (abstraction for disabled / ISOLATED / SHARED). */
+export const NEST_AUTH_TENANT_CONTEXT_SERVICE = 'NEST_AUTH_TENANT_CONTEXT_SERVICE';
 
-// Provider tokens
 export const JWT_AUTH_PROVIDER = 'jwt';
 export const GOOGLE_AUTH_PROVIDER = 'google';
 export const FACEBOOK_AUTH_PROVIDER = 'facebook';

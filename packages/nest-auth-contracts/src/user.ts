@@ -3,6 +3,10 @@
  * Contains: INestAuthUser, INestAuthRole, INestAuthPermission
  */
 
+import { INestAuthIdentity, INestAuthOTP, INestAuthSession } from "./auth";
+import { INestAuthMFASecret } from "./mfa";
+import { INestAuthTenant, INestAuthUserAccess } from "./tenant";
+
 export interface INestAuthUser {
     id: string;
     email?: string;
@@ -13,11 +17,13 @@ export interface INestAuthUser {
     isVerified: boolean;
     isActive: boolean;
     metadata?: Record<string, any>;
-    tenantId?: string;
     isMfaEnabled: boolean;
     mfaRecoveryCode?: string;
-    emailTenant?: string;
-    phoneTenant?: string;
+    identities?: INestAuthIdentity[];
+    mfaSecrets?: INestAuthMFASecret[];
+    sessions?: INestAuthSession[];
+    otps?: INestAuthOTP[];
+    userAccesses?: INestAuthUserAccess[];
     createdAt: Date;
     updatedAt: Date;
 }
@@ -44,5 +50,3 @@ export interface INestAuthPermission {
     createdAt: Date;
     updatedAt: Date;
 }
-
-// Keeping IUserResponse here (or move to auth.ts? usually responses are with requests in auth.ts, but user might want it here. I'll put it in auth.ts to keep req/res together)

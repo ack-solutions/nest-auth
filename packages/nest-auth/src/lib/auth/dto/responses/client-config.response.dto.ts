@@ -10,7 +10,9 @@ import {
     ISsoProviderConfig,
     ISsoConfig,
     IUiConfig,
+    TenantModeEnum,
 } from '@ackplus/nest-auth-contracts';
+
 
 export class EmailAuthConfigDto implements IEmailAuthConfig {
     @ApiProperty({ example: true })
@@ -88,11 +90,8 @@ export class TenantOptionDto implements ITenantOption {
 }
 
 export class TenantsConfigDto implements ITenantsConfig {
-    @ApiProperty({ example: 'single', enum: ['single', 'multi'] })
-    mode: 'single' | 'multi';
-
-    @ApiPropertyOptional({ nullable: true })
-    defaultTenantId: string | null;
+    @ApiProperty({ example: TenantModeEnum.ISOLATED, enum: TenantModeEnum })
+    mode: TenantModeEnum;
 
     @ApiPropertyOptional({ type: [TenantOptionDto] })
     options?: TenantOptionDto[];

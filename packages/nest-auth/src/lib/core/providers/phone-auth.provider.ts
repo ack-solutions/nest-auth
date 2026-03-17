@@ -6,6 +6,7 @@ import { NestAuthIdentity } from '../../user/entities/identity.entity';
 import { BaseAuthProvider, LinkUserWith } from './base-auth.provider';
 import { PHONE_AUTH_PROVIDER } from '../../auth.constants';
 import { PhoneCredentialsDto } from 'src/lib/auth';
+import { normalizedPhone } from '../../utils';
 
 @Injectable()
 export class PhoneAuthProvider extends BaseAuthProvider {
@@ -22,8 +23,16 @@ export class PhoneAuthProvider extends BaseAuthProvider {
         this.enabled = this.options.phoneAuth?.enabled;
     }
 
-    async validate(credentials: PhoneCredentialsDto) {
+    async findIdentity(providerUserId: string) {
+        const phoneNorm = normalizedPhone(providerUserId);
+        if (phoneNorm) {
+            const normalizedIdentity = await super.findIdentity(phoneNorm);
+            if (normalizedIdentity) return normalizedIdentity;
+        }
+        return super.findIdentity(providerUserId);
+    }
 
+    async validate(credentials: PhoneCredentialsDto) {
         const identity = await this.findIdentity(credentials.phone);
 
         if (!identity?.user || !(await identity.user.validatePassword(credentials.password))) {
@@ -39,6 +48,11 @@ export class PhoneAuthProvider extends BaseAuthProvider {
 
     getRequiredFields(): string[] {
         return ['phone', 'password'];
+    }
+
+    async linkToUser(userId: string, providerUserId: string, metadata?: Record<string, any>): Promise<void> {
+        const phoneNorm = normalizedPhone(providerUserId);
+        return super.linkToUser(userId, phoneNorm || providerUserId, metadata);
     }
 
     override linkUserWith(): LinkUserWith {

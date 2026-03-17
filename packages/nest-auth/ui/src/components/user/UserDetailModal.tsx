@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Mail, Phone, Building2, Shield, CheckCircle, XCircle, Calendar, Edit2, Lock, Key, Smartphone, Trash2, AlertCircle, User as UserIcon } from 'lucide-react';
 import { Button } from '../Button';
 import { Modal } from '../Modal';
-import { EditBasicInfoModal, EditStatusSecurityModal, EditRolesModal, EditMetadataModal, EditPasswordModal } from './UserEditDialogs';
-import type { User, Role, UserDetails, RoleAssignment } from '../../types';
+import { EditBasicInfoModal, EditStatusSecurityModal, EditRolesModal, EditMetadataModal, EditPasswordModal, EditTenantsModal } from './UserEditDialogs';
+import type { User, Role, UserDetails, Tenant } from '../../types';
 import { api } from '../../services/api';
 import { useConfirm } from '../../hooks/useConfirm';
 
@@ -95,6 +95,7 @@ interface UserDetailModalProps {
 export const UserDetailModal: React.FC<UserDetailModalProps> = ({ user: initialUser, onClose, onUpdate }) => {
     const [loading, setLoading] = useState(true);
     const [roles, setRoles] = useState<Role[]>([]);
+    const [tenants, setTenants] = useState<Tenant[]>([]);
     const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
     const [sessionError, setSessionError] = useState<string>('');
     const [sessionActionId, setSessionActionId] = useState<string | null>(null);
@@ -105,6 +106,7 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({ user: initialU
     const [showSecurityEdit, setShowSecurityEdit] = useState(false);
     const [showPasswordEdit, setShowPasswordEdit] = useState(false);
     const [showRolesEdit, setShowRolesEdit] = useState(false);
+    const [showTenantsEdit, setShowTenantsEdit] = useState(false);
     const [showMetadataEdit, setShowMetadataEdit] = useState(false);
     const [saving, setSaving] = useState(false);
 
@@ -121,6 +123,8 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({ user: initialU
                 await loadUserDetails();
                 const rolesResponse = await api.get<{ data: Role[] }>('/api/roles');
                 setRoles(Array.isArray(rolesResponse.data) ? rolesResponse.data : []);
+                const tenantsResponse = await api.get<{ data: Tenant[] }>('/api/tenants');
+                setTenants(Array.isArray(tenantsResponse.data) ? tenantsResponse.data : []);
             } catch (err) {
                 console.error('Failed to load data:', err);
             } finally {
@@ -139,6 +143,7 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({ user: initialU
             setShowSecurityEdit(false);
             setShowPasswordEdit(false);
             setShowRolesEdit(false);
+            setShowTenantsEdit(false);
             setShowMetadataEdit(false);
         } catch (error) {
             console.error('Failed to update user:', error);
@@ -283,27 +288,51 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({ user: initialU
                                         value={currentUser.phone || '—'} 
                                         icon={<Phone className="w-3.5 h-3.5" />} 
                                     />
-                                    <InfoRow 
-                                        label="Tenant" 
-                                        value={currentUser.tenantId || '—'} 
-                                        icon={<Building2 className="w-3.5 h-3.5" />} 
-                                        mono
-                                    />
                                     <div className="flex items-start py-1.5">
                                         <div className="flex items-center gap-2 min-w-0 flex-1">
-                                            <Shield className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                            <Building2 className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
                                             <div className="min-w-0 flex-1">
-                                                <span className="text-xs text-gray-500 block mb-1">Assigned Roles</span>
-                                                {currentUser.roles.length > 0 ? (
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {currentUser.roles.map((role) => (
-                                                            <span key={role} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-50 text-primary-700 border border-primary-200">
-                                                                {role}
-                                                            </span>
-                                                        ))}
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs text-gray-500 block mb-1">Tenants &amp; Roles</span>
+                                                    <div className="flex gap-1">
+                                                        <Button size="sm" variant="ghost" onClick={() => setShowTenantsEdit(true)} title="Edit Tenants">
+                                                            <Building2 className="w-3 h-3 text-gray-500" />
+                                                        </Button>
+                                                        <Button size="sm" variant="ghost" onClick={() => setShowRolesEdit(true)} title="Edit Roles">
+                                                            <Shield className="w-3 h-3 text-gray-500" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                                {currentUser.userAccesses?.length ? (
+                                                    <div className="space-y-3 mt-1">
+                                                        {currentUser.userAccesses.map((access) => {
+                                                            const tenant = access.tenant;
+                                                            const roleList = access.roles ?? [];
+                                                            const roleNames = roleList.map((r: any) => (typeof r === 'string' ? r : r.name));
+                                                            return (
+                                                                <div key={access.tenantId} className="rounded-lg border border-gray-200 bg-gray-50/50 p-2">
+                                                                    <div className="mb-1.5">
+                                                                        <span className="text-xs font-medium text-gray-900">
+                                                                            {tenant?.name || tenant?.slug || access.tenantId}
+                                                                        </span>
+                                                                    </div>
+                                                                    {roleNames.length > 0 ? (
+                                                                        <div className="flex flex-wrap gap-1">
+                                                                            {roleNames.map((name) => (
+                                                                                <span key={name} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-50 text-primary-700 border border-primary-200">
+                                                                                    {name}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-xs text-gray-500 italic">No roles</span>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 ) : (
-                                                    <span className="text-sm text-gray-500 italic">No roles assigned</span>
+                                                    <span className="text-sm text-gray-500 italic">No tenants assigned</span>
                                                 )}
                                             </div>
                                         </div>
@@ -588,6 +617,15 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({ user: initialU
                 onSave={handlePartialUpdate}
                 loading={saving}
                 roles={roles}
+                tenants={tenants}
+            />
+            <EditTenantsModal
+                isOpen={showTenantsEdit}
+                onClose={() => setShowTenantsEdit(false)}
+                user={currentUser}
+                onSave={handlePartialUpdate}
+                loading={saving}
+                tenants={tenants}
             />
             <EditMetadataModal
                 isOpen={showMetadataEdit}

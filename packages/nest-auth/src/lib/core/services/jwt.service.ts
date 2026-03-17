@@ -104,7 +104,7 @@ export class JwtService {
         return this.options;
     }
 
-    async generatePasswordResetToken(payload: { userId: string; passwordHashPrefix: string; type: string }): Promise<string> {
+    async generatePasswordResetToken(payload: { userId: string; passwordHashPrefix: string; type: string; tenantId?: string }): Promise<string> {
         return new Promise((resolve, reject) => {
             const expiresIn = this.options.passwordResetTokenExpiresIn || '1h';
             jwt.sign(

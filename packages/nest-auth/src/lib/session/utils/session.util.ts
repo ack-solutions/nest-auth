@@ -1,5 +1,4 @@
 import { NestAuthSession } from '../entities/session.entity';
-import { SessionPayload } from '../../core/interfaces/token-payload.interface';
 import ms from 'ms';
 
 /**

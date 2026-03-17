@@ -1,5 +1,5 @@
 import React from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { EmailField } from '../form/EmailField';
@@ -8,30 +8,24 @@ import { MultiSelect } from '../MultiSelect';
 import { PasswordField } from '../form/PasswordField';
 import { FormFooterAction } from '../FormFooter';
 import { Plus } from 'lucide-react';
-import type { Tenant, Role, RoleAssignment } from '../../types';
+import type { Tenant, Role } from '../../types';
 
 export interface UserFormData {
     email: string;
-    tenantId: string;
-    password: string;
-    roles: string[];  // Composite keys in format "name:guard"
+    tenantIds: string[];
+    password?: string;
+    roleIds: string[];
 }
-
-/**
- * Convert composite role keys to RoleAssignment objects
- */
-export const roleKeysToAssignments = (keys: string[]): RoleAssignment[] => {
-    return keys.map(key => {
-        const [name, guard] = key.split(':');
-        return { name, guard };
-    });
-};
 
 const userSchema = yup.object({
     email: yup.string().email('Invalid email address').required('Email is required'),
-    tenantId: yup.string().required('Tenant is required'),
-    password: yup.string().required('Password is required').min(8, 'Password must be at least 8 characters'),
-    roles: yup.array().of(yup.string()).default([]),
+    tenantIds: yup.array().of(yup.string()).default([]),
+    password: yup
+        .string()
+        .transform((value, originalValue) => (originalValue === '' ? undefined : value))
+        .optional()
+        .min(8, 'Password must be at least 8 characters'),
+    roleIds: yup.array().of(yup.string()).default([]),
 });
 
 export interface UserFormProps {
@@ -60,15 +54,19 @@ export const UserForm: React.FC<UserFormProps> = ({
         handleSubmit,
         formState: { errors, isSubmitting },
         reset,
+        setValue,
     } = useForm<UserFormData>({
         resolver: yupResolver(userSchema) as any,
         defaultValues: initialData || {
             email: '',
-            tenantId: '',
-            password: '',
-            roles: [],
+            tenantIds: [],
+            password: undefined,
+            roleIds: [],
         },
     });
+
+    const tenantIds = useWatch({ control, name: 'tenantIds' }) || [];
+    const firstTenantId = tenantIds[0];
 
     const handleFormSubmit = async (data: UserFormData) => {
         try {
@@ -148,31 +146,30 @@ export const UserForm: React.FC<UserFormProps> = ({
 
             <div>
                 <Controller
-                    name="tenantId"
+                    name="tenantIds"
                     control={control}
                     render={({ field }) => (
-                        <Select
-                            label="Tenant"
-                            value={field.value}
+                        <MultiSelect
+                            label="Tenants (optional – assign later in edit if needed)"
+                            value={field.value || []}
                             onChange={field.onChange}
                             options={tenants.map((t) => ({ value: t.id, label: `${t.name} (${t.slug})` }))}
-                            placeholder="Select a tenant..."
-                            required
+                            placeholder="Select tenants..."
                         />
                     )}
                 />
-                {errors.tenantId && (
-                    <p className="text-xs text-red-600 mt-0.5">{errors.tenantId.message}</p>
+                {errors.tenantIds && (
+                    <p className="text-xs text-red-600 mt-0.5">{errors.tenantIds.message}</p>
                 )}
             </div>
 
-            <Controller
+                <Controller
                 name="password"
                 control={control}
                 render={({ field }) => (
                     <PasswordField
                         id="user-password"
-                        label="Password"
+                        label="Password (optional – set later in edit if needed)"
                         value={field.value || ''}
                         onChange={field.onChange}
                         disabled={isSubmitting}
@@ -186,23 +183,23 @@ export const UserForm: React.FC<UserFormProps> = ({
 
             <div>
                 <Controller
-                    name="roles"
+                    name="roleIds"
                     control={control}
                     render={({ field }) => (
                         <MultiSelect
-                            label="Roles"
+                            label="Roles (for first tenant when tenants selected)"
                             value={field.value || []}
                             onChange={field.onChange}
-                            options={roles.map((r) => ({
-                                value: `${r.name}:${r.guard}`,
+                            options={roles.filter((r) => !r.tenantId || r.tenantId === firstTenantId).map((r) => ({
+                                value: r.id,
                                 label: r.tenantId ? `${r.name} (${r.guard})` : `${r.name} (${r.guard}) - Global`,
                             }))}
                             placeholder="Select roles..."
                         />
                     )}
                 />
-                {errors.roles && (
-                    <p className="text-xs text-red-600 mt-0.5">{errors.roles.message}</p>
+                {errors.roleIds && (
+                    <p className="text-xs text-red-600 mt-0.5">{errors.roleIds.message}</p>
                 )}
             </div>
         </form>

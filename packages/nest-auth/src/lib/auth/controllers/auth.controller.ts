@@ -29,9 +29,8 @@ import { VerifyOtpResponseDto } from '../dto/responses/verify-otp.response.dto';
 import { NestAuthChangePasswordRequestDto } from '../dto/requests/change-password.request.dto';
 import { NestAuthSendEmailVerificationRequestDto } from '../dto/requests/send-email-verification.request.dto';
 import { NestAuthVerifyEmailRequestDto } from '../dto/requests/verify-email.request.dto';
+import { NestAuthSwitchTenantRequestDto } from '../dto/requests/switch-tenant.request.dto';
 import { ACCESS_TOKEN_COOKIE_NAME, REFRESH_TOKEN_COOKIE_NAME } from '../../auth.constants';
-
-
 
 import { UseInterceptors, UseFilters } from '@nestjs/common';
 import { PasswordService } from '../services/password.service';
@@ -118,7 +117,7 @@ export class AuthController {
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     async send2faCode(@Body('method') method: NestAuthMFAMethodEnum): Promise<NestAuthMfaCodeSentResponseDto> {
-        const user = RequestContext.currentUser();
+        const user = await RequestContext.currentUser();
         if (!user) {
             throw new UnauthorizedException('User not found');
         }
@@ -178,7 +177,7 @@ export class AuthController {
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     async logoutAll(@Res({ passthrough: true }) res: Response): Promise<NestAuthLogoutAllResponseDto> {
-        const user = RequestContext.currentUser();
+        const user = await RequestContext.currentUser();
         if (!user) {
             throw new UnauthorizedException('User not found');
         }
@@ -189,6 +188,21 @@ export class AuthController {
         res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, { path: '/' });
 
         return { message: 'Logged out from all devices successfully' };
+    }
+
+    @ApiOperation({ summary: 'Switch Active Tenant' })
+    @ApiResponse({ status: 200, type: AuthWithTokensResponseDto })
+    @HttpCode(200)
+    @Post('switch-tenant')
+    @SkipMfa()
+    @UseGuards(NestAuthAuthGuard)
+    @UseInterceptors(TokenResponseInterceptor)
+    async switchTenant(@Body() input: NestAuthSwitchTenantRequestDto): Promise<AuthWithTokensResponseDto> {
+        const response = await this.authService.switchTenant(input.tenantId);
+        return {
+            ...response,
+            message: 'Tenant switched successfully',
+        };
     }
 
     @ApiOperation({ summary: 'Change Password' })
@@ -260,11 +274,11 @@ export class AuthController {
     @UseGuards(NestAuthAuthGuard)
     @Get('verify-session')
     async verifySession() {
-        const user = RequestContext.currentUser();
+        const userId = await RequestContext.currentUserId();
         const session = RequestContext.currentSession();
         return {
             valid: true,
-            userId: user?.id,
+            userId: userId,
             expiresAt: session?.expiresAt?.toISOString(),
         };
     }

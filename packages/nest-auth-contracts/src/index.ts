@@ -13,6 +13,7 @@ export {
     ILoginRequest,
     ISignupRequest,
     IRefreshRequest,
+    ISwitchTenantRequest,
     ITokenPair,
     IAuthResponse,
     IAuthUser,
@@ -81,7 +82,9 @@ export {
     ITenantsConfig,
     ISsoProviderConfig,
     ISsoConfig,
-    IUiConfig
+    IUiConfig,
+    TenantModeEnum,
+    INestAuthTenantOptions,
 } from './config';
 
 // User & Role (from user.ts)
@@ -94,5 +97,5 @@ export {
 // Tenant (from tenant.ts)
 export {
     INestAuthTenant,
+    INestAuthUserAccess,
 } from './tenant';
-

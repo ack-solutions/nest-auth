@@ -13,17 +13,44 @@ export interface User {
     id: string;
     email: string;
     phone?: string;
-    tenantId?: string;
+    userAccesses?: UserAccess[];
     isActive: boolean;
     isVerified: boolean;
     metadata: Record<string, any>;
-    roles: string[];
     createdAt: string;
     updatedAt: string;
     emailVerifiedAt?: string;
     phoneVerifiedAt?: string;
     isMfaEnabled?: boolean;
 }
+
+/**
+ * User's access within a tenant (membership + roles).
+ * Use roleIds for lightweight/write operations; use roles when relations are loaded.
+ */
+export interface UserAccess {
+    id: string;
+    tenantId: string;
+    tenant?: Tenant;
+    /**
+     * Full Role objects. Populated when the access is loaded with role relations (read/display).
+     * Prefer this when you need role names, guards, or permissions for UI.
+     */
+    roles?: Role[];
+    /**
+     * Role IDs only. Use for lightweight payloads and write operations (e.g. PATCH/PUT).
+     * Authoritative for serialization and persistence when saving access; keep in sync with roles when editing.
+     */
+    roleIds?: string[];
+    isActive: boolean;
+    isDefault?: boolean;
+    status?: string;
+    createdAt: string;
+    updatedAt: string;
+}
+
+/** @deprecated Use UserAccess instead */
+export type TenantMembership = UserAccess;
 
 export interface TotpDevice {
     id: string;
@@ -74,13 +101,7 @@ export interface Role {
     updatedAt: string;
 }
 
-/**
- * Role assignment for create/update operations - includes name and guard for proper identification
- */
-export interface RoleAssignment {
-    name: string;
-    guard: string;
-}
+
 
 export interface Tenant {
     id: string;
@@ -105,13 +126,6 @@ export interface Admin {
 export interface LoginForm {
     email: string;
     password: string;
-}
-
-export interface CreateUserForm {
-    email: string;
-    tenantId: string;
-    password?: string;
-    roles: string;
 }
 
 export interface CreateRoleForm {

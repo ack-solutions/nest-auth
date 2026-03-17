@@ -209,6 +209,38 @@
         ]
       }
     },
+    "/auth/switch-tenant": {
+      "post": {
+        "operationId": "AuthController_switchTenant",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthSwitchTenantRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthWithTokensResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Switch Active Tenant",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/auth/change-password": {
       "post": {
         "operationId": "AuthController_changePassword",
@@ -682,7 +714,7 @@
   "info": {
     "title": "@ackplus/nest-auth API",
     "description": "OpenAPI specification generated from the Nest Auth module",
-    "version": "1.1.64",
+    "version": "1.1.68",
     "contact": {}
   },
   "tags": [],
@@ -793,6 +825,20 @@
             "type": "string",
             "description": "Tenant ID for multi-tenant applications",
             "example": "tenant-123"
+          },
+          "tenants": {
+            "description": "Tenants the user belongs to",
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "userAccesses": {
+            "description": "User access per tenant (includes roles)",
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
           }
         },
         "required": [
@@ -1117,6 +1163,19 @@
         },
         "required": [
           "message"
+        ]
+      },
+      "NestAuthSwitchTenantRequestDto": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID to switch into",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        },
+        "required": [
+          "tenantId"
         ]
       },
       "NestAuthChangePasswordRequestDto": {

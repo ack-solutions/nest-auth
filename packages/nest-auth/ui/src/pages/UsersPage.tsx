@@ -3,7 +3,7 @@ import { Plus, CheckCircle, XCircle, Eye, Trash2, UserPlus, Filter, X, Building2
 import { api } from '../services/api';
 import { useConfirm } from '../hooks/useConfirm';
 import { usePagination } from '../hooks/usePagination';
-import type { User, CreateUserForm, Tenant, Role } from '../types';
+import type { User, Tenant, Role } from '../types';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { UserDetailModal } from '../components/user/UserDetailModal';
@@ -13,7 +13,7 @@ import { SearchInput } from '../components/SearchInput';
 import { Table, Column, PaginationInfo } from '../components/Table';
 import { Card } from '../components/Card';
 import { CreateUserDialog } from '../components/user/CreateUserDialog';
-import { UserFormData, roleKeysToAssignments } from '../components/user/UserForm';
+import { UserFormData } from '../components/user/UserForm';
 
 export const UsersPage: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
@@ -126,14 +126,11 @@ export const UsersPage: React.FC = () => {
     const handleCreateUser = async (data: UserFormData) => {
         setCreateError('');
         try {
-            // Convert role keys (name:guard) to RoleAssignment objects
-            const roleAssignments = roleKeysToAssignments(data.roles || []);
-
             await api.post('/api/users', {
                 email: data.email.trim(),
-                tenantId: data.tenantId || undefined,
+                tenantIds: data.tenantIds || [],
                 password: data.password || undefined,
-                roles: roleAssignments,
+                roleIds: data.roleIds?.length ? data.roleIds : undefined,
             });
             setShowCreateModal(false);
             await loadUsers();
@@ -197,12 +194,16 @@ export const UsersPage: React.FC = () => {
         },
         {
             key: 'tenantId',
-            label: 'Tenant',
+            label: 'Tenants',
             render: (user) => {
-                const tenant = tenants.find(t => t.id === user.tenantId);
+                const tenantIds = user.tenantIds ?? [];
+                const firstTenantId = tenantIds[0];
+                const firstTenant = (user.tenants ?? []).find(t => t.id === firstTenantId) || tenants.find(t => t.id === firstTenantId);
+                const extraCount = tenantIds.length > 1 ? tenantIds.length - 1 : 0;
                 return (
                     <span className="text-sm text-gray-900">
-                        {tenant ? (tenant.name || tenant.slug || tenant.id) : (user.tenantId || '—')}
+                        {firstTenant ? (firstTenant.name || firstTenant.slug || firstTenant.id) : (firstTenantId || '—')}
+                        {extraCount > 0 && <span className="text-xs text-gray-500 ml-1">+{extraCount}</span>}
                     </span>
                 );
             },
@@ -224,22 +225,33 @@ export const UsersPage: React.FC = () => {
         {
             key: 'roles',
             label: 'Roles',
-            render: (user) => (
-                <div className="flex flex-wrap gap-1">
-                    {user.roles.length > 0 ? (
-                        user.roles.slice(0, 2).map((role) => (
-                            <span key={role} className="badge bg-purple-100 text-purple-800 text-xs">
-                                {role}
-                            </span>
-                        ))
-                    ) : (
-                        <span className="text-sm text-gray-400">No roles</span>
-                    )}
-                    {user.roles.length > 2 && (
-                        <span className="text-xs text-gray-500">+{user.roles.length - 2}</span>
-                    )}
-                </div>
-            ),
+                render: (user) => {
+                const accesses = user.userAccesses ?? [];
+                const roleNames = accesses.flatMap((a) => (a.roles ?? []).map((r: any) => (typeof r === 'string' ? r : r.name)));
+                const totalRoles = roleNames.length;
+                const tenantCount = accesses.length;
+                return (
+                    <div className="flex flex-wrap gap-1 items-center">
+                        {totalRoles > 0 ? (
+                            <>
+                                {roleNames.slice(0, 2).map((role, i) => (
+                                    <span key={`${role}-${i}`} className="badge bg-purple-100 text-purple-800 text-xs">
+                                        {role}
+                                    </span>
+                                ))}
+                                {totalRoles > 2 && (
+                                    <span className="text-xs text-gray-500">+{totalRoles - 2}</span>
+                                )}
+                                {tenantCount > 1 && (
+                                    <span className="text-xs text-gray-400">· {tenantCount} tenants</span>
+                                )}
+                            </>
+                        ) : (
+                            <span className="text-sm text-gray-400">No roles</span>
+                        )}
+                    </div>
+                );
+            },
         },
         {
             key: 'createdAt',

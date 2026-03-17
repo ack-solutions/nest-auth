@@ -1,6 +1,9 @@
 import { AsyncLocalStorage } from 'async_hooks';
 import { Request, Response } from 'express';
 import { JWTTokenPayload, SessionPayload } from '../core/interfaces/token-payload.interface';
+import { NestAuthUserAccess } from '../tenant/entities/user-access.entity';
+import { FindOneOptions, IsNull } from 'typeorm';
+import { NestAuthUser } from '../user/entities/user.entity';
 
 export class RequestContext {
 
@@ -36,7 +39,48 @@ export class RequestContext {
         return requestContext ? requestContext.request : null;
     }
 
-    public static currentUser(): JWTTokenPayload | null {
+    public static currentTenantId(): string | null {
+        const session = RequestContext.currentSession();
+        return session ? session.data?.tenantId : null;
+    }
+
+    public static async currentUserAccess(findOptions?: FindOneOptions<NestAuthUserAccess>): Promise<NestAuthUserAccess | null> {
+        const session = RequestContext.currentSession();
+        if (!session?.userId) {
+            return null;
+        }
+        const access = await NestAuthUserAccess.findOne({
+            ...findOptions,
+            where: {
+                ...(findOptions?.where as object),
+                userId: session.userId,
+                tenantId: session.data?.tenantId || IsNull(),
+            },
+        });
+        return access;
+    }
+
+    public static currentUserId(): string | null {
+        const session = RequestContext.currentSession();
+        return session ? session.userId : null;
+    }
+
+    public static async currentUser(findOptions?: FindOneOptions<NestAuthUser>): Promise<NestAuthUser | null> {
+        const userId = RequestContext.currentUserId();
+        if (!userId) {
+            return null;
+        }
+        const user = await NestAuthUser.findOne({
+            ...findOptions,
+            where: {
+                ...findOptions?.where,
+                id: userId,
+            },
+        });
+        return user;
+    }
+
+    public static getJwtTokenPayload(): JWTTokenPayload | null {
         const request = RequestContext.currentRequest();
         if (!request['user']) {
             return null;

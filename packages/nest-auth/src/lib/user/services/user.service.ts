@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindManyOptions, FindOneOptions, IsNull, Not, Repository } from 'typeorm';
+import { FindManyOptions, FindOneOptions, In, Not, Repository } from 'typeorm';
 import { NestAuthUser } from '../entities/user.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EMAIL_AUTH_PROVIDER, NestAuthEvents, PHONE_AUTH_PROVIDER } from '../../auth.constants';
@@ -10,33 +10,38 @@ import { UserCreatedEvent } from '../events/user-created.event';
 import { TenantService } from '../../tenant';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
 import { AuthConfigService } from '../../core/services/auth-config.service';
+import { NestAuthUserAccess } from '../../tenant/entities/user-access.entity';
+import { NestAuthTenant } from '../../tenant/entities/tenant.entity';
+import { NestAuthRole } from '../../role/entities/role.entity';
+import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
+import { normalizedEmail, normalizedPhone } from '../../utils';
 
 @Injectable()
 export class UserService {
     constructor(
         @InjectRepository(NestAuthUser)
         private readonly userRepository: Repository<NestAuthUser>,
+        @InjectRepository(NestAuthUserAccess)
+        private readonly userAccessRepository: Repository<NestAuthUserAccess>,
         private readonly tenantService: TenantService,
         private readonly eventEmitter: EventEmitter2,
         private readonly authConfigService: AuthConfigService,
-        private readonly debugLogger: DebugLoggerService
-    ) { }
+        private readonly debugLogger: DebugLoggerService,
+    ) {}
 
-    async createUser(data: Partial<NestAuthUser>, context?: any): Promise<NestAuthUser> {
+    async createUser(data: Partial<NestAuthUser>, tenantId?: string, context?: any): Promise<NestAuthUser> {
         this.debugLogger.logFunctionEntry('createUser', 'UserService', { email: data.email, phone: data.phone, hasPassword: !!(data as any).password });
 
+        const config = this.authConfigService.getConfig();
+
         try {
-            const { email, phone } = data;
-            let { tenantId = null } = data;
+            const email = normalizedEmail(data.email);
+            const phone = normalizedPhone(data.phone);
 
-            // Resolve tenant ID
-            tenantId = await this.tenantService.resolveTenantId(tenantId);
-            data.tenantId = tenantId;
+            await this.tenantService.resolveTenantId(tenantId);
 
-            // Check if user already exists
+            // Check if user already exists (by email in same tenant context)
             if (email) {
-                // Normalize email before checking for duplicates
-
                 const existingUser = await this.getUserByEmail(email, tenantId);
                 if (existingUser) {
                     this.debugLogger.warn('User with email already exists', 'UserService', { email, tenantId });
@@ -58,15 +63,19 @@ export class UserService {
                 }
             }
 
-            // Apply user.beforeCreate hook if configured
-            const config = this.authConfigService.getConfig();
+
             if (config.user?.beforeCreate) {
                 this.debugLogger.debug('Applying user.beforeCreate hook', 'UserService');
-                data = await config.user.beforeCreate(data, context);
+                data = await config.user.beforeCreate?.(data, context) ?? data;
             }
 
             this.debugLogger.debug('Creating new user entity', 'UserService');
-            const user = this.userRepository.create(data);
+
+            const user = this.userRepository.create({
+                ...data,
+                ...(email != null && { email: email }),
+                ...(phone != null && { phone: phone }),
+            });
 
             // Handle password if provided in data (even though it's not a column)
             if ((data as any).password) {
@@ -74,13 +83,17 @@ export class UserService {
             }
 
             await this.userRepository.save(user);
+
+            if (tenantId) {
+                await this.ensureUserAccess(user.id, tenantId);
+            }
             this.debugLogger.info('User created successfully', 'UserService', { userId: user.id });
 
             // Create identities
-            const normalizedEmail = email?.toLowerCase().trim();
-            if (normalizedEmail && config.emailAuth?.enabled !== false) {
-                await user.findOrCreateIdentity(EMAIL_AUTH_PROVIDER, normalizedEmail);
+            if (email && config.emailAuth?.enabled !== false) {
+                await user.findOrCreateIdentity(EMAIL_AUTH_PROVIDER, email);
             }
+
             if (phone && config.phoneAuth?.enabled === true) {
                 await user.findOrCreateIdentity(PHONE_AUTH_PROVIDER, phone);
             }
@@ -92,14 +105,14 @@ export class UserService {
                 new UserCreatedEvent({
                     user,
                     input: context,
-                    tenantId: user.tenantId
+                    tenantId: tenantId
                 })
             );
 
             // Apply user.afterCreate hook if configured
             if (config.user?.afterCreate) {
                 this.debugLogger.debug('Applying user.afterCreate hook', 'UserService', { userId: user.id });
-                await config.user.afterCreate(user, context);
+                await config.user.afterCreate?.(user, context);
             }
 
             this.debugLogger.logFunctionExit('createUser', 'UserService', { userId: user.id });
@@ -136,55 +149,51 @@ export class UserService {
     async getUserByEmail(email: string, tenantId?: string, options?: FindOneOptions<NestAuthUser>): Promise<NestAuthUser> {
         this.debugLogger.debug('Getting user by email', 'UserService', { email: !!email, tenantId });
 
-        tenantId = await this.tenantService.resolveTenantId(tenantId || null);
-        if (!email) {
+        const emailNorm = normalizedEmail(email);
+        if (!emailNorm) {
             this.debugLogger.warn('No email provided for user lookup', 'UserService');
             return null;
         }
 
-        // Normalize email to lowercase for case-insensitive matching
-        const normalizedEmail = email.toLowerCase().trim();
-
         const user = await this.userRepository.findOne({
             ...(options ? options : {}),
+            relations: ['userAccesses', ...(Array.isArray(options?.relations) ? options.relations : [])],
             where: {
-                email: normalizedEmail,
-                tenantId: tenantId || IsNull()
-            }
+                email: emailNorm,
+                ...(tenantId ? { userAccesses: { tenantId: tenantId } } : {}),
+            },
         });
-
         if (user) {
-            this.debugLogger.debug('User found by email', 'UserService', { userId: user.id, tenantId });
+            this.debugLogger.debug('User found by email', 'UserService', { userId: user.id });
         } else {
-            this.debugLogger.debug('No user found with email', 'UserService', { tenantId });
+            this.debugLogger.debug('No user found with email', 'UserService');
         }
-
         return user;
     }
 
     async getUserByPhone(phone: string, tenantId?: string, options?: FindOneOptions<NestAuthUser>): Promise<NestAuthUser> {
         this.debugLogger.debug('Getting user by phone', 'UserService', { phone: !!phone, tenantId });
 
-        tenantId = await this.tenantService.resolveTenantId(tenantId || null);
-        if (!phone) {
+        const phoneNorm = normalizedPhone(phone);
+        if (!phoneNorm) {
             this.debugLogger.warn('No phone provided for user lookup', 'UserService');
             return null;
         }
 
         const user = await this.userRepository.findOne({
             ...(options ? options : {}),
+            relations: ['userAccesses', ...(Array.isArray(options?.relations) ? options.relations : [])],
             where: {
-                phone,
-                tenantId: tenantId || IsNull()
-            }
+                phone: phoneNorm,
+                ...(tenantId ? { userAccesses: { tenantId: tenantId } } : {}),
+            },
         });
 
         if (user) {
-            this.debugLogger.debug('User found by phone', 'UserService', { userId: user.id, tenantId });
+            this.debugLogger.debug('User found by phone', 'UserService', { userId: user.id });
         } else {
-            this.debugLogger.debug('No user found with phone', 'UserService', { tenantId });
+            this.debugLogger.debug('No user found with phone', 'UserService');
         }
-
         return user;
     }
 
@@ -193,17 +202,17 @@ export class UserService {
     }
 
     async getUsersByTenant(tenantId: string, options?: FindManyOptions<NestAuthUser>): Promise<NestAuthUser[]> {
-        tenantId = await this.tenantService.resolveTenantId(tenantId || null);
-        if (!tenantId) {
-            return [];
-        }
+        const relations = Array.isArray(options?.relations)
+            ? Array.from(new Set([...(options?.relations || []), 'userAccesses']))
+            : options?.relations;
 
         return this.userRepository.find({
             ...(options ? options : {}),
+            relations,
             where: {
-                tenantId,
-                ...(options?.where ? options.where : {})
-            }
+                ...(options?.where ? options.where : {}),
+                userAccesses: { tenantId: tenantId },
+            },
         });
     }
 
@@ -221,22 +230,39 @@ export class UserService {
                 });
             }
 
-            // If email or phone is being changed, check for conflicts
+            // If email or phone is being changed, check for conflicts (same tenant context via memberships)
             if (data.email || data.phone) {
+                const config = this.authConfigService.getConfig();
                 this.debugLogger.debug('Checking for conflicts during user update', 'UserService', { userId: id, email: !!data.email, phone: !!data.phone });
 
-                let existingUser = null;
+                const userWithMemberships = await this.getUserById(id, {
+                    relations: ['userAccesses'],
+                });
 
-                if (data.phone) {
-                    existingUser = await this.userRepository.findOne({
-                        where: { phone: data.phone, tenantId: user.tenantId, id: Not(user.id) }
-                    });
+                let tenantId = null;
+                if (config.tenant?.mode === TenantModeEnum.ISOLATED) {
+                    tenantId = userWithMemberships?.userAccesses?.[0]?.tenantId;
                 }
 
-                if (!existingUser && data.email) {
-                    existingUser = await this.userRepository.findOne({
-                        where: { email: data.email, tenantId: user.tenantId, id: Not(user.id) }
-                    });
+                let existingUser: NestAuthUser | null = null;
+
+                const phone = normalizedPhone(data.phone);
+                const email = normalizedEmail(data.email);
+                if (data.email != null) data.email = email;
+                if (data.phone != null) data.phone = phone;
+
+                if (phone != null) {
+                    const userByPhone = await this.getUserByPhone(phone, tenantId, { select: ['id'] });
+                    if (userByPhone && userByPhone.id !== id) {
+                        existingUser = userByPhone;
+                    }
+                }
+
+                if (!existingUser && email != null) {
+                    const userByEmail = await this.getUserByEmail(email, tenantId, { select: ['id'] });
+                    if (userByEmail && userByEmail.id !== id) {
+                        existingUser = userByEmail;
+                    }
                 }
 
                 if (existingUser) {
@@ -248,22 +274,19 @@ export class UserService {
                 }
             }
 
-            // Prevent changing tenant
-            delete data.tenantId;
 
             this.debugLogger.debug('Updating user data', 'UserService', { userId: id, fields: Object.keys(data) });
             Object.assign(user, data);
             const updatedUser = await this.userRepository.save(user);
             this.debugLogger.info('User updated successfully', 'UserService', { userId: updatedUser.id });
 
-            const config = this.authConfigService.getConfig();
-
-            if (data.email && config.emailAuth?.enabled !== false) {
+            const updateConfig = this.authConfigService.getConfig();
+            if (data.email && updateConfig.emailAuth?.enabled !== false) {
                 this.debugLogger.debug('Updating email identity', 'UserService', { userId: id });
                 await user.updateOrCreateIdentity(EMAIL_AUTH_PROVIDER, { providerId: data.email });
             }
 
-            if (data.phone && config.phoneAuth?.enabled === true) {
+            if (data.phone && updateConfig.phoneAuth?.enabled === true) {
                 this.debugLogger.debug('Updating phone identity', 'UserService', { userId: id });
                 await user.updateOrCreateIdentity(PHONE_AUTH_PROVIDER, { providerId: data.phone });
             }
@@ -274,7 +297,6 @@ export class UserService {
                 NestAuthEvents.USER_UPDATED,
                 new UserUpdatedEvent({
                     user: updatedUser,
-                    tenantId: updatedUser.tenantId,
                     updatedFields: Object.keys(data)
                 })
             );
@@ -285,6 +307,97 @@ export class UserService {
         } catch (error) {
             this.debugLogger.logError(error, 'updateUser', { userId: id, fields: Object.keys(data) });
             throw error;
+        }
+    }
+
+    async ensureUserAccess(
+        userId: string,
+        tenantId: string,
+    ): Promise<NestAuthUserAccess> {
+        if (!userId || !tenantId) {
+            this.debugLogger.warn('ensureUserAccess called with missing parameters', 'UserService', { userId: !!userId, tenantId: !!tenantId });
+            return null;
+        }
+
+        const existing = await this.userAccessRepository.findOne({
+            where: { userId, tenantId }
+        });
+
+        if (existing) {
+            return existing;
+        }
+
+        const access = this.userAccessRepository.create({
+            userId,
+            tenantId,
+        });
+        return await this.userAccessRepository.save(access);
+    }
+
+    async isUserInTenant(userId: string, tenantId: string): Promise<boolean> {
+        if (!userId || !tenantId) {
+            return false;
+        }
+        const access = await this.userRepository.createQueryBuilder('u')
+            .innerJoin('u.userAccesses', 'm', 'm.tenantId = :tenantId', {
+                tenantId,
+            })
+            .where('u.id = :userId', { userId })
+            .select('m.id')
+            .getRawOne();
+        return !!access;
+    }
+
+    /**
+     * Set multiple roles for a user's access in a tenant.
+     */
+    async setUserAccessRoles(
+        userId: string,
+        tenantId: string,
+        roleIds: string[]
+    ): Promise<NestAuthUserAccess> {
+        let access = await this.userAccessRepository.findOne({
+            where: { userId, tenantId: tenantId },
+            relations: ['roles'],
+        });
+        if (!access) {
+            access = await this.ensureUserAccess(userId, tenantId);
+        }
+        if (!roleIds?.length) {
+            access.roles = [];
+        } else {
+            const roleEntities = await NestAuthRole.find({ where: { id: In(roleIds) } });
+            access.roles = roleEntities;
+        }
+        return this.userAccessRepository.save(access);
+    }
+
+    async getUserTenants(userId: string): Promise<NestAuthTenant[]> {
+        if (!userId) {
+            return [];
+        }
+        const accessList = await this.userAccessRepository.find({
+            where: { userId, isActive: true },
+            relations: ['tenant']
+        });
+        return accessList
+            .map(a => a.tenant)
+            .filter(Boolean);
+    }
+
+    /**
+     * Remove a user's access for a tenant.
+     */
+    async deleteUserAccess(userId: string, tenantId: string): Promise<void> {
+        if (!userId || !tenantId) {
+            return;
+        }
+        const access = await this.userAccessRepository.findOne({
+            where: { userId, tenantId },
+        });
+        if (access) {
+            await this.userAccessRepository.remove(access);
+            this.debugLogger.debug('User access deleted', 'UserService', { userId, tenantId });
         }
     }
 
@@ -308,7 +421,6 @@ export class UserService {
                 NestAuthEvents.USER_DELETED,
                 new UserDeletedEvent({
                     user,
-                    tenantId: user.tenantId
                 })
             );
 
@@ -388,7 +500,6 @@ export class UserService {
             NestAuthEvents.USER_UPDATED,
             new UserUpdatedEvent({
                 user: updatedUser,
-                tenantId: updatedUser.tenantId,
                 updatedFields: ['isActive']
             })
         );
@@ -419,7 +530,6 @@ export class UserService {
             NestAuthEvents.USER_UPDATED,
             new UserUpdatedEvent({
                 user: updatedUser,
-                tenantId: updatedUser.tenantId,
                 updatedFields: ['metadata']
             })
         );
@@ -435,15 +545,22 @@ export class UserService {
         return this.userRepository.findAndCount(options);
     }
 
-    async getUsersByRole(roleName: string, guard: string): Promise<NestAuthUser[]> {
+    async getUsersByRole(roleName: string, guard: string, tenantId?: string): Promise<NestAuthUser[]> {
         this.debugLogger.debug('Getting users by role', 'UserService', { roleName, guard });
 
-        const users = await this.userRepository
+        const usersQuery = this.userRepository
             .createQueryBuilder('user')
-            .leftJoinAndSelect('user.roles', 'role')
-            .where('role.name = :roleName', { roleName })
-            .andWhere('role.guard = :guard', { guard })
-            .getMany();
+            .innerJoin('user.userAccesses', 'm')
+            .innerJoin('m.roles', 'role', 'role.name = :roleName AND role.guard = :guard', {
+                roleName,
+                guard,
+            })
+
+        if (tenantId) {
+            usersQuery.andWhere('m.tenantId = :tenantId', { tenantId });
+        }
+
+        const users = await usersQuery.getMany();
 
         this.debugLogger.debug('Found users with role', 'UserService', { roleName, count: users.length });
         return users;

@@ -14,6 +14,7 @@ export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 export interface ClientSession {
     id: string;
     userId: string;
+    tenantId?: string;
     expiresAt?: Date;
     createdAt?: Date;
     accessToken?: string;

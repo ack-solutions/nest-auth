@@ -13,9 +13,8 @@ import { AuthConfigService } from '../../core/services/auth-config.service';
 import { CookieHelper } from '../../utils/cookie.helper';
 import { uniq } from 'lodash';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
+import { RequestContext } from '../../request-context/request-context';
 
 /**
  * NestAuthAuthGuard
@@ -40,13 +39,10 @@ export class NestAuthAuthGuard implements CanActivate {
         private accessKeyService: AccessKeyService,
         private authConfigService: AuthConfigService,
         private debugLogger: DebugLoggerService,
-        @InjectRepository(NestAuthUser)
-        private readonly userRepository: Repository<NestAuthUser>,
     ) { }
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
         const request = context.switchToHttp().getRequest<Request>() as any;
-        const response = context.switchToHttp().getResponse<Response>();
 
 
         // Check if authentication is optional
@@ -84,10 +80,12 @@ export class NestAuthAuthGuard implements CanActivate {
         let isAuthenticated = false;
         try {
             switch (authType) {
+               
                 case 'bearer':
                     this.debugLogger.debug('Handling JWT authentication', 'AuthGuard');
-                    isAuthenticated = await this.handleJwtAuth(context, request, response, token, isOptional);
+                    isAuthenticated = await this.handleJwtAuth(context, request, token, isOptional);
                     break;
+
                 case 'apikey':
                     this.debugLogger.debug('Handling API key authentication', 'AuthGuard');
                     isAuthenticated = await this.handleApiKeyAuth(request, token, isOptional);
@@ -182,7 +180,6 @@ export class NestAuthAuthGuard implements CanActivate {
     private async handleJwtAuth(
         context: ExecutionContext,
         request: any,
-        response: Response,
         token: string,
         isOptional = false,
     ): Promise<boolean> {
@@ -227,9 +224,9 @@ export class NestAuthAuthGuard implements CanActivate {
 
             request.session = session;
 
-            const user = await this.userRepository.findOne({
+            const user = await NestAuthUser.findOne({
                 where: { id: session.userId },
-                select: ['id', 'isActive', 'isVerified'],
+                select: ['id', 'isActive'],
             });
 
             if (!user || user.isActive === false) {
@@ -253,7 +250,7 @@ export class NestAuthAuthGuard implements CanActivate {
         } catch (error) {
             if (isOptional) {
                 this.resetAuth(request);
-                return false; // <-- key change
+                return false;
             }
 
             if (error instanceof UnauthorizedException || (error as any).status) throw error;

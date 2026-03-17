@@ -406,7 +406,7 @@ async trackRegistration(payload: any) {
     userId: user.id,
     properties: {
       provider: provider.providerName,
-      tenantId: user.tenantId,
+      tenantId: user.tenantIds?.[0],
       timestamp: new Date()
     }
   });

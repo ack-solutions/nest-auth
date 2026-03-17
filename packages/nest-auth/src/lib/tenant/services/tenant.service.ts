@@ -6,22 +6,20 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TenantCreatedEvent } from '../events/tenant-created.event';
 import { TenantUpdatedEvent } from '../events/tenant-updated.event';
 import { TenantDeletedEvent } from '../events/tenant-deleted.event';
-import { NestAuthEvents } from '../../auth.constants';
-import { AuthConfigService } from '../../core/services/auth-config.service';
+import { ERROR_CODES, NestAuthEvents } from '../../auth.constants';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
-import { isValidSlug, toSlug } from '../../utils/slug.util';
+import { isValidSlug } from '../../utils/slug.util';
+import { AuthConfigService } from '../../core/services/auth-config.service';
 
 @Injectable()
 export class TenantService {
-
-    private defaultTenant: NestAuthTenant | null = null;
 
     constructor(
         @InjectRepository(NestAuthTenant)
         private tenantRepository: Repository<NestAuthTenant>,
         private eventEmitter: EventEmitter2,
-        private authConfig: AuthConfigService,
-        private debugLogger: DebugLoggerService
+        private debugLogger: DebugLoggerService,
+        private readonly authConfigService: AuthConfigService,
     ) { }
 
     async createTenant(data: Partial<NestAuthTenant>): Promise<NestAuthTenant> {
@@ -200,97 +198,28 @@ export class TenantService {
         return updatedTenant;
     }
 
-    async initializeDefaultTenant(): Promise<NestAuthTenant | null> {
-        const config = this.authConfig.getConfig();
 
-        if (!config.defaultTenant) {
-            return null;
-        }
-
-        // Support both slug and domain for backward compatibility
-        // Prefer slug over domain
-        const identifier = config.defaultTenant.slug;
-
-        if (!identifier) {
-            throw new BadRequestException({
-                message: 'defaultTenant must have "slug" field',
-                code: 'MISSING_TENANT_IDENTIFIER'
-            });
-        }
-
-        // Validate slug format if provided
-        if (config.defaultTenant.slug && !isValidSlug(config.defaultTenant.slug)) {
-            throw new BadRequestException({
-                message: `Invalid slug format in defaultTenant. Slug must be lowercase with only letters, numbers, hyphens (-) and underscores (_). Got: '${config.defaultTenant.slug}'`,
-                code: 'INVALID_SLUG_FORMAT'
-            });
-        }
-
-        // Check if default tenant already exists
-        let defaultTenant: NestAuthTenant | null = null;
-
-        if (config.defaultTenant.slug) {
-            defaultTenant = await this.getTenantBySlug(config.defaultTenant.slug);
-        }
-
-        if (!defaultTenant) {
-            // Create the default tenant
-            try {
-                defaultTenant = await this.createTenant({
-                    name: config.defaultTenant.name,
-                    slug: config.defaultTenant.slug || null,
-                    description: config.defaultTenant.description || 'Default tenant',
-                    metadata: config.defaultTenant.metadata || {},
-                    isActive: true
+    async resolveTenantId(inputTenantId?: string | null): Promise<string | null> {
+        const config = this.authConfigService.getConfig();
+        if (config.tenant?.enabled) {
+            if (inputTenantId) {
+                const tenant = await this.getTenantById(inputTenantId);
+                if (!tenant) {
+                    throw new BadRequestException({
+                        message: `Tenant with ID '${inputTenantId}' not found`,
+                        code: ERROR_CODES.TENANT_NOT_FOUND,
+                    });
+                }
+            } else {
+                throw new BadRequestException({
+                    message: 'Tenant ID is required',
+                    code: ERROR_CODES.TENANT_ID_REQUIRED,
                 });
-            } catch (error) {
-                // If tenant already exists, try to find it
-                if (error.code === 'TENANT_ALREADY_EXISTS') {
-                    if (config.defaultTenant.slug) {
-                        defaultTenant = await this.getTenantBySlug(config.defaultTenant.slug);
-                    }
-                }
-
-                if (!defaultTenant) {
-                    throw error;
-                }
             }
         }
 
-        this.defaultTenant = defaultTenant;
-        return defaultTenant;
+        return inputTenantId;
     }
 
-    getDefaultTenant(): NestAuthTenant | null {
-        return this.defaultTenant;
-    }
-
-    getDefaultTenantId(): string | null {
-        return this.defaultTenant?.id || null;
-    }
-
-    async getOrCreateDefaultTenant(): Promise<NestAuthTenant | null> {
-        if (this.defaultTenant) {
-            return this.defaultTenant;
-        }
-
-        return await this.initializeDefaultTenant();
-    }
-
-    async resolveTenantId(providedTenantId?: string | null): Promise<string | null> {
-        this.debugLogger.logTenantOperation('resolveTenantId', providedTenantId, { providedTenantId });
-
-        // If tenant ID is explicitly provided, use it
-        if (providedTenantId) {
-            this.debugLogger.debug('Using provided tenant ID', 'TenantService', { tenantId: providedTenantId });
-            return providedTenantId;
-        }
-
-        // If no tenant ID provided, try to get default tenant
-        const defaultTenant = await this.getOrCreateDefaultTenant();
-        const resolvedTenantId = defaultTenant?.id || null;
-        this.debugLogger.debug('Resolved tenant ID', 'TenantService', { resolvedTenantId, hasDefaultTenant: !!defaultTenant });
-        return resolvedTenantId;
-    }
 
 }

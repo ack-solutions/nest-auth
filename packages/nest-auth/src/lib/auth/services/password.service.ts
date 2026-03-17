@@ -1,10 +1,10 @@
-import { Injectable, UnauthorizedException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan } from 'typeorm';
+import { Repository } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthOTP } from '../../auth/entities/otp.entity';
 import { NestAuthOTPTypeEnum } from '@ackplus/nest-auth-contracts';
-import { JWTTokenPayload, SessionPayload } from '../../core/interfaces/token-payload.interface';
+import { JWTTokenPayload } from '../../core/interfaces/token-payload.interface';
 import {
     EMAIL_AUTH_PROVIDER,
     PHONE_AUTH_PROVIDER,
@@ -93,7 +93,7 @@ export class PasswordService {
             phone: session.data?.user?.phone,
             isVerified: session.data?.user?.isVerified,
             roles: session.data?.roles,
-            tenantId: session.data?.user?.tenantId,
+            tenantId: session.data?.tenantId,
             isMfaEnabled: session.data?.user?.isMfaEnabled,
             isMfaVerified: session.data?.isMfaVerified,
             ...otherPayload,
@@ -140,7 +140,7 @@ export class PasswordService {
         this.debugLogger.logFunctionEntry('changePassword', 'PasswordService');
 
         try {
-            const currentUser = RequestContext.currentUser();
+            const currentUser = await RequestContext.currentUser();
 
             if (!currentUser?.id) {
                 throw new UnauthorizedException({
@@ -281,7 +281,7 @@ export class PasswordService {
                 NestAuthEvents.PASSWORD_RESET_REQUESTED,
                 new PasswordResetRequestedEvent({
                     user: identity.user,
-                    tenantId: identity.user?.tenantId,
+                    tenantId,
                     input,
                     otp: otpEntity,
                     provider,
@@ -301,10 +301,7 @@ export class PasswordService {
     async verifyForgotPasswordOtp(input: NestAuthVerifyForgotPasswordOtpRequestDto): Promise<VerifyOtpResponseDto> {
         this.debugLogger.logFunctionEntry('verifyForgotPasswordOtp', 'PasswordService');
         try {
-            const { email, phone, otp } = input;
-            let { tenantId = null } = input;
-
-            tenantId = await this.tenantService.resolveTenantId(tenantId);
+            const { email, phone, otp, tenantId } = input;
 
             if (!email && !phone) {
                 throw new BadRequestException({
@@ -338,7 +335,7 @@ export class PasswordService {
                     userId: identity.user?.id,
                     code: otp,
                     type: NestAuthOTPTypeEnum.PASSWORD_RESET,
-                    used: false
+                    used: false,
                 },
                 relations: ['user']
             });
@@ -361,6 +358,7 @@ export class PasswordService {
             const resetToken = await this.jwtService.generatePasswordResetToken({
                 userId: user.id,
                 passwordHashPrefix,
+                tenantId: tenantId,
                 type: 'password-reset'
             });
 
@@ -427,7 +425,7 @@ export class PasswordService {
                 NestAuthEvents.PASSWORD_RESET,
                 new PasswordResetEvent({
                     user,
-                    tenantId: user.tenantId,
+                    tenantId: RequestContext.currentTenantId(),
                     input: { token, newPassword } as any,
                 })
             );

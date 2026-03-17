@@ -121,6 +121,8 @@ export interface EndpointConfig {
     verify2fa?: string;
     /** Verify session endpoint (default: /auth/verify-session) */
     verifySession?: string;
+    /** Switch active tenant endpoint (default: /auth/switch-tenant) */
+    switchTenant?: string;
     /** Setup TOTP device (default: /auth/mfa/setup-totp) */
     setupTotp?: string;
     /** Verify TOTP setup (default: /auth/mfa/verify-totp-setup) */
@@ -158,6 +160,7 @@ export const DEFAULT_ENDPOINTS: Required<EndpointConfig> = {
     send2fa: '/auth/mfa/challenge',
     verify2fa: '/auth/mfa/verify',
     verifySession: '/auth/verify-session',
+    switchTenant: '/auth/switch-tenant',
     setupTotp: '/auth/mfa/setup-totp',
     verifyTotpSetup: '/auth/mfa/verify-totp-setup',
     getMfaStatus: '/auth/mfa/status',
@@ -215,18 +218,6 @@ export interface AuthClientConfig {
      * Logger for debugging
      */
     logger?: Logger;
-
-    /**
-     * Tenant ID for multi-tenant applications
-     * Can be a static string or a function that returns the tenant ID
-     */
-    tenantId?: string | (() => string | undefined);
-
-    /**
-     * Header name for tenant ID
-     * Default: 'x-tenant-id'
-     */
-    tenantHeader?: string;
 
     /**
      * Whether to automatically refresh tokens before they expire

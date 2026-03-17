@@ -38,6 +38,7 @@ export * from './dto/requests/change-password.request.dto';
 export * from './dto/requests/toggle-mfa.request.dto';
 export * from './dto/requests/refresh-token.request.dto';
 export * from './dto/requests/verify-2fa.request.dto';
+export * from './dto/requests/switch-tenant.request.dto';
 export * from './dto/requests/verify-totp-setup.request.dto';
 export * from './dto/responses/auth.response.dto';
 export * from './dto/responses/auth-cookie.response.dto';

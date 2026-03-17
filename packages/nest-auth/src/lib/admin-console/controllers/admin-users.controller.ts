@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -15,6 +16,7 @@ import { Repository } from 'typeorm';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
 import { AdminCreateUserDto, AdminUpdateUserDto } from '../dto/admin-user.dto';
 import { UserService } from '../../user/services/user.service';
+import { AdminUserManagementService } from '../services/admin-user-management.service';
 import { TenantService } from '../../tenant/services/tenant.service';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthMFASecret } from '../../auth/entities/mfa-secret.entity';
@@ -23,17 +25,24 @@ import { FindOptionsWhere, Like } from 'typeorm';
 import { MfaService } from '../../auth/services/mfa.service';
 import { SessionManagerService } from '../../session/services/session-manager.service';
 import { NestAuthSession } from '../../session/entities/session.entity';
+import { AuthConfigService } from '../../core/services/auth-config.service';
+import { NestAuthUserAccess } from '../../tenant/entities/user-access.entity';
+import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
 
 @Controller('auth/admin/api/users')
 @UseGuards(AdminSessionGuard)
 export class AdminUsersController {
   constructor(
     private readonly users: UserService,
+    private readonly adminUserManagement: AdminUserManagementService,
     private readonly tenantService: TenantService,
+    private readonly authConfigService: AuthConfigService,
     private readonly mfaService: MfaService,
     private readonly sessionManager: SessionManagerService,
     @InjectRepository(NestAuthMFASecret)
     private readonly mfaSecretRepository: Repository<NestAuthMFASecret>,
+    @InjectRepository(NestAuthUserAccess)
+    private readonly userAccessRepository: Repository<NestAuthUserAccess>,
   ) { }
 
   private async ensureUserExists(id: string): Promise<NestAuthUser> {
@@ -76,6 +85,24 @@ export class AdminUsersController {
     return value.replace(/[%_\\]/g, '\\$&');
   }
 
+
+  private async resolveTenantIds(tenantIds: string[] = []): Promise<string[]> {
+    if (!tenantIds.length) {
+      return [];
+    }
+    const resolved = await Promise.all(
+      tenantIds.map((id) => this.tenantService.resolveTenantId(id))
+    );
+    const resolvedSet = Array.from(new Set(resolved.filter(Boolean))) as string[];
+    const unresolved = tenantIds.filter((id, i) => !resolved[i]);
+    if (unresolved.length > 0) {
+      throw new BadRequestException(
+        `Invalid or unresolved tenant ID(s): ${unresolved.join(', ')}`
+      );
+    }
+    return resolvedSet;
+  }
+
   @Get()
   async listUsers(
     @Query('page') page?: string,
@@ -109,9 +136,9 @@ export class AdminUsersController {
       ...this.buildStatusFilter(status),
     };
 
-    // Add tenant filter if provided
+    // Add tenant filter if provided (same table structure for isolated and shared: filter by userAccesses)
     if (tenantId && tenantId.trim()) {
-      baseFilter.tenantId = tenantId.trim();
+      baseFilter.userAccesses = { tenantId: tenantId.trim() };
     }
 
     // Add role filter if provided
@@ -139,14 +166,16 @@ export class AdminUsersController {
     // Get users and total count in a single query
     const [users, total] = await this.users.getUsersAndCount({
       where,
-      relations: ['roles'],
+      relations: ['userAccesses', 'userAccesses.tenant', 'userAccesses.roles'],
       order: { createdAt: 'DESC' },
       skip,
       take: limitNum,
     });
 
+    const safeUsers = await Promise.all(users.map((user) => this.toSafeUser(user)));
+
     return {
-      data: users.map((user) => this.toSafeUser(user)),
+      data: safeUsers,
       meta: {
         page: pageNum,
         limit: limitNum,
@@ -158,11 +187,9 @@ export class AdminUsersController {
 
   @Post()
   async createUser(@Body() dto: AdminCreateUserDto) {
-    const tenantId = await this.tenantService.resolveTenantId(dto.tenantId);
     const user = await this.users.createUser({
       email: dto.email,
       phone: dto.phone,
-      tenantId,
       metadata: dto.metadata ?? {},
       isActive: dto.isActive ?? true,
       isVerified: dto.isVerified ?? false,
@@ -173,18 +200,14 @@ export class AdminUsersController {
       await user.save();
     }
 
-    if (dto.roles?.length) {
-      await user.assignRolesWithMultipleGuard(dto.roles);
-      await user.save();
-    }
-
-    return { user: this.toSafeUser(user) };
+    const safeUser = await this.toSafeUser(user);
+    return { user: safeUser };
   }
 
   @Get(':id')
   async getUser(@Param('id') id: string) {
     const user = await this.users.getUserById(id, {
-      relations: ['roles', 'mfaSecrets', 'identities']
+      relations: ['mfaSecrets', 'identities', 'userAccesses', 'userAccesses.tenant', 'userAccesses.roles']
     });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -204,8 +227,10 @@ export class AdminUsersController {
       })
       .map((session) => this.toSessionResponse(session));
 
+    const safeUser = await this.toSafeUser(user);
+
     return {
-      user: this.toSafeUser(user),
+      user: safeUser,
       loginMethods: {
         emailEnabled: !!user.email && !!user.emailVerifiedAt,
         phoneEnabled: !!user.phone && !!user.phoneVerifiedAt,
@@ -231,7 +256,7 @@ export class AdminUsersController {
 
   @Patch(':id')
   async updateUser(@Param('id') id: string, @Body() dto: AdminUpdateUserDto) {
-    let user = await this.users.getUserById(id, { relations: ['roles', 'identities'] });
+    let user = await this.users.getUserById(id, { relations: ['identities', 'userAccesses', 'userAccesses.tenant', 'userAccesses.roles'] });
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -257,7 +282,7 @@ export class AdminUsersController {
     if (dto.email !== undefined && dto.email !== oldEmail) {
       // Remove old email identity if it exists
       if (oldEmail) {
-        const oldEmailIdentity = user.identities?.find(i => 
+        const oldEmailIdentity = user.identities?.find(i =>
           i.provider === EMAIL_AUTH_PROVIDER && i.providerId === oldEmail
         );
         if (oldEmailIdentity) {
@@ -274,7 +299,7 @@ export class AdminUsersController {
     if (dto.phone !== undefined && dto.phone !== oldPhone) {
       // Remove old phone identity if it exists
       if (oldPhone) {
-        const oldPhoneIdentity = user.identities?.find(i => 
+        const oldPhoneIdentity = user.identities?.find(i =>
           i.provider === PHONE_AUTH_PROVIDER && i.providerId === oldPhone
         );
         if (oldPhoneIdentity) {
@@ -330,15 +355,14 @@ export class AdminUsersController {
       await user.setPassword(dto.password);
     }
 
-    // Apply role changes in-memory
-    if (dto.roles) {
-      await user.assignRolesWithMultipleGuard(dto.roles);
-    }
-
     // Save all changes
     await user.save();
-
-    return { user: this.toSafeUser(user) };
+    // Reload user with fresh memberships
+    const reloadedUser = await this.users.getUserById(user.id, {
+      relations: ['userAccesses', 'userAccesses.tenant', 'userAccesses.roles'],
+    });
+    const safeUser = await this.toSafeUser(reloadedUser);
+    return { user: safeUser };
   }
 
   @Delete(':id/totp-devices/:deviceId')
@@ -405,19 +429,29 @@ export class AdminUsersController {
     return { message: 'User removed' };
   }
 
-  private toSafeUser(user: NestAuthUser | null) {
+  private async toSafeUser(user: NestAuthUser | null) {
     if (!user) {
       return null;
     }
+
+    let userAccesses = user.userAccesses;
+    if (!userAccesses?.length) {
+      userAccesses = await this.userAccessRepository.find({
+        where: { userId: user.id },
+        relations: ['tenant', 'roles'],
+      });
+    }
+
+    const activeAccesses = userAccesses?.filter((access) => access.isActive) ?? [];
+
     return {
       id: user.id,
       email: user.email,
       phone: user.phone,
-      tenantId: user.tenantId,
+      userAccesses: activeAccesses,
       isActive: user.isActive,
       isVerified: user.isVerified,
       metadata: user.metadata ?? {},
-      roles: user.roles?.map((role) => role.name) ?? [],
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       emailVerifiedAt: user.emailVerifiedAt,

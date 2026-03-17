@@ -45,8 +45,8 @@ export class VerificationService {
         this.debugLogger.logFunctionEntry('sendEmailVerification', 'VerificationService');
 
         try {
-            const user = RequestContext.currentUser();
-            if (!user) {
+            const userId = RequestContext.currentUserId();
+            if (!userId) {
                 throw new UnauthorizedException({
                     message: 'User not authenticated',
                     code: ERROR_CODES.UNAUTHORIZED,
@@ -54,7 +54,7 @@ export class VerificationService {
             }
 
             const fullUser = await this.userRepository.findOne({
-                where: { id: user.id },
+                where: { id: userId },
                 relations: ['roles']
             })
 
@@ -97,7 +97,7 @@ export class VerificationService {
                 NestAuthEvents.EMAIL_VERIFICATION_REQUESTED,
                 {
                     user: fullUser,
-                    tenantId: fullUser.tenantId,
+                    tenantId: RequestContext.currentTenantId(),
                     otp: otpEntity,
                 }
             );
@@ -116,8 +116,8 @@ export class VerificationService {
         this.debugLogger.logFunctionEntry('verifyEmail', 'VerificationService');
 
         try {
-            const user = RequestContext.currentUser();
-            if (!user) {
+            const userId =  RequestContext.currentUserId();
+            if (!userId) {
                 throw new UnauthorizedException({
                     message: 'User not authenticated',
                     code: ERROR_CODES.UNAUTHORIZED,
@@ -125,7 +125,7 @@ export class VerificationService {
             }
 
             const fullUser = await this.userRepository.findOne({
-                where: { id: user.id },
+                where: { id: userId },
                 relations: ['roles']
             })
 
@@ -188,7 +188,7 @@ export class VerificationService {
                 NestAuthEvents.EMAIL_VERIFIED,
                 {
                     user: fullUser,
-                    tenantId: fullUser.tenantId,
+                    tenantId: RequestContext.currentTenantId(),
                 }
             );
 
