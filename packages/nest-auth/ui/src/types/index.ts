@@ -96,6 +96,7 @@ export interface Role {
     guard: string;
     isSystem: boolean;
     tenantId?: string;
+    tenant?: { id: string; name: string; slug: string };
     permissions: string[];
     createdAt: string;
     updatedAt: string;

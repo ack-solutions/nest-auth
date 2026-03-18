@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Shield, Plus, Trash2, Building2, Key, Edit2 } from 'lucide-react';
-import { Box, Grid, Stack, Typography, Alert, Chip, Card, CardContent } from '@mui/material';
+import { Shield, Plus, Trash2, Building2, Key, Edit2, KeyRound } from 'lucide-react';
+import { Box, Grid, Stack, Typography, Alert, Chip, Card, CardContent, TextField, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { api } from '../services/api';
 import { useConfirm } from '../hooks/use-confirm';
 import type { Role, Tenant } from '../types';
@@ -8,8 +8,8 @@ import { PageHeader } from '../components/page-header';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import { Table, Column } from '../components/table';
-import Paper from '@mui/material/Paper';
 import { RoleDialog } from '../components/role/role-dialog';
+import { RolePermissionsDialog } from '../components/role/role-permissions-dialog';
 import type { RoleFormData } from '../components/role/role-dialog';
 
 export const RolesPage: React.FC = () => {
@@ -20,20 +20,29 @@ export const RolesPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [showDialog, setShowDialog] = useState(false);
     const [editingRole, setEditingRole] = useState<Role | null>(null);
+    const [permissionsDialogRole, setPermissionsDialogRole] = useState<Role | null>(null);
+    const [filterGuard, setFilterGuard] = useState('');
+    const [filterTenantId, setFilterTenantId] = useState<string>('');
     const confirm = useConfirm();
 
-    const loadRoles = useCallback(async () => {
+    const loadRoles = useCallback(async (overrides?: { guard?: string; tenantId?: string }) => {
         try {
             setError('');
             setLoading(true);
-            const { data } = await api.get<{ data: Role[] }>('/api/roles');
+            const guard = (overrides?.guard ?? filterGuard).trim();
+            const tenantId = overrides?.tenantId ?? filterTenantId;
+            const params = new URLSearchParams();
+            if (guard) params.set('guard', guard);
+            if (tenantId) params.set('tenantId', tenantId);
+            const url = params.toString() ? `/api/roles?${params.toString()}` : '/api/roles';
+            const { data } = await api.get<{ data: Role[] }>(url);
             setRoles(Array.isArray(data) ? data : []);
         } catch (err: any) {
             setError(err.message);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [filterGuard, filterTenantId]);
 
     const loadTenants = useCallback(async () => {
         try {
@@ -45,9 +54,13 @@ export const RolesPage: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        loadRoles();
         loadTenants();
-    }, [loadRoles, loadTenants]);
+    }, [loadTenants]);
+
+    useEffect(() => {
+        loadRoles();
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only
+    }, []);
 
     const handleSubmitRole = async (data: RoleFormData) => {
         setDialogError('');
@@ -102,6 +115,10 @@ export const RolesPage: React.FC = () => {
         setShowDialog(true);
     };
 
+    const handleEditPermissions = (role: Role) => {
+        setPermissionsDialogRole(role);
+    };
+
     const handleCreate = () => {
         setEditingRole(null);
         setDialogError('');
@@ -143,6 +160,15 @@ export const RolesPage: React.FC = () => {
             ),
         },
         {
+            key: 'tenant',
+            label: 'Tenant',
+            render: (role) => (
+                <Typography variant="caption" color="text.secondary">
+                    {role.isSystem ? '—' : (role.tenant?.name ?? role.tenant?.slug ?? '—')}
+                </Typography>
+            ),
+        },
+        {
             key: 'type',
             label: 'Type',
             render: (role) => {
@@ -163,6 +189,9 @@ export const RolesPage: React.FC = () => {
             label: 'Actions',
             render: (role) => (
                 <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.5}>
+                    <IconButton size="small" color="inherit" onClick={() => handleEditPermissions(role)} aria-label="Edit permissions" title="Edit permissions">
+                        <KeyRound style={{ width: 20, height: 20 }} />
+                    </IconButton>
                     <IconButton size="small" color="inherit" onClick={() => handleEdit(role)} aria-label="Edit role">
                         <Edit2 style={{ width: 20, height: 20 }} />
                     </IconButton>
@@ -179,7 +208,7 @@ export const RolesPage: React.FC = () => {
             <PageHeader
                 title="Role Management"
                 description="Define permissions and manage access control across your application"
-                onRefresh={loadRoles}
+                onRefresh={() => loadRoles()}
                 loading={loading}
                 action={
                     <Button variant="contained" color="primary" onClick={handleCreate} startIcon={<Plus style={{ width: 20, height: 20 }} />}>
@@ -233,6 +262,41 @@ export const RolesPage: React.FC = () => {
 
             {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
 
+            <Stack direction="row" flexWrap="wrap" gap={2} alignItems="center" sx={{ mb: 1 }}>
+                <TextField
+                    size="small"
+                    label="Guard"
+                    placeholder="All guards"
+                    value={filterGuard}
+                    onChange={(e) => setFilterGuard(e.target.value)}
+                    onBlur={() => loadRoles()}
+                    onKeyDown={(e) => e.key === 'Enter' && loadRoles()}
+                    sx={{ minWidth: 160 }}
+                />
+                <FormControl size="small" sx={{ minWidth: 200 }}>
+                    <InputLabel id="roles-tenant-filter-label">Tenant</InputLabel>
+                    <Select
+                        labelId="roles-tenant-filter-label"
+                        label="Tenant"
+                        value={filterTenantId}
+                        onChange={(e) => {
+                            const v = e.target.value as string;
+                            setFilterTenantId(v);
+                            loadRoles({ tenantId: v });
+                        }}
+                    >
+                        <MenuItem value="">All tenants</MenuItem>
+                        {tenants.map((t) => (
+                            <MenuItem key={t.id} value={t.id}>{t.name || t.slug}</MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+                <Button size="small" variant="outlined" onClick={() => loadRoles()}>Apply filters</Button>
+                {(filterGuard || filterTenantId) && (
+                    <Button size="small" onClick={() => { setFilterGuard(''); setFilterTenantId(''); loadRoles({ guard: '', tenantId: '' }); }}>Clear</Button>
+                )}
+            </Stack>
+
             <Table
                 columns={columns}
                 data={roles}
@@ -249,6 +313,12 @@ export const RolesPage: React.FC = () => {
                 tenants={tenants}
                 role={editingRole || undefined}
                 error={dialogError}
+            />
+            <RolePermissionsDialog
+                isOpen={!!permissionsDialogRole}
+                onClose={() => setPermissionsDialogRole(null)}
+                role={permissionsDialogRole}
+                onSaved={() => loadRoles()}
             />
         </Box>
     );

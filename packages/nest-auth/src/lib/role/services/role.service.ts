@@ -105,33 +105,37 @@ export class RoleService {
             tenantId?: string;
             onlyTenantRoles?: boolean;
             onlySystemRoles?: boolean;
+            includeTenant?: boolean;
         } = {},
         options?: FindManyOptions<NestAuthRole>
     ): Promise<NestAuthRole[]> {
-        const { guard, onlyTenantRoles, onlySystemRoles } = params;
+        const { guard, onlyTenantRoles, onlySystemRoles, includeTenant } = params;
         let { tenantId } = params;
-        const query = this.roleRepository.createQueryBuilder();
+        const query = this.roleRepository.createQueryBuilder('role');
 
         if (guard) {
-            query.andWhere(`${query.alias}.guard = :guard`, { guard });
+            query.andWhere('role.guard = :guard', { guard });
         }
 
         if (onlySystemRoles) {
-            query.andWhere(`${query.alias}.isSystem = :isSystem`, { isSystem: true });
+            query.andWhere('role.isSystem = :isSystem', { isSystem: true });
         } else if (onlyTenantRoles) {
             if (!tenantId) {
                 return [];
             }
-            query.andWhere(`${query.alias}.tenantId = :tenantId`, { tenantId });
+            query.andWhere('role.tenantId = :tenantId', { tenantId });
         } else {
             if (tenantId) {
                 query.andWhere(new Brackets(qb => {
-                    qb.where(`${query.alias}.tenantId = :tenantId`, { tenantId })
-                        .orWhere(`${query.alias}.isSystem = :isSystem`, { isSystem: true });
+                    qb.where('role.tenantId = :tenantId', { tenantId })
+                        .orWhere('role.isSystem = :isSystem', { isSystem: true });
                 }));
-            } else {
-                query.andWhere(`${query.alias}.isSystem = :isSystem`, { isSystem: true });
             }
+            // When no tenantId: return all roles (system + tenant-specific)
+        }
+
+        if (includeTenant) {
+            query.leftJoinAndSelect('role.tenant', 'tenant');
         }
 
         if (options) {
@@ -140,11 +144,11 @@ export class RoleService {
             }
             if (options.order) {
                 Object.entries(options.order).forEach(([key, value]) => {
-                    query.addOrderBy(`${query.alias}.${key}`, value as 'ASC' | 'DESC');
+                    query.addOrderBy(`role.${key}`, value as 'ASC' | 'DESC');
                 });
             }
         } else {
-            query.orderBy(`${query.alias}.name`, 'ASC');
+            query.orderBy('role.name', 'ASC');
         }
         query.take(1000);
 
