@@ -1,6 +1,5 @@
 /**
  * User Types
- * Contains: INestAuthUser, INestAuthRole, INestAuthPermission
  */
 
 import { INestAuthIdentity, INestAuthOTP, INestAuthSession } from "./auth";
@@ -24,29 +23,6 @@ export interface INestAuthUser {
     sessions?: INestAuthSession[];
     otps?: INestAuthOTP[];
     userAccesses?: INestAuthUserAccess[];
-    createdAt: Date;
-    updatedAt: Date;
-}
-
-export interface INestAuthRole {
-    id: string;
-    name: string;
-    guard: string;
-    tenantId?: string;
-    isSystem: boolean;
-    isActive: boolean;
-    permissions: string[];
-    createdAt: Date;
-    updatedAt: Date;
-}
-
-export interface INestAuthPermission {
-    id: string;
-    name: string;
-    guard: string;
-    description?: string;
-    category?: string;
-    metadata?: Record<string, any>;
     createdAt: Date;
     updatedAt: Date;
 }

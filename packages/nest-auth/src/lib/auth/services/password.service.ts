@@ -4,7 +4,6 @@ import { Repository } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthOTP } from '../../auth/entities/otp.entity';
 import { NestAuthOTPTypeEnum } from '@ackplus/nest-auth-contracts';
-import { JWTTokenPayload } from '../../core/interfaces/token-payload.interface';
 import {
     EMAIL_AUTH_PROVIDER,
     PHONE_AUTH_PROVIDER,
@@ -15,8 +14,6 @@ import { JwtService } from '../../core/services/jwt.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { SessionManagerService } from '../../session/services/session-manager.service';
 import { RequestContext } from '../../request-context/request-context';
-import { AuthResponseDto } from '../dto/responses/auth.response.dto';
-import { AuthTokensResponseDto } from '../dto/responses/auth.response.dto';
 import { NestAuthForgotPasswordRequestDto } from '../dto/requests/forgot-password.request.dto';
 import { generateOtp } from '../../utils/otp';
 import { UserPasswordChangedEvent } from '../events/user-password-changed.event';
@@ -31,9 +28,9 @@ import { NestAuthResetPasswordWithTokenRequestDto } from '../dto/requests/reset-
 import { NestAuthChangePasswordRequestDto } from '../dto/requests/change-password.request.dto';
 import { VerifyOtpResponseDto } from '../dto/responses/verify-otp.response.dto';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import { MfaService } from './mfa.service';
 import ms from 'ms';
 import { BaseAuthProvider } from '../../core/providers/base-auth.provider';
+import { MessageResponseDto } from 'src/lib/core';
 
 @Injectable()
 export class PasswordService {
@@ -46,8 +43,6 @@ export class PasswordService {
         private otpRepository: Repository<NestAuthOTP>,
 
         private readonly authProviderRegistry: AuthProviderRegistryService,
-
-        private readonly mfaService: MfaService,
 
         private readonly sessionManager: SessionManagerService,
 
@@ -76,67 +71,8 @@ export class PasswordService {
         }
     }
 
-    // Note: This method generates tokens, might need duplication from AuthService or shared TokenService
-    // For now we duplicate generateTokensFromSession logic partially or inject AuthService?
-    // Using simple version here to avoid circular dependency if possible, or we will need TokenService.
-    // Ideally AuthService should use PasswordService, so PasswordService cannot use AuthService.
-    // We will need to extract Token Logic or duplicate it for now.
-    // Let's assume we can move token generation to a shared place later.
-    // For now, I will create a private helper here.
 
-    private async generateTokensPayload(session: any, otherPayload: Partial<JWTTokenPayload> = {}): Promise<JWTTokenPayload> {
-        let payload: JWTTokenPayload = {
-            id: session.userId,
-            sub: session.userId,
-            sessionId: session.id,
-            email: session.data?.user?.email,
-            phone: session.data?.user?.phone,
-            isVerified: session.data?.user?.isVerified,
-            roles: session.data?.roles,
-            tenantId: session.data?.tenantId,
-            isMfaEnabled: session.data?.user?.isMfaEnabled,
-            isMfaVerified: session.data?.isMfaVerified,
-            ...otherPayload,
-        };
-        const config = this.authConfigService.getConfig();
-        if (config.session?.customizeTokenPayload) {
-            payload = await config.session.customizeTokenPayload(payload, session);
-        }
-        return payload;
-    }
-
-    private async generateTokensFromSession(session: any): Promise<AuthTokensResponseDto> {
-        const payload = await this.generateTokensPayload(session);
-        return this.jwtService.generateTokens(payload);
-    }
-
-    // We also need generateAuthResponse helper...
-    private async generateAuthResponse(
-        user: NestAuthUser,
-        session: any,
-        tokens: { accessToken: string; refreshToken: string },
-        isRequiresMfa: boolean
-    ): Promise<AuthResponseDto> {
-        let response: AuthResponseDto = {
-            accessToken: tokens.accessToken,
-            refreshToken: tokens.refreshToken,
-            isRequiresMfa: isRequiresMfa,
-        };
-
-        if (isRequiresMfa) {
-            const enabledMethods = await this.mfaService.getEnabledMethods(user.id);
-            response.mfaMethods = enabledMethods;
-            response.defaultMfaMethod = this.mfaService.mfaConfig?.defaultMethod || enabledMethods[0];
-        }
-
-        const config = this.authConfigService.getConfig();
-        if (config.auth?.transformResponse) {
-            response = await config.auth.transformResponse(response, user, session);
-        }
-        return response;
-    }
-
-    async changePassword(input: NestAuthChangePasswordRequestDto): Promise<AuthResponseDto> {
+    async changePassword(input: NestAuthChangePasswordRequestDto): Promise<MessageResponseDto> {
         this.debugLogger.logFunctionEntry('changePassword', 'PasswordService');
 
         try {
@@ -181,10 +117,6 @@ export class PasswordService {
 
             await this.sessionManager.revokeAllUserSessions(user.id);
 
-            // Re-hydrate user for session
-            const session = await this.sessionManager.createSessionFromUser(user);
-            const tokens = await this.generateTokensFromSession(session);
-            const isRequiresMfa = await this.mfaService.isRequiresMfa(user.id);
 
             await this.eventEmitter.emitAsync(
                 NestAuthEvents.PASSWORD_CHANGED,
@@ -194,8 +126,8 @@ export class PasswordService {
                 })
             );
 
-            this.debugLogger.logFunctionExit('changePassword', 'PasswordService', { userId: user.id });
-            return this.generateAuthResponse(user, session, tokens, isRequiresMfa);
+            return { message: 'Password changed successfully' };
+
         } catch (error) {
             this.debugLogger.logError(error, 'changePassword');
             this.handleError(error, 'password_change');

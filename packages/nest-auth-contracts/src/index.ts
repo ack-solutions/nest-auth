@@ -90,9 +90,18 @@ export {
 // User & Role (from user.ts)
 export {
     INestAuthUser,
+} from './user';
+
+// Role & Permission (from role.ts)
+export {
+    INestAuthRoleTenant,
     INestAuthRole,
     INestAuthPermission,
-} from './user';
+    ICreateRoleInput,
+    IUpdateRoleInput,
+    IUpdatePermissionInput,
+    IRoleResponse,
+} from './role';
 
 // Tenant (from tenant.ts)
 export {

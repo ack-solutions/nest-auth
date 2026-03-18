@@ -28,6 +28,7 @@ import { NestAuthSession } from '../../session/entities/session.entity';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { NestAuthUserAccess } from '../../tenant/entities/user-access.entity';
 import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
+import { mapRoleToResponse } from '../../role/utils/role-mapper.util';
 
 @Controller('auth/admin/api/users')
 @UseGuards(AdminSessionGuard)
@@ -166,7 +167,13 @@ export class AdminUsersController {
     // Get users and total count in a single query
     const [users, total] = await this.users.getUsersAndCount({
       where,
-      relations: ['userAccesses', 'userAccesses.tenant', 'userAccesses.roles'],
+      relations: [
+        'userAccesses',
+        'userAccesses.tenant',
+        'userAccesses.roles',
+        'userAccesses.roles.rolePermissions',
+        'userAccesses.roles.rolePermissions.permission',
+      ],
       order: { createdAt: 'DESC' },
       skip,
       take: limitNum,
@@ -223,7 +230,15 @@ export class AdminUsersController {
   @Get(':id')
   async getUser(@Param('id') id: string) {
     const user = await this.users.getUserById(id, {
-      relations: ['mfaSecrets', 'identities', 'userAccesses', 'userAccesses.tenant', 'userAccesses.roles']
+      relations: [
+        'mfaSecrets',
+        'identities',
+        'userAccesses',
+        'userAccesses.tenant',
+        'userAccesses.roles',
+        'userAccesses.roles.rolePermissions',
+        'userAccesses.roles.rolePermissions.permission',
+      ]
     });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -272,7 +287,16 @@ export class AdminUsersController {
 
   @Patch(':id')
   async updateUser(@Param('id') id: string, @Body() dto: AdminUpdateUserDto) {
-    let user = await this.users.getUserById(id, { relations: ['identities', 'userAccesses', 'userAccesses.tenant', 'userAccesses.roles'] });
+    let user = await this.users.getUserById(id, {
+      relations: [
+        'identities',
+        'userAccesses',
+        'userAccesses.tenant',
+        'userAccesses.roles',
+        'userAccesses.roles.rolePermissions',
+        'userAccesses.roles.rolePermissions.permission',
+      ],
+    });
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -396,7 +420,13 @@ export class AdminUsersController {
 
     // Reload user with fresh memberships
     const reloadedUser = await this.users.getUserById(user.id, {
-      relations: ['userAccesses', 'userAccesses.tenant', 'userAccesses.roles'],
+      relations: [
+        'userAccesses',
+        'userAccesses.tenant',
+        'userAccesses.roles',
+        'userAccesses.roles.rolePermissions',
+        'userAccesses.roles.rolePermissions.permission',
+      ],
     });
     const safeUser = await this.toSafeUser(reloadedUser);
     return { user: safeUser };
@@ -475,11 +505,23 @@ export class AdminUsersController {
     if (!userAccesses?.length) {
       userAccesses = await this.userAccessRepository.find({
         where: { userId: user.id },
-        relations: ['tenant', 'roles'],
+        relations: ['tenant', 'roles', 'roles.rolePermissions', 'roles.rolePermissions.permission'],
       });
     }
 
-    const activeAccesses = userAccesses?.filter((access) => access.isActive) ?? [];
+    const activeAccesses = (userAccesses?.filter((access) => access.isActive) ?? []).map((access) => ({
+      id: access.id,
+      userId: access.userId,
+      tenantId: access.tenantId,
+      tenant: access.tenant,
+      roles: (access.roles ?? []).map((role) => mapRoleToResponse(role as any)),
+      isActive: access.isActive,
+      isDefault: access.isDefault,
+      status: access.status,
+      metadata: access.metadata ?? {},
+      createdAt: access.createdAt,
+      updatedAt: access.updatedAt,
+    }));
 
     return {
       id: user.id,

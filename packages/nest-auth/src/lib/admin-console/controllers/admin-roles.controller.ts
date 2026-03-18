@@ -13,8 +13,8 @@ import {
 import { AdminSessionGuard } from '../guards/admin-session.guard';
 import { RoleService } from '../../role/services/role.service';
 import { AdminCreateRoleDto, AdminUpdateRoleDto } from '../dto/admin-role.dto';
-import { NestAuthRole } from '../../role/entities/role.entity';
 import { DEFAULT_GUARD_NAME } from '../../auth.constants';
+import { mapRoleToResponse } from '../../role/utils/role-mapper.util';
 
 @Controller('auth/admin/api/roles')
 @UseGuards(AdminSessionGuard)
@@ -44,34 +44,29 @@ export class AdminRolesController {
       dto.tenantId,
       dto.isSystem ?? false,
       dto.permissions,
+      dto.isActive ?? true,
     );
     return { role: this.toSafeRole(role) };
   }
 
   @Patch(':id')
   async updateRole(@Param('id') id: string, @Body() dto: AdminUpdateRoleDto) {
-    // Validate at least one field is provided
-    if (!dto.permissions && dto.name === undefined && dto.guard === undefined && dto.isSystem === undefined) {
+    if (
+      dto.permissions === undefined
+      && dto.name === undefined
+      && dto.isActive === undefined
+    ) {
       throw new BadRequestException(
-        'At least one field must be provided for update (permissions, name, guard, or isSystem)'
+        'At least one field must be provided for update (name, isActive, or permissions)',
       );
     }
 
-    // Apply updates sequentially without overwriting results
-    if (dto.permissions) {
-      await this.roles.updateRolePermissions(id, dto.permissions);
-    }
+    const updateData: { name?: string; isActive?: boolean; permissions?: string[] } = {};
+    if (dto.name !== undefined) updateData.name = dto.name;
+    if (dto.isActive !== undefined) updateData.isActive = dto.isActive;
+    if (dto.permissions !== undefined) updateData.permissions = dto.permissions;
 
-    if (dto.name !== undefined || dto.guard !== undefined || dto.isSystem !== undefined) {
-      await this.roles.updateRole(id, {
-        name: dto.name,
-        guard: dto.guard,
-        isSystem: dto.isSystem,
-      } as NestAuthRole);
-    }
-
-    // Fetch the final updated role once
-    const role = await this.roles.getRoleById(id);
+    const role = await this.roles.updateRole(id, updateData);
     return { role: this.toSafeRole(role) };
   }
 
@@ -81,17 +76,7 @@ export class AdminRolesController {
     return { message: 'Role removed' };
   }
 
-  private toSafeRole(role: NestAuthRole & { tenant?: { id: string; name: string; slug: string } }) {
-    return {
-      id: role.id,
-      name: role.name,
-      guard: role.guard,
-      isSystem: role.isSystem,
-      tenantId: role.tenantId,
-      tenant: role.tenant ? { id: role.tenant.id, name: role.tenant.name, slug: role.tenant.slug } : undefined,
-      permissions: role.permissions ?? [],
-      createdAt: role.createdAt,
-      updatedAt: role.updatedAt,
-    };
+  private toSafeRole(role: Parameters<typeof mapRoleToResponse>[0]) {
+    return mapRoleToResponse(role);
   }
 }

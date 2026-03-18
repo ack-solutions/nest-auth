@@ -19,7 +19,7 @@ import {
 } from '../dto/responses/auth-messages.response.dto';
 import { NestAuthLoginRequestDto } from '../dto/requests/login.request.dto';
 import { RequestContext } from '../../request-context/request-context';
-import { SkipMfa } from '../../core';
+import { MessageResponseDto, SkipMfa } from '../../core';
 import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
 import { NestAuthForgotPasswordRequestDto } from '../dto/requests/forgot-password.request.dto';
 import { NestAuthAuthGuard } from '../guards/auth.guard';
@@ -211,18 +211,14 @@ export class AuthController {
     }
 
     @ApiOperation({ summary: 'Change Password' })
-    @ApiResponse({ status: 200, type: AuthWithTokensResponseDto })
+    @ApiResponse({ status: 200, type: MessageResponseDto })
     @HttpCode(200)
     @Post('change-password')
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     @UseInterceptors(TokenResponseInterceptor)
-    async changePassword(@Body() input: NestAuthChangePasswordRequestDto): Promise<AuthWithTokensResponseDto> {
-        const response = await this.passwordService.changePassword(input);
-        return {
-            ...response,
-            message: 'Password updated successfully',
-        };
+    changePassword(@Body() input: NestAuthChangePasswordRequestDto): Promise<MessageResponseDto> {
+        return this.passwordService.changePassword(input);
     }
 
     @ApiOperation({ summary: 'Forgot password' })

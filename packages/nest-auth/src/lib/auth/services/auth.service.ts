@@ -44,6 +44,7 @@ import { NEST_AUTH_TENANT_CONTEXT_SERVICE } from '../../auth.constants';
 import { ITenantContextService } from '../../tenant/tenant-context/tenant-context.interface';
 import { IAuthModuleOptions } from '../../core/interfaces/auth-module-options.interface';
 import { INestAuthUser } from '@ackplus/nest-auth-contracts';
+import { getRolePermissionNames, mapRoleToResponse, mapRoleToSessionSnapshot } from '../../role/utils/role-mapper.util';
 
 
 
@@ -485,7 +486,13 @@ export class AuthService {
         const resolvedTenantId = await this.tenantService.resolveTenantId(tenantId || null);
         const user = await this.userRepository.findOne({
             where: { id: session.userId },
-            relations: ['userAccesses', 'userAccesses.tenant', 'userAccesses.roles'],
+            relations: [
+                'userAccesses',
+                'userAccesses.tenant',
+                'userAccesses.roles',
+                'userAccesses.roles.rolePermissions',
+                'userAccesses.roles.rolePermissions.permission',
+            ],
         });
         if (!user) {
             throw new UnauthorizedException({
@@ -503,7 +510,7 @@ export class AuthService {
             data: {
                 ...(session.data || {}),
                 user,
-                roles,
+                roles: roles.map((role) => mapRoleToSessionSnapshot(role)),
                 permissions,
                 tenantId: resolvedTenantId || undefined,
             }
@@ -745,10 +752,7 @@ export class AuthService {
             email: session.data?.user?.email,
             phone: session.data?.user?.phone,
             isVerified: session.data?.user?.isVerified,
-            roles: session.data?.roles?.map((r) => {
-                delete r?.permissions;
-                return { ...r }
-            }),
+            roles: session.data?.roles || [],
             tenantId: session.data?.tenantId,
             isMfaEnabled: session.data?.user?.isMfaEnabled,
             isMfaVerified: session.data?.isMfaVerified,
@@ -794,7 +798,7 @@ export class AuthService {
     ): Promise<AuthResponseDto> {
         // Serialize user for response
         const config = this.authConfigService.getConfig();
-        let serializedUser: Partial<INestAuthUser> = user;
+        let serializedUser: Partial<NestAuthUser> = user;
         if (config.user?.serialize) {
             serializedUser = await config.user.serialize(user);
         }
@@ -808,14 +812,35 @@ export class AuthService {
             }
         }
 
-        const userWithAccesses = await this.getUserWithRolesAndPermissions(user.id, ['userAccesses', 'userAccesses.tenant', 'userAccesses.roles']);
+        const userWithAccesses = await this.getUserWithRolesAndPermissions(user.id, [
+            'userAccesses',
+            'userAccesses.tenant',
+        ]);
 
-        const userAccesses = userWithAccesses.userAccesses ?? [];
+        const userAccesses = (userWithAccesses.userAccesses ?? []).map((access) => ({
+            id: access.id,
+            userId: access.userId,
+            tenantId: access.tenantId,
+            tenant: access.tenant ? {
+                id: access.tenant.id,
+                name: access.tenant.name,
+                slug: access.tenant.slug,
+                description: access.tenant.description,
+                metadata: access.tenant.metadata,
+                isActive: access.tenant.isActive,
+            } : undefined,
+            isActive: access.isActive,
+            isDefault: access.isDefault,
+            status: access.status,
+            metadata: access.metadata ?? {},
+            createdAt: access.createdAt,
+            updatedAt: access.updatedAt,
+        }));
 
         // Extract role names and permissions
-        const rolesForResponse = session?.data?.roles || user.roles || [];
+        const rolesForResponse = session?.data?.roles || [];
         const roleNames = rolesForResponse?.map(r => r.name) || [];
-        const permissions = session?.data?.permissions || this.extractPermissions(user);
+        const permissions = session?.data?.permissions || [];
 
         let response: AuthResponseDto = {
             accessToken: tokens.accessToken,
@@ -832,7 +857,6 @@ export class AuthService {
                 permissions,
                 metadata: serializedUser.metadata,
                 tenantId: activeTenantId,
-                tenants,
                 userAccesses,
             },
         };
@@ -853,24 +877,6 @@ export class AuthService {
         }
 
         return response;
-    }
-
-    /**
-     * Extract permission names from user's roles
-     */
-    private extractPermissions(user: NestAuthUser): string[] {
-        const permissions = new Set<string>();
-        if (user.roles) {
-            for (const role of user.roles) {
-                if (role.permissions) {
-                    for (const perm of (role?.permissions || [])) {
-                        // Permissions are stored as strings in the role entity
-                        permissions.add(perm);
-                    }
-                }
-            }
-        }
-        return Array.from(permissions);
     }
 
     private async checkTrustedDevice(user: NestAuthUser): Promise<boolean> {

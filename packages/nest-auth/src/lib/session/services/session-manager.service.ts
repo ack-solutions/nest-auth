@@ -8,6 +8,7 @@ import { RequestContext } from '../../request-context/request-context';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { v4 as uuidv4 } from 'uuid';
 import ms from 'ms';
+import { mapRoleToSessionSnapshot } from '../../role/utils/role-mapper.util';
 
 export const SESSION_STORE = 'SESSION_STORE';
 export const SESSION_REPOSITORY = 'SESSION_REPOSITORY';
@@ -319,7 +320,7 @@ export class SessionManagerService {
         let sessionData: SessionDataPayload = {
             user,
             isMfaVerified,
-            roles,
+            roles: roles.map((role) => mapRoleToSessionSnapshot(role)),
             permissions,
             tenantId,
         };

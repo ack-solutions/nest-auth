@@ -7,23 +7,14 @@ import {
     BaseEntity,
     Index,
     Unique,
+    OneToMany,
 } from 'typeorm';
 import { DEFAULT_GUARD_NAME } from '../../auth.constants';
+import { NestAuthRolePermission } from '../../role/entities/role-permission.entity';
 
 /**
- * Permission Registry Entity
- *
- * This table acts as a registry/suggestions list for permissions.
- * Roles store permission names as JSON strings (not foreign keys),
- * so deleting a permission from this table won't break existing roles.
- *
- * Purpose:
- * - Provides autocomplete/suggestions when adding permissions to roles
- * - Prevents typos and ensures consistency
- * - Allows tracking permission descriptions and metadata
- * - Can be used for permission documentation/management
- *
- * Note: Permissions are unique per (name, guard) combination
+ * Permissions are unique per (name, guard) combination and are assigned to roles
+ * through the nest_auth_role_permissions pivot table.
  */
 @Entity('nest_auth_permissions')
 @Unique(['name', 'guard'])
@@ -47,6 +38,9 @@ export class NestAuthPermission extends BaseEntity {
 
     @Column({ type: 'simple-json', nullable: true, default: '{}' })
     metadata?: Record<string, any>;
+
+    @OneToMany(() => NestAuthRolePermission, rolePermission => rolePermission.permission)
+    rolePermissions: NestAuthRolePermission[];
 
     @CreateDateColumn()
     createdAt: Date;

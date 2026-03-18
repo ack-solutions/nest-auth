@@ -60,6 +60,11 @@ export type {
     ISignupRequest as SignupDto,
     IAuthResponse as AuthResponse,
     AuthClientConfig,
+    INestAuthRole,
+    INestAuthPermission,
+    ICreateRoleInput,
+    IUpdateRoleInput,
+    IRoleResponse,
     // Password management DTOs
     IForgotPasswordRequest as ForgotPasswordDto,
     IResetPasswordWithTokenRequest as ResetPasswordDto,
