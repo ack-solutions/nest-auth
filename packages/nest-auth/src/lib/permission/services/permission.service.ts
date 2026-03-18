@@ -13,8 +13,12 @@ export class PermissionService {
         private authConfigService: AuthConfigService,
     ) { }
 
+    private getDefaultRoleGuard(): string {
+        return this.authConfigService.getRoleGuards()[0] ?? DEFAULT_GUARD_NAME;
+    }
+
     private resolveAndValidateGuard(guard: string | null | undefined): string {
-        const resolved = guard ?? this.authConfigService.getRoleGuards()[0];
+        const resolved = guard ?? this.getDefaultRoleGuard();
         if (!this.authConfigService.isRoleGuardAllowed(resolved)) {
             throw new BadRequestException({
                 message: `Guard '${resolved}' is not allowed. Allowed guards: ${this.authConfigService.getRoleGuards().join(', ')}`,
@@ -217,7 +221,7 @@ export class PermissionService {
     }>): Promise<NestAuthPermission[]> {
         const existingPermissions = await this.permissionRepository.find();
 
-        
+
         const existingKeySet = new Set(existingPermissions.map((p) => `${p.name}-${p.guard}`));
         const toCreatePermissions = permissions.filter(p => !existingKeySet.has(`${p.name}-${p.guard}`));
 

@@ -151,8 +151,8 @@ export class AuthConfigService {
             mergedOptions.mfa.methods = [...new Set(mergedOptions.mfa.methods)];
         }
 
-        // Normalize guards config: ensure allowedGuards is non-empty and defaultGuard is set
-        if (!mergedOptions.roleGuards && mergedOptions.roleGuards.length === 0) {
+        // Normalize roleGuards: treat undefined/null or empty array as missing
+        if (!mergedOptions.roleGuards || mergedOptions.roleGuards.length === 0) {
             mergedOptions.roleGuards = [DEFAULT_GUARD_NAME];
         }
 
@@ -235,12 +235,12 @@ export class AuthConfigService {
 
     /**
      * Returns the list of guards allowed for roles.
-     * When roleGuards config is not set, defaults to [DEFAULT_GUARD_NAME] ('web').
+     * When roleGuards config is not set or empty, defaults to [DEFAULT_GUARD_NAME] ('web').
      */
     getRoleGuards(): string[] {
         const opts = AuthConfigService.getOptions();
         const allowed = opts.roleGuards;
-        return allowed ?? [DEFAULT_GUARD_NAME];
+        return (allowed && allowed.length > 0) ? allowed : [DEFAULT_GUARD_NAME];
     }
 
     /**

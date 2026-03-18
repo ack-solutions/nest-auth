@@ -4,7 +4,7 @@ import { FindManyOptions, FindOneOptions, IsNull, Repository, Brackets } from 't
 import { NestAuthRole } from '../entities/role.entity';
 import { TenantService } from '../../tenant';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import { GUARD_ERROR_CODES } from '../../auth.constants';
+import { DEFAULT_GUARD_NAME, GUARD_ERROR_CODES } from '../../auth.constants';
 
 @Injectable()
 export class RoleService {
@@ -14,9 +14,13 @@ export class RoleService {
         private tenantService: TenantService,
         private authConfigService: AuthConfigService,
     ) { }
+    
+    private getDefaultRoleGuard(): string {
+        return this.authConfigService.getRoleGuards()[0] ?? DEFAULT_GUARD_NAME;
+    }
 
     private resolveAndValidateGuard(guard: string | null | undefined): string {
-        const resolved = guard ?? this.authConfigService.getRoleGuards()[0];
+        const resolved = guard ?? this.getDefaultRoleGuard();
         if (!this.authConfigService.isRoleGuardAllowed(resolved)) {
             throw new BadRequestException({
                 message: `Guard '${resolved}' is not allowed. Allowed guards: ${this.authConfigService.getRoleGuards().join(', ')}`,
