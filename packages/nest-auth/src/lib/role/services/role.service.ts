@@ -16,10 +16,10 @@ export class RoleService {
     ) { }
 
     private resolveAndValidateGuard(guard: string | null | undefined): string {
-        const resolved = guard ?? this.authConfigService.getDefaultGuard();
-        if (!this.authConfigService.isGuardAllowed(resolved)) {
+        const resolved = guard ?? this.authConfigService.getRoleGuards()[0];
+        if (!this.authConfigService.isRoleGuardAllowed(resolved)) {
             throw new BadRequestException({
-                message: `Guard '${resolved}' is not allowed. Allowed guards: ${this.authConfigService.getAllowedGuards().join(', ')}`,
+                message: `Guard '${resolved}' is not allowed. Allowed guards: ${this.authConfigService.getRoleGuards().join(', ')}`,
                 code: GUARD_ERROR_CODES.GUARD_NOT_ALLOWED,
             });
         }
