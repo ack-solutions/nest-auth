@@ -14,6 +14,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { FormField } from '../form/form-field';
 import { Select } from '../select';
+import { PermissionInput } from '../permission-input';
 import type { Tenant, Role } from '../../types';
 
 const sectionIconSx = { width: 18, height: 18, color: 'var(--mui-palette-primary-main)' };
@@ -112,11 +113,7 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
 
     const handleFormSubmit = async (data: RoleFormData) => {
         try {
-            // Create: save with empty permissions; edit: keep existing permissions (edit via Edit permissions dialog)
-            await onSubmit({
-                ...data,
-                permissions: isEdit ? (role?.permissions ?? []) : [],
-            });
+            await onSubmit(data);
             if (!isEdit) {
                 reset();
             }
@@ -157,7 +154,7 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
             isOpen={isOpen}
             onClose={onClose}
             title={isEdit ? 'Edit Role' : 'Create New Role'}
-            description={isEdit ? 'Update role name, guard, and scope' : 'Create a new role. You can add permissions after saving.'}
+            description={isEdit ? 'Update role name, guard, scope, and permissions' : 'Create a new role and assign permissions'}
             icon={<Shield style={{ width: 20, height: 20, color: 'var(--mui-palette-primary-main)' }} />}
             maxWidth="md"
             actions={actions}
@@ -321,14 +318,31 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                         </Paper>
                     </Box>
 
-                    {!isEdit && (
-                        <Typography variant="caption" color="text.secondary">
-                            After creating the role, use &quot;Edit permissions&quot; in the table to assign permissions.
-                        </Typography>
-                    )}
+                    <Box>
+                        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+                            <Shield style={sectionIconSx} />
+                            <Typography variant="subtitle2" fontWeight={600} color="text.primary">
+                                Permissions
+                            </Typography>
+                        </Stack>
+                        <Controller
+                            name="permissions"
+                            control={control}
+                            render={({ field }) => (
+                                <PermissionInput
+                                    label=""
+                                    value={field.value || []}
+                                    onChange={field.onChange}
+                                    placeholder="Search and add permissions..."
+                                    helperText="Permissions are selected by name and resolved to permission IDs on save."
+                                    guard={guard}
+                                    error={errors.permissions?.message as string | undefined}
+                                />
+                            )}
+                        />
+                    </Box>
                 </Stack>
             </form>
         </FormDialog>
     );
 };
-

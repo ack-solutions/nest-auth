@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Key, Plus, Trash2, Edit2, X, Search, Filter } from 'lucide-react';
+import { Key, Plus, Trash2, Edit2 } from 'lucide-react';
 import { api } from '../services/api';
 import { useConfirm } from '../hooks/use-confirm';
 import type { Permission } from '../types';
@@ -11,8 +11,10 @@ import Paper from '@mui/material/Paper';
 import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
 import { Table, Column, PaginationInfo } from '../components/table';
 import { SearchInput } from '../components/search-input';
+import { Select } from '../components/select';
 import { CreatePermissionDialog } from '../components/permission/create-permission-dialog';
 import { EditPermissionDialog } from '../components/permission/edit-permission-dialog';
 import type { PermissionFormData } from '../components/permission/permission-form';
@@ -122,7 +124,7 @@ export const PermissionsPage: React.FC = () => {
     const handleDelete = async (id: string) => {
         try {
             setError('');
-            const confirmed = await confirm('Are you sure you want to delete this permission? Note: This will not remove it from roles that already use it, but it will no longer appear in autocomplete suggestions.');
+            const confirmed = await confirm('Are you sure you want to delete this permission? This will also remove it from any roles that currently use it.');
             if (!confirmed) {
                 return;
             }
@@ -147,7 +149,6 @@ export const PermissionsPage: React.FC = () => {
             const payload: any = {};
             if (data.name.trim() !== editingPermission.name) {
                 payload.name = data.name.trim();
-                payload.updateInRoles = data.updateInRoles || false;
             }
             if (data.guard.trim() !== editingPermission.guard) {
                 payload.guard = data.guard.trim();
@@ -179,42 +180,67 @@ export const PermissionsPage: React.FC = () => {
         setPagination((prev) => ({ ...prev, page: newPage }));
     };
 
+    const categoryOptions: Array<{ value: string; label: string }> = [
+        { value: 'all', label: 'All Categories' },
+        ...categories.map((cat) => ({ value: cat, label: cat })),
+    ];
+
+    const guardOptions: Array<{ value: string; label: string }> = [
+        { value: 'all', label: 'All Guards' },
+        ...guards.map((guard) => ({ value: guard, label: guard })),
+    ];
+
     const columns: Column<Permission>[] = [
         {
             key: 'name',
             label: 'Permission Name',
             render: (permission) => (
-                <div>
-                    <span className="font-medium text-gray-900">{permission.name}</span>
-                </div>
+                <Typography variant="body2" fontWeight="medium" color="text.primary">
+                    {permission.name}
+                </Typography>
             ),
         },
         {
             key: 'description',
             label: 'Description',
             render: (permission) => (
-                <span className="text-sm text-gray-600">
-                    {permission.description || <span className="text-gray-400">—</span>}
-                </span>
+                <Typography variant="body2" color="text.secondary">
+                    {permission.description ?? '—'}
+                </Typography>
             ),
         },
         {
             key: 'guard',
             label: 'Guard',
             render: (permission) => (
-                <Chip size="small" label={permission.guard || 'web'} sx={{ height: 20, fontSize: '0.7rem', bgcolor: 'secondary.100', color: 'secondary.dark' }} />
+                <Chip
+                    size="small"
+                    label={permission.guard || 'web'}
+                    sx={{
+                        height: 24,
+                        bgcolor: 'action.selected',
+                        color: 'text.primary',
+                    }}
+                />
             ),
         },
         {
             key: 'category',
             label: 'Category',
-            render: (permission) => (
+            render: (permission) =>
                 permission.category ? (
-                    <Chip size="small" label={permission.category} sx={{ height: 20, fontSize: '0.7rem', bgcolor: 'primary.100', color: 'primary.dark' }} />
+                    <Chip
+                        size="small"
+                        label={permission.category}
+                        color="primary"
+                        variant="outlined"
+                        sx={{ height: 24 }}
+                    />
                 ) : (
-                    <Typography variant="body2" color="text.disabled">—</Typography>
-                )
-            ),
+                    <Typography variant="body2" color="text.disabled">
+                        —
+                    </Typography>
+                ),
         },
         {
             key: 'createdAt',
@@ -230,10 +256,20 @@ export const PermissionsPage: React.FC = () => {
             label: 'Actions',
             render: (permission) => (
                 <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.5}>
-                    <IconButton size="small" color="inherit" onClick={() => handleEdit(permission)} aria-label="Edit permission">
+                    <IconButton
+                        size="small"
+                        color="inherit"
+                        onClick={() => handleEdit(permission)}
+                        aria-label="Edit permission"
+                    >
                         <Edit2 style={{ width: 20, height: 20 }} />
                     </IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(permission.id)} aria-label="Delete permission">
+                    <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleDelete(permission.id)}
+                        aria-label="Delete permission"
+                    >
                         <Trash2 style={{ width: 20, height: 20 }} />
                     </IconButton>
                 </Stack>
@@ -242,87 +278,69 @@ export const PermissionsPage: React.FC = () => {
     ];
 
     return (
-        <div className="space-y-4">
+        <Stack spacing={3}>
             <PageHeader
                 title="Permission Registry"
-                description="Manage permission registry for autocomplete and suggestions. Permissions in roles are stored as JSON strings and are independent of this registry."
+                description="Manage the permission registry used by role-permission assignments across your application."
                 onRefresh={loadPermissions}
                 loading={loading}
                 action={
-                    <Button variant="contained" color="primary" onClick={() => setShowCreateModal(true)} startIcon={<Plus style={{ width: 20, height: 20 }} />}>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={() => setShowCreateModal(true)}
+                        startIcon={<Plus style={{ width: 20, height: 20 }} />}
+                    >
                         Create Permission
                     </Button>
                 }
             />
 
-            {/* Guard Tabs */}
-            {guards.length > 0 && (
-                <div className="flex gap-2 border-b border-gray-200 pb-2 overflow-x-auto">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setSelectedGuard('all');
-                            setPagination((prev) => ({ ...prev, page: 1 }));
-                        }}
-                        className={`px-4 py-2 whitespace-nowrap rounded-t-lg font-medium transition-colors ${selectedGuard === 'all'
-                            ? 'bg-primary-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                    >
-                        All Guards
-                    </button>
-                    {guards.map((guard) => (
-                        <button
-                            key={guard}
-                            type="button"
-                            onClick={() => {
-                                setSelectedGuard(guard);
+            {/* Search and filter bar */}
+            <Paper variant="outlined" sx={{ p: 2 }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <SearchInput
+                            value={searchTerm}
+                            onChange={handleSearch}
+                            placeholder="Search permissions..."
+                        />
+                    </Box>
+                    <Box sx={{ minWidth: { sm: 160 }, maxWidth: { sm: 240 } }}>
+                        <Select
+                            label="Guard"
+                            value={selectedGuard}
+                            onChange={(value) => {
+                                setSelectedGuard(value);
                                 setPagination((prev) => ({ ...prev, page: 1 }));
                             }}
-                            className={`px-4 py-2 whitespace-nowrap rounded-t-lg font-medium transition-colors ${selectedGuard === guard
-                                ? 'bg-primary-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
-                        >
-                            {guard}
-                        </button>
-                    ))}
-                </div>
-            )}
-
-            {/* Search and Filter Bar */}
-            <Paper elevation={0} sx={{ p: 3 }}>
-                <div className="flex flex-col md:flex-row gap-3">
-                    <SearchInput
-                        value={searchTerm}
-                        onChange={handleSearch}
-                        placeholder="Search permissions..."
-                        className="flex-1"
-                    />
-                    <div className="flex items-center gap-2">
-                        <Filter className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                        <select
+                            options={guardOptions}
+                            placeholder="All Guards"
+                            allowEmpty={false}
+                        />
+                    </Box>
+                    <Box sx={{ minWidth: { sm: 200 }, maxWidth: { sm: 280 } }}>
+                        <Select
+                            label="Category"
                             value={filterCategory}
-                            onChange={(e) => {
-                                setFilterCategory(e.target.value);
+                            onChange={(value) => {
+                                setFilterCategory(value);
                                 setPagination((prev) => ({ ...prev, page: 1 }));
                             }}
-                            className="input-field w-48"
-                        >
-                            <option value="all">All Categories</option>
-                            {categories.map((cat) => (
-                                <option key={cat} value={cat}>
-                                    {cat}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
+                            options={categoryOptions}
+                            placeholder="All Categories"
+                            allowEmpty={false}
+                        />
+                    </Box>
+                </Stack>
             </Paper>
 
-            {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
+            {error && (
+                <Alert severity="error" onClose={() => setError('')}>
+                    {error}
+                </Alert>
+            )}
 
-            {/* Permissions Table */}
             <Table
                 columns={columns}
                 data={permissions}
@@ -358,6 +376,6 @@ export const PermissionsPage: React.FC = () => {
                     error={updateError}
                 />
             )}
-        </div>
+        </Stack>
     );
 };

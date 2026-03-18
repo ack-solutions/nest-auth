@@ -1,8 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Key } from 'lucide-react';
-import { FormDialog } from '../form-dialog';
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Stack,
+  Typography,
+} from '@mui/material';
 import { PermissionForm, PermissionFormData } from './permission-form';
-import type { FormFooterAction } from '../form-footer';
 
 export interface CreatePermissionDialogProps {
     isOpen: boolean;
@@ -19,26 +26,37 @@ export const CreatePermissionDialog: React.FC<CreatePermissionDialogProps> = ({
     categories,
     error,
 }) => {
-    const [actions, setActions] = useState<FormFooterAction[]>([]);
-
     return (
-        <FormDialog
-            isOpen={isOpen}
-            onClose={onClose}
-            title="Create New Permission"
-            description="Add a permission to the registry for autocomplete suggestions"
-            icon={<Key className="w-5 h-5 text-primary-600" />}
-            maxWidth="lg"
-            actions={actions}
-        >
-            <PermissionForm
-                categories={categories}
-                onSubmit={onSubmit}
-                onCancel={onClose}
-                error={error}
-                submitLabel="Create Permission"
-                onActionsReady={setActions}
-            />
-        </FormDialog>
+        <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="sm">
+            <DialogTitle>
+                <Stack direction="row" spacing={1} alignItems="center">
+                    <Key size={18} />
+                    <Typography variant="h6">Create new permission</Typography>
+                </Stack>
+                <Typography variant="body2" sx={{ mt: 0.5 }} color="text.secondary">
+                    Add a permission to the registry for autocomplete suggestions
+                </Typography>
+            </DialogTitle>
+            <DialogContent dividers>
+                <PermissionForm
+                    categories={categories}
+                    onSubmit={onSubmit}
+                    onCancel={onClose}
+                    error={error}
+                />
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onClose} variant="outlined">
+                    Cancel
+                </Button>
+                <Button
+                    type="submit"
+                    form="permission-form"
+                    variant="contained"
+                >
+                    Create permission
+                </Button>
+            </DialogActions>
+        </Dialog>
     );
 };
