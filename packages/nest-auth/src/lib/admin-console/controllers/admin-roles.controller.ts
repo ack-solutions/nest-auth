@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
@@ -21,8 +22,8 @@ export class AdminRolesController {
   constructor(private readonly roles: RoleService) { }
 
   @Get()
-  async listRoles() {
-    const roles = await this.roles.getRoles();
+  async listRoles(@Query('tenantId') tenantId?: string) {
+    const roles = await this.roles.getRoles(tenantId ? { tenantId } : {});
     return {
       data: roles.map((role) => this.toSafeRole(role)),
     };

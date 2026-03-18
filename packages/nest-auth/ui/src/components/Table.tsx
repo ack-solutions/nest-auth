@@ -1,5 +1,18 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import MuiTable from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Paper from '@mui/material/Paper';
+import TablePagination from '@mui/material/TablePagination';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import CircularProgress from '@mui/material/CircularProgress';
+import IconButton from '@mui/material/IconButton';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
 export interface Column<T> {
     key: string;
@@ -45,169 +58,138 @@ export function Table<T>({
     onRowClick,
 }: TableProps<T>) {
     const handleSort = (key: string, sortable?: boolean) => {
-        if (sortable && onSort) {
-            onSort(key);
-        }
-    };
-
-    const renderPagination = () => {
-        if (!pagination || !onPageChange) return null;
-
-        const { page, totalPages, total } = pagination;
-        const pages: number[] = [];
-        const maxVisible = 5;
-
-        let startPage = Math.max(1, page - Math.floor(maxVisible / 2));
-        let endPage = Math.min(totalPages, startPage + maxVisible - 1);
-
-        if (endPage - startPage < maxVisible - 1) {
-            startPage = Math.max(1, endPage - maxVisible + 1);
-        }
-
-        for (let i = startPage; i <= endPage; i++) {
-            pages.push(i);
-        }
-
-        return (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
-                <div className="text-xs text-gray-700">
-                    Showing <span className="font-medium">{Math.min((page - 1) * pagination.limit + 1, total)}</span> to{' '}
-                    <span className="font-medium">{Math.min(page * pagination.limit, total)}</span> of{' '}
-                    <span className="font-medium">{total}</span> results
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={() => onPageChange(page - 1)}
-                        disabled={page === 1}
-                        className="p-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        title="Previous page"
-                    >
-                        <ChevronLeft className="w-4 h-4" />
-                    </button>
-
-                    <div className="flex items-center gap-1">
-                        {startPage > 1 && (
-                            <>
-                                <button
-                                    type="button"
-                                    onClick={() => onPageChange(1)}
-                                    className="px-2.5 py-1 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors text-xs"
-                                >
-                                    1
-                                </button>
-                                {startPage > 2 && <span className="px-1.5 text-gray-400 text-xs">...</span>}
-                            </>
-                        )}
-
-                        {pages.map((p) => (
-                            <button
-                                type="button"
-                                key={p}
-                                onClick={() => onPageChange(p)}
-                                className={`px-2.5 py-1 rounded-lg border transition-colors text-xs ${p === page
-                                    ? 'bg-primary-600 text-white border-primary-600'
-                                    : 'border-gray-300 hover:bg-gray-100'
-                                    }`}
-                            >
-                                {p}
-                            </button>
-                        ))}
-
-                        {endPage < totalPages && (
-                            <>
-                                {endPage < totalPages - 1 && <span className="px-1.5 text-gray-400 text-xs">...</span>}
-                                <button
-                                    type="button"
-                                    onClick={() => onPageChange(totalPages)}
-                                    className="px-2.5 py-1 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors text-xs"
-                                >
-                                    {totalPages}
-                                </button>
-                            </>
-                        )}
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={() => onPageChange(page + 1)}
-                        disabled={page === totalPages}
-                        className="p-1.5 rounded-lg border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        title="Next page"
-                    >
-                        <ChevronRight className="w-4 h-4" />
-                    </button>
-                </div>
-            </div>
-        );
+        if (sortable && onSort) onSort(key);
     };
 
     if (loading) {
         return (
-            <div className="card overflow-hidden p-0">
-                <div className="p-6 text-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600 mx-auto"></div>
-                    <p className="text-gray-600 mt-3 text-sm">Loading...</p>
-                </div>
-            </div>
+            <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
+                <Box sx={{ p: 4, textAlign: 'center' }}>
+                    <CircularProgress size={40} />
+                    <Typography color="text.secondary" variant="body2" sx={{ mt: 2 }}>
+                        Loading...
+                    </Typography>
+                </Box>
+            </Paper>
         );
     }
 
     if (data.length === 0) {
         return (
-            <div className="card overflow-hidden p-0">
-                <div className="p-6 text-center">
-                    {emptyIcon && <div className="mb-3 flex justify-center">{emptyIcon}</div>}
-                    <p className="text-gray-600 font-medium text-sm">{emptyMessage}</p>
-                </div>
-            </div>
+            <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
+                <Box sx={{ p: 4, textAlign: 'center' }}>
+                    {emptyIcon && <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center' }}>{emptyIcon}</Box>}
+                    <Typography color="text.secondary" fontWeight="medium" variant="body2">
+                        {emptyMessage}
+                    </Typography>
+                </Box>
+            </Paper>
         );
     }
 
+    const page = pagination?.page ?? 1;
+    const totalPages = pagination?.totalPages ?? 0;
+    const total = pagination?.total ?? 0;
+    const limit = pagination?.limit ?? 10;
+
     return (
-        <div className="card overflow-hidden p-0">
-            <div className="overflow-x-auto">
-                <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                        <tr>
+        <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
+            <TableContainer>
+                <MuiTable size="small">
+                    <TableHead>
+                        <TableRow sx={{ bgcolor: 'grey.50' }}>
                             {columns.map((column) => (
-                                <th
+                                <TableCell
                                     key={column.key}
-                                    className={`px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${column.sortable ? 'cursor-pointer hover:bg-gray-100' : ''
-                                        }`}
                                     onClick={() => handleSort(column.key, column.sortable)}
+                                    sx={{
+                                        fontWeight: 600,
+                                        textTransform: 'uppercase',
+                                        fontSize: '0.75rem',
+                                        color: 'text.secondary',
+                                        cursor: column.sortable ? 'pointer' : 'default',
+                                        '&:hover': column.sortable ? { bgcolor: 'action.hover' } : undefined,
+                                    }}
                                 >
-                                    <div className="flex items-center gap-1.5">
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                         {column.label}
                                         {column.sortable && sortBy === column.key && (
-                                            <span className="text-primary-600 text-xs">
+                                            <Typography component="span" color="primary.main" fontSize="0.75rem">
                                                 {sortOrder === 'asc' ? '↑' : '↓'}
-                                            </span>
+                                            </Typography>
                                         )}
-                                    </div>
-                                </th>
+                                    </Box>
+                                </TableCell>
                             ))}
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
                         {data.map((row) => (
-                            <tr 
-                                key={rowKey(row)} 
-                                className={`hover:bg-gray-50 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
+                            <TableRow
+                                key={rowKey(row)}
+                                hover
                                 onClick={() => onRowClick?.(row)}
+                                sx={{
+                                    cursor: onRowClick ? 'pointer' : 'default',
+                                }}
                             >
                                 {columns.map((column) => (
-                                    <td key={column.key} className="px-3 py-2.5">
-                                        {column.render ? column.render(row) : String(row[column.key as keyof T] ?? '')}
-                                    </td>
+                                    <TableCell key={column.key} sx={{ py: 1.5 }}>
+                                        {column.render ? column.render(row) : String((row as any)[column.key] ?? '')}
+                                    </TableCell>
                                 ))}
-                            </tr>
+                            </TableRow>
                         ))}
-                    </tbody>
-                </table>
-            </div>
-            {renderPagination()}
-        </div>
+                    </TableBody>
+                </MuiTable>
+            </TableContainer>
+            {pagination && onPageChange && totalPages > 0 && (
+                <Box
+                    sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        px: 2,
+                        py: 1.5,
+                        borderTop: 1,
+                        borderColor: 'divider',
+                        bgcolor: 'grey.50',
+                    }}
+                >
+                    <Typography variant="caption" color="text.secondary">
+                        Showing{' '}
+                        <Typography component="span" fontWeight="600">
+                            {Math.min((page - 1) * limit + 1, total)}
+                        </Typography>{' '}
+                        to{' '}
+                        <Typography component="span" fontWeight="600">
+                            {Math.min(page * limit, total)}
+                        </Typography>{' '}
+                        of <Typography component="span" fontWeight="600">{total}</Typography> results
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <IconButton
+                            size="small"
+                            onClick={() => onPageChange(page - 1)}
+                            disabled={page <= 1}
+                            aria-label="Previous page"
+                        >
+                            <ChevronLeftIcon fontSize="small" />
+                        </IconButton>
+                        <Typography variant="caption" sx={{ px: 1 }}>
+                            Page {page} of {totalPages}
+                        </Typography>
+                        <IconButton
+                            size="small"
+                            onClick={() => onPageChange(page + 1)}
+                            disabled={page >= totalPages}
+                            aria-label="Next page"
+                        >
+                            <ChevronRightIcon fontSize="small" />
+                        </IconButton>
+                    </Box>
+                </Box>
+            )}
+        </Paper>
     );
 }

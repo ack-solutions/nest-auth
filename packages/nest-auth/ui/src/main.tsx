@@ -1,13 +1,19 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { App } from './App';
+import { App } from './app';
+import { ThemeProvider } from './theme';
 import './index.css';
+import { SettingsProvider } from './theme/settings/settings-provider';
 
 const root = document.getElementById('root');
 if (root) {
     ReactDOM.createRoot(root).render(
         <React.StrictMode>
-            <App />
+            <SettingsProvider>
+                <ThemeProvider>
+                    <App />
+                </ThemeProvider>
+            </SettingsProvider>
         </React.StrictMode>
     );
 }
