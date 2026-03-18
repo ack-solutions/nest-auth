@@ -209,39 +209,6 @@ export class AdminAuthController {
     };
   }
 
-  @Get('setup-status')
-  async getSetupStatus() {
-    this.config.ensureEnabled();
-
-    // Check if nest-auth requires setup
-    const userCount = await this.userService.countUsers();
-    const rolesCount = await this.roleService.getRoles();
-
-    const needsSetup = userCount === 0 || rolesCount.length === 0;
-
-    return {
-      needsSetup,
-      stats: {
-        usersCount: userCount,
-        rolesCount: rolesCount.length,
-      },
-      setupSteps: [
-        {
-          id: 'roles',
-          title: 'Create Roles',
-          description: 'Set up roles and permissions for your users',
-          completed: rolesCount.length > 0,
-        },
-        {
-          id: 'users',
-          title: 'Create Users',
-          description: 'Add users to your system',
-          completed: userCount > 0,
-        },
-      ],
-    };
-  }
-
   @Get('admins')
   @UseGuards(AdminSessionGuard)
   async listAdmins() {

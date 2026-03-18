@@ -152,8 +152,6 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
         },
     ], [handleCancel, isSubmitting, isEdit]);
 
-    const tenantId = watch('tenantId');
-
     return (
         <FormDialog
             isOpen={isOpen}
