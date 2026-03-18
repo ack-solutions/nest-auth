@@ -2,8 +2,8 @@ import { Injectable, Inject, Optional } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
 import { SessionStorageType } from '../interfaces/session-options.interface';
-import { INestAuthTenantOptions, NestAuthMFAMethodEnum, TenantModeEnum } from '@ackplus/nest-auth-contracts';
-import { NEST_AUTH_TRUST_DEVICE_KEY } from '../../auth.constants';
+import { NestAuthMFAMethodEnum, TenantModeEnum } from '@ackplus/nest-auth-contracts';
+import { DEFAULT_GUARD_NAME, NEST_AUTH_TRUST_DEVICE_KEY } from '../../auth.constants';
 
 @Injectable()
 export class AuthConfigService {
@@ -50,6 +50,7 @@ export class AuthConfigService {
             enabled: false,
             mode: TenantModeEnum.ISOLATED,
         },
+        roleGuards: [DEFAULT_GUARD_NAME],
         adminConsole: {
             enabled: true,
             basePath: '/api/auth/admin',
@@ -150,6 +151,11 @@ export class AuthConfigService {
             mergedOptions.mfa.methods = [...new Set(mergedOptions.mfa.methods)];
         }
 
+        // Normalize roleGuards: treat undefined/null or empty array as missing
+        if (!mergedOptions.roleGuards || mergedOptions.roleGuards.length === 0) {
+            mergedOptions.roleGuards = [DEFAULT_GUARD_NAME];
+        }
+
         // Ensure adminConsole exists
         if (!mergedOptions.adminConsole) {
             mergedOptions.adminConsole = {};
@@ -225,5 +231,22 @@ export class AuthConfigService {
 
     setConfig(options: IAuthModuleOptions): void {
         AuthConfigService.setOptions(options);
+    }
+
+    /**
+     * Returns the list of guards allowed for roles.
+     * When roleGuards config is not set or empty, defaults to [DEFAULT_GUARD_NAME] ('web').
+     */
+    getRoleGuards(): string[] {
+        const opts = AuthConfigService.getOptions();
+        const allowed = opts.roleGuards;
+        return (allowed && allowed.length > 0) ? allowed : [DEFAULT_GUARD_NAME];
+    }
+
+    /**
+     * Returns true if the given guard is in the roleGuards list.
+     */
+    isRoleGuardAllowed(guard: string): boolean {
+        return this.getRoleGuards().includes(guard);
     }
 }

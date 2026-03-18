@@ -95,7 +95,9 @@ export interface Role {
     name: string;
     guard: string;
     isSystem: boolean;
+    isActive: boolean;
     tenantId?: string;
+    tenant?: { id: string; name: string; slug: string };
     permissions: string[];
     createdAt: string;
     updatedAt: string;
@@ -132,7 +134,7 @@ export interface CreateRoleForm {
     name: string;
     guard: string;
     tenantId: string;
-    permissions: string;
+    permissions: string[];
 }
 
 export interface CreateTenantForm {

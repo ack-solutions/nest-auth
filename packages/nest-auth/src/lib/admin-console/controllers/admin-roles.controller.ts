@@ -22,8 +22,15 @@ export class AdminRolesController {
   constructor(private readonly roles: RoleService) { }
 
   @Get()
-  async listRoles(@Query('tenantId') tenantId?: string) {
-    const roles = await this.roles.getRoles(tenantId ? { tenantId } : {});
+  async listRoles(
+    @Query('tenantId') tenantId?: string,
+    @Query('guard') guard?: string,
+  ) {
+    const roles = await this.roles.getRoles({
+      ...(guard ? { guard } : {}),
+      ...(tenantId ? { tenantId } : {}),
+      includeTenant: true,
+    });
     return {
       data: roles.map((role) => this.toSafeRole(role)),
     };
@@ -74,13 +81,14 @@ export class AdminRolesController {
     return { message: 'Role removed' };
   }
 
-  private toSafeRole(role: NestAuthRole) {
+  private toSafeRole(role: NestAuthRole & { tenant?: { id: string; name: string; slug: string } }) {
     return {
       id: role.id,
       name: role.name,
       guard: role.guard,
       isSystem: role.isSystem,
       tenantId: role.tenantId,
+      tenant: role.tenant ? { id: role.tenant.id, name: role.tenant.name, slug: role.tenant.slug } : undefined,
       permissions: role.permissions ?? [],
       createdAt: role.createdAt,
       updatedAt: role.updatedAt,

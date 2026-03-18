@@ -8,7 +8,7 @@ import type { User, Tenant, Role } from '../types';
 import { PageHeader } from '../components/page-header';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Select } from '../components/select';
 import { MultiSelect } from '../components/multi-select';
 import { SearchInput } from '../components/search-input';
@@ -263,7 +263,14 @@ export const UsersPage: React.FC = () => {
             label: 'Actions',
             render: (user) => (
                 <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.5}>
-                    <IconButton size="small" color="inherit" onClick={() => navigate(`/users/${user.id}`)} aria-label="View user">
+                    <IconButton
+                        component={Link}
+                        to={`/users/${user.id}`}
+                        size="small"
+                        color="inherit"
+                        aria-label="View user"
+                        onClick={(e) => {  e.stopPropagation(); }}
+                    >
                         <Eye style={{ width: 20, height: 20 }} />
                     </IconButton>
                     <IconButton size="small" color="error" onClick={() => handleDelete(user.id)} aria-label="Delete user">

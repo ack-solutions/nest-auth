@@ -161,19 +161,6 @@ export const TenantsPage: React.FC = () => {
                 }
             />
 
-            {/* Stats Card */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <Paper elevation={0} sx={{ p: 3, background: (t) => `linear-gradient(to bottom right, ${t.palette.primary[50]}, ${t.palette.primary[100]})`, border: '1px solid', borderColor: 'primary.200' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box>
-                            <Typography variant="caption" fontWeight="500" color="text.secondary">Total Tenants</Typography>
-                            <Typography variant="h5" fontWeight="bold" color="primary.main">{tenants.length}</Typography>
-                        </Box>
-                        <Box sx={{ bgcolor: 'primary.200', p: 1.25, borderRadius: '50%' }}><Building2 style={{ width: 20, height: 20, color: 'var(--mui-palette-primary-main)' }} /></Box>
-                    </Box>
-                </Paper>
-            </div>
-
             {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
 
             {/* Tenants Table */}

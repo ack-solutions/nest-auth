@@ -81,7 +81,7 @@ const user = await this.userService.getUserById('user-id');
 
 // With relations
 const userWithRoles = await this.userService.getUserById('user-id', {
-  relations: ['roles', 'roles.permissions']
+  relations: ['userAccesses', 'userAccesses.roles', 'userAccesses.roles.rolePermissions', 'userAccesses.roles.rolePermissions.permission']
 });
 \`\`\`
 
@@ -262,7 +262,8 @@ async createRole(
   guard: string,
   tenantId?: string | null,
   isSystem?: boolean,
-  permissionIds?: string | string[]
+  permissionNames?: string | string[],
+  isActive?: boolean
 ): Promise<NestAuthRole>
 \`\`\`
 
@@ -271,7 +272,8 @@ async createRole(
 - \`guard\`: Guard name (e.g., 'web', 'api')
 - \`tenantId?\`: Tenant ID (null for system roles)
 - \`isSystem?\`: Whether role is system-wide
-- \`permissionIds?\`: Permission IDs to assign
+- \`permissionNames?\`: Permission names to assign
+- \`isActive?\`: Whether the role starts active
 
 **Returns**: Created role object
 
@@ -282,7 +284,8 @@ const role = await this.roleService.createRole(
   'web',
   'tenant-id',
   false,
-  ['perm-1', 'perm-2']
+  ['users.read', 'users.update'],
+  true
 );
 \`\`\`
 
@@ -312,7 +315,7 @@ async getRoleById(
 **Example**:
 \`\`\`typescript
 const role = await this.roleService.getRoleById('role-id', {
-  relations: ['permissions']
+  relations: ['rolePermissions', 'rolePermissions.permission']
 });
 \`\`\`
 
@@ -405,13 +408,13 @@ async updateRole(id: string, data: Partial<NestAuthRole>): Promise<NestAuthRole>
 \`\`\`typescript
 const updated = await this.roleService.updateRole('role-id', {
   name: 'new-name',
-  description: 'Updated description'
+  permissions: ['users.read', 'users.update']
 });
 \`\`\`
 
 **Errors**:
 - \`NotFoundException\`: If role not found
-- \`ConflictException\`: If role is system role or name conflicts
+- \`ConflictException\`: If the target name/guard/scope already exists
 
 ---
 
@@ -423,22 +426,22 @@ Update role permissions.
 \`\`\`typescript
 async updateRolePermissions(
   id: string,
-  permissionIds: string | string[]
+  permissionNames: string | string[]
 ): Promise<NestAuthRole>
 \`\`\`
 
 **Parameters**:
 - \`id\`: Role ID
-- \`permissionIds\`: Permission IDs to assign
+- \`permissionNames\`: Permission names to assign
 
 **Returns**: Updated role object
 
 **Example**:
 \`\`\`typescript
 await this.roleService.updateRolePermissions('role-id', [
-  'perm-1',
-  'perm-2',
-  'perm-3'
+  'users.read',
+  'users.update',
+  'users.delete'
 ]);
 \`\`\`
 

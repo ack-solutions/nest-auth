@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { FindManyOptions, FindOneOptions, IsNull, Repository, Brackets } from 'typeorm';
 import { NestAuthRole } from '../entities/role.entity';
 import { TenantService } from '../../tenant';
+import { AuthConfigService } from '../../core/services/auth-config.service';
+import { DEFAULT_GUARD_NAME, GUARD_ERROR_CODES } from '../../auth.constants';
 
 @Injectable()
 export class RoleService {
@@ -10,17 +12,34 @@ export class RoleService {
         @InjectRepository(NestAuthRole)
         private roleRepository: Repository<NestAuthRole>,
         private tenantService: TenantService,
+        private authConfigService: AuthConfigService,
     ) { }
+    
+    private getDefaultRoleGuard(): string {
+        return this.authConfigService.getRoleGuards()[0] ?? DEFAULT_GUARD_NAME;
+    }
+
+    private resolveAndValidateGuard(guard: string | null | undefined): string {
+        const resolved = guard ?? this.getDefaultRoleGuard();
+        if (!this.authConfigService.isRoleGuardAllowed(resolved)) {
+            throw new BadRequestException({
+                message: `Guard '${resolved}' is not allowed. Allowed guards: ${this.authConfigService.getRoleGuards().join(', ')}`,
+                code: GUARD_ERROR_CODES.GUARD_NOT_ALLOWED,
+            });
+        }
+        return resolved;
+    }
 
     async createRole(
         name: string,
-        guard: string,
+        guard: string | null | undefined,
         tenantId: string | null = null,
         isSystem: boolean = false,
         permissionIds?: string | string[],
     ): Promise<NestAuthRole> {
+        const resolvedGuard = this.resolveAndValidateGuard(guard);
 
-        const role = await NestAuthRole.createRole(name, guard, isSystem, tenantId);
+        const role = await NestAuthRole.createRole(name, resolvedGuard, isSystem, tenantId);
 
         if (permissionIds) {
             await role.syncPermissions(permissionIds);
@@ -105,33 +124,37 @@ export class RoleService {
             tenantId?: string;
             onlyTenantRoles?: boolean;
             onlySystemRoles?: boolean;
+            includeTenant?: boolean;
         } = {},
         options?: FindManyOptions<NestAuthRole>
     ): Promise<NestAuthRole[]> {
-        const { guard, onlyTenantRoles, onlySystemRoles } = params;
+        const { guard, onlyTenantRoles, onlySystemRoles, includeTenant } = params;
         let { tenantId } = params;
-        const query = this.roleRepository.createQueryBuilder();
+        const query = this.roleRepository.createQueryBuilder('role');
 
         if (guard) {
-            query.andWhere(`${query.alias}.guard = :guard`, { guard });
+            query.andWhere('role.guard = :guard', { guard });
         }
 
         if (onlySystemRoles) {
-            query.andWhere(`${query.alias}.isSystem = :isSystem`, { isSystem: true });
+            query.andWhere('role.isSystem = :isSystem', { isSystem: true });
         } else if (onlyTenantRoles) {
             if (!tenantId) {
                 return [];
             }
-            query.andWhere(`${query.alias}.tenantId = :tenantId`, { tenantId });
+            query.andWhere('role.tenantId = :tenantId', { tenantId });
         } else {
             if (tenantId) {
                 query.andWhere(new Brackets(qb => {
-                    qb.where(`${query.alias}.tenantId = :tenantId`, { tenantId })
-                        .orWhere(`${query.alias}.isSystem = :isSystem`, { isSystem: true });
+                    qb.where('role.tenantId = :tenantId', { tenantId })
+                        .orWhere('role.isSystem = :isSystem', { isSystem: true });
                 }));
-            } else {
-                query.andWhere(`${query.alias}.isSystem = :isSystem`, { isSystem: true });
             }
+            // When no tenantId: return all roles (system + tenant-specific)
+        }
+
+        if (includeTenant) {
+            query.leftJoinAndSelect('role.tenant', 'tenant');
         }
 
         if (options) {
@@ -140,11 +163,11 @@ export class RoleService {
             }
             if (options.order) {
                 Object.entries(options.order).forEach(([key, value]) => {
-                    query.addOrderBy(`${query.alias}.${key}`, value as 'ASC' | 'DESC');
+                    query.addOrderBy(`role.${key}`, value as 'ASC' | 'DESC');
                 });
             }
         } else {
-            query.orderBy(`${query.alias}.name`, 'ASC');
+            query.orderBy('role.name', 'ASC');
         }
         query.take(1000);
 
@@ -163,6 +186,11 @@ export class RoleService {
 
         // Prevent changing tenantId directly
         delete data.tenantId;
+
+        // Validate guard if being updated
+        if (data.guard !== undefined) {
+            data.guard = this.resolveAndValidateGuard(data.guard);
+        }
 
         // Handle name update - check for conflicts
         if (data.name !== undefined && data.name !== role.name) {

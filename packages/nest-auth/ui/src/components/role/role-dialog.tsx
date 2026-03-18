@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Shield, Plus, Edit2, UserCircle, Building2, KeyRound } from 'lucide-react';
+import { Shield, Plus, Edit2, UserCircle, Building2 } from 'lucide-react';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Grid from '@mui/material/Grid';
@@ -81,23 +81,18 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
 
     const guard = watch('guard');
     const isSystem = watch('isSystem');
-    const [permissions, setPermissions] = useState<string[]>(role?.permissions || []);
-    const permissionsRef = React.useRef<string[]>(role?.permissions || []);
 
     // Reset form when dialog opens or role changes (defaultValues only apply on mount)
     React.useEffect(() => {
         if (!isOpen) return;
         if (role) {
-            const values: RoleFormData = {
+            reset({
                 name: role.name,
                 guard: role.guard,
                 tenantId: role.tenantId || '',
                 isSystem: role.isSystem ?? false,
                 permissions: role.permissions || [],
-            };
-            reset(values);
-            setPermissions(role.permissions || []);
-            permissionsRef.current = role.permissions || [];
+            });
         } else {
             reset({
                 name: '',
@@ -106,8 +101,6 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                 isSystem: false,
                 permissions: [],
             });
-            setPermissions([]);
-            permissionsRef.current = [];
         }
     }, [isOpen, role, reset]);
 
@@ -118,32 +111,11 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
         }
     }, [isSystem, isEdit, setValue]);
 
-    // Sync permissions when role changes
-    React.useEffect(() => {
-        if (role?.permissions) {
-            setPermissions(role.permissions);
-            permissionsRef.current = role.permissions;
-            setValue('permissions', role.permissions);
-        }
-    }, [role?.permissions, setValue]);
-
-    // Keep ref in sync with state
-    React.useEffect(() => {
-        permissionsRef.current = permissions;
-        setValue('permissions', permissions);
-    }, [permissions, setValue]);
-
     const handleFormSubmit = async (data: RoleFormData) => {
         try {
-            await onSubmit({
-                ...data,
-                permissions: permissionsRef.current,
-            });
+            await onSubmit(data);
             if (!isEdit) {
                 reset();
-                setPermissions([]);
-                permissionsRef.current = [];
-                setValue('permissions', []);
             }
         } catch (err) {
             // Error handled by parent
@@ -151,20 +123,9 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
     };
 
     const handleCancel = () => {
-        if (!isEdit) {
-            reset();
-            setPermissions([]);
-            permissionsRef.current = [];
-            setValue('permissions', []);
-        }
+        if (!isEdit) reset();
         onClose();
     };
-
-    // Wrapper to update both state and ref
-    const handlePermissionsChange = React.useCallback((newPermissions: string[]) => {
-        setPermissions(newPermissions);
-        permissionsRef.current = newPermissions;
-    }, []);
 
     // Footer actions - managed internally
     const actions: FormFooterAction[] = useMemo(() => [
@@ -188,14 +149,12 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
         },
     ], [handleCancel, isSubmitting, isEdit]);
 
-    const tenantId = watch('tenantId');
-
     return (
         <FormDialog
             isOpen={isOpen}
             onClose={onClose}
             title={isEdit ? 'Edit Role' : 'Create New Role'}
-            description={isEdit ? 'Update role name, guard, and permissions' : 'Define a new role with specific permissions'}
+            description={isEdit ? 'Update role name, guard, scope, and permissions' : 'Create a new role and assign permissions'}
             icon={<Shield style={{ width: 20, height: 20, color: 'var(--mui-palette-primary-main)' }} />}
             maxWidth="md"
             actions={actions}
@@ -359,21 +318,27 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                         </Paper>
                     </Box>
 
-                    {/* Section: Permissions */}
                     <Box>
                         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
-                            <KeyRound style={sectionIconSx} />
+                            <Shield style={sectionIconSx} />
                             <Typography variant="subtitle2" fontWeight={600} color="text.primary">
                                 Permissions
                             </Typography>
                         </Stack>
-                        <PermissionInput
-                            label=""
-                            value={permissions}
-                            onChange={handlePermissionsChange}
-                            placeholder="Search and add permissions..."
-                            helperText="Type to search, press Enter to add. Use arrow keys in the list."
-                            guard={guard}
+                        <Controller
+                            name="permissions"
+                            control={control}
+                            render={({ field }) => (
+                                <PermissionInput
+                                    label=""
+                                    value={field.value || []}
+                                    onChange={field.onChange}
+                                    placeholder="Search and add permissions..."
+                                    helperText="Permissions are selected by name and resolved to permission IDs on save."
+                                    guard={guard}
+                                    error={errors.permissions?.message as string | undefined}
+                                />
+                            )}
                         />
                     </Box>
                 </Stack>
@@ -381,4 +346,3 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
         </FormDialog>
     );
 };
-

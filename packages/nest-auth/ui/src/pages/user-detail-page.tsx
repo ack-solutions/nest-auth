@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -83,8 +83,6 @@ export const UserDetailPage: React.FC = () => {
         await loadUserDetails();
     };
 
-    const handleBack = () => navigate('/users');
-
     if (!id) return null;
 
     if (loading && !userDetails) {
@@ -103,7 +101,13 @@ export const UserDetailPage: React.FC = () => {
                 description={error || 'User not found'}
                 onRefresh={loadUserDetails}
                 action={
-                    <Button variant="outlined" color="inherit" onClick={handleBack} startIcon={<ArrowLeft style={{ width: 18, height: 18 }} />}>
+                    <Button
+                        component={Link}
+                        to="/users"
+                        variant="outlined"
+                        color="inherit"
+                        startIcon={<ArrowLeft style={{ width: 18, height: 18 }} />}
+                    >
                         Back to users
                     </Button>
                 }
@@ -118,7 +122,13 @@ export const UserDetailPage: React.FC = () => {
                 description="User details & management"
                 onRefresh={loadUserDetails}
                 action={
-                    <Button variant="outlined" color="inherit" onClick={handleBack} startIcon={<ArrowLeft style={{ width: 18, height: 18 }} />}>
+                    <Button
+                        component={Link}
+                        to="/users"
+                        variant="outlined"
+                        color="inherit"
+                        startIcon={<ArrowLeft style={{ width: 18, height: 18 }} />}
+                    >
                         Back to users
                     </Button>
                 }

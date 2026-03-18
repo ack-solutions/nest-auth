@@ -268,6 +268,7 @@ export class AuthController {
                 enabled: config.tenant?.enabled,
                 mode: config.tenant!.mode ?? TenantModeEnum.ISOLATED,
             },
+            roleGuards: this.authConfigService.getRoleGuards(),
             emailAuth: { enabled: config.emailAuth?.enabled !== false },
             phoneAuth: { enabled: config.phoneAuth?.enabled === true },
             registration: {

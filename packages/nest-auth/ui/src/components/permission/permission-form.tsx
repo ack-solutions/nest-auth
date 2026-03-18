@@ -2,17 +2,14 @@ import React from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { Box, Typography } from '@mui/material';
-import { FormField } from '../form/form-field';
-import { FormFooterAction } from '../form-footer';
-import { Plus, Edit2 } from 'lucide-react';
+import { Alert, Box, Stack, TextField, Typography } from '@mui/material';
+import Autocomplete from '@mui/material/Autocomplete';
 
 export interface PermissionFormData {
     name: string;
     guard: string;
     description?: string;
     category?: string;
-    updateInRoles?: boolean;
 }
 
 const permissionSchema = yup.object({
@@ -20,7 +17,6 @@ const permissionSchema = yup.object({
     guard: yup.string().required('Guard is required').min(1, 'Guard cannot be empty'),
     description: yup.string().optional(),
     category: yup.string().optional(),
-    updateInRoles: yup.boolean().optional(),
 });
 
 export interface PermissionFormProps {
@@ -29,10 +25,8 @@ export interface PermissionFormProps {
     onSubmit: (data: PermissionFormData) => Promise<void>;
     onCancel: () => void;
     error?: string;
-    submitLabel?: string;
     isEdit?: boolean;
     originalName?: string;
-    onActionsReady?: (actions: FormFooterAction[]) => void;
 }
 
 export const PermissionForm: React.FC<PermissionFormProps> = ({
@@ -41,10 +35,8 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
     onSubmit,
     onCancel,
     error,
-    submitLabel,
     isEdit = false,
     originalName,
-    onActionsReady,
 }) => {
     const {
         control,
@@ -59,7 +51,6 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
             guard: 'web',
             description: '',
             category: '',
-            updateInRoles: false,
         },
     });
 
@@ -91,162 +82,121 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
         onCancel();
     };
 
-    // Prepare footer actions
-    const footerActions: FormFooterAction[] = React.useMemo(() => [
-        {
-            label: 'Cancel',
-            onClick: handleCancel,
-            variant: 'secondary' as const,
-            disabled: isSubmitting,
-        },
-        {
-            label: submitLabel || (isEdit ? 'Update Permission' : 'Create Permission'),
-            onClick: () => {
-                const form = document.getElementById('permission-form') as HTMLFormElement;
-                if (form) {
-                    form.requestSubmit();
-                }
-            },
-            variant: 'primary' as const,
-            disabled: isSubmitting,
-            icon: isEdit ? <Edit2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />,
-        },
-    ], [handleCancel, isSubmitting, isEdit, submitLabel]);
-
-    // Notify parent of actions
-    React.useEffect(() => {
-        if (onActionsReady) {
-            onActionsReady(footerActions);
-        }
-    }, [onActionsReady, footerActions]);
-
     return (
-        <form id="permission-form" onSubmit={handleSubmit(handleFormSubmit)} className="p-4 space-y-3">
-            {error && (
-                <div className="p-2 bg-red-50 border border-red-200 rounded-lg">
-                    <Typography variant="caption" color="error">{error}</Typography>
-                </div>
-            )}
+        <form id="permission-form" onSubmit={handleSubmit(handleFormSubmit)}>
+            <Stack spacing={2} sx={{ p: 2 }}>
+                {error && (
+                    <Alert severity="error" variant="outlined">
+                        {error}
+                    </Alert>
+                )}
 
-            <Controller
-                name="name"
-                control={control}
-                render={({ field }) => (
-                    <div>
-                        <FormField
+                <Controller
+                    name="name"
+                    control={control}
+                    render={({ field }) => (
+                        <TextField
                             id="perm-name"
-                            label="Permission Name"
+                            label="Permission name"
                             value={field.value}
                             onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            fullWidth
                             disabled={isSubmitting}
-                            error={errors.name?.message}
-                            placeholder="users.create, posts.edit, admin.access..."
-                            startIcon={null}
-                            helpText="Use dot notation for clarity (e.g., resource.action)"
+                            error={Boolean(errors.name)}
+                            helperText={errors.name?.message || 'Use dot notation (e.g., users.create)'}
+                            placeholder="users.create, posts.edit, admin.access…"
                         />
-                        {nameChanged && (
-                            <div className="mt-1.5 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                <Controller
-                                    name="updateInRoles"
-                                    control={control}
-                                    render={({ field: checkboxField }) => (
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={checkboxField.value || false}
-                                                onChange={(e) => checkboxField.onChange(e.target.checked)}
-                                                className="rounded"
-                                                disabled={isSubmitting}
-                                            />
-                                            <span className="text-xs text-yellow-900">
-                                                Update this permission name in all roles that use it ({originalName} → {name.trim()})
-                                            </span>
-                                        </label>
-                                    )}
-                                />
-                            </div>
-                        )}
-                    </div>
-                )}
-            />
+                    )}
+                />
 
-            <Controller
-                name="guard"
-                control={control}
-                render={({ field }) => (
-                    <FormField
-                        id="perm-guard"
-                        label="Guard"
-                        value={field.value}
-                        onChange={field.onChange}
-                        disabled={isSubmitting}
-                        error={errors.guard?.message}
-                        placeholder="web, api, admin..."
-                        startIcon={null}
-                        helpText="Guard determines which authentication context this permission applies to"
-                    />
-                )}
-            />
+                <Controller
+                    name="guard"
+                    control={control}
+                    render={({ field }) => (
+                        <TextField
+                            id="perm-guard"
+                            label="Guard"
+                            value={field.value}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            fullWidth
+                            disabled={isSubmitting}
+                            error={Boolean(errors.guard)}
+                            helperText={errors.guard?.message || 'Authentication context this permission applies to'}
+                            placeholder="web, api, admin…"
+                        />
+                    )}
+                />
 
-            <Controller
-                name="description"
-                control={control}
-                render={({ field }) => (
-                    <div>
-                        <label htmlFor="perm-description" className="block text-sm font-medium text-gray-700 mb-1.5">
-                            Description (Optional)
-                        </label>
-                        <textarea
+                <Controller
+                    name="description"
+                    control={control}
+                    render={({ field }) => (
+                        <TextField
                             id="perm-description"
+                            label="Description (optional)"
                             value={field.value || ''}
                             onChange={field.onChange}
                             onBlur={field.onBlur}
-                            className="input-field"
+                            fullWidth
+                            disabled={isSubmitting}
+                            error={Boolean(errors.description)}
+                            helperText={errors.description?.message}
                             placeholder="What does this permission allow?"
-                            rows={2}
-                            disabled={isSubmitting}
+                            multiline
+                            minRows={2}
                         />
-                        {errors.description && (
-                            <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>{errors.description.message}</Typography>
-                        )}
-                    </div>
-                )}
-            />
+                    )}
+                />
 
-            <Controller
-                name="category"
-                control={control}
-                render={({ field }) => (
-                    <div>
-                        <FormField
-                            id="perm-category"
-                            label="Category (Optional)"
+                <Controller
+                    name="category"
+                    control={control}
+                    render={({ field }) => (
+                        <Autocomplete
+                            freeSolo
+                            options={categories}
                             value={field.value || ''}
-                            onChange={field.onChange}
-                            disabled={isSubmitting}
-                            error={errors.category?.message}
-                            placeholder="users, posts, admin, etc."
-                            startIcon={null}
+                            onChange={(_, newValue) => field.onChange(newValue || '')}
+                            onInputChange={(_, newInput) => field.onChange(newInput)}
+                            renderInput={(params) => (
+                                <TextField
+                                    {...params}
+                                    id="perm-category"
+                                    label="Category (optional)"
+                                    fullWidth
+                                    disabled={isSubmitting}
+                                    error={Boolean(errors.category)}
+                                    helperText={errors.category?.message}
+                                    placeholder="users, posts, admin, etc."
+                                />
+                            )}
                         />
-                        <datalist id="category-suggestions">
-                            {categories.map((cat) => (
-                                <option key={cat} value={cat} />
-                            ))}
-                        </datalist>
-                    </div>
-                )}
-            />
+                    )}
+                />
 
-            {isEdit && (
-                <Box sx={{ p: 1.5, bgcolor: 'info.light', border: '1px solid', borderColor: 'info.main', borderRadius: 1 }}>
-                    <Typography variant="caption" fontWeight="600" color="info.dark" sx={{ mb: 0.5 }}>Note</Typography>
-                    <Typography variant="caption" color="info.dark">
-                        {nameChanged
-                            ? 'If you check "Update in roles", this permission name will be updated in all roles that currently use it. Otherwise, roles will continue to use the old permission name.'
-                            : 'Roles store permission names as JSON strings, so they remain independent of this registry. If you change the permission name, you can optionally update it in all roles.'}
-                    </Typography>
-                </Box>
-            )}
+                {isEdit && (
+                    <Box
+                        sx={{
+                            p: 1.5,
+                            bgcolor: 'info.light',
+                            border: '1px solid',
+                            borderColor: 'info.main',
+                            borderRadius: 1,
+                        }}
+                    >
+                        <Typography variant="caption" fontWeight={600} color="info.dark" sx={{ display: 'block', mb: 0.5 }}>
+                            Note
+                        </Typography>
+                        <Typography variant="caption" color="info.dark">
+                            {nameChanged
+                                ? `Renaming this permission updates every assigned role automatically (${originalName} → ${name.trim()}).`
+                                : 'Roles reference permission records through a role-permission relation, so changes here are reflected anywhere the permission is assigned.'}
+                        </Typography>
+                    </Box>
+                )}
+            </Stack>
         </form>
     );
 };

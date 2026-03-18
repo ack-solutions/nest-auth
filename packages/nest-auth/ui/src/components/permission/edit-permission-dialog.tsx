@@ -1,8 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Key } from 'lucide-react';
-import { FormDialog } from '../form-dialog';
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Stack,
+  Typography,
+} from '@mui/material';
 import { PermissionForm, PermissionFormData } from './permission-form';
-import type { FormFooterAction } from '../form-footer';
 import type { Permission } from '../../types';
 
 export interface EditPermissionDialogProps {
@@ -22,34 +29,45 @@ export const EditPermissionDialog: React.FC<EditPermissionDialogProps> = ({
     categories,
     error,
 }) => {
-    const [actions, setActions] = useState<FormFooterAction[]>([]);
-
     return (
-        <FormDialog
-            isOpen={isOpen}
-            onClose={onClose}
-            title="Edit Permission"
-            description="Update permission details"
-            icon={<Key className="w-5 h-5 text-primary-600" />}
-            maxWidth="lg"
-            actions={actions}
-        >
-            <PermissionForm
-                initialData={{
-                    name: permission.name,
-                    guard: permission.guard,
-                    description: permission.description || '',
-                    category: permission.category || '',
-                }}
-                categories={categories}
-                onSubmit={onSubmit}
-                onCancel={onClose}
-                error={error}
-                submitLabel="Update Permission"
-                isEdit={true}
-                originalName={permission.name}
-                onActionsReady={setActions}
-            />
-        </FormDialog>
+        <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="sm">
+            <DialogTitle>
+                <Stack direction="row" spacing={1} alignItems="center">
+                    <Key size={18} />
+                    <Typography variant="h6">Edit permission</Typography>
+                </Stack>
+                <Typography variant="body2" sx={{ mt: 0.5 }} color="text.secondary">
+                    Update permission details
+                </Typography>
+            </DialogTitle>
+            <DialogContent dividers>
+                <PermissionForm
+                    initialData={{
+                        name: permission.name,
+                        guard: permission.guard,
+                        description: permission.description || '',
+                        category: permission.category || '',
+                    }}
+                    categories={categories}
+                    onSubmit={onSubmit}
+                    onCancel={onClose}
+                    error={error}
+                    isEdit={true}
+                    originalName={permission.name}
+                />
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onClose} variant="outlined">
+                    Cancel
+                </Button>
+                <Button
+                    type="submit"
+                    form="permission-form"
+                    variant="contained"
+                >
+                    Update permission
+                </Button>
+            </DialogActions>
+        </Dialog>
     );
 };
