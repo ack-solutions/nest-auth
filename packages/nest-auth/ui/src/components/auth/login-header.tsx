@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Icon, Typography } from '@mui/material';
 import { Shield } from 'lucide-react';
 
 export const LoginHeader: React.FC = () => {
@@ -18,7 +18,7 @@ export const LoginHeader: React.FC = () => {
                     boxShadow: 2,
                 }}
             >
-                <Shield style={{ width: 32, height: 32, color: 'var(--mui-palette-primary-contrastText)' }} />
+                <Icon component={Shield} />
             </Box>
             <Typography variant="h4" fontWeight="bold" color="text.primary">
                 Nest Auth

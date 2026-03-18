@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, CheckCircle, XCircle, Eye, Trash2, UserPlus, Filter, X, Building2, Shield } from 'lucide-react';
+import { Plus, CheckCircle, XCircle, Eye, Trash2, UserPlus, Building2, Shield } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import { api } from '../services/api';
-import { getAuthApiBaseUrl } from '../components/auth/utils/utils';
 import { useConfirm } from '../hooks/use-confirm';
+import { useClientConfig } from '../hooks/use-client-config';
 import { usePagination } from '../hooks/use-pagination';
 import type { User, Tenant, Role } from '../types';
 import { PageHeader } from '../components/page-header';
@@ -29,7 +30,7 @@ export const UsersPage: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [tenants, setTenants] = useState<Tenant[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
-    const [tenantMode, setTenantMode] = useState<TenantMode>(null);
+    const { tenantMode } = useClientConfig();
     const [error, setError] = useState('');
     const [createError, setCreateError] = useState('');
     const [loading, setLoading] = useState(true);
@@ -129,24 +130,10 @@ export const UsersPage: React.FC = () => {
         loadUsers();
     }, [loadUsers]);
 
-    const loadConfig = useCallback(async () => {
-        try {
-            const authBase = getAuthApiBaseUrl();
-            const url = `${authBase}/client-config`;
-            const res = await fetch(url, { credentials: 'include' });
-            if (!res.ok) throw new Error('Failed to load config');
-            const config = await res.json() as { tenantMode?: 'isolated' | 'shared' | null };
-            setTenantMode(config.tenantMode ?? null);
-        } catch {
-            setTenantMode(null);
-        }
-    }, []);
-
     useEffect(() => {
         loadTenants();
         loadRoles();
-        loadConfig();
-    }, [loadTenants, loadRoles, loadConfig]);
+    }, [loadTenants, loadRoles]);
 
     const handleCreateUser = async (data: UserFormData) => {
         setCreateError('');
@@ -271,10 +258,10 @@ export const UsersPage: React.FC = () => {
                         aria-label="View user"
                         onClick={(e) => {  e.stopPropagation(); }}
                     >
-                        <Eye style={{ width: 20, height: 20 }} />
+                        <Icon component={Eye} />
                     </IconButton>
                     <IconButton size="small" color="error" onClick={() => handleDelete(user.id)} aria-label="Delete user">
-                        <Trash2 style={{ width: 20, height: 20 }} />
+                        <Icon component={Trash2} />
                     </IconButton>
                 </Stack>
             ),
@@ -290,7 +277,7 @@ export const UsersPage: React.FC = () => {
                     onRefresh={loadUsers}
                     loading={loading}
                     action={
-                        <Button variant="contained" color="primary" onClick={() => setShowCreateModal(true)} startIcon={<UserPlus style={{ width: 20, height: 20 }} />}>
+                        <Button variant="contained" color="primary" onClick={() => setShowCreateModal(true)} startIcon={<Icon component={UserPlus} />}>
                             Create User
                         </Button>
                     }
@@ -306,7 +293,7 @@ export const UsersPage: React.FC = () => {
                                         <Typography variant="caption" fontWeight="500" color="text.secondary">Total Users</Typography>
                                         <Typography variant="h5" fontWeight="bold" color="primary.main">{stats.total}</Typography>
                                     </Stack>
-                                    <Box sx={{ bgcolor: 'primary.200', p: 1.25, borderRadius: '50%' }}><UserPlus style={{ width: 20, height: 20, color: 'var(--mui-palette-primary-main)' }} /></Box>
+                                    <Box sx={{ bgcolor: 'primary.200', p: 1.25, borderRadius: '50%' }}><Icon component={UserPlus} sx={{ fontSize: 20, color: 'primary.main' }} /></Box>
                                 </Stack>
                             </CardContent>
                         </Card>
@@ -319,7 +306,7 @@ export const UsersPage: React.FC = () => {
                                         <Typography variant="caption" fontWeight="500" color="text.secondary">Active</Typography>
                                         <Typography variant="h5" fontWeight="bold" color="success.main">{stats.active}</Typography>
                                     </Stack>
-                                    <Box sx={{ bgcolor: 'success.200', p: 1.25, borderRadius: '50%' }}><CheckCircle style={{ width: 20, height: 20, color: 'var(--mui-palette-success-main)' }} /></Box>
+                                    <Box sx={{ bgcolor: 'success.200', p: 1.25, borderRadius: '50%' }}><Icon component={CheckCircle} sx={{ fontSize: 20, color: 'success.main' }} /></Box>
                                 </Stack>
                             </CardContent>
                         </Card>
@@ -332,7 +319,7 @@ export const UsersPage: React.FC = () => {
                                         <Typography variant="caption" fontWeight="500" color="text.secondary">Verified</Typography>
                                         <Typography variant="h5" fontWeight="bold" color="secondary.main">{stats.verified}</Typography>
                                     </Stack>
-                                    <Box sx={{ bgcolor: 'secondary.200', p: 1.25, borderRadius: '50%' }}><CheckCircle style={{ width: 20, height: 20, color: 'var(--mui-palette-secondary-main)' }} /></Box>
+                                    <Box sx={{ bgcolor: 'secondary.200', p: 1.25, borderRadius: '50%' }}><Icon component={CheckCircle} sx={{ fontSize: 20, color: 'secondary.main' }} /></Box>
                                 </Stack>
                             </CardContent>
                         </Card>
@@ -345,7 +332,7 @@ export const UsersPage: React.FC = () => {
                                         <Typography variant="caption" fontWeight="500" color="text.secondary">Inactive</Typography>
                                         <Typography variant="h5" fontWeight="bold" color="error.main">{stats.inactive}</Typography>
                                     </Stack>
-                                    <Box sx={{ bgcolor: 'error.200', p: 1.25, borderRadius: '50%' }}><XCircle style={{ width: 20, height: 20, color: 'var(--mui-palette-error-main)' }} /></Box>
+                                    <Box sx={{ bgcolor: 'error.200', p: 1.25, borderRadius: '50%' }}><Icon component={XCircle} sx={{ fontSize: 20, color: 'error.main' }} /></Box>
                                 </Stack>
                             </CardContent>
                         </Card>
@@ -395,10 +382,10 @@ export const UsersPage: React.FC = () => {
                                         <Chip size="small" label={filterStatus} onDelete={() => { setFilterStatus('all'); setPage(1); }} color="primary" sx={{ height: 24 }} />
                                     )}
                                     {filterTenant && (
-                                        <Chip size="small" icon={<Building2 style={{ width: 12, height: 12 }} />} label={tenants.find(t => t.id === filterTenant)?.name || 'Tenant'} onDelete={() => { setFilterTenant(''); setPage(1); }} sx={{ height: 24, bgcolor: 'secondary.50', color: 'secondary.dark' }} />
+                                        <Chip size="small" icon={<Icon component={Building2} sx={{ fontSize: 12 }} />} label={tenants.find(t => t.id === filterTenant)?.name || 'Tenant'} onDelete={() => { setFilterTenant(''); setPage(1); }} sx={{ height: 24, bgcolor: 'secondary.50', color: 'secondary.dark' }} />
                                     )}
                                     {filterRole && (
-                                        <Chip size="small" icon={<Shield style={{ width: 12, height: 12 }} />} label={filterRole} onDelete={() => { setFilterRole(''); setPage(1); }} sx={{ height: 24, bgcolor: 'success.50', color: 'success.dark' }} />
+                                        <Chip size="small" icon={<Icon component={Shield} sx={{ fontSize: 12 }} />} label={filterRole} onDelete={() => { setFilterRole(''); setPage(1); }} sx={{ height: 24, bgcolor: 'success.50', color: 'success.dark' }} />
                                     )}
                                 </Stack>
                             )}
@@ -416,7 +403,7 @@ export const UsersPage: React.FC = () => {
                     data={users}
                     loading={loading}
                     emptyMessage="No users found"
-                    emptyIcon={<UserPlus className="w-16 h-16 text-gray-300" />}
+                    emptyIcon={<Icon component={UserPlus} sx={{ fontSize: 64, color: 'action.disabled' }} />}
                     pagination={pagination}
                     onPageChange={handlePageChange}
                     onRowClick={(user) => navigate(`/users/${user.id}`)}

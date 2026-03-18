@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Building2 } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import { FormDialog } from '../form-dialog';
 import { TenantForm, TenantFormData } from './tenant-form';
 import type { FormFooterAction } from '../form-footer';
@@ -28,7 +29,7 @@ export const EditTenantDialog: React.FC<EditTenantDialogProps> = ({
             onClose={onClose}
             title="Edit Tenant"
             description="Update tenant name, slug, and description"
-            icon={<Building2 className="w-5 h-5 text-primary-600" />}
+            icon={<Icon component={Building2} sx={{ color: 'primary.main' }} />}
             maxWidth="md"
             actions={actions}
         >

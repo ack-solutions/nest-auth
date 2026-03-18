@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Phone, Shield, User as UserIcon, Lock, AlertCircle, CheckCircle, XCircle, Smartphone } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -71,7 +72,7 @@ export const EditBasicInfoModal: React.FC<EditModalProps> = ({ isOpen, onClose, 
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="+1234567890"
-                    startIcon={<Phone style={{ width: 20, height: 20, color: 'var(--mui-palette-text-secondary)' }} />}
+                    startIcon={<Icon component={Phone} sx={{ color: 'text.secondary' }} />}
                 />
             </Stack>
         </Modal>
@@ -116,21 +117,21 @@ export const EditStatusSecurityModal: React.FC<EditModalProps> = ({ isOpen, onCl
                     onChange={(checked) => setFormData({ ...formData, isActive: checked })}
                     label="Account Active"
                     description="Allow user to sign in"
-                    icon={<CheckCircle className="w-4 h-4" />}
+                    icon={<Icon component={CheckCircle} />}
                 />
                 <ToggleSwitch
                     checked={formData.isVerified}
                     onChange={(checked) => setFormData({ ...formData, isVerified: checked })}
                     label="Email Verified"
                     description="Mark email as verified"
-                    icon={<Mail className="w-4 h-4" />}
+                    icon={<Icon component={Mail} />}
                 />
                 <ToggleSwitch
                     checked={formData.isMfaEnabled}
                     onChange={(checked) => setFormData({ ...formData, isMfaEnabled: checked })}
                     label="MFA Enabled"
                     description="Require MFA for login"
-                    icon={<Shield style={{ width: 16, height: 16 }} />}
+                    icon={<Icon component={Shield} />}
                 />
             </Stack>
         </Modal>
@@ -174,7 +175,7 @@ export const EditPasswordModal: React.FC<EditModalProps> = ({ isOpen, onClose, o
             <Stack spacing={2} sx={{ py: 2 }}>
                 <Box sx={{ p: 1.5, bgcolor: 'warning.light', border: '1px solid', borderColor: 'warning.main', borderRadius: 1 }}>
                     <Stack direction="row" alignItems="flex-start" spacing={1}>
-                        <AlertCircle style={{ width: 16, height: 16, color: 'var(--mui-palette-warning-main)', flexShrink: 0, marginTop: 2 }} />
+                        <Icon component={AlertCircle} sx={{ fontSize: 16, color: 'warning.main', flexShrink: 0, mt: 0.25 }} />
                         <Typography variant="caption" color="warning.dark">
                             Password must contain uppercase, lowercase, number, and special character.
                         </Typography>

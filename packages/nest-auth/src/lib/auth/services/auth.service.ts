@@ -126,7 +126,7 @@ export class AuthService {
                 const req = RequestContext.currentRequest();
                 input = await this.authConfig.registrationHooks.beforeSignup(input, { request: req });
             }
-            
+
             const { email, phone, password, tenantId } = input;
 
             // Resolve tenant ID
@@ -271,7 +271,7 @@ export class AuthService {
             }
 
             // Build default response with tokens (auto-login enabled)
-            return this.generateAuthResponse(user, session, tokens, isRequiresMfa);
+            return this.generateAuthResponse(user, session, tokens, isRequiresMfa, undefined);
 
         } catch (error) {
             this.debugLogger.logError(error, 'signup', { email: input.email, phone: input.phone });
@@ -794,7 +794,7 @@ export class AuthService {
         session: any, // NestAuthSession
         tokens: { accessToken: string; refreshToken: string },
         isRequiresMfa: boolean,
-        trustToken?: string
+        trustToken?: string,
     ): Promise<AuthResponseDto> {
         // Serialize user for response
         const config = this.authConfigService.getConfig();
@@ -811,11 +811,13 @@ export class AuthService {
                 tenants = [fallbackTenant];
             }
         }
-
-        const userWithAccesses = await this.getUserWithRolesAndPermissions(user.id, [
-            'userAccesses',
-            'userAccesses.tenant',
-        ]);
+        let userWithAccesses: NestAuthUser;
+        if (!user?.userAccesses?.length) {
+            userWithAccesses = await this.getUserWithRolesAndPermissions(user.id, [
+                'userAccesses',
+                'userAccesses.tenant',
+            ]);
+        }
 
         const userAccesses = (userWithAccesses.userAccesses ?? []).map((access) => ({
             id: access.id,

@@ -43,7 +43,6 @@ import { AdminUserManagementService } from './services/admin-user-management.ser
   ],
   controllers: [
     // Register API controllers FIRST so they match before the UI catch-all route
-    // More specific routes must be registered before less specific ones
     AdminAuthController,
     AdminUsersController,
     AdminRolesController,

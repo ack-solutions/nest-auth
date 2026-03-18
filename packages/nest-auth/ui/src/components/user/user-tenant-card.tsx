@@ -1,5 +1,6 @@
 import React from 'react';
-import { Building2, Shield, Edit2, Trash2 } from 'lucide-react';
+import { Building2, Shield, Trash2 } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -47,7 +48,7 @@ export const UserTenantCard: React.FC<UserTenantCardProps> = ({
             <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1}>
                 <Box sx={{ minWidth: 0, flex: 1 }}>
                     <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 0.75 }}>
-                        <Building2 style={{ width: 16, height: 16, color: 'var(--mui-palette-text-secondary)' }} />
+                        <Icon component={Building2} sx={{ fontSize: 16, color: 'text.secondary' }} />
                         <Typography variant="body2" fontWeight={600}>
                             {tenant?.name ?? tenant?.slug ?? access.tenantId}
                         </Typography>
@@ -83,7 +84,7 @@ export const UserTenantCard: React.FC<UserTenantCardProps> = ({
                             color="inherit"
                             onClick={onEditRoles}
                             disabled={loading}
-                            startIcon={<Shield style={{ width: 14, height: 14 }} />}
+                            startIcon={<Icon component={Shield} />}
                             sx={{ minWidth: 0, py: 0.25 }}
                         >
                             Roles
@@ -98,7 +99,7 @@ export const UserTenantCard: React.FC<UserTenantCardProps> = ({
                                 disabled={loading}
                                 aria-label="Remove from tenant"
                             >
-                                <Trash2 style={{ width: 18, height: 18 }} />
+                                <Icon component={Trash2} sx={{ fontSize: 18 }} />
                             </IconButton>
                         </Tooltip>
                     )}

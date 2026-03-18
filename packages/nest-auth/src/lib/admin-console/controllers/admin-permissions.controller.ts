@@ -130,7 +130,6 @@ export class AdminPermissionsController {
             guard: permission.guard,
             description: permission.description,
             category: permission.category,
-            metadata: permission.metadata || {},
             createdAt: permission.createdAt,
             updatedAt: permission.updatedAt,
         };

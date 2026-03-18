@@ -36,9 +36,6 @@ export class NestAuthPermission extends BaseEntity {
     @Column({ nullable: true })
     category?: string; // e.g., 'users', 'posts', 'admin', etc.
 
-    @Column({ type: 'simple-json', nullable: true, default: '{}' })
-    metadata?: Record<string, any>;
-
     @OneToMany(() => NestAuthRolePermission, rolePermission => rolePermission.permission)
     rolePermissions: NestAuthRolePermission[];
 

@@ -39,5 +39,6 @@ export function mapRoleToSessionSnapshot(role: NestAuthRole): Partial<NestAuthRo
         guard: role.guard,
         tenantId: role.tenantId,
         isSystem: role.isSystem,
+        isActive: role.isActive,
     };
 }

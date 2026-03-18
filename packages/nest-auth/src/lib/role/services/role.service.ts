@@ -8,6 +8,7 @@ import { isUniqueConstraintViolation } from '../../utils';
 import { NestAuthRole } from '../entities/role.entity';
 import { NestAuthRolePermission } from '../entities/role-permission.entity';
 import { getRolePermissionNames } from '../utils/role-mapper.util';
+import { IUpdateRoleInput } from '@ackplus/nest-auth-contracts';
 
 @Injectable()
 export class RoleService {
@@ -71,13 +72,20 @@ export class RoleService {
         manager: EntityManager,
         params: { id?: string; name: string; guard: string; tenantId: string | null },
     ): Promise<void> {
-        const existingRole = await manager.getRepository(NestAuthRole).findOne({
-            where: {
-                name: params.name,
-                guard: params.guard,
-                tenantId: params.tenantId ?? IsNull(),
-            },
-        });
+        const existingRole = await manager
+            .getRepository(NestAuthRole)
+            .createQueryBuilder('role')
+            .where('role.name = :name', { name: params.name })
+            .andWhere('role.guard = :guard', { guard: params.guard })
+            .andWhere(
+                new Brackets((qb) => {
+                    qb.where('role.tenantId IS NULL');
+                    if (params.tenantId) {
+                        qb.orWhere('role.tenantId = :tenantId', { tenantId: params.tenantId });
+                    }
+                }),
+            )
+            .getOne();
 
         if (existingRole && existingRole.id !== params.id) {
             throw new ConflictException({
@@ -247,7 +255,7 @@ export class RoleService {
         });
     }
 
-    async getRoleById(id: string, options?: FindOneOptions<NestAuthRole>): Promise<NestAuthRole> {
+    async getRoleById(id: string, options?: Omit<FindOneOptions<NestAuthRole>, 'where'>): Promise<NestAuthRole> {
         if (!id) {
             return null;
         }
@@ -265,7 +273,7 @@ export class RoleService {
         name: string,
         guard?: string,
         tenantId?: string,
-        options?: FindOneOptions<NestAuthRole>,
+        options?: Omit<FindOneOptions<NestAuthRole>, 'where'>,
     ): Promise<NestAuthRole> {
         const relations = Array.isArray(options?.relations)
             ? Array.from(new Set([...this.getRoleRelations(true), ...options.relations]))
@@ -296,13 +304,12 @@ export class RoleService {
         });
     }
 
-    async getSystemRoles(options?: FindManyOptions<NestAuthRole>): Promise<NestAuthRole[]> {
+    async getSystemRoles(options?: Omit<FindManyOptions<NestAuthRole>, 'where'>): Promise<NestAuthRole[]> {
         return this.roleRepository.find({
             ...(options ? options : {}),
             where: {
                 isSystem: true,
                 tenantId: IsNull(),
-                ...(options?.where ? options.where : {}),
             },
             relations: Array.isArray(options?.relations)
                 ? Array.from(new Set([...this.getRoleRelations(true), ...options.relations]))
@@ -371,7 +378,7 @@ export class RoleService {
 
     async updateRole(
         id: string,
-        data: { name?: string; isActive?: boolean; permissions?: string | string[] },
+        data:IUpdateRoleInput,
     ): Promise<NestAuthRole> {
         return this.dataSource.transaction(async (manager) => {
             const role = await this.getHydratedRole(manager, id, true);
@@ -433,7 +440,7 @@ export class RoleService {
         });
     }
 
-    async updateRolePermissions(id: string, permissionNames: string | string[]): Promise<NestAuthRole> {
+    async updateRolePermissions(id: string, permissionNames: string[]): Promise<NestAuthRole> {
         return this.updateRole(id, { permissions: permissionNames });
     }
 

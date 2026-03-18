@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { KeyRound, Shield } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
+import Chip from '@mui/material/Chip';
 import { FormDialog } from '../form-dialog';
 import { FormFooterAction } from '../form-footer';
-import { PermissionInput } from '../permission-input';
+import { RolePermissionChecklist } from './role-permission-checklist';
 import type { Role } from '../../types';
-
-const sectionIconSx = { width: 18, height: 18, color: 'var(--mui-palette-primary-main)' };
 
 export interface RolePermissionsDialogProps {
     isOpen: boolean;
@@ -47,7 +47,9 @@ export const RolePermissionsDialog: React.FC<RolePermissionsDialogProps> = ({
             onSaved?.();
             onClose();
         } catch (err: any) {
-            setError(err?.message ?? 'Failed to update permissions');
+            const msg = err?.message ?? 'Failed to update permissions';
+            const detail = err?.response?.data?.message || err?.response?.data?.message;
+            setError(detail || msg);
         } finally {
             setSaving(false);
         }
@@ -65,7 +67,7 @@ export const RolePermissionsDialog: React.FC<RolePermissionsDialogProps> = ({
             onClick: handleSave,
             variant: 'primary',
             disabled: saving,
-            icon: <KeyRound style={{ width: 16, height: 16 }} />,
+            icon: <Icon component={KeyRound} />,
         },
     ];
 
@@ -76,38 +78,47 @@ export const RolePermissionsDialog: React.FC<RolePermissionsDialogProps> = ({
             isOpen={isOpen}
             onClose={onClose}
             title="Edit role permissions"
-            description={role ? `Manage permissions for role "${role.name}"` : ''}
-            icon={<Shield style={{ width: 20, height: 20, color: 'var(--mui-palette-primary-main)' }} />}
+            description="Assign permissions from the list below. Only permissions for this role's guard are shown."
+            icon={<Icon component={Shield} sx={{ color: 'primary.main' }} />}
             maxWidth="md"
             actions={actions}
         >
             <Stack sx={{ p: 2 }} spacing={2}>
                 {displayError && (
-                    <Alert severity="error" onClose={() => setError('')}>
+                    <Alert severity="error" onClose={() => setError('')} sx={{ '& .MuiAlert-message': { width: '100%' } }}>
                         {displayError}
                     </Alert>
                 )}
+
                 {role && (
                     <>
-                        <Box>
-                            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                                <KeyRound style={sectionIconSx} />
-                                <Typography variant="subtitle2" fontWeight={600} color="text.primary">
-                                    Permissions
+                        <Box
+                            sx={{
+                                p: 2,
+                                borderRadius: 2,
+                                bgcolor: 'grey.50',
+                                border: '1px solid',
+                                borderColor: 'divider',
+                            }}
+                        >
+                            <Stack direction="row" alignItems="center" flexWrap="wrap" gap={1.5}>
+                                <Typography variant="body2" fontWeight={600} color="text.primary">
+                                    {role.name}
+                                </Typography>
+                                <Chip size="small" label={role.guard} sx={{ height: 22, fontSize: '0.75rem' }} variant="outlined" color="primary" />
+                                <Typography variant="caption" color="text.secondary">
+                                    Only permissions for guard <strong>{role.guard}</strong> can be assigned. Custom permissions are not allowed.
                                 </Typography>
                             </Stack>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                                Role: <strong>{role.name}</strong> (Guard: {role.guard})
-                            </Typography>
-                            <PermissionInput
-                                label=""
-                                value={permissions}
-                                onChange={setPermissions}
-                                placeholder="Search and add permissions..."
-                                helperText="Type to search, press Enter to add. Permissions can be added after the role is created."
-                                guard={role.guard}
-                            />
                         </Box>
+
+                        <RolePermissionChecklist
+                            guard={role.guard}
+                            value={permissions}
+                            onChange={setPermissions}
+                            disabled={saving}
+                            placeholder="Search permissions by name or description..."
+                        />
                     </>
                 )}
             </Stack>

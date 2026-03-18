@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertCircle } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import { Box, Stack, Typography } from '@mui/material';
 import { CodeBlock } from './code-block';
 import { PasswordRequirements } from './password-requirements';
@@ -48,7 +49,7 @@ WHERE email = 'admin@example.com';`;
                     gap: 1.5,
                 }}
             >
-                <AlertCircle style={{ width: 20, height: 20, color: 'var(--mui-palette-warning-main)', flexShrink: 0, marginTop: 2 }} />
+                <Icon component={AlertCircle} sx={{ fontSize: 20, color: 'warning.main', flexShrink: 0, mt: 0.25 }} />
                 <Box>
                     <Typography variant="body2" fontWeight="600" color="warning.dark" sx={{ mb: 0.5 }}>Security Required</Typography>
                     <Typography variant="body2" color="warning.dark">

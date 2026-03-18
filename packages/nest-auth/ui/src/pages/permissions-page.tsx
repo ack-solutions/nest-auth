@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Key, Plus, Trash2, Edit2 } from 'lucide-react';
+import { Key, Plus, Trash2, Pencil } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import { api } from '../services/api';
 import { useConfirm } from '../hooks/use-confirm';
+import { useRoleGuards } from '../hooks/use-role-guards';
 import type { Permission } from '../types';
 import { PageHeader } from '../components/page-header';
 import Button from '@mui/material/Button';
@@ -28,8 +30,8 @@ export const PermissionsPage: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState<string>('all');
     const [selectedGuard, setSelectedGuard] = useState<string>('all');
-    const [guards, setGuards] = useState<string[]>([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const { guardOptions, helperText: guardHelperText } = useRoleGuards();
     const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
     const [categories, setCategories] = useState<string[]>([]);
     const [pagination, setPagination] = useState<PaginationInfo>({
@@ -81,20 +83,10 @@ export const PermissionsPage: React.FC = () => {
         }
     }, []);
 
-    const loadGuards = useCallback(async () => {
-        try {
-            const { data } = await api.get<{ data: string[] }>('/api/permissions/guards');
-            setGuards(Array.isArray(data) ? data : []);
-        } catch (err: any) {
-            console.error('Failed to load guards:', err);
-        }
-    }, []);
-
     useEffect(() => {
         loadPermissions();
         loadCategories();
-        loadGuards();
-    }, [loadPermissions, loadCategories, loadGuards]);
+    }, [loadPermissions, loadCategories]);
 
     const handleCreatePermission = async (data: PermissionFormData) => {
         setCreateError('');
@@ -114,7 +106,6 @@ export const PermissionsPage: React.FC = () => {
             setShowCreateModal(false);
             await loadPermissions();
             await loadCategories();
-            await loadGuards();
         } catch (err: any) {
             setCreateError(err.message || 'Failed to create permission');
             throw err;
@@ -164,7 +155,6 @@ export const PermissionsPage: React.FC = () => {
             setEditingPermission(null);
             await loadPermissions();
             await loadCategories();
-            await loadGuards();
         } catch (err: any) {
             setUpdateError(err.message || 'Failed to update permission');
             throw err;
@@ -185,9 +175,9 @@ export const PermissionsPage: React.FC = () => {
         ...categories.map((cat) => ({ value: cat, label: cat })),
     ];
 
-    const guardOptions: Array<{ value: string; label: string }> = [
+    const guardFilterOptions: Array<{ value: string; label: string }> = [
         { value: 'all', label: 'All Guards' },
-        ...guards.map((guard) => ({ value: guard, label: guard })),
+        ...guardOptions.map((opt) => ({ value: opt.value, label: opt.label })),
     ];
 
     const columns: Column<Permission>[] = [
@@ -262,7 +252,7 @@ export const PermissionsPage: React.FC = () => {
                         onClick={() => handleEdit(permission)}
                         aria-label="Edit permission"
                     >
-                        <Edit2 style={{ width: 20, height: 20 }} />
+                        <Icon component={Pencil} />
                     </IconButton>
                     <IconButton
                         size="small"
@@ -270,7 +260,7 @@ export const PermissionsPage: React.FC = () => {
                         onClick={() => handleDelete(permission.id)}
                         aria-label="Delete permission"
                     >
-                        <Trash2 style={{ width: 20, height: 20 }} />
+                        <Icon component={Trash2} />
                     </IconButton>
                 </Stack>
             ),
@@ -289,7 +279,7 @@ export const PermissionsPage: React.FC = () => {
                         variant="contained"
                         color="primary"
                         onClick={() => setShowCreateModal(true)}
-                        startIcon={<Plus style={{ width: 20, height: 20 }} />}
+                        startIcon={<Icon component={Plus} />}
                     >
                         Create Permission
                     </Button>
@@ -314,7 +304,7 @@ export const PermissionsPage: React.FC = () => {
                                 setSelectedGuard(value);
                                 setPagination((prev) => ({ ...prev, page: 1 }));
                             }}
-                            options={guardOptions}
+                            options={guardFilterOptions}
                             placeholder="All Guards"
                             allowEmpty={false}
                         />
@@ -333,6 +323,11 @@ export const PermissionsPage: React.FC = () => {
                         />
                     </Box>
                 </Stack>
+                {guardHelperText && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
+                        {guardHelperText}
+                    </Typography>
+                )}
             </Paper>
 
             {error && (
@@ -346,7 +341,7 @@ export const PermissionsPage: React.FC = () => {
                 data={permissions}
                 loading={loading}
                 emptyMessage="No permissions found"
-                emptyIcon={<Key className="w-16 h-16 text-gray-300" />}
+                emptyIcon={<Icon component={Key} sx={{ fontSize: 64, color: 'action.disabled' }} />}
                 pagination={pagination}
                 onPageChange={handlePageChange}
                 rowKey={(permission) => permission.id}

@@ -34,7 +34,6 @@ export class PermissionService {
         guard?: string;
         description?: string;
         category?: string;
-        metadata?: Record<string, any>;
     }): Promise<NestAuthPermission> {
         const guard = this.resolveAndValidateGuard(data.guard);
         const existing = await this.permissionRepository.findOne({
@@ -50,7 +49,6 @@ export class PermissionService {
             guard,
             description: data.description?.trim(),
             category: data.category?.trim(),
-            metadata: data.metadata || {},
         });
 
         return this.permissionRepository.save(permission);
@@ -132,20 +130,24 @@ export class PermissionService {
         if (!permission) {
             throw new NotFoundException(`Permission with id ${id} not found`);
         }
-
-        if (data.name !== undefined && data.name.trim() !== permission.name) {
+        if (data.name !== undefined) {
             const newName = data.name.trim();
-            const existing = await this.permissionRepository.findOne({
-                where: { name: newName, guard: permission.guard },
-            });
-            if (existing) {
-                throw new ConflictException(
-                    `Permission '${newName}' with guard '${permission.guard}' already exists`,
-                );
+            if (!newName) {
+                throw new BadRequestException('Permission name is required');
             }
-            permission.name = newName;
-        }
+            if (newName !== permission.name) {
+                const existing = await this.permissionRepository.findOne({
+                    where: { name: newName, guard: permission.guard },
+                });
 
+                if (existing) {
+                    throw new ConflictException(
+                        `Permission '${newName}' with guard '${permission.guard}' already exists`,
+                    );
+                }
+                permission.name = newName;
+            }
+        }
         if (data.description !== undefined) {
             permission.description = data.description?.trim() || null;
         }

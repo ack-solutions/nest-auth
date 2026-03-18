@@ -60,7 +60,12 @@ export class AccessKeyService {
     async getAccessKey(publicKey: string): Promise<NestAuthAccessKey> {
         const accessKey = await this.accessKeyRepository.findOne({
             where: { publicKey },
-            relations: ['user']
+            relations: [
+                'user',
+                'user.roles',
+                'user.roles.rolePermissions',
+                'user.roles.rolePermissions.permission',
+            ],
         });
 
         if (!accessKey) {

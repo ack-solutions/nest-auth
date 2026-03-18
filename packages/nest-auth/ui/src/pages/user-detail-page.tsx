@@ -5,9 +5,10 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import { ArrowLeft } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import { PageHeader } from '../components/page-header';
 import { UserDetailView } from '../components/user/user-detail-view';
-import { getAuthApiBaseUrl } from '../components/auth/utils/utils';
+import { useClientConfig } from '../hooks/use-client-config';
 import { api } from '../services/api';
 import type { UserDetails, Role, Tenant } from '../types';
 
@@ -16,10 +17,10 @@ export type TenantMode = 'isolated' | 'shared' | null;
 export const UserDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { tenantMode } = useClientConfig();
     const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
     const [roles, setRoles] = useState<Role[]>([]);
     const [tenants, setTenants] = useState<Tenant[]>([]);
-    const [tenantMode, setTenantMode] = useState<TenantMode>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -35,18 +36,6 @@ export const UserDetailPage: React.FC = () => {
         }
     }, [id]);
 
-    const loadConfig = useCallback(async () => {
-        try {
-            const authBase = getAuthApiBaseUrl();
-            const res = await fetch(`${authBase}/client-config`, { credentials: 'include' });
-            if (!res.ok) return;
-            const config = await res.json()
-            setTenantMode(config.tenants?.mode ?? null);
-        } catch {
-            setTenantMode(null);
-        }
-    }, []);
-
     useEffect(() => {
         if (!id) {
             navigate('/users', { replace: true });
@@ -56,7 +45,6 @@ export const UserDetailPage: React.FC = () => {
             setLoading(true);
             try {
                 await loadUserDetails();
-                await loadConfig();
                 const [rolesRes, tenantsRes] = await Promise.all([
                     api.get<{ data: Role[] }>('/api/roles'),
                     api.get<{ data: Tenant[] }>('/api/tenants'),
@@ -70,7 +58,7 @@ export const UserDetailPage: React.FC = () => {
             }
         };
         load();
-    }, [id, loadUserDetails, loadConfig, navigate]);
+    }, [id, loadUserDetails, navigate]);
 
     const handleUpdate = async (
         userId: string,
@@ -106,7 +94,7 @@ export const UserDetailPage: React.FC = () => {
                         to="/users"
                         variant="outlined"
                         color="inherit"
-                        startIcon={<ArrowLeft style={{ width: 18, height: 18 }} />}
+                        startIcon={<Icon component={ArrowLeft} />}
                     >
                         Back to users
                     </Button>
@@ -127,7 +115,7 @@ export const UserDetailPage: React.FC = () => {
                         to="/users"
                         variant="outlined"
                         color="inherit"
-                        startIcon={<ArrowLeft style={{ width: 18, height: 18 }} />}
+                        startIcon={<Icon component={ArrowLeft} />}
                     >
                         Back to users
                     </Button>

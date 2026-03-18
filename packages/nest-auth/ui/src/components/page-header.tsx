@@ -3,6 +3,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import { RefreshCw } from 'lucide-react';
+import { Icon } from '@mui/material';
 
 interface PageHeaderProps {
     title: string;
@@ -30,7 +31,18 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         </Stack>
         <Stack direction="row" alignItems="center" spacing={1.5}>
             {onRefresh && (
-                <Button variant="outlined" onClick={onRefresh} disabled={loading} color="inherit" startIcon={<RefreshCw style={{ width: 16, height: 16, ...(loading ? { animation: 'spin 1s linear infinite' } : {}) }} />}>
+                <Button
+                    variant="outlined"
+                    onClick={onRefresh}
+                    disabled={loading}
+                    color="inherit"
+                    startIcon={
+                        <Icon
+                            component={RefreshCw}
+                            style={loading ? { animation: 'spin 1s linear infinite' } : undefined}
+                        />
+                    }
+                >
                     {loading ? 'Refreshing...' : 'Refresh'}
                 </Button>
             )}
