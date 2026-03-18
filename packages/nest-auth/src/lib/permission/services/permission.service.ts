@@ -1,15 +1,28 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
 import { NestAuthPermission } from '../entities/permission.entity';
-import { DEFAULT_GUARD_NAME } from '../../auth.constants';
+import { DEFAULT_GUARD_NAME, GUARD_ERROR_CODES } from '../../auth.constants';
+import { AuthConfigService } from '../../core/services/auth-config.service';
 
 @Injectable()
 export class PermissionService {
     constructor(
         @InjectRepository(NestAuthPermission)
         private permissionRepository: Repository<NestAuthPermission>,
+        private authConfigService: AuthConfigService,
     ) { }
+
+    private resolveAndValidateGuard(guard: string | null | undefined): string {
+        const resolved = guard ?? this.authConfigService.getRoleGuards()[0];
+        if (!this.authConfigService.isRoleGuardAllowed(resolved)) {
+            throw new BadRequestException({
+                message: `Guard '${resolved}' is not allowed. Allowed guards: ${this.authConfigService.getRoleGuards().join(', ')}`,
+                code: GUARD_ERROR_CODES.GUARD_NOT_ALLOWED,
+            });
+        }
+        return resolved;
+    }
 
     async createPermission(data: {
         name: string;
@@ -18,7 +31,7 @@ export class PermissionService {
         category?: string;
         metadata?: Record<string, any>;
     }): Promise<NestAuthPermission> {
-        const guard = data.guard || DEFAULT_GUARD_NAME;
+        const guard = this.resolveAndValidateGuard(data.guard);
         const existing = await this.permissionRepository.findOne({
             where: { name: data.name.trim(), guard },
         });
@@ -115,7 +128,9 @@ export class PermissionService {
         }
     ): Promise<NestAuthPermission> {
         const permission = await this.getPermissionById(id);
-        const guard = data.guard || permission.guard;
+        const guard = data.guard !== undefined
+            ? this.resolveAndValidateGuard(data.guard)
+            : permission.guard;
 
         if (data.name && data.name !== permission.name) {
             // Check if new name already exists for this guard

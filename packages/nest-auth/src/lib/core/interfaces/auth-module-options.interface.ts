@@ -359,6 +359,12 @@ export interface IAuthModuleOptions {
      */
     tenant?: INestAuthTenantOptions;
     /**
+     * Guard configuration for roles and permissions.
+     * Only guards listed in roleGuards may be used when creating/updating roles and permissions.
+     * When not set, defaults to ['web'].
+     */
+    roleGuards?: string[];
+    /**
      * Embedded admin console configuration.
      * Provides a password-protected dashboard for managing users, roles, tenants, and system settings.
      *

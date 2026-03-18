@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { FindManyOptions, FindOneOptions, IsNull, Repository, Brackets } from 'typeorm';
 import { NestAuthRole } from '../entities/role.entity';
 import { TenantService } from '../../tenant';
+import { AuthConfigService } from '../../core/services/auth-config.service';
+import { GUARD_ERROR_CODES } from '../../auth.constants';
 
 @Injectable()
 export class RoleService {
@@ -10,17 +12,30 @@ export class RoleService {
         @InjectRepository(NestAuthRole)
         private roleRepository: Repository<NestAuthRole>,
         private tenantService: TenantService,
+        private authConfigService: AuthConfigService,
     ) { }
+
+    private resolveAndValidateGuard(guard: string | null | undefined): string {
+        const resolved = guard ?? this.authConfigService.getDefaultGuard();
+        if (!this.authConfigService.isGuardAllowed(resolved)) {
+            throw new BadRequestException({
+                message: `Guard '${resolved}' is not allowed. Allowed guards: ${this.authConfigService.getAllowedGuards().join(', ')}`,
+                code: GUARD_ERROR_CODES.GUARD_NOT_ALLOWED,
+            });
+        }
+        return resolved;
+    }
 
     async createRole(
         name: string,
-        guard: string,
+        guard: string | null | undefined,
         tenantId: string | null = null,
         isSystem: boolean = false,
         permissionIds?: string | string[],
     ): Promise<NestAuthRole> {
+        const resolvedGuard = this.resolveAndValidateGuard(guard);
 
-        const role = await NestAuthRole.createRole(name, guard, isSystem, tenantId);
+        const role = await NestAuthRole.createRole(name, resolvedGuard, isSystem, tenantId);
 
         if (permissionIds) {
             await role.syncPermissions(permissionIds);
@@ -167,6 +182,11 @@ export class RoleService {
 
         // Prevent changing tenantId directly
         delete data.tenantId;
+
+        // Validate guard if being updated
+        if (data.guard !== undefined) {
+            data.guard = this.resolveAndValidateGuard(data.guard);
+        }
 
         // Handle name update - check for conflicts
         if (data.name !== undefined && data.name !== role.name) {
