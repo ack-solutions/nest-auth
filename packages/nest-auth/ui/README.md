@@ -231,7 +231,7 @@ ui/
 │   ├── services/       # API service layer
 │   ├── hooks/          # Custom React hooks
 │   ├── types/          # TypeScript interfaces
-│   ├── App.tsx         # Main app
+│   ├── app.tsx         # Main app
 │   ├── main.tsx        # Entry point
 │   └── index.css       # Tailwind imports
 ├── package.json        # Dependencies & scripts

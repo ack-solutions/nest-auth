@@ -16,7 +16,7 @@ import { SnackbarProvider } from 'notistack';
 import { AuthProvider } from '@ackplus/nest-auth-react';
 import { AuthClient, LocalStorageAdapter, SessionStorageAdapter } from '@ackplus/nest-auth-client';
 
-import App from './App';
+import App from './app-1';
 import theme from './theme';
 import './index.css';
 
