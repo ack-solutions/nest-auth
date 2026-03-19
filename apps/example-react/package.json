@@ -1,7 +1,7 @@
 {
   "name": "example-react",
   "private": true,
-  "version": "1.1.69-beta.6",
+  "version": "1.1.69-beta.7",
   "type": "module",
   "scripts": {
     "dev": "vite --port 4200",
