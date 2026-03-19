@@ -36,5 +36,5 @@ export { NestAuthAdminUser } from './lib/admin-console/entities/admin-user.entit
 // Utils (for consistent email/phone normalization when integrating)
 export { normalizedEmail, normalizedPhone } from './lib/utils';
 
-// Re-export commonly used types from contracts for convenience
-export { NestAuthMFAMethodEnum, NestAuthOTPTypeEnum } from '@ackplus/nest-auth-contracts';
+// Re-export all shared types and enums from contracts for consumers
+export * from '@ackplus/nest-auth-contracts';

@@ -30,7 +30,7 @@ import { VerifyOtpResponseDto } from '../dto/responses/verify-otp.response.dto';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import ms from 'ms';
 import { BaseAuthProvider } from '../../core/providers/base-auth.provider';
-import { MessageResponseDto } from 'src/lib/core';
+import type { MessageResponseDto } from 'src/lib/core';
 
 @Injectable()
 export class PasswordService {
