@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertCircle, Check } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -116,7 +117,7 @@ export const ResetPasswordFormComponent: React.FC<ResetPasswordFormProps> = ({
                     gap: 1.5,
                 }}
             >
-                <AlertCircle style={{ width: 20, height: 20, color: 'var(--mui-palette-warning-main)', flexShrink: 0, marginTop: 2 }} />
+                <Icon component={AlertCircle} sx={{ fontSize: 20, color: 'warning.main', flexShrink: 0, mt: 0.25 }} />
                 <Box sx={{ typography: 'body2', color: 'warning.dark' }}>
                     <Typography variant="body2" fontWeight="600" sx={{ mb: 0.5 }}>Security Required</Typography>
                     <Typography variant="body2">
@@ -139,7 +140,7 @@ export const ResetPasswordFormComponent: React.FC<ResetPasswordFormProps> = ({
                         gap: 1,
                     }}
                 >
-                    <Check style={{ width: 20, height: 20, color: 'var(--mui-palette-success-main)', flexShrink: 0, marginTop: 2 }} />
+                    <Icon component={Check} sx={{ fontSize: 20, color: 'success.main', flexShrink: 0, mt: 0.25 }} />
                     <Typography variant="body2" color="success.dark">Password reset successfully! You can now sign in with your new password.</Typography>
                 </Box>
             )}
@@ -157,7 +158,7 @@ export const ResetPasswordFormComponent: React.FC<ResetPasswordFormProps> = ({
                         gap: 1,
                     }}
                 >
-                    <AlertCircle style={{ width: 20, height: 20, color: 'var(--mui-palette-error-main)', flexShrink: 0, marginTop: 2 }} />
+                    <Icon component={AlertCircle} sx={{ fontSize: 20, color: 'error.main', flexShrink: 0, mt: 0.25 }} />
                     <Typography variant="body2" color="error.dark">{error}</Typography>
                 </Box>
             )}

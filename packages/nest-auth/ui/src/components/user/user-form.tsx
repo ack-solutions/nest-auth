@@ -7,6 +7,7 @@ import { EmailField } from '../form/email-field';
 import { Select } from '../select';
 import { FormFooterAction } from '../form-footer';
 import { Plus } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import type { Tenant, Role } from '../../types';
 
 /** Create user form data: shared = email only; isolated = email + tenantId. */
@@ -94,7 +95,7 @@ export const UserForm: React.FC<UserFormProps> = ({
                 },
                 variant: 'primary' as const,
                 disabled: isSubmitting,
-                icon: <Plus style={{ width: 16, height: 16 }} />,
+                icon: <Icon component={Plus} />,
             },
         ],
         [handleCancel, isSubmitting, submitLabel]

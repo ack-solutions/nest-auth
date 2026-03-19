@@ -1,5 +1,6 @@
 import React from 'react';
 import { Key } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import {
   Button,
   Dialog,
@@ -30,7 +31,7 @@ export const CreatePermissionDialog: React.FC<CreatePermissionDialogProps> = ({
         <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="sm">
             <DialogTitle>
                 <Stack direction="row" spacing={1} alignItems="center">
-                    <Key size={18} />
+                    <Icon component={Key} sx={{ fontSize: 18 }} />
                     <Typography variant="h6">Create new permission</Typography>
                 </Stack>
                 <Typography variant="body2" sx={{ mt: 0.5 }} color="text.secondary">

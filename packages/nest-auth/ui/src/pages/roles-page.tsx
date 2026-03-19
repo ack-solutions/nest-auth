@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Shield, Plus, Trash2, Building2, Key, Edit2, KeyRound } from 'lucide-react';
-import { Box, Grid, Stack, Typography, Alert, Chip, Card, CardContent, TextField, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { Shield, Plus, Trash2, Building2, Key, Pencil, KeyRound } from 'lucide-react';
+import Icon from '@mui/material/Icon';
+import { Box, Grid, Stack, Typography, Alert, Chip, Card, CardContent, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { api } from '../services/api';
 import { useConfirm } from '../hooks/use-confirm';
+import { useRoleGuards } from '../hooks/use-role-guards';
 import type { Role, Tenant } from '../types';
 import { PageHeader } from '../components/page-header';
 import Button from '@mui/material/Button';
@@ -24,6 +26,7 @@ export const RolesPage: React.FC = () => {
     const [filterGuard, setFilterGuard] = useState('');
     const [filterTenantId, setFilterTenantId] = useState<string>('');
     const confirm = useConfirm();
+    const { guardOptions, helperText: guardHelperText } = useRoleGuards();
 
     const loadRoles = useCallback(async (overrides?: { guard?: string; tenantId?: string }) => {
         try {
@@ -65,21 +68,22 @@ export const RolesPage: React.FC = () => {
     const handleSubmitRole = async (data: RoleFormData) => {
         setDialogError('');
         try {
-            const payload: any = {
-                name: data.name.trim(),
-                guard: data.guard.trim() || 'web',
-                permissions: data.permissions,
-            };
-
             if (editingRole) {
-                // Edit mode - include isSystem if it's being changed
-                if (data.isSystem !== undefined) {
-                    payload.isSystem = data.isSystem;
-                }
-                await api.patch(`/api/roles/${editingRole.id}`, payload);
+                // Edit: only name, isActive, and permissions are updatable
+                await api.patch(`/api/roles/${editingRole.id}`, {
+                    name: data.name.trim(),
+                    isActive: data.isActive ?? true,
+                    permissions: data.permissions ?? [],
+                });
             } else {
                 // Create mode
-                payload.isSystem = data.isSystem || false;
+                const payload: any = {
+                    name: data.name.trim(),
+                    guard: data.guard?.trim() || 'web',
+                    isSystem: data.isSystem || false,
+                    isActive: data.isActive ?? true,
+                    permissions: data.permissions ?? [],
+                };
                 if (data.tenantId && !data.isSystem) {
                     payload.tenantId = data.tenantId;
                 }
@@ -190,13 +194,13 @@ export const RolesPage: React.FC = () => {
             render: (role) => (
                 <Stack direction="row" alignItems="center" justifyContent="flex-end" spacing={0.5}>
                     <IconButton size="small" color="inherit" onClick={() => handleEditPermissions(role)} aria-label="Edit permissions" title="Edit permissions">
-                        <KeyRound style={{ width: 20, height: 20 }} />
+                        <Icon component={KeyRound} />
                     </IconButton>
                     <IconButton size="small" color="inherit" onClick={() => handleEdit(role)} aria-label="Edit role">
-                        <Edit2 style={{ width: 20, height: 20 }} />
+                        <Icon component={Pencil} />
                     </IconButton>
                     <IconButton size="small" color="error" onClick={() => handleDelete(role.id)} aria-label="Delete role">
-                        <Trash2 style={{ width: 20, height: 20 }} />
+                        <Icon component={Trash2} />
                     </IconButton>
                 </Stack>
             ),
@@ -211,7 +215,7 @@ export const RolesPage: React.FC = () => {
                 onRefresh={() => loadRoles()}
                 loading={loading}
                 action={
-                    <Button variant="contained" color="primary" onClick={handleCreate} startIcon={<Plus style={{ width: 20, height: 20 }} />}>
+                    <Button variant="contained" color="primary" onClick={handleCreate} startIcon={<Icon component={Plus} />}>
                         Create Role
                     </Button>
                 }
@@ -223,7 +227,7 @@ export const RolesPage: React.FC = () => {
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Box><Typography variant="caption" fontWeight="500" color="text.secondary">Total Roles</Typography><Typography variant="h5" fontWeight="bold" color="secondary.main">{stats.total}</Typography></Box>
-                                <Box sx={{ bgcolor: 'secondary.200', p: 1.25, borderRadius: '50%' }}><Shield style={{ width: 20, height: 20, color: 'var(--mui-palette-secondary-main)' }} /></Box>
+                                <Box sx={{ bgcolor: 'secondary.200', p: 1.25, borderRadius: '50%' }}><Icon component={Shield} sx={{ fontSize: 20, color: 'secondary.main' }} /></Box>
                             </Box>
                         </CardContent>
                     </Card>
@@ -233,7 +237,7 @@ export const RolesPage: React.FC = () => {
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Box><Typography variant="caption" fontWeight="500" color="text.secondary">Global Roles</Typography><Typography variant="h5" fontWeight="bold" color="primary.main">{stats.global}</Typography></Box>
-                                <Box sx={{ bgcolor: 'primary.200', p: 1.25, borderRadius: '50%' }}><Key style={{ width: 20, height: 20, color: 'var(--mui-palette-primary-main)' }} /></Box>
+                                <Box sx={{ bgcolor: 'primary.200', p: 1.25, borderRadius: '50%' }}><Icon component={Key} sx={{ fontSize: 20, color: 'primary.main' }} /></Box>
                             </Box>
                         </CardContent>
                     </Card>
@@ -243,7 +247,7 @@ export const RolesPage: React.FC = () => {
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Box><Typography variant="caption" fontWeight="500" color="text.secondary">Tenant Roles</Typography><Typography variant="h5" fontWeight="bold" color="success.main">{stats.tenant}</Typography></Box>
-                                <Box sx={{ bgcolor: 'success.200', p: 1.25, borderRadius: '50%' }}><Building2 style={{ width: 20, height: 20, color: 'var(--mui-palette-success-main)' }} /></Box>
+                                <Box sx={{ bgcolor: 'success.200', p: 1.25, borderRadius: '50%' }}><Icon component={Building2} sx={{ fontSize: 20, color: 'success.main' }} /></Box>
                             </Box>
                         </CardContent>
                     </Card>
@@ -253,7 +257,7 @@ export const RolesPage: React.FC = () => {
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <Box><Typography variant="caption" fontWeight="500" color="text.secondary">System Roles</Typography><Typography variant="h5" fontWeight="bold" color="warning.main">{stats.system}</Typography></Box>
-                                <Box sx={{ bgcolor: 'warning.200', p: 1.25, borderRadius: '50%' }}><Shield style={{ width: 20, height: 20, color: 'var(--mui-palette-warning-main)' }} /></Box>
+                                <Box sx={{ bgcolor: 'warning.200', p: 1.25, borderRadius: '50%' }}><Icon component={Shield} sx={{ fontSize: 20, color: 'warning.main' }} /></Box>
                             </Box>
                         </CardContent>
                     </Card>
@@ -263,16 +267,24 @@ export const RolesPage: React.FC = () => {
             {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
 
             <Stack direction="row" flexWrap="wrap" gap={2} alignItems="center" sx={{ mb: 1 }}>
-                <TextField
-                    size="small"
-                    label="Guard"
-                    placeholder="All guards"
-                    value={filterGuard}
-                    onChange={(e) => setFilterGuard(e.target.value)}
-                    onBlur={() => loadRoles()}
-                    onKeyDown={(e) => e.key === 'Enter' && loadRoles()}
-                    sx={{ minWidth: 160 }}
-                />
+                <FormControl size="small" sx={{ minWidth: 180 }}>
+                    <InputLabel id="roles-guard-filter-label">Guard</InputLabel>
+                    <Select
+                        labelId="roles-guard-filter-label"
+                        label="Guard"
+                        value={filterGuard}
+                        onChange={(e) => {
+                            const v = e.target.value as string;
+                            setFilterGuard(v);
+                            loadRoles({ guard: v });
+                        }}
+                    >
+                        <MenuItem value="">All guards</MenuItem>
+                        {guardOptions.map((opt) => (
+                            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
                 <FormControl size="small" sx={{ minWidth: 200 }}>
                     <InputLabel id="roles-tenant-filter-label">Tenant</InputLabel>
                     <Select
@@ -291,18 +303,22 @@ export const RolesPage: React.FC = () => {
                         ))}
                     </Select>
                 </FormControl>
-                <Button size="small" variant="outlined" onClick={() => loadRoles()}>Apply filters</Button>
                 {(filterGuard || filterTenantId) && (
                     <Button size="small" onClick={() => { setFilterGuard(''); setFilterTenantId(''); loadRoles({ guard: '', tenantId: '' }); }}>Clear</Button>
                 )}
             </Stack>
+            {guardHelperText && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                    {guardHelperText}
+                </Typography>
+            )}
 
             <Table
                 columns={columns}
                 data={roles}
                 loading={loading}
                 emptyMessage="No roles found"
-                emptyIcon={<Shield style={{ width: 48, height: 48, color: 'var(--mui-palette-action-disabled)' }} />}
+                emptyIcon={<Icon component={Shield} sx={{ fontSize: 48, color: 'action.disabled' }} />}
                 rowKey={(role) => role.id}
             />
 

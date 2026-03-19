@@ -15,6 +15,7 @@ import { uniq } from 'lodash';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { RequestContext } from '../../request-context/request-context';
+import { getRolePermissionNames } from '../../role/utils/role-mapper.util';
 
 /**
  * NestAuthAuthGuard
@@ -590,10 +591,7 @@ export class NestAuthAuthGuard implements CanActivate {
             // Skip inactive roles
             if (role?.isActive === false) return;
 
-            // Add permissions from this role
-            if (role.permissions && Array.isArray(role.permissions)) {
-                role.permissions.forEach(permission => permissions.add(permission));
-            }
+            getRolePermissionNames(role).forEach((permission) => permissions.add(permission));
         });
 
         return Array.from(permissions);

@@ -6,7 +6,8 @@ import { Typography } from '@mui/material';
 import { FormField } from '../form/form-field';
 import { FormTextarea } from '../form/form-textarea';
 import { FormFooterAction } from '../form-footer';
-import { Plus, Edit2 } from 'lucide-react';
+import { Plus, Pencil } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 
 export interface TenantFormData {
     name: string;
@@ -93,7 +94,7 @@ export const TenantForm: React.FC<TenantFormProps> = ({
             },
             variant: 'primary' as const,
             disabled: isSubmitting,
-            icon: isEdit ? <Edit2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />,
+            icon: isEdit ? <Icon component={Pencil} /> : <Icon component={Plus} />,
         },
     ], [handleCancel, isSubmitting, submitLabel, isEdit]);
 

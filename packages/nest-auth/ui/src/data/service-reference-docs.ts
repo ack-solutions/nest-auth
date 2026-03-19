@@ -391,16 +391,16 @@ const tenantRoles = await this.roleService.getRoles({
 
 ### updateRole()
 
-Update role details.
+Update role details. Only \`name\`, \`isActive\`, and \`permissions\` are updatable; \`guard\`, \`tenantId\`, and \`isSystem\` are read-only.
 
 **Signature**:
 \`\`\`typescript
-async updateRole(id: string, data: Partial<NestAuthRole>): Promise<NestAuthRole>
+async updateRole(id: string, data: { name?: string; isActive?: boolean; permissions?: string | string[] }): Promise<NestAuthRole>
 \`\`\`
 
 **Parameters**:
 - \`id\`: Role ID
-- \`data\`: Fields to update
+- \`data\`: Fields to update (name, isActive, permissions)
 
 **Returns**: Updated role object
 
@@ -408,6 +408,7 @@ async updateRole(id: string, data: Partial<NestAuthRole>): Promise<NestAuthRole>
 \`\`\`typescript
 const updated = await this.roleService.updateRole('role-id', {
   name: 'new-name',
+  isActive: true,
   permissions: ['users.read', 'users.update']
 });
 \`\`\`
@@ -561,28 +562,23 @@ const userPerms = await this.permissionService.getPermissions({
 
 ### updatePermission()
 
-Update permission details.
+Update permission details. Only \`name\`, \`category\`, and \`description\` are updatable; \`guard\` is read-only.
 
 **Signature**:
 \`\`\`typescript
-async updatePermission(id: string, data: {
-  name?: string;
-  guard?: string;
-  description?: string;
-  category?: string;
-  metadata?: Record<string, any>;
-}): Promise<NestAuthPermission>
+async updatePermission(id: string, data: { name?: string; category?: string; description?: string }): Promise<NestAuthPermission>
 \`\`\`
 
 **Parameters**:
 - \`id\`: Permission ID
-- \`data\`: Fields to update
+- \`data\`: Fields to update (name, category, description)
 
 **Returns**: Updated permission object
 
 **Example**:
 \`\`\`typescript
 await this.permissionService.updatePermission('perm-id', {
+  name: 'users.manage',
   description: 'Updated description',
   category: 'New Category'
 });

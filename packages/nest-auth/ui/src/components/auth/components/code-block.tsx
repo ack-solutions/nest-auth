@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import { Box, IconButton } from '@mui/material';
 
 interface CodeBlockProps {
@@ -59,9 +60,9 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({ code }) => {
                 }}
             >
                 {copied ? (
-                    <Check style={{ width: 16, height: 16, color: 'var(--mui-palette-success-light)' }} />
+                    <Icon component={Check} sx={{ fontSize: 16, color: 'success.light' }} />
                 ) : (
-                    <Copy style={{ width: 16, height: 16 }} />
+                    <Icon component={Copy} sx={{ fontSize: 16 }} />
                 )}
             </IconButton>
         </Box>

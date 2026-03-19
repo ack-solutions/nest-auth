@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Building2, Edit2 } from 'lucide-react';
+import { Plus, Trash2, Building2, Pencil } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import { api } from '../services/api';
 import { useConfirm } from '../hooks/use-confirm';
 import type { Tenant } from '../types';
@@ -137,10 +138,10 @@ export const TenantsPage: React.FC = () => {
             render: (tenant) => (
                 <Stack direction="row" justifyContent="flex-end" spacing={0.5}>
                     <IconButton size="small" color="inherit" onClick={() => handleEdit(tenant)} aria-label="Edit tenant">
-                        <Edit2 style={{ width: 20, height: 20 }} />
+                        <Icon component={Pencil} />
                     </IconButton>
                     <IconButton size="small" color="error" onClick={() => handleDelete(tenant.id)} aria-label="Delete tenant">
-                        <Trash2 style={{ width: 20, height: 20 }} />
+                        <Icon component={Trash2} />
                     </IconButton>
                 </Stack>
             ),
@@ -155,7 +156,7 @@ export const TenantsPage: React.FC = () => {
                 onRefresh={loadTenants}
                 loading={loading}
                 action={
-                    <Button variant="contained" color="primary" onClick={() => setShowCreateModal(true)} startIcon={<Plus style={{ width: 20, height: 20 }} />}>
+                    <Button variant="contained" color="primary" onClick={() => setShowCreateModal(true)} startIcon={<Icon component={Plus} />}>
                         Create Tenant
                     </Button>
                 }
@@ -169,7 +170,7 @@ export const TenantsPage: React.FC = () => {
                 data={tenants}
                 loading={loading}
                 emptyMessage="No tenants found"
-                emptyIcon={<Building2 className="w-12 h-12 text-gray-300" />}
+                emptyIcon={<Icon component={Building2} sx={{ fontSize: 48, color: 'action.disabled' }} />}
                 rowKey={(tenant) => tenant.id}
             />
 

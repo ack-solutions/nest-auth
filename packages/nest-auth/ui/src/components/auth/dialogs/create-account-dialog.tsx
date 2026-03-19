@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Terminal } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import { Modal } from '../../modal';
 import { Tabs } from '../components/tabs';
 import { CreateAccountCodeExamples } from '../components/create-account-code-examples';
@@ -57,7 +58,7 @@ export const CreateAccountDialog: React.FC<CreateAccountDialogProps> = ({ open, 
             onClose={handleClose}
             title="Create Admin Account"
             subTitle="Use your Nest Auth Secret Key to create an admin account"
-            icon={<Terminal style={{ width: 24, height: 24, color: 'var(--mui-palette-primary-main)' }} />}
+            icon={<Icon component={Terminal} sx={{ fontSize: 24, color: 'primary.main' }} />}
             tabs={
                 <Tabs tabs={tabs} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as 'form' | 'code')} />
             }

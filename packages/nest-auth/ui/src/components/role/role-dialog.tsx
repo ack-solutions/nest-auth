@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { Shield, Plus, Edit2, UserCircle, Building2 } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Shield, Plus, Pencil, UserCircle, Building2, KeyRound } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Grid from '@mui/material/Grid';
@@ -14,24 +15,36 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { FormField } from '../form/form-field';
 import { Select } from '../select';
-import { PermissionInput } from '../permission-input';
+import { RolePermissionChecklist } from './role-permission-checklist';
+import { useRoleGuards } from '../../hooks/use-role-guards';
 import type { Tenant, Role } from '../../types';
 
-const sectionIconSx = { width: 18, height: 18, color: 'var(--mui-palette-primary-main)' };
+const sectionIconSx = { color: 'var(--mui-palette-primary-main)' };
 
 export interface RoleFormData {
     name: string;
     guard: string;
     tenantId: string;
     isSystem: boolean;
+    isActive: boolean;
     permissions: string[];
 }
 
-const roleSchema = yup.object({
+const createRoleSchema = yup.object({
     name: yup.string().required('Role name is required').min(1, 'Role name cannot be empty'),
     guard: yup.string().required('Guard is required').min(1, 'Guard cannot be empty'),
     tenantId: yup.string().optional(),
     isSystem: yup.boolean().default(false),
+    isActive: yup.boolean().default(true),
+    permissions: yup.array().of(yup.string()).default([]),
+});
+
+const editRoleSchema = yup.object({
+    name: yup.string().required('Role name is required').min(1, 'Role name cannot be empty'),
+    guard: yup.string().optional(),
+    tenantId: yup.string().optional(),
+    isSystem: yup.boolean().optional(),
+    isActive: yup.boolean().default(true),
     permissions: yup.array().of(yup.string()).default([]),
 });
 
@@ -53,7 +66,8 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
     error,
 }) => {
     const isEdit = !!role;
-    const isSystemRole = role?.isSystem || false;
+    const schema = isEdit ? editRoleSchema : createRoleSchema;
+    const { roleGuards, guardOptions, helperText: guardHelperText } = useRoleGuards();
 
     const {
         control,
@@ -63,18 +77,20 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
         watch,
         setValue,
     } = useForm<RoleFormData>({
-        resolver: yupResolver(roleSchema) as any,
+        resolver: yupResolver(schema) as any,
         defaultValues: role ? {
             name: role.name,
             guard: role.guard,
             tenantId: role.tenantId || '',
             isSystem: role.isSystem || false,
-            permissions: role.permissions || [],
+            isActive: role.isActive ?? true,
+            permissions: role.permissions ?? [],
         } : {
             name: '',
-            guard: 'web',
+            guard: roleGuards[0] || 'web',
             tenantId: '',
             isSystem: false,
+            isActive: true,
             permissions: [],
         },
     });
@@ -91,20 +107,22 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                 guard: role.guard,
                 tenantId: role.tenantId || '',
                 isSystem: role.isSystem ?? false,
-                permissions: role.permissions || [],
+                isActive: role.isActive ?? true,
+                permissions: role.permissions ?? [],
             });
         } else {
             reset({
                 name: '',
-                guard: 'web',
+                guard: roleGuards[0] || 'web',
                 tenantId: '',
                 isSystem: false,
+                isActive: true,
                 permissions: [],
             });
         }
-    }, [isOpen, role, reset]);
+    }, [isOpen, role, roleGuards, reset]);
 
-    // Clear tenantId when isSystem is checked
+    // Clear tenantId when isSystem is checked (create only)
     React.useEffect(() => {
         if (isSystem && !isEdit) {
             setValue('tenantId', '');
@@ -145,7 +163,7 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
             },
             variant: 'primary' as const,
             disabled: isSubmitting,
-            icon: isEdit ? <Edit2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />,
+            icon: isEdit ? <Icon component={Pencil} /> : <Icon component={Plus} />,
         },
     ], [handleCancel, isSubmitting, isEdit]);
 
@@ -154,8 +172,8 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
             isOpen={isOpen}
             onClose={onClose}
             title={isEdit ? 'Edit Role' : 'Create New Role'}
-            description={isEdit ? 'Update role name, guard, scope, and permissions' : 'Create a new role and assign permissions'}
-            icon={<Shield style={{ width: 20, height: 20, color: 'var(--mui-palette-primary-main)' }} />}
+            description={isEdit ? 'Update role name, active status, and permissions' : 'Create a new role and assign permissions'}
+            icon={<Icon component={Shield} sx={{ color: 'primary.main' }} />}
             maxWidth="md"
             actions={actions}
         >
@@ -170,13 +188,13 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                     {/* Section: Basics */}
                     <Box>
                         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
-                            <UserCircle style={sectionIconSx} />
+                            <Icon component={UserCircle} sx={sectionIconSx} />
                             <Typography variant="subtitle2" fontWeight={600} color="text.primary">
                                 Basics
                             </Typography>
                         </Stack>
                         <Grid container spacing={2}>
-                            <Grid size={{ xs: 12, sm: 6 }}>
+                            <Grid size={{ xs: 12, sm: isEdit ? 12 : 6 }}>
                                 <Controller
                                     name="name"
                                     control={control}
@@ -194,77 +212,112 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                                     )}
                                 />
                             </Grid>
-                            <Grid size={{ xs: 12, sm: 6 }}>
-                                <Controller
-                                    name="guard"
-                                    control={control}
-                                    render={({ field }) => (
-                                        <FormField
-                                            id="guard"
-                                            label="Guard"
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                            disabled={isSubmitting}
-                                            error={errors.guard?.message}
-                                            placeholder="e.g. web, api"
-                                            startIcon={null}
-                                            helpText="Which authentication context this role applies to"
-                                        />
-                                    )}
-                                />
-                            </Grid>
+                            {!isEdit && (
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <Controller
+                                        name="guard"
+                                        control={control}
+                                        render={({ field }) => (
+                                            <Box>
+                                                <Select
+                                                    label="Guard"
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                    options={guardOptions}
+                                                    placeholder="Select guard"
+                                                    disabled={isSubmitting}
+                                                    allowEmpty={false}
+                                                />
+                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                                    {guardHelperText}
+                                                </Typography>
+                                                {errors.guard?.message && (
+                                                    <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
+                                                        {errors.guard.message}
+                                                    </Typography>
+                                                )}
+                                            </Box>
+                                        )}
+                                    />
+                                </Grid>
+                            )}
                         </Grid>
+                        {isEdit && role && (
+                            <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mt: 1.5 }}>
+                                <Typography variant="caption" color="text.secondary">
+                                    Guard: <strong>{role.guard}</strong>
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">·</Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    {role.isSystem ? 'System role' : role.tenantId
+                                        ? `Tenant: ${tenants.find((t) => t.id === role.tenantId)?.name || role.tenantId}`
+                                        : 'Global'}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">(cannot be changed)</Typography>
+                            </Stack>
+                        )}
+                        <Box sx={{ mt: 2 }}>
+                            <Controller
+                                name="isActive"
+                                control={control}
+                                render={({ field }) => (
+                                    <Stack direction="row" alignItems="center" spacing={1}>
+                                        <Switch
+                                            checked={field.value ?? true}
+                                            onChange={(e) => field.onChange(e.target.checked)}
+                                            disabled={isSubmitting}
+                                            color="primary"
+                                        />
+                                        <Typography variant="body2" fontWeight={500}>Active</Typography>
+                                    </Stack>
+                                )}
+                            />
+                        </Box>
                     </Box>
 
-                    {/* Section: Scope (System role + Tenant) */}
-                    <Box>
-                        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
-                            <Building2 style={sectionIconSx} />
-                            <Typography variant="subtitle2" fontWeight={600} color="text.primary">
-                                Scope
-                            </Typography>
-                        </Stack>
-                        <Paper variant="outlined" sx={{ p: 0, borderRadius: 2, overflow: 'hidden' }}>
-                            <Controller
-                                name="isSystem"
-                                control={control}
-                                render={({ field }) => {
-                                    const isCurrentlySystem = isEdit && role?.isSystem && !role?.tenantId;
-                                    const willBecomeNonSystem = isEdit && field.value === false && isCurrentlySystem;
-                                    return (
-                                        <Stack>
-                                            <Stack
-                                                direction="row"
-                                                alignItems="center"
-                                                justifyContent="space-between"
-                                                sx={{
-                                                    px: 2,
-                                                    py: 1.5,
-                                                    bgcolor: isSystem ? 'primary.50' : 'grey.50',
-                                                    borderBottom: '1px solid',
-                                                    borderColor: 'divider',
-                                                }}
-                                            >
-                                                <Stack spacing={0.25}>
-                                                    <Typography component="label" variant="body2" fontWeight={500} sx={{ cursor: 'pointer' }}>
-                                                        System role
-                                                    </Typography>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        {isSystem
-                                                            ? 'Available across all tenants. No tenant selection needed.'
-                                                            : isEdit
-                                                                ? 'Uncheck to make this role tenant-specific.'
-                                                                : 'Uncheck to assign this role to a specific tenant.'}
-                                                    </Typography>
+                    {!isEdit && (
+                        <>
+                            {/* Section: Scope (Create only) */}
+                            <Box>
+                                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+                                    <Icon component={Building2} sx={sectionIconSx} />
+                                    <Typography variant="subtitle2" fontWeight={600} color="text.primary">
+                                        Scope
+                                    </Typography>
+                                </Stack>
+                                <Paper variant="outlined" sx={{ p: 0, borderRadius: 2, overflow: 'hidden' }}>
+                                    <Controller
+                                        name="isSystem"
+                                        control={control}
+                                        render={({ field }) => (
+                                            <Stack>
+                                                <Stack
+                                                    direction="row"
+                                                    alignItems="center"
+                                                    justifyContent="space-between"
+                                                    sx={{
+                                                        px: 2,
+                                                        py: 1.5,
+                                                        bgcolor: isSystem ? 'primary.50' : 'grey.50',
+                                                        borderBottom: '1px solid',
+                                                        borderColor: 'divider',
+                                                    }}
+                                                >
+                                                    <Stack spacing={0.25}>
+                                                        <Typography component="label" variant="body2" fontWeight={500} sx={{ cursor: 'pointer' }}>
+                                                            System role
+                                                        </Typography>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {isSystem ? 'Available across all tenants. No tenant selection needed.' : 'Uncheck to assign this role to a specific tenant.'}
+                                                        </Typography>
+                                                    </Stack>
+                                                    <Switch
+                                                        checked={field.value || false}
+                                                        onChange={(e) => field.onChange(e.target.checked)}
+                                                        disabled={isSubmitting}
+                                                        color="primary"
+                                                    />
                                                 </Stack>
-                                                <Switch
-                                                    checked={field.value || false}
-                                                    onChange={(e) => field.onChange(e.target.checked)}
-                                                    disabled={isSubmitting}
-                                                    color="primary"
-                                                />
-                                            </Stack>
-                                            {!isEdit && (
                                                 <Box sx={{ px: 2, py: 1.5 }}>
                                                     <Controller
                                                         name="tenantId"
@@ -292,35 +345,18 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                                                         </Typography>
                                                     )}
                                                 </Box>
-                                            )}
-                                            {isEdit && role?.tenantId && (
-                                                <Box sx={{ px: 2, py: 1.5, bgcolor: 'grey.50' }}>
-                                                    <Typography variant="caption" fontWeight={500} color="text.secondary">
-                                                        Tenant
-                                                    </Typography>
-                                                    <Typography variant="body2" fontWeight={500} sx={{ mt: 0.25 }}>
-                                                        {tenants.find((t) => t.id === role.tenantId)?.name || role.tenantId}
-                                                    </Typography>
-                                                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, display: 'block' }}>
-                                                        Cannot be changed after creation
-                                                    </Typography>
-                                                </Box>
-                                            )}
-                                            {willBecomeNonSystem && (
-                                                <Alert severity="warning" sx={{ mx: 2, mt: 1, mb: 1, py: 0.75 }}>
-                                                    Making this role tenant-specific requires an assigned tenant.
-                                                </Alert>
-                                            )}
-                                        </Stack>
-                                    );
-                                }}
-                            />
-                        </Paper>
-                    </Box>
+                                            </Stack>
+                                        )}
+                                    />
+                                </Paper>
+                            </Box>
+                        </>
+                    )}
 
+                    {/* Section: Permissions — all permissions listed; select/unselect or search within list */}
                     <Box>
                         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
-                            <Shield style={sectionIconSx} />
+                            <Icon component={KeyRound} sx={sectionIconSx} />
                             <Typography variant="subtitle2" fontWeight={600} color="text.primary">
                                 Permissions
                             </Typography>
@@ -329,14 +365,12 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                             name="permissions"
                             control={control}
                             render={({ field }) => (
-                                <PermissionInput
-                                    label=""
-                                    value={field.value || []}
+                                <RolePermissionChecklist
+                                    guard={isEdit && role ? role.guard : guard}
+                                    value={field.value}
                                     onChange={field.onChange}
-                                    placeholder="Search and add permissions..."
-                                    helperText="Permissions are selected by name and resolved to permission IDs on save."
-                                    guard={guard}
-                                    error={errors.permissions?.message as string | undefined}
+                                    disabled={isSubmitting}
+                                    placeholder="Search permissions..."
                                 />
                             )}
                         />

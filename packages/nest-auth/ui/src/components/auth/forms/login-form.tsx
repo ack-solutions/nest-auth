@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -83,7 +84,7 @@ export const LoginFormComponent: React.FC<LoginFormProps> = ({
                         mb: 2,
                     }}
                 >
-                    <AlertCircle style={{ width: 20, height: 20, color: 'var(--mui-palette-error-main)', flexShrink: 0, marginTop: 2 }} />
+                    <Icon component={AlertCircle} sx={{ fontSize: 20, color: 'error.main', flexShrink: 0, mt: 0.25 }} />
                     <Typography variant="body2" color="error.dark">{error}</Typography>
                 </Box>
             )}

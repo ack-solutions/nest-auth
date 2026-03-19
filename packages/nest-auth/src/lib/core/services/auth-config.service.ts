@@ -151,9 +151,11 @@ export class AuthConfigService {
             mergedOptions.mfa.methods = [...new Set(mergedOptions.mfa.methods)];
         }
 
-        // Normalize roleGuards: treat undefined/null or empty array as missing
+        // Normalize roleGuards: treat undefined/null or empty array as missing, and deduplicate (deepmerge concatenates arrays)
         if (!mergedOptions.roleGuards || mergedOptions.roleGuards.length === 0) {
             mergedOptions.roleGuards = [DEFAULT_GUARD_NAME];
+        } else {
+            mergedOptions.roleGuards = [...new Set(mergedOptions.roleGuards)];
         }
 
         // Ensure adminConsole exists
@@ -240,7 +242,8 @@ export class AuthConfigService {
     getRoleGuards(): string[] {
         const opts = AuthConfigService.getOptions();
         const allowed = opts.roleGuards;
-        return (allowed && allowed.length > 0) ? allowed : [DEFAULT_GUARD_NAME];
+        const list = (allowed && allowed.length > 0) ? allowed : [DEFAULT_GUARD_NAME];
+        return [...new Set(list)];
     }
 
     /**

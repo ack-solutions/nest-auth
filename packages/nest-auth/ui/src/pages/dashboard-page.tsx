@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Users, Shield, Building2, Activity, TrendingUp, UserCheck } from 'lucide-react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Box, Grid, Stack, Typography, Alert, CircularProgress } from '@mui/material';
+import { Box, Grid, Stack, Typography, Alert, CircularProgress, Icon } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { api } from '../services/api';
 import Paper from '@mui/material/Paper';
@@ -95,7 +95,7 @@ export const DashboardPage: React.FC = () => {
                     <Typography variant="h5" fontWeight="bold">{value.toLocaleString()}</Typography>
                     {trend && (
                         <Stack direction="row" alignItems="center" spacing={0.5}>
-                            <TrendingUp style={{ width: 14, height: 14 }} />
+                            <Icon component={TrendingUp} sx={{ fontSize: 14 }} />
                             <Typography variant="caption" color="success.main">{trend}</Typography>
                         </Stack>
                     )}
@@ -131,7 +131,7 @@ export const DashboardPage: React.FC = () => {
                     <StatCard
                         title="Total Users"
                         value={stats.totalUsers}
-                        icon={<Users style={{ width: 20, height: 20, color: theme.palette.primary.main }} />}
+                        icon={<Icon component={Users} sx={{ fontSize: 20, color: 'primary.main' }} />}
                         gradient={`linear-gradient(to bottom right, ${theme.palette.primary[50]}, ${theme.palette.primary[100]})`}
                         borderColor="primary.200"
                         iconBg="primary.200"
@@ -142,7 +142,7 @@ export const DashboardPage: React.FC = () => {
                     <StatCard
                         title="Active Users"
                         value={stats.activeUsers}
-                        icon={<Activity style={{ width: 20, height: 20, color: theme.palette.success.main }} />}
+                        icon={<Icon component={Activity} sx={{ fontSize: 20, color: 'success.main' }} />}
                         gradient={`linear-gradient(to bottom right, ${theme.palette.success[50]}, ${theme.palette.success[100]})`}
                         borderColor="success.200"
                         iconBg="success.200"
@@ -152,7 +152,7 @@ export const DashboardPage: React.FC = () => {
                     <StatCard
                         title="Total Roles"
                         value={stats.totalRoles}
-                        icon={<Shield style={{ width: 20, height: 20, color: theme.palette.secondary.main }} />}
+                        icon={<Icon component={Shield} sx={{ fontSize: 20, color: 'secondary.main' }} />}
                         gradient={`linear-gradient(to bottom right, ${theme.palette.secondary[50]}, ${theme.palette.secondary[100]})`}
                         borderColor="secondary.200"
                         iconBg="secondary.200"
@@ -162,7 +162,7 @@ export const DashboardPage: React.FC = () => {
                     <StatCard
                         title="Tenants"
                         value={stats.totalTenants}
-                        icon={<Building2 style={{ width: 20, height: 20, color: theme.palette.warning.main }} />}
+                        icon={<Icon component={Building2} sx={{ fontSize: 20, color: 'warning.main' }} />}
                         gradient={`linear-gradient(to bottom right, ${theme.palette.warning[50]}, ${theme.palette.warning[100]})`}
                         borderColor="warning.200"
                         iconBg="warning.200"
@@ -220,14 +220,14 @@ export const DashboardPage: React.FC = () => {
                         <Stack spacing={1.25}>
                             <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 1.5, bgcolor: 'primary.50', borderRadius: 1 }}>
                                 <Stack direction="row" alignItems="center" spacing={1}>
-                                    <UserCheck style={{ width: 16, height: 16, color: 'var(--mui-palette-primary-main)' }} />
+                                    <Icon component={UserCheck} sx={{ fontSize: 16, color: 'primary.main' }} />
                                     <Typography variant="body2" fontWeight="500">Verified Users</Typography>
                                 </Stack>
                                 <Typography variant="h6" fontWeight="bold" color="primary.main">{stats.verifiedUsers}</Typography>
                             </Stack>
                             <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ p: 1.5, bgcolor: 'warning.50', borderRadius: 1 }}>
                                 <Stack direction="row" alignItems="center" spacing={1}>
-                                    <Activity style={{ width: 16, height: 16, color: 'var(--mui-palette-warning-main)' }} />
+                                    <Icon component={Activity} sx={{ fontSize: 16, color: 'warning.main' }} />
                                     <Typography variant="body2" fontWeight="500">Unverified Users</Typography>
                                 </Stack>
                                 <Typography variant="h6" fontWeight="bold" color="warning.main">{stats.totalUsers - stats.verifiedUsers}</Typography>

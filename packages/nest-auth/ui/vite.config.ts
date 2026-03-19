@@ -12,10 +12,15 @@ export default defineConfig({
         // Inline JS and CSS into the generated index.html
         viteSingleFile(),
     ],
+    optimizeDeps: {
+        include: ['react', 'react-dom', 'react/jsx-runtime'],
+    },
     resolve: {
         alias: {
             '@': resolve(__dirname, './src'),
         },
+        // Ensure a single copy of React so hooks resolve correctly (avoids "Invalid hook call" / useState is null)
+        dedupe: ['react', 'react-dom', 'react/jsx-runtime'],
     },
     build: {
         outDir: '../dist/lib/admin-console/static',

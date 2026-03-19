@@ -29,9 +29,9 @@ export const FormFooter: React.FC<FormFooterProps> = ({ actions, className }) =>
                 type="button"
                 onClick={action.onClick}
                 disabled={action.disabled}
+                startIcon={action.icon ?? undefined}
                 {...mapVariant(action.variant)}
             >
-                {action.icon}
                 {action.label}
             </Button>
         ))}

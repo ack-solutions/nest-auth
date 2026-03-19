@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsObject, MaxLength, MinLength } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, MaxLength, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class AdminCreatePermissionDto {
@@ -40,20 +40,11 @@ export class AdminCreatePermissionDto {
     @IsOptional()
     @IsString()
     category?: string;
-
-    @ApiProperty({
-        description: 'Optional metadata for additional permission information',
-        required: false,
-        example: { level: 'write', resource: 'users' },
-    })
-    @IsOptional()
-    @IsObject()
-    metadata?: Record<string, any>;
 }
 
 export class AdminUpdatePermissionDto {
     @ApiProperty({
-        description: 'Permission name (must be unique per guard if changed). If changed, can optionally update in all roles.',
+        description: 'Permission name (must be unique per guard if changed)',
         required: false,
         example: 'users.create',
     })
@@ -64,31 +55,6 @@ export class AdminUpdatePermissionDto {
     name?: string;
 
     @ApiProperty({
-        description: 'Guard name',
-        required: false,
-        example: 'web',
-    })
-    @IsOptional()
-    @IsString()
-    guard?: string;
-
-    @ApiProperty({
-        description: 'Whether to update permission name in all roles that use it (only if name is being changed)',
-        required: false,
-        default: false,
-    })
-    @IsOptional()
-    updateInRoles?: boolean;
-
-    @ApiProperty({
-        description: 'Optional description of what this permission allows',
-        required: false,
-    })
-    @IsOptional()
-    @IsString()
-    description?: string;
-
-    @ApiProperty({
         description: 'Optional category to group permissions',
         required: false,
     })
@@ -97,10 +63,10 @@ export class AdminUpdatePermissionDto {
     category?: string;
 
     @ApiProperty({
-        description: 'Optional metadata',
+        description: 'Optional description of what this permission allows',
         required: false,
     })
     @IsOptional()
-    @IsObject()
-    metadata?: Record<string, any>;
+    @IsString()
+    description?: string;
 }

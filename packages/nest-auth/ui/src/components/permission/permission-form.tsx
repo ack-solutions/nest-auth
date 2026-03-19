@@ -4,6 +4,8 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Alert, Box, Stack, TextField, Typography } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
+import { Select } from '../select';
+import { useRoleGuards } from '../../hooks/use-role-guards';
 
 export interface PermissionFormData {
     name: string;
@@ -38,6 +40,7 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
     isEdit = false,
     originalName,
 }) => {
+    const { guardOptions, helperText: guardHelperText } = useRoleGuards();
     const {
         control,
         handleSubmit,
@@ -48,7 +51,7 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
         resolver: yupResolver(permissionSchema) as any,
         defaultValues: initialData || {
             name: '',
-            guard: 'web',
+            guard: guardOptions[0]?.value ?? 'web',
             description: '',
             category: '',
         },
@@ -114,18 +117,25 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
                     name="guard"
                     control={control}
                     render={({ field }) => (
-                        <TextField
-                            id="perm-guard"
-                            label="Guard"
-                            value={field.value}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            fullWidth
-                            disabled={isSubmitting}
-                            error={Boolean(errors.guard)}
-                            helperText={errors.guard?.message || 'Authentication context this permission applies to'}
-                            placeholder="web, api, admin…"
-                        />
+                        <Box>
+                            <Select
+                                label="Guard"
+                                value={field.value}
+                                onChange={field.onChange}
+                                options={guardOptions}
+                                placeholder="Select guard"
+                                disabled={isSubmitting}
+                                allowEmpty={false}
+                            />
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                {guardHelperText}
+                            </Typography>
+                            {errors.guard?.message && (
+                                <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
+                                    {errors.guard.message}
+                                </Typography>
+                            )}
+                        </Box>
                     )}
                 />
 

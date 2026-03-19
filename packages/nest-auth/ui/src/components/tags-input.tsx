@@ -1,6 +1,6 @@
 import React, { useState, KeyboardEvent, useId } from 'react';
 import { X, Plus } from 'lucide-react';
-import { Box, Chip, InputBase, IconButton, Typography } from '@mui/material';
+import { Box, Chip, Icon, InputBase, IconButton, Typography } from '@mui/material';
 
 interface TagsInputProps {
     value: string[];
@@ -73,7 +73,7 @@ export const TagsInput: React.FC<TagsInputProps> = ({
                         label={tag}
                         size="small"
                         onDelete={() => removeTag(tag)}
-                        deleteIcon={<X style={{ width: 12, height: 12 }} />}
+                        deleteIcon={<Icon component={X} sx={{ fontSize: 12 }} />}
                         sx={{ fontWeight: 500 }}
                     />
                 ))}
@@ -88,7 +88,7 @@ export const TagsInput: React.FC<TagsInputProps> = ({
                     />
                     {inputValue.trim() && (
                         <IconButton size="small" onClick={addTag} sx={{ color: 'primary.main' }}>
-                            <Plus style={{ width: 16, height: 16 }} />
+                            <Icon component={Plus} sx={{ fontSize: 16 }} />
                         </IconButton>
                     )}
                 </Box>

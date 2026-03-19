@@ -7,6 +7,7 @@ import Button from '@mui/material/Button';
 import { useTheme } from '@mui/material/styles';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Users, Shield, Building2, BookOpen, UserCog, LogOut, FileText, Key } from 'lucide-react';
+import { Icon } from '@mui/material';
 import { api } from '../services/api';
 import type { DashboardConfig, Admin } from '../types';
 
@@ -115,7 +116,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, config, onLogout }) =>
                                 transition: 'all 0.2s',
                             })}
                         >
-                            <item.icon style={{ width: 20, height: 20, flexShrink: 0 }} />
+                            <Icon component={item.icon} />
                             <span>{item.label}</span>
                         </NavLink>
                     ))}
@@ -127,7 +128,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, config, onLogout }) =>
                         variant="contained"
                         color="error"
                         onClick={handleLogout}
-                        startIcon={<LogOut style={{ width: 20, height: 20 }} />}
+                        startIcon={<Icon component={LogOut} />}
                         sx={{ py: 1.5, fontWeight: 600 }}
                     >
                         Sign out

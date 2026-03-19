@@ -11,6 +11,7 @@ import {
     BeforeInsert,
     BeforeUpdate,
     ManyToMany,
+    IsNull,
 } from "typeorm";
 import { In } from 'typeorm';
 import { hash, verify, Algorithm } from '@node-rs/argon2';
@@ -25,6 +26,7 @@ import { NestAuthRole } from "../../role/entities/role.entity";
 import { NestAuthUserAccess } from "../../tenant/entities/user-access.entity";
 import { EMAIL_AUTH_PROVIDER, PHONE_AUTH_PROVIDER } from "../../auth.constants";
 import { normalizedPhone } from '../../utils';
+import { getRolePermissionNames } from '../../role/utils/role-mapper.util';
 
 @Entity('nest_auth_users')
 export class NestAuthUser extends BaseEntity {
@@ -103,16 +105,16 @@ export class NestAuthUser extends BaseEntity {
     async getPermissions(tenantId: string): Promise<string[]> {
         const roles = await this.getRoles(tenantId);
         return chain(roles)
-            .map(role => role?.permissions ?? [])
+            .map((role) => getRolePermissionNames(role))
             .flatten()
             .uniq()
             .value();
     }
 
-    async getRoles(tenantId: string): Promise<NestAuthRole[]> {
+    async getRoles(tenantId?: string | null): Promise<NestAuthRole[]> {
         const access = await NestAuthUserAccess.findOne({
-            where: { userId: this.id, tenantId: tenantId },
-            relations: ['roles'],
+            where: { userId: this.id, tenantId: tenantId || IsNull() },
+            relations: ['roles', 'roles.rolePermissions', 'roles.rolePermissions.permission'],
         });
         if (access?.roles?.length) {
             return access.roles;
@@ -121,7 +123,7 @@ export class NestAuthUser extends BaseEntity {
     }
 
     /** Assign multiple roles for a specific tenant (stores on user access). */
-    async assignRoles(tenantId: string, roleIds: string | string[]): Promise<void> {
+    async assignRoles(roleIds: string | string[], tenantId?: string | null): Promise<void> {
         const access = await this.getOrCreateUserAccess(tenantId);
         const ids = Array.isArray(roleIds) ? roleIds : [roleIds];
         access.roles = ids.length
@@ -130,9 +132,9 @@ export class NestAuthUser extends BaseEntity {
         await access.save();
     }
 
-    private async getOrCreateUserAccess(tenantId: string): Promise<NestAuthUserAccess> {
+    private async getOrCreateUserAccess(tenantId?: string | null): Promise<NestAuthUserAccess> {
         let access = await NestAuthUserAccess.findOne({
-            where: { userId: this.id, tenantId },
+            where: { userId: this.id, tenantId: tenantId || IsNull() },
             relations: ['roles'],
         });
         if (!access) {

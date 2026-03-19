@@ -8,6 +8,7 @@ import { FormField } from '../form/form-field';
 import { PasswordField } from '../form/password-field';
 import { FormFooterAction } from '../form-footer';
 import { CheckCircle } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 
 export interface AdminFormData {
     email: string;
@@ -97,7 +98,7 @@ export const AdminForm: React.FC<AdminFormProps> = ({
             icon: isSubmitting ? (
                 <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
             ) : (
-                <CheckCircle className="w-4 h-4" />
+                <Icon component={CheckCircle} />
             ),
         },
     ], [handleCancel, isSubmitting, submitLabel]);

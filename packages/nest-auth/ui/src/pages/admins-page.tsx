@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, Eye } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import { api } from '../services/api';
 import { useConfirm } from '../hooks/use-confirm';
 import type { Admin } from '../types';
@@ -115,7 +116,7 @@ export const AdminsPage: React.FC = () => {
             render: (admin) => (
                 <Stack direction="row" justifyContent="flex-end">
                     <IconButton size="small" color="error" onClick={() => handleDelete(admin.id)} aria-label="Delete admin">
-                        <Trash2 style={{ width: 20, height: 20 }} />
+                        <Icon component={Trash2} />
                     </IconButton>
                 </Stack>
             ),
@@ -130,7 +131,7 @@ export const AdminsPage: React.FC = () => {
                 onRefresh={loadAdmins}
                 loading={loading}
                 action={
-                    <Button variant="contained" color="primary" onClick={() => setShowCreateModal(true)} startIcon={<Plus style={{ width: 20, height: 20 }} />}>
+                    <Button variant="contained" color="primary" onClick={() => setShowCreateModal(true)} startIcon={<Icon component={Plus} />}>
                         Create Admin
                     </Button>
                 }
@@ -144,7 +145,7 @@ export const AdminsPage: React.FC = () => {
                 data={admins}
                 loading={loading}
                 emptyMessage="No admins found"
-                emptyIcon={<Eye className="w-12 h-12 text-gray-300" />}
+                emptyIcon={<Icon component={Eye} sx={{ fontSize: 48, color: 'action.disabled' }} />}
                 rowKey={(admin) => admin.id}
             />
 

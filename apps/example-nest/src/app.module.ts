@@ -19,6 +19,11 @@ import { AppService } from './app.service';
 import { SessionsModule } from './sessions/sessions.module';
 import { ProfileModule } from './profile/profile.module';
 
+enum RoleGuardEnum {
+  WEB = 'web',
+  ADMIN = 'admin',
+  PORTAL = 'portal',
+}
 @Module({
   imports: [
     /**
@@ -111,6 +116,8 @@ import { ProfileModule } from './profile/profile.module';
         enabled: true,
         mode: TenantModeEnum.SHARED,
       },
+      // Only these guards can be used for roles/permissions. Admin UI shows them in a dropdown; to add more, extend RoleGuardEnum and list here.
+      roleGuards: Object.values(RoleGuardEnum),
 
       /**
        * Multi-Factor Authentication (MFA) configuration

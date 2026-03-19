@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Key, Eye, EyeOff } from 'lucide-react';
-import { IconButton } from '@mui/material';
+import { Icon, IconButton } from '@mui/material';
 import { FormField, FormFieldProps } from './form-field';
 
 export interface SecretKeyFieldProps extends Omit<FormFieldProps, 'type' | 'startIcon'> {
@@ -25,9 +25,9 @@ export const SecretKeyField: React.FC<SecretKeyFieldProps> = ({
             sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
         >
             {showSecretKey ? (
-                <EyeOff style={{ width: 20, height: 20 }} />
+                <Icon component={EyeOff} sx={{ fontSize: 20 }} />
             ) : (
-                <Eye style={{ width: 20, height: 20 }} />
+                <Icon component={Eye} sx={{ fontSize: 20 }} />
             )}
         </IconButton>
     );
@@ -37,7 +37,7 @@ export const SecretKeyField: React.FC<SecretKeyFieldProps> = ({
             {...props}
             disabled={disabled}
             type={showSecretKey ? 'text' : 'password'}
-            startIcon={<Key style={{ width: 20, height: 20, color: 'var(--mui-palette-text-secondary)' }} />}
+            startIcon={<Icon component={Key} sx={{ color: 'text.secondary' }} />}
             endActions={endActions}
             maxLength={maxLength}
             placeholder={placeholder}

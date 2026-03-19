@@ -24,6 +24,10 @@ export class AdminCreateRoleDto {
   isSystem?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   permissions?: string[];
@@ -35,12 +39,8 @@ export class AdminUpdateRoleDto {
   name?: string;
 
   @IsOptional()
-  @IsString()
-  guard?: string;
-
-  @IsOptional()
   @IsBoolean()
-  isSystem?: boolean;
+  isActive?: boolean;
 
   @IsOptional()
   @IsArray()

@@ -14,19 +14,12 @@ import { AdminSessionGuard } from '../guards/admin-session.guard';
 import { AdminCreatePermissionDto, AdminUpdatePermissionDto } from '../dto/admin-permission.dto';
 import { PermissionService } from '../../permission/services/permission.service';
 import { NestAuthPermission } from '../../permission/entities/permission.entity';
-import { RoleService } from '../../role/services/role.service';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { NestAuthRole } from '../../role/entities/role.entity';
 
 @Controller('auth/admin/api/permissions')
 @UseGuards(AdminSessionGuard)
 export class AdminPermissionsController {
     constructor(
         private readonly permissionService: PermissionService,
-        private readonly roleService: RoleService,
-        @InjectRepository(NestAuthRole)
-        private roleRepository: Repository<NestAuthRole>,
     ) { }
 
     @Get()
@@ -86,7 +79,6 @@ export class AdminPermissionsController {
             guard: dto.guard,
             description: dto.description,
             category: dto.category,
-            metadata: dto.metadata,
         });
 
         return {
@@ -114,49 +106,15 @@ export class AdminPermissionsController {
         @Param('id') id: string,
         @Body() dto: AdminUpdatePermissionDto,
     ) {
-        const oldPermission = await this.permissionService.getPermissionById(id);
-        const oldName = oldPermission.name;
-        const oldGuard = oldPermission.guard;
-
         const permission = await this.permissionService.updatePermission(id, {
             name: dto.name,
-            guard: dto.guard,
-            description: dto.description,
             category: dto.category,
-            metadata: dto.metadata,
+            description: dto.description,
         });
-
-        // If name changed and user wants to update in roles, update all roles
-        if (dto.name && dto.name !== oldName && dto.updateInRoles === true) {
-            await this.updatePermissionInRoles(oldName, oldGuard, dto.name);
-        }
 
         return {
             permission: this.toSafePermission(permission),
         };
-    }
-
-    /**
-     * Update permission name in all roles that use it
-     */
-    private async updatePermissionInRoles(
-        oldPermissionName: string,
-        guard: string,
-        newPermissionName: string,
-    ): Promise<void> {
-        // Find all roles with this guard that contain the old permission
-        const roles = await this.roleRepository.find({
-            where: { guard },
-        });
-
-        for (const role of roles) {
-            if (role.permissions && role.permissions.includes(oldPermissionName)) {
-                role.permissions = role.permissions.map(
-                    (perm) => (perm === oldPermissionName ? newPermissionName : perm)
-                );
-                await this.roleRepository.save(role);
-            }
-        }
     }
 
     @Delete(':id')
@@ -172,7 +130,6 @@ export class AdminPermissionsController {
             guard: permission.guard,
             description: permission.description,
             category: permission.category,
-            metadata: permission.metadata || {},
             createdAt: permission.createdAt,
             updatedAt: permission.updatedAt,
         };

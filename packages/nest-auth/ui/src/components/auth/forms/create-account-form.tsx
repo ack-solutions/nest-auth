@@ -1,5 +1,6 @@
 import React from 'react';
 import { User, AlertCircle, Check } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -121,7 +122,7 @@ export const CreateAccountFormComponent: React.FC<CreateAccountFormProps> = ({
                     gap: 1.5,
                 }}
             >
-                <AlertCircle style={{ width: 20, height: 20, color: 'var(--mui-palette-warning-main)', flexShrink: 0, marginTop: 2 }} />
+                <Icon component={AlertCircle} sx={{ fontSize: 20, color: 'warning.main', flexShrink: 0, mt: 0.25 }} />
                 <Box sx={{ typography: 'body2', color: 'warning.dark' }}>
                     <Typography variant="body2" fontWeight="600" sx={{ mb: 0.5 }}>Secure Access</Typography>
                     <Typography variant="body2">
@@ -144,7 +145,7 @@ export const CreateAccountFormComponent: React.FC<CreateAccountFormProps> = ({
                         gap: 1,
                     }}
                 >
-                    <Check style={{ width: 20, height: 20, color: 'var(--mui-palette-success-main)', flexShrink: 0, marginTop: 2 }} />
+                    <Icon component={Check} sx={{ fontSize: 20, color: 'success.main', flexShrink: 0, mt: 0.25 }} />
                     <Typography variant="body2" color="success.dark">Admin account created successfully! You can now sign in.</Typography>
                 </Box>
             )}
@@ -162,7 +163,7 @@ export const CreateAccountFormComponent: React.FC<CreateAccountFormProps> = ({
                         gap: 1,
                     }}
                 >
-                    <AlertCircle style={{ width: 20, height: 20, color: 'var(--mui-palette-error-main)', flexShrink: 0, marginTop: 2 }} />
+                    <Icon component={AlertCircle} sx={{ fontSize: 20, color: 'error.main', flexShrink: 0, mt: 0.25 }} />
                     <Typography variant="body2" color="error.dark">{error}</Typography>
                 </Box>
             )}
@@ -213,7 +214,7 @@ export const CreateAccountFormComponent: React.FC<CreateAccountFormProps> = ({
                         control={control}
                         render={({ field }) => (
                             <FormField
-                                startIcon={<User style={{ width: 20, height: 20, color: 'var(--mui-palette-text-secondary)' }} />}
+                                startIcon={<User style={{ color: 'var(--mui-palette-text-secondary)' }} />}
                                 label="Name (Optional)"
                                 id="create-name"
                                 value={field.value}

@@ -4,6 +4,7 @@ import { Repository, Like } from 'typeorm';
 import { NestAuthPermission } from '../entities/permission.entity';
 import { DEFAULT_GUARD_NAME, GUARD_ERROR_CODES } from '../../auth.constants';
 import { AuthConfigService } from '../../core/services/auth-config.service';
+import { IUpdatePermissionInput } from '@ackplus/nest-auth-contracts';
 
 @Injectable()
 export class PermissionService {
@@ -33,7 +34,6 @@ export class PermissionService {
         guard?: string;
         description?: string;
         category?: string;
-        metadata?: Record<string, any>;
     }): Promise<NestAuthPermission> {
         const guard = this.resolveAndValidateGuard(data.guard);
         const existing = await this.permissionRepository.findOne({
@@ -49,7 +49,6 @@ export class PermissionService {
             guard,
             description: data.description?.trim(),
             category: data.category?.trim(),
-            metadata: data.metadata || {},
         });
 
         return this.permissionRepository.save(permission);
@@ -123,51 +122,38 @@ export class PermissionService {
 
     async updatePermission(
         id: string,
-        data: {
-            name?: string;
-            guard?: string;
-            description?: string;
-            category?: string;
-            metadata?: Record<string, any>;
-        }
+        data: IUpdatePermissionInput,
     ): Promise<NestAuthPermission> {
-        const permission = await this.getPermissionById(id);
-        const guard = data.guard !== undefined
-            ? this.resolveAndValidateGuard(data.guard)
-            : permission.guard;
-
-        if (data.name && data.name !== permission.name) {
-            // Check if new name already exists for this guard
-            const existing = await this.permissionRepository.findOne({
-                where: { name: data.name.trim(), guard },
-            });
-            if (existing) {
-                throw new ConflictException(`Permission '${data.name}' with guard '${guard}' already exists`);
-            }
-            permission.name = data.name.trim();
+        const permission = await this.permissionRepository.findOne({
+            where: { id },
+        });
+        if (!permission) {
+            throw new NotFoundException(`Permission with id ${id} not found`);
         }
-
-        if (data.guard && data.guard !== permission.guard) {
-            // Check if permission with new guard already exists
-            const existing = await this.permissionRepository.findOne({
-                where: { name: permission.name, guard: data.guard },
-            });
-            if (existing) {
-                throw new ConflictException(`Permission '${permission.name}' with guard '${data.guard}' already exists`);
+        if (data.name !== undefined) {
+            const newName = data.name.trim();
+            if (!newName) {
+                throw new BadRequestException('Permission name is required');
             }
-            permission.guard = data.guard;
-        }
+            if (newName !== permission.name) {
+                const existing = await this.permissionRepository.findOne({
+                    where: { name: newName, guard: permission.guard },
+                });
 
+                if (existing) {
+                    throw new ConflictException(
+                        `Permission '${newName}' with guard '${permission.guard}' already exists`,
+                    );
+                }
+                permission.name = newName;
+            }
+        }
         if (data.description !== undefined) {
             permission.description = data.description?.trim() || null;
         }
 
         if (data.category !== undefined) {
             permission.category = data.category?.trim() || null;
-        }
-
-        if (data.metadata !== undefined) {
-            permission.metadata = data.metadata || {};
         }
 
         return this.permissionRepository.save(permission);

@@ -1,22 +1,34 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindManyOptions, FindOneOptions, IsNull, Repository, Brackets } from 'typeorm';
-import { NestAuthRole } from '../entities/role.entity';
-import { TenantService } from '../../tenant';
+import { Brackets, DataSource, EntityManager, FindManyOptions, FindOneOptions, IsNull, Repository } from 'typeorm';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { DEFAULT_GUARD_NAME, GUARD_ERROR_CODES } from '../../auth.constants';
+import { NestAuthPermission } from '../../permission/entities/permission.entity';
+import { isUniqueConstraintViolation } from '../../utils';
+import { NestAuthRole } from '../entities/role.entity';
+import { NestAuthRolePermission } from '../entities/role-permission.entity';
+import { getRolePermissionNames } from '../utils/role-mapper.util';
+import { IUpdateRoleInput } from '@ackplus/nest-auth-contracts';
 
 @Injectable()
 export class RoleService {
     constructor(
         @InjectRepository(NestAuthRole)
         private roleRepository: Repository<NestAuthRole>,
-        private tenantService: TenantService,
+        private dataSource: DataSource,
         private authConfigService: AuthConfigService,
     ) { }
-    
+
     private getDefaultRoleGuard(): string {
         return this.authConfigService.getRoleGuards()[0] ?? DEFAULT_GUARD_NAME;
+    }
+
+    private getRoleRelations(includeTenant: boolean = true): string[] {
+        const relations = ['rolePermissions', 'rolePermissions.permission'];
+        if (includeTenant) {
+            relations.push('tenant');
+        }
+        return relations;
     }
 
     private resolveAndValidateGuard(guard: string | null | undefined): string {
@@ -30,94 +42,284 @@ export class RoleService {
         return resolved;
     }
 
+    private normalizePermissionNames(permissionNames?: string | string[]): string[] {
+        if (permissionNames === undefined || permissionNames === null) {
+            return [];
+        }
+
+        const values = Array.isArray(permissionNames) ? permissionNames : [permissionNames];
+        const normalized: string[] = [];
+        const seen = new Set<string>();
+
+        for (const value of values) {
+            const name = value?.trim();
+            if (!name || seen.has(name)) {
+                continue;
+            }
+            seen.add(name);
+            normalized.push(name);
+        }
+
+        return normalized;
+    }
+
+    private buildRoleConflictMessage(name: string, guard: string, tenantId: string | null): string {
+        const scope = tenantId ? `tenant '${tenantId}'` : 'global scope';
+        return `Role with name '${name}' already exists in guard '${guard}' for ${scope}`;
+    }
+
+    private async ensureRoleIsUnique(
+        manager: EntityManager,
+        params: { id?: string; name: string; guard: string; tenantId: string | null },
+    ): Promise<void> {
+        const existingRole = await manager
+            .getRepository(NestAuthRole)
+            .createQueryBuilder('role')
+            .where('role.name = :name', { name: params.name })
+            .andWhere('role.guard = :guard', { guard: params.guard })
+            .andWhere(
+                new Brackets((qb) => {
+                    qb.where('role.tenantId IS NULL');
+                    if (params.tenantId) {
+                        qb.orWhere('role.tenantId = :tenantId', { tenantId: params.tenantId });
+                    }
+                }),
+            )
+            .getOne();
+
+        if (existingRole && existingRole.id !== params.id) {
+            throw new ConflictException({
+                message: this.buildRoleConflictMessage(params.name, params.guard, params.tenantId),
+                code: 'ROLE_ALREADY_EXISTS',
+            });
+        }
+    }
+
+    private async resolvePermissionsByNames(
+        manager: EntityManager,
+        permissionNames: string | string[] | undefined,
+        roleGuard: string,
+    ): Promise<NestAuthPermission[]> {
+        const normalizedNames = this.normalizePermissionNames(permissionNames);
+        if (!normalizedNames.length) {
+            return [];
+        }
+
+        const permissionRepo = manager.getRepository(NestAuthPermission);
+        const matchingPermissions = await permissionRepo
+            .createQueryBuilder('permission')
+            .where('permission.guard = :guard', { guard: roleGuard })
+            .andWhere('permission.name IN (:...names)', { names: normalizedNames })
+            .getMany();
+
+        const matchingPermissionsByName = new Map(
+            matchingPermissions.map((permission) => [permission.name, permission]),
+        );
+        const missingNames = normalizedNames.filter((name) => !matchingPermissionsByName.has(name));
+
+        if (!missingNames.length) {
+            return normalizedNames
+                .map((name) => matchingPermissionsByName.get(name))
+                .filter(Boolean);
+        }
+
+        const permissionsWithOtherGuards = await permissionRepo
+            .createQueryBuilder('permission')
+            .where('permission.name IN (:...names)', { names: missingNames })
+            .getMany();
+
+        const guardMismatchMap = new Map<string, Set<string>>();
+        for (const permission of permissionsWithOtherGuards) {
+            const guards = guardMismatchMap.get(permission.name) ?? new Set<string>();
+            guards.add(permission.guard);
+            guardMismatchMap.set(permission.name, guards);
+        }
+
+        const guardMismatchNames = missingNames.filter((name) => guardMismatchMap.has(name));
+        const invalidNames = missingNames.filter((name) => !guardMismatchMap.has(name));
+        const errors: string[] = [];
+
+        if (guardMismatchNames.length) {
+            const details = guardMismatchNames
+                .map((name) => `${name} [${Array.from(guardMismatchMap.get(name) ?? []).sort().join(', ')}]`)
+                .join(', ');
+            errors.push(`Guard mismatch for permissions: ${details}. Expected guard '${roleGuard}'`);
+        }
+
+        if (invalidNames.length) {
+            errors.push(`Unknown permissions: ${invalidNames.join(', ')}`);
+        }
+
+        throw new BadRequestException({
+            message: errors.join('. '),
+            code: 'ROLE_PERMISSION_VALIDATION_FAILED',
+            invalidPermissions: invalidNames,
+            guardMismatches: guardMismatchNames.map((name) => ({
+                name,
+                guards: Array.from(guardMismatchMap.get(name) ?? []).sort(),
+            })),
+        });
+    }
+
+    private async replaceRolePermissions(
+        manager: EntityManager,
+        roleId: string,
+        permissions: NestAuthPermission[],
+    ): Promise<void> {
+        const rolePermissionRepo = manager.getRepository(NestAuthRolePermission);
+
+        await rolePermissionRepo.delete({ roleId });
+
+        if (!permissions.length) {
+            return;
+        }
+
+        const rolePermissions = permissions.map((permission) =>
+            rolePermissionRepo.create({
+                roleId,
+                permissionId: permission.id,
+            }),
+        );
+
+        await rolePermissionRepo.save(rolePermissions);
+    }
+
+    private async getHydratedRole(
+        manager: EntityManager,
+        id: string,
+        includeTenant: boolean = true,
+    ): Promise<NestAuthRole | null> {
+        return manager.getRepository(NestAuthRole).findOne({
+            where: { id },
+            relations: this.getRoleRelations(includeTenant),
+        });
+    }
+
     async createRole(
         name: string,
         guard: string | null | undefined,
         tenantId: string | null = null,
         isSystem: boolean = false,
-        permissionIds?: string | string[],
+        permissionNames?: string | string[],
+        isActive: boolean = true,
     ): Promise<NestAuthRole> {
-        const resolvedGuard = this.resolveAndValidateGuard(guard);
-
-        const role = await NestAuthRole.createRole(name, resolvedGuard, isSystem, tenantId);
-
-        if (permissionIds) {
-            await role.syncPermissions(permissionIds);
+        const normalizedName = name?.trim();
+        if (!normalizedName) {
+            throw new BadRequestException({
+                message: 'Role name is required',
+                code: 'ROLE_NAME_REQUIRED',
+            });
         }
 
-        await this.roleRepository.save(role);
-        return role;
+        const resolvedGuard = this.resolveAndValidateGuard(guard);
+        const normalizedTenantId = tenantId?.trim() || null;
+        const roleTenantId = isSystem ? null : normalizedTenantId;
 
+        return this.dataSource.transaction(async (manager) => {
+            await this.ensureRoleIsUnique(manager, {
+                name: normalizedName,
+                guard: resolvedGuard,
+                tenantId: roleTenantId,
+            });
+
+            const resolvedPermissions = await this.resolvePermissionsByNames(
+                manager,
+                permissionNames,
+                resolvedGuard,
+            );
+
+            const role = manager.getRepository(NestAuthRole).create({
+                name: normalizedName,
+                guard: resolvedGuard,
+                tenantId: roleTenantId,
+                isSystem,
+                isActive,
+            });
+
+            let savedRole: NestAuthRole;
+            try {
+                savedRole = await manager.getRepository(NestAuthRole).save(role);
+            } catch (error) {
+                if (isUniqueConstraintViolation(error)) {
+                    throw new ConflictException({
+                        message: this.buildRoleConflictMessage(normalizedName, resolvedGuard, roleTenantId),
+                        code: 'ROLE_ALREADY_EXISTS',
+                    });
+                }
+                throw error;
+            }
+
+            await this.replaceRolePermissions(manager, savedRole.id, resolvedPermissions);
+
+            return this.getHydratedRole(manager, savedRole.id, true);
+        });
     }
 
-    async getRoleById(id: string, options?: FindOneOptions<NestAuthRole>): Promise<NestAuthRole> {
+    async getRoleById(id: string, options?: Omit<FindOneOptions<NestAuthRole>, 'where'>): Promise<NestAuthRole> {
         if (!id) {
             return null;
         }
 
-        const role = await this.roleRepository.findOne({
+        return this.roleRepository.findOne({
             ...(options ? options : {}),
-            where: { id }
+            where: { id },
+            relations: Array.isArray(options?.relations)
+                ? Array.from(new Set([...this.getRoleRelations(true), ...options.relations]))
+                : this.getRoleRelations(true),
         });
-        if (!role) {
-            return null;
-        }
-        return role;
     }
 
     async getRoleByName(
         name: string,
         guard?: string,
         tenantId?: string,
-        options?: FindOneOptions<NestAuthRole>
+        options?: Omit<FindOneOptions<NestAuthRole>, 'where'>,
     ): Promise<NestAuthRole> {
-        // First check for system roles with this name
+        const relations = Array.isArray(options?.relations)
+            ? Array.from(new Set([...this.getRoleRelations(true), ...options.relations]))
+            : this.getRoleRelations(true);
+
         const systemRole = await this.roleRepository.findOne({
             ...(options ? options : {}),
             where: {
                 name,
                 ...(guard ? { guard } : {}),
-                isSystem: true
-            }
+                isSystem: true,
+            },
+            relations,
         });
 
         if (systemRole) {
             return systemRole;
         }
 
-        // Then check for tenant-specific roles
-        const role = await this.roleRepository.findOne({
+        return this.roleRepository.findOne({
             ...(options ? options : {}),
             where: {
                 name,
                 ...(guard ? { guard } : {}),
-                ...(tenantId ? { tenantId } : { tenantId: IsNull() })
-            }
+                ...(tenantId ? { tenantId } : { tenantId: IsNull() }),
+            },
+            relations,
         });
-
-        return role;
     }
 
-    async getSystemRoles(options?: FindManyOptions<NestAuthRole>): Promise<NestAuthRole[]> {
+    async getSystemRoles(options?: Omit<FindManyOptions<NestAuthRole>, 'where'>): Promise<NestAuthRole[]> {
         return this.roleRepository.find({
             ...(options ? options : {}),
             where: {
                 isSystem: true,
                 tenantId: IsNull(),
-                ...(options?.where ? options.where : {})
             },
+            relations: Array.isArray(options?.relations)
+                ? Array.from(new Set([...this.getRoleRelations(true), ...options.relations]))
+                : this.getRoleRelations(true),
             order: {
-                name: 'ASC'
-            }
+                name: 'ASC',
+            },
         });
     }
 
-    /**
-     * Get roles
-     * @param params
-     * @param options
-     * @returns
-     */
     async getRoles(
         params: {
             guard?: string;
@@ -126,11 +328,16 @@ export class RoleService {
             onlySystemRoles?: boolean;
             includeTenant?: boolean;
         } = {},
-        options?: FindManyOptions<NestAuthRole>
+        options?: FindManyOptions<NestAuthRole>,
     ): Promise<NestAuthRole[]> {
         const { guard, onlyTenantRoles, onlySystemRoles, includeTenant } = params;
-        let { tenantId } = params;
+        const { tenantId } = params;
         const query = this.roleRepository.createQueryBuilder('role');
+
+        query
+            .leftJoinAndSelect('role.rolePermissions', 'rolePermission')
+            .leftJoinAndSelect('rolePermission.permission', 'permission')
+            .distinct(true);
 
         if (guard) {
             query.andWhere('role.guard = :guard', { guard });
@@ -143,166 +350,98 @@ export class RoleService {
                 return [];
             }
             query.andWhere('role.tenantId = :tenantId', { tenantId });
-        } else {
-            if (tenantId) {
-                query.andWhere(new Brackets(qb => {
-                    qb.where('role.tenantId = :tenantId', { tenantId })
-                        .orWhere('role.isSystem = :isSystem', { isSystem: true });
-                }));
-            }
-            // When no tenantId: return all roles (system + tenant-specific)
+        } else if (tenantId) {
+            query.andWhere(new Brackets((qb) => {
+                qb.where('role.tenantId = :tenantId', { tenantId })
+                    .orWhere('role.isSystem = :isSystem', { isSystem: true });
+            }));
         }
 
         if (includeTenant) {
             query.leftJoinAndSelect('role.tenant', 'tenant');
         }
 
-        if (options) {
-            if (options.where) {
-                query.andWhere(options.where);
-            }
-            if (options.order) {
-                Object.entries(options.order).forEach(([key, value]) => {
-                    query.addOrderBy(`role.${key}`, value as 'ASC' | 'DESC');
-                });
-            }
+        if (options?.where) {
+            query.andWhere(options.where);
+        }
+
+        if (options?.order) {
+            Object.entries(options.order).forEach(([key, value]) => {
+                query.addOrderBy(`role.${key}`, value as 'ASC' | 'DESC');
+            });
         } else {
             query.orderBy('role.name', 'ASC');
         }
-        query.take(1000);
 
         return query.getMany();
     }
 
-    async updateRole(id: string, data: Partial<NestAuthRole>): Promise<NestAuthRole> {
-        const role = await this.getRoleById(id);
+    async updateRole(
+        id: string,
+        data:IUpdateRoleInput,
+    ): Promise<NestAuthRole> {
+        return this.dataSource.transaction(async (manager) => {
+            const role = await this.getHydratedRole(manager, id, true);
 
-        if (!role) {
-            throw new NotFoundException({
-                message: `Role with ID ${id} not found`,
-                code: 'ROLE_NOT_FOUND'
-            });
-        }
-
-        // Prevent changing tenantId directly
-        delete data.tenantId;
-
-        // Validate guard if being updated
-        if (data.guard !== undefined) {
-            data.guard = this.resolveAndValidateGuard(data.guard);
-        }
-
-        // Handle name update - check for conflicts
-        if (data.name !== undefined && data.name !== role.name) {
-            const newName = data.name;
-            const newGuard = data.guard !== undefined ? data.guard : role.guard;
-            const newIsSystem = data.isSystem !== undefined ? data.isSystem : role.isSystem;
-            const newTenantId = newIsSystem ? null : role.tenantId;
-
-            // Check for existing role with same name, guard, and tenantId
-            const existingRole = await this.roleRepository.findOne({
-                where: {
-                    name: newName,
-                    guard: newGuard,
-                    tenantId: newTenantId || IsNull()
-                }
-            });
-
-            if (existingRole && existingRole.id !== id) {
-                throw new ConflictException({
-                    message: `Role with name '${newName}' already exists in guard '${newGuard}'${newTenantId ? ` for tenant '${newTenantId}'` : ''}`,
-                    code: 'ROLE_ALREADY_EXISTS'
+            if (!role) {
+                throw new NotFoundException({
+                    message: `Role with ID ${id} not found`,
+                    code: 'ROLE_NOT_FOUND',
                 });
             }
-            role.name = newName;
-        }
 
-        // Handle guard update - check for conflicts
-        if (data.guard !== undefined && data.guard !== role.guard) {
-            const newName = data.name !== undefined ? data.name : role.name;
-            const newGuard = data.guard;
-            const newIsSystem = data.isSystem !== undefined ? data.isSystem : role.isSystem;
-            const newTenantId = newIsSystem ? null : role.tenantId;
-
-            // Check for existing role with same name, guard, and tenantId
-            const existingRole = await this.roleRepository.findOne({
-                where: {
-                    name: newName,
-                    guard: newGuard,
-                    tenantId: newTenantId || IsNull()
-                }
-            });
-
-            if (existingRole && existingRole.id !== id) {
-                throw new ConflictException({
-                    message: `Role with name '${newName}' already exists in guard '${newGuard}'${newTenantId ? ` for tenant '${newTenantId}'` : ''}`,
-                    code: 'ROLE_ALREADY_EXISTS'
+            const nextName = data.name !== undefined ? data.name.trim() : role.name;
+            if (!nextName) {
+                throw new BadRequestException({
+                    message: 'Role name is required',
+                    code: 'ROLE_NAME_REQUIRED',
                 });
             }
-            role.guard = newGuard;
-        }
 
-        // Handle isSystem update
-        if (data.isSystem !== undefined && data.isSystem !== role.isSystem) {
-            const newIsSystem = data.isSystem;
-            const newName = data.name !== undefined ? data.name : role.name;
-            const newGuard = data.guard !== undefined ? data.guard : role.guard;
-            const newTenantId = newIsSystem ? null : role.tenantId;
+            const shouldReplacePermissions = Object.prototype.hasOwnProperty.call(data, 'permissions');
+            const nextPermissionNames = shouldReplacePermissions
+                ? data.permissions
+                : getRolePermissionNames(role);
 
-            // If changing to system role, tenantId must be null
-            // If changing from system role, we need a tenantId (but we can't set it here, so we'll keep the existing one or throw error)
-            if (newIsSystem) {
-                role.tenantId = null;
-            } else {
-                // If changing from system to non-system, we need a tenantId
-                // But we can't set it here, so we'll throw an error
-                if (!role.tenantId) {
-                    throw new BadRequestException({
-                        message: 'Cannot change system role to non-system role without a tenant. Please assign a tenant first.',
-                        code: 'SYSTEM_ROLE_TENANT_REQUIRED'
+            await this.ensureRoleIsUnique(manager, {
+                id,
+                name: nextName,
+                guard: role.guard,
+                tenantId: role.tenantId,
+            });
+
+            const resolvedPermissions = shouldReplacePermissions
+                ? await this.resolvePermissionsByNames(manager, nextPermissionNames, role.guard)
+                : [];
+
+            role.name = nextName;
+
+            if (data.isActive !== undefined) {
+                role.isActive = data.isActive;
+            }
+
+            try {
+                await manager.getRepository(NestAuthRole).save(role);
+            } catch (error) {
+                if (isUniqueConstraintViolation(error)) {
+                    throw new ConflictException({
+                        message: this.buildRoleConflictMessage(nextName, role.guard, role.tenantId),
+                        code: 'ROLE_ALREADY_EXISTS',
                     });
                 }
+                throw error;
             }
 
-            // Check for conflicts with the new isSystem status
-            const existingRole = await this.roleRepository.findOne({
-                where: {
-                    name: newName,
-                    guard: newGuard,
-                    tenantId: newTenantId || IsNull()
-                }
-            });
-
-            if (existingRole && existingRole.id !== id) {
-                throw new ConflictException({
-                    message: `Role with name '${newName}' already exists in guard '${newGuard}'${newTenantId ? ` for tenant '${newTenantId}'` : ''}`,
-                    code: 'ROLE_ALREADY_EXISTS'
-                });
+            if (shouldReplacePermissions) {
+                await this.replaceRolePermissions(manager, role.id, resolvedPermissions);
             }
 
-            role.isSystem = newIsSystem;
-        }
-
-        // Apply any other fields
-        const { name, guard, isSystem, tenantId, ...otherData } = data;
-        Object.assign(role, otherData);
-
-        return this.roleRepository.save(role);
+            return this.getHydratedRole(manager, role.id, true);
+        });
     }
 
-    async updateRolePermissions(id: string, permissionIds: string | string[]): Promise<NestAuthRole> {
-        const role = await this.getRoleById(id);
-
-        if (!role) {
-            throw new NotFoundException({
-                message: `Role with ID ${id} not found`,
-                code: 'ROLE_NOT_FOUND'
-            });
-        }
-
-        // Permission updates are allowed for ALL roles including system roles
-        await role.syncPermissions(permissionIds);
-        return this.roleRepository.save(role);
+    async updateRolePermissions(id: string, permissionNames: string[]): Promise<NestAuthRole> {
+        return this.updateRole(id, { permissions: permissionNames });
     }
 
     async deleteRole(id: string): Promise<void> {
@@ -311,7 +450,7 @@ export class RoleService {
         if (!role) {
             throw new NotFoundException({
                 message: `Role with ID ${id} not found`,
-                code: 'ROLE_NOT_FOUND'
+                code: 'ROLE_NOT_FOUND',
             });
         }
 

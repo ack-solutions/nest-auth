@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Plus, X, Search, List } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import {
     Box,
     Typography,
@@ -22,6 +23,8 @@ export interface PermissionInputProps {
     helperText?: string;
     error?: string;
     guard?: string;
+    /** When false, only permissions from the API (for the guard) can be added; no custom/free-text permissions. */
+    allowCustom?: boolean;
 }
 
 interface PermissionSuggestion {
@@ -39,6 +42,7 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
     helperText,
     error,
     guard,
+    allowCustom = true,
 }) => {
     const [inputValue, setInputValue] = useState('');
     const [suggestions, setSuggestions] = useState<PermissionSuggestion[]>([]);
@@ -115,6 +119,13 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
         }
     }, [guard]);
 
+    // When allowCustom is false, show "all permissions" list by default so user only picks from API
+    useEffect(() => {
+        if (!allowCustom && guard) {
+            setShowAllPermissions(true);
+        }
+    }, [allowCustom, guard]);
+
     // Load all permissions when guard changes and showAllPermissions is true
     useEffect(() => {
         if (showAllPermissions && guard) {
@@ -180,9 +191,12 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
     };
 
     const handleBulkAdd = (text: string) => {
-        const permissions = parsePermissionsFromInput(text);
-        if (permissions.length > 0) {
-            onChange([...value, ...permissions]);
+        const parsed = parsePermissionsFromInput(text);
+        const toAdd = allowCustom
+            ? parsed
+            : parsed.filter((p) => allPermissions.some((ap) => ap.name === p));
+        if (toAdd.length > 0) {
+            onChange([...value, ...toAdd]);
             setInputValue('');
             setPreviewPermissions([]);
             setShowSuggestions(false);
@@ -247,10 +261,9 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
             } else if (showSuggestions && suggestions.length > 0) {
                 handleSuggestionClick(suggestions[0]);
             } else if (previewPermissions.length > 0) {
-                // Add all preview permissions
                 handleAddClick();
-            } else if (inputValue.trim()) {
-                // Single permission
+            } else if (inputValue.trim() && allowCustom) {
+                // Only allow adding raw text when allowCustom is true
                 handleAdd(inputValue);
             }
         } else if (e.key === 'ArrowDown') {
@@ -266,7 +279,7 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
         } else if (e.key === 'Escape') {
             setShowSuggestions(false);
             setHighlightedIndex(-1);
-        } else if (e.key === ',') {
+        } else if (e.key === ',' && allowCustom) {
             e.preventDefault();
             if (inputValue.trim()) {
                 handleAdd(inputValue);
@@ -336,13 +349,13 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
                     InputProps={{
                         startAdornment: (
                             <InputAdornment position="start" sx={{ mr: 0 }}>
-                                <Search style={{ width: 16, height: 16, color: 'var(--mui-palette-text-secondary)' }} />
+                                <Icon component={Search} sx={{ fontSize: 16, color: 'text.secondary' }} />
                             </InputAdornment>
                         ),
                         endAdornment: previewPermissions.length > 0 ? (
                             <InputAdornment position="end">
                                 <IconButton size="small" onClick={handleAddClick} title={`Add ${previewPermissions.length} permission(s)`} color="primary">
-                                    <Plus style={{ width: 20, height: 20 }} />
+                                    <Icon component={Plus} sx={{ fontSize: 20 }} />
                                 </IconButton>
                             </InputAdornment>
                         ) : undefined,
@@ -367,7 +380,7 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
                                 size="small"
                                 label={perm}
                                 onDelete={() => handleRemovePreview(perm)}
-                                deleteIcon={<X style={{ width: 12, height: 12 }} />}
+                                deleteIcon={<Icon component={X} sx={{ fontSize: 12 }} />}
                                 sx={{ fontFamily: 'monospace' }}
                             />
                         ))}
@@ -414,7 +427,9 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
                         ) : inputValue.trim() ? (
                             <Box sx={{ p: 1.5, textAlign: 'center' }}>
                                 <Typography variant="caption" color="text.secondary">
-                                    Press Enter or click <Plus style={{ width: 12, height: 12, verticalAlign: 'middle' }} /> to add &quot;{inputValue.trim()}&quot;
+                                    {allowCustom
+                                        ? `Press Enter or click + to add "${inputValue.trim()}"`
+                                        : 'No match. Select from the list below or refine your search.'}
                                 </Typography>
                             </Box>
                         ) : null}
@@ -431,7 +446,7 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
                             setShowAllPermissions(!showAllPermissions);
                             if (!showAllPermissions && allPermissions.length === 0) fetchAllPermissions();
                         }}
-                        startIcon={showAllPermissions ? <Search style={{ width: 16, height: 16 }} /> : <List style={{ width: 16, height: 16 }} />}
+                        startIcon={showAllPermissions ? <Icon component={Search} /> : <Icon component={List} />}
                         sx={{ color: 'primary.main', textTransform: 'none' }}
                     >
                         {showAllPermissions ? 'Search Mode' : 'Show All Permissions'}
@@ -462,7 +477,7 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
                             onChange={(e) => setAllPermissionsSearchQuery(e.target.value)}
                             InputProps={{
                                 startAdornment: (
-                                    <InputAdornment position="start"><Search style={{ width: 14, height: 14, color: 'var(--mui-palette-text-secondary)' }} /></InputAdornment>
+                                    <InputAdornment position="start"><Icon component={Search} sx={{ fontSize: 14, color: 'text.secondary' }} /></InputAdornment>
                                 ),
                             }}
                             sx={{ '& .MuiInputBase-root': { fontSize: '0.75rem' }, width: '100%' }}
@@ -528,7 +543,7 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
                             value={listSearchQuery}
                             onChange={(e) => setListSearchQuery(e.target.value)}
                             InputProps={{
-                                startAdornment: <InputAdornment position="start"><Search style={{ width: 14, height: 14, color: 'var(--mui-palette-text-secondary)' }} /></InputAdornment>,
+                                startAdornment: <InputAdornment position="start"><Icon component={Search} sx={{ fontSize: 14, color: 'text.secondary' }} /></InputAdornment>,
                             }}
                             sx={{ '& .MuiInputBase-root': { fontSize: '0.75rem' }, width: '100%', mt: 1 }}
                         />
@@ -539,7 +554,7 @@ export const PermissionInput: React.FC<PermissionInputProps> = ({
                                 <Box key={perm} sx={{ px: 1.5, py: 1, display: 'flex', alignItems: 'center', gap: 1, '&:hover': { bgcolor: 'action.hover' } }}>
                                     <Checkbox size="small" checked={value.includes(perm)} onChange={() => handleTogglePermission(perm)} title={value.includes(perm) ? 'Uncheck to remove' : 'Check to add'} />
                                     <Typography variant="body2" fontFamily="monospace" sx={{ flex: 1, wordBreak: 'break-word' }}>{perm}</Typography>
-                                    <IconButton size="small" onClick={() => handleRemove(perm)} title="Remove permission" sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}><X style={{ width: 16, height: 16 }} /></IconButton>
+                                    <IconButton size="small" onClick={() => handleRemove(perm)} title="Remove permission" sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}><Icon component={X} sx={{ fontSize: 16 }} /></IconButton>
                                 </Box>
                             ))
                         ) : (

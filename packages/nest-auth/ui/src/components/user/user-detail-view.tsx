@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Phone, Building2, Shield, CheckCircle, XCircle, Calendar, Edit2, Lock, Key, Smartphone, Trash2, AlertCircle, User as UserIcon } from 'lucide-react';
+import { Mail, Phone, Building2, Shield, CheckCircle, XCircle, Calendar, Pencil, Lock, Key, Smartphone, Trash2, AlertCircle, User as UserIcon } from 'lucide-react';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
@@ -16,6 +16,7 @@ import { AddTenantDialog } from './add-tenant-dialog';
 import type { User, Role, UserDetails, Tenant } from '../../types';
 import { api } from '../../services/api';
 import { useConfirm } from '../../hooks/use-confirm';
+import { Icon } from '@mui/material';
 
 const tooltipSlotProps = { popper: { sx: { '& .MuiTooltip-tooltip': { typography: 'caption' } } } };
 
@@ -82,7 +83,7 @@ const StatusBadge: React.FC<{
 
     return (
         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.25, borderRadius: '9999px', typography: 'caption', fontWeight: 600, border: '1px solid', ...sx }}>
-            {status ? <CheckCircle style={{ width: 12, height: 12 }} /> : <XCircle style={{ width: 12, height: 12 }} />}
+            {status ? <Icon component={CheckCircle} sx={{ fontSize: 12 }} /> : <Icon component={XCircle} sx={{ fontSize: 12 }} />}
             {status ? activeLabel : inactiveLabel}
         </Box>
     );
@@ -226,16 +227,26 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                         <Stack spacing={2}>
                             <Section
                                 title="Basic Information"
-                                icon={<UserIcon style={{ width: 16, height: 16, color: 'var(--mui-palette-primary-main)' }} />}
+                                icon={<Icon component={UserIcon} sx={{ fontSize: 16, color: 'primary.main' }} />}
                                 action={
                                     <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
                                         <Tooltip title="Edit roles for this user" slotProps={tooltipSlotProps}>
-                                            <Button size="small" variant="outlined" color="inherit" onClick={() => setShowRolesEdit(true)} startIcon={<Shield style={{ width: 16, height: 16 }} />} sx={{ minWidth: 0, py: 0.5 }}>
+                                            <Button size="small"
+                                                variant="outlined" color="inherit" onClick={() => setShowRolesEdit(true)}
+                                                startIcon={<Icon component={Shield} />}
+                                                sx={{ minWidth: 0, py: 0.5 }}>
                                                 Roles
                                             </Button>
                                         </Tooltip>
                                         <Tooltip title="Edit email, phone, and basic info" slotProps={tooltipSlotProps}>
-                                            <Button size="small" variant="outlined" color="inherit" onClick={() => setShowBasicInfoEdit(true)} startIcon={<Edit2 style={{ width: 16, height: 16 }} />} sx={{ minWidth: 0, py: 0.5 }}>
+                                            <Button
+                                             size="small"
+                                                variant="outlined"
+                                                color="inherit"
+                                                onClick={() => setShowBasicInfoEdit(true)}
+                                                startIcon={<Icon component={Pencil} />}
+                                                sx={{ minWidth: 0, py: 0.5 }}
+                                            >
                                                 Edit
                                             </Button>
                                         </Tooltip>
@@ -243,65 +254,14 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                                 }
                             >
                                 <Stack spacing={0.25}>
-                                    <InfoRow label="Email" value={currentUser.email} icon={<Mail style={{ width: 14, height: 14 }} />} />
-                                    <InfoRow label="Phone" value={currentUser.phone || '—'} icon={<Phone style={{ width: 14, height: 14 }} />} />
-                                    <Box sx={{ py: 0.75 }}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
-                                            <Building2 style={{ width: 14, height: 14, color: 'var(--mui-palette-text-secondary)', flexShrink: 0 }} />
-                                            <Box sx={{ minWidth: 0, flex: 1 }}>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>Tenants &amp; Roles</Typography>
-                                                    <Stack direction="row" spacing={0.5}>
-                                                        <Tooltip title="Manage user's tenants" slotProps={tooltipSlotProps}>
-                                                            <IconButton size="small" color="inherit" onClick={() => setShowTenantsEdit(true)} aria-label="Edit tenants">
-                                                                <Building2 style={{ width: 18, height: 18 }} />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                        <Tooltip title="Manage user's roles" slotProps={tooltipSlotProps}>
-                                                            <IconButton size="small" color="inherit" onClick={() => setShowRolesEdit(true)} aria-label="Edit roles">
-                                                                <Shield style={{ width: 18, height: 18 }} />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                    </Stack>
-                                                </Box>
-                                                {currentUser.userAccesses?.length ? (
-                                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 0.25 }}>
-                                                        {currentUser.userAccesses.map((access) => {
-                                                            const tenant = access.tenant;
-                                                            const roleList = access.roles ?? [];
-                                                            const roleNames = roleList.map((r: any) => (typeof r === 'string' ? r : r.name));
-                                                            return (
-                                                                <Box key={access.tenantId} sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', bgcolor: 'grey.50', p: 1 }}>
-                                                                    <Box sx={{ mb: 0.75 }}>
-                                                                        <Typography variant="caption" fontWeight={500}>
-                                                                            {tenant?.name || tenant?.slug || access.tenantId}
-                                                                        </Typography>
-                                                                    </Box>
-                                                                    {roleNames.length > 0 ? (
-                                                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                                                            {roleNames.map((name) => (
-                                                                                <Chip key={name} label={name} size="small" sx={{ bgcolor: 'primary.50', color: 'primary.700', border: '1px solid', borderColor: 'primary.200', fontSize: '0.75rem' }} />
-                                                                            ))}
-                                                                        </Box>
-                                                                    ) : (
-                                                                        <Typography variant="caption" color="text.secondary" fontStyle="italic">No roles</Typography>
-                                                                    )}
-                                                                </Box>
-                                                            );
-                                                        })}
-                                                    </Box>
-                                                ) : (
-                                                    <Typography variant="body2" color="text.secondary" fontStyle="italic">No tenants assigned</Typography>
-                                                )}
-                                            </Box>
-                                        </Box>
-                                    </Box>
+                                    <InfoRow label="Email" value={currentUser.email} icon={<Icon component={Mail} sx={{ fontSize: 14 }} />} />
+                                    <InfoRow label="Phone" value={currentUser.phone || '—'} icon={<Icon component={Phone} sx={{ fontSize: 14 }} />} />
                                 </Stack>
                             </Section>
 
                             <Section
                                 title="Tenants"
-                                icon={<Building2 style={{ width: 16, height: 16, color: 'var(--mui-palette-primary-main)' }} />}
+                                icon={<Icon component={Building2} sx={{ fontSize: 16, color: 'primary.main' }} />}
                                 action={
                                     tenantMode === 'shared' ? (
                                         <Button
@@ -339,16 +299,16 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
 
                             <Section
                                 title="Status & Security"
-                                icon={<Shield style={{ width: 16, height: 16, color: 'var(--mui-palette-primary-main)' }} />}
+                                icon={<Icon component={Shield} sx={{ fontSize: 16, color: 'primary.main' }} />}
                                 action={
                                     <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
                                         <Tooltip title="Change user password" slotProps={tooltipSlotProps}>
-                                            <Button size="small" variant="outlined" color="inherit" onClick={() => setShowPasswordEdit(true)} startIcon={<Lock style={{ width: 16, height: 16 }} />} sx={{ minWidth: 0, py: 0.5 }}>
+                                            <Button size="small" variant="outlined" color="inherit" onClick={() => setShowPasswordEdit(true)} startIcon={<Icon component={Lock} />} sx={{ minWidth: 0, py: 0.5 }}>
                                                 Password
                                             </Button>
                                         </Tooltip>
                                         <Tooltip title="Edit active status, verification, and security" slotProps={tooltipSlotProps}>
-                                            <Button size="small" variant="outlined" color="inherit" onClick={() => setShowSecurityEdit(true)} startIcon={<Edit2 style={{ width: 16, height: 16 }} />} sx={{ minWidth: 0, py: 0.5 }}>
+                                            <Button size="small" variant="outlined" color="inherit" onClick={() => setShowSecurityEdit(true)} startIcon={<Icon component={Pencil} />} sx={{ minWidth: 0, py: 0.5 }}>
                                                 Edit
                                             </Button>
                                         </Tooltip>
@@ -359,8 +319,8 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                                     <InfoRow label="Account" value={<StatusBadge status={currentUser.isActive} activeLabel="Active" inactiveLabel="Inactive" />} />
                                     <InfoRow label="Email" value={<StatusBadge status={currentUser.isVerified} activeLabel="Verified" inactiveLabel="Unverified" variant="success-warning" />} />
                                     <InfoRow label="MFA" value={<StatusBadge status={currentUser.isMfaEnabled} activeLabel="Enabled" inactiveLabel="Disabled" variant="success-secondary" />} />
-                                    <InfoRow label="Created" value={new Date(currentUser.createdAt).toLocaleDateString()} icon={<Calendar style={{ width: 14, height: 14 }} />} />
-                                    <InfoRow label="Updated" value={new Date(currentUser.updatedAt).toLocaleDateString()} icon={<Calendar style={{ width: 14, height: 14 }} />} />
+                                    <InfoRow label="Created" value={new Date(currentUser.createdAt).toLocaleDateString()} icon={<Icon component={Calendar} sx={{ fontSize: 14 }} />} />
+                                    <InfoRow label="Updated" value={new Date(currentUser.updatedAt).toLocaleDateString()} icon={<Icon component={Calendar} sx={{ fontSize: 14 }} />} />
                                 </Stack>
                             </Section>
                         </Stack>
@@ -368,11 +328,11 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
 
                     <Grid size={{ xs: 12, md: 4 }}>
                         <Stack spacing={2}>
-                            <Section title="Login Methods" icon={<Key style={{ width: 16, height: 16, color: 'var(--mui-palette-primary-main)' }} />}>
+                            <Section title="Login Methods" icon={<Icon component={Key} sx={{ fontSize: 16, color: 'primary.main' }} />}>
                                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, bgcolor: 'grey.50', borderRadius: 1 }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Mail style={{ width: 16, height: 16, color: 'var(--mui-palette-text-secondary)' }} />
+                                            <Icon component={Mail} sx={{ fontSize: 16, color: 'text.secondary' }} />
                                             <Box>
                                                 <Typography variant="body2" fontWeight={500}>Email/Password</Typography>
                                                 <Typography variant="caption" color="text.secondary">{loginMethods.hasPassword ? 'Password set' : 'No password'}</Typography>
@@ -382,7 +342,7 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                                     </Box>
                                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, bgcolor: 'grey.50', borderRadius: 1 }}>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Smartphone style={{ width: 16, height: 16, color: 'var(--mui-palette-text-secondary)' }} />
+                                            <Icon component={Smartphone} sx={{ fontSize: 16, color: 'text.secondary' }} />
                                             <Box>
                                                 <Typography variant="body2" fontWeight={500}>Phone/OTP</Typography>
                                                 <Typography variant="caption" color="text.secondary">{currentUser.phone || 'Not configured'}</Typography>
@@ -393,7 +353,7 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                                 </Box>
                             </Section>
 
-                            <Section title="MFA Methods" icon={<Shield style={{ width: 16, height: 16, color: 'var(--mui-palette-primary-main)' }} />}>
+                            <Section title="MFA Methods" icon={<Icon component={Shield} sx={{ fontSize: 16, color: 'primary.main' }} />}>
                                 {availableMfaMethods.length > 0 ? (
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -404,7 +364,7 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                                                         key={method}
                                                         size="small"
                                                         label={formatMfaMethod(method)}
-                                                        icon={isEnabled ? <CheckCircle style={{ width: 12, height: 12 }} /> : <XCircle style={{ width: 12, height: 12 }} />}
+                                                        icon={isEnabled ? <Icon component={CheckCircle} sx={{ fontSize: 12 }} /> : <Icon component={XCircle} sx={{ fontSize: 12 }} />}
                                                         sx={isEnabled ? { bgcolor: 'success.50', color: 'success.dark', border: '1px solid', borderColor: 'success.200' } : { bgcolor: 'grey.100', color: 'text.secondary', border: '1px solid', borderColor: 'grey.300' }}
                                                     />
                                                 );
@@ -417,7 +377,7 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                                             </Box>
                                             {mfaDetails && !mfaDetails.allowUserToggle && (
                                                 <Box sx={{ color: 'warning.main', display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                                                    <AlertCircle style={{ width: 12, height: 12 }} />
+                                                    <Icon component={AlertCircle} sx={{ fontSize: 12 }} />
                                                     User toggle disabled
                                                 </Box>
                                             )}
@@ -428,14 +388,14 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                                 )}
                             </Section>
 
-                            <Section title={`TOTP Devices (${totpDevices.length})`} icon={<Smartphone style={{ width: 16, height: 16, color: 'var(--mui-palette-primary-main)' }} />}>
+                            <Section title={`TOTP Devices (${totpDevices.length})`} icon={<Icon component={Smartphone} sx={{ fontSize: 16, color: 'primary.main' }} />}>
                                 {totpDevices.length > 0 ? (
                                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                                         {totpDevices.map((device) => (
                                             <Box key={device.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, bgcolor: 'grey.50', borderRadius: 1, '&:hover': { bgcolor: 'grey.100' } }}>
                                                 <Box sx={{ flex: 1, minWidth: 0 }}>
                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        <Smartphone style={{ width: 14, height: 14, color: 'var(--mui-palette-text-secondary)' }} />
+                                                        <Icon component={Smartphone} sx={{ fontSize: 14, color: 'text.secondary' }} />
                                                         <Typography variant="body2" fontWeight={500} noWrap>{device.deviceName}</Typography>
                                                         <StatusBadge status={device.verified} activeLabel="✓" inactiveLabel="Pending" variant="success-warning" />
                                                     </Box>
@@ -444,16 +404,16 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                                                     </Typography>
                                                 </Box>
                                                 <Tooltip title={`Remove device "${device.deviceName}"`} slotProps={tooltipSlotProps}>
-                                                <IconButton size="small" color="error" onClick={() => handleDeleteTotpDevice(device.id, device.deviceName)} aria-label={`Delete TOTP device ${device.deviceName}`}>
-                                                    <Trash2 style={{ width: 20, height: 20 }} />
-                                                </IconButton>
+                                                    <IconButton size="small" color="error" onClick={() => handleDeleteTotpDevice(device.id, device.deviceName)} aria-label={`Delete TOTP device ${device.deviceName}`}>
+                                                        <Icon component={Trash2} sx={{ fontSize: 20 }} />
+                                                    </IconButton>
                                                 </Tooltip>
                                             </Box>
                                         ))}
                                     </Box>
                                 ) : (
                                     <Box sx={{ textAlign: 'center', py: 3, color: 'text.disabled' }}>
-                                        <Smartphone style={{ width: 32, height: 32, margin: '0 auto 4px', display: 'block' }} />
+                                        <Icon component={Smartphone} sx={{ fontSize: 32, margin: '0 auto 4px', display: 'block' }} />
                                         <Typography variant="caption">No devices</Typography>
                                     </Box>
                                 )}
@@ -463,15 +423,15 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
 
                     <Grid size={{ xs: 12, md: 4 }}>
                         <Stack spacing={2}>
-                            <Section title="Custom Metadata" icon={<Key style={{ width: 16, height: 16, color: 'var(--mui-palette-primary-main)' }} />} action={<Tooltip title="Edit custom metadata (JSON)" slotProps={tooltipSlotProps}><Button size="small" variant="outlined" color="inherit" onClick={() => setShowMetadataEdit(true)} startIcon={<Edit2 style={{ width: 16, height: 16 }} />} sx={{ minWidth: 0, py: 0.5 }}>Edit metadata</Button></Tooltip>}>
+                            <Section title="Custom Metadata" icon={<Icon component={Key} sx={{ fontSize: 16, color: 'primary.main' }} />} action={<Tooltip title="Edit custom metadata (JSON)" slotProps={tooltipSlotProps}><Button size="small" variant="outlined" color="inherit" onClick={() => setShowMetadataEdit(true)} startIcon={<Icon component={Pencil} />} sx={{ minWidth: 0, py: 0.5 }}>Edit metadata</Button></Tooltip>}>
                                 <Box component="pre" sx={{ bgcolor: 'grey.50', p: 1.5, borderRadius: 1, overflowX: 'auto', fontSize: '0.75rem', fontFamily: 'monospace', border: '1px solid', borderColor: 'divider', color: 'text.primary', maxHeight: 192, overflowY: 'auto' }}>
                                     {JSON.stringify(currentUser.metadata || {}, null, 2)}
                                 </Box>
                             </Section>
-                            <Section title={`Active Sessions (${sessions.length})`} icon={<Lock style={{ width: 16, height: 16, color: 'var(--mui-palette-primary-main)' }} />}>
+                            <Section title={`Active Sessions (${sessions.length})`} icon={<Icon component={Lock} sx={{ fontSize: 16, color: 'primary.main' }} />}>
                                 {sessionError && (
                                     <Box sx={{ bgcolor: 'error.light', border: '1px solid', borderColor: 'error.main', color: 'error.dark', typography: 'caption', px: 1.5, py: 1, borderRadius: 1, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <AlertCircle style={{ width: 14, height: 14 }} />
+                                        <Icon component={AlertCircle} sx={{ fontSize: 14 }} />
                                         {sessionError}
                                     </Box>
                                 )}
@@ -487,9 +447,9 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                                                     </Typography>
                                                 </Box>
                                                 <Tooltip title="Revoke this session (user will be signed out on that device)" slotProps={tooltipSlotProps}>
-                                                <IconButton size="small" color="error" onClick={() => handleRevokeSession(session.id)} disabled={sessionActionId === session.id} aria-label="Revoke session">
-                                                    {sessionActionId === session.id ? <CircularProgress size={20} sx={{ color: 'inherit' }} /> : <Trash2 style={{ width: 20, height: 20 }} />}
-                                                </IconButton>
+                                                    <IconButton size="small" color="error" onClick={() => handleRevokeSession(session.id)} disabled={sessionActionId === session.id} aria-label="Revoke session">
+                                                        {sessionActionId === session.id ? <CircularProgress size={20} sx={{ color: 'inherit' }} /> : <Icon component={Trash2} sx={{ fontSize: 20 }} />}
+                                                    </IconButton>
                                                 </Tooltip>
                                             </Box>
                                         ))}
@@ -499,23 +459,23 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                                             </Typography>
                                         )}
                                         <Tooltip title="Sign out this user on all devices" slotProps={tooltipSlotProps}>
-                                        <span style={{ display: 'block', width: '100%' }}>
-                                            <Button variant="outlined" color="inherit" onClick={handleRevokeAllSessions} disabled={sessionActionId === 'all'} fullWidth size="small" sx={{ mt: 1, typography: 'caption' }}>
-                                                {sessionActionId === 'all' ? (
-                                                    <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        <CircularProgress size={12} />
-                                                        Revoking...
-                                                    </Box>
-                                                ) : (
-                                                    'Revoke all sessions'
-                                                )}
-                                            </Button>
-                                        </span>
+                                            <span style={{ display: 'block', width: '100%' }}>
+                                                <Button variant="outlined" color="inherit" onClick={handleRevokeAllSessions} disabled={sessionActionId === 'all'} fullWidth size="small" sx={{ mt: 1, typography: 'caption' }}>
+                                                    {sessionActionId === 'all' ? (
+                                                        <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                            <CircularProgress size={12} />
+                                                            Revoking...
+                                                        </Box>
+                                                    ) : (
+                                                        'Revoke all sessions'
+                                                    )}
+                                                </Button>
+                                            </span>
                                         </Tooltip>
                                     </Box>
                                 ) : (
                                     <Box sx={{ textAlign: 'center', py: 4, color: 'text.disabled' }}>
-                                        <Lock style={{ width: 40, height: 40, margin: '0 auto 8px', display: 'block' }} />
+                                        <Icon component={Lock} sx={{ fontSize: 40, margin: '0 auto 8px', display: 'block' }} />
                                         <Typography variant="caption">No active sessions</Typography>
                                     </Box>
                                 )}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Terminal } from 'lucide-react';
+import Icon from '@mui/material/Icon';
 import { Modal } from '../../modal';
 import { Tabs } from '../components/tabs';
 import { ResetPasswordCodeExamples } from '../components/reset-password-code-examples';
@@ -57,7 +58,7 @@ export const ForgotPasswordDialog: React.FC<ForgotPasswordDialogProps> = ({ open
             onClose={handleClose}
             title="Reset Admin Password"
             subTitle="Reset your password using email and Nest Auth Secret Key"
-            icon={<Terminal style={{ width: 24, height: 24, color: 'var(--mui-palette-primary-main)' }} />}
+            icon={<Icon component={Terminal} sx={{ fontSize: 24, color: 'primary.main' }} />}
             tabs={
                 <Tabs tabs={tabs} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as 'form' | 'code')} />
             }
