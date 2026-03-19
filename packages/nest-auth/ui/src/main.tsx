@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { App } from './app-1';
+import { App } from './app';
 import { ThemeProvider } from './theme';
 import './index.css';
 import { SettingsProvider } from './theme/settings/settings-provider';
