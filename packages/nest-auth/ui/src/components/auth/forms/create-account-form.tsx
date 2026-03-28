@@ -1,16 +1,20 @@
 import React from 'react';
-import { User, AlertCircle, Check } from 'lucide-react';
-import Icon from '@mui/material/Icon';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { Box, Stack, Typography } from '@mui/material';
-import { PasswordRequirements } from '../components/password-requirements';
-import { PasswordField } from '../../form/password-field';
-import { EmailField } from '../../form/email-field';
-import { SecretKeyField } from '../../form/secret-key-field';
-import { FormField } from '../../form/form-field';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
+import InputAdornment from '@mui/material/InputAdornment';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import { PasswordRequirements } from '../components/password-requirements';
+import { RHFEmailField } from '../../form/rhf-email-field';
+import { RHFPasswordField } from '../../form/rhf-password-field';
+import { RHFSecretKeyField } from '../../form/rhf-secret-key-field';
+import { RHFTextField } from '../../form/rhf-text-field';
 
 interface CreateAccountFormData {
     email: string;
@@ -56,7 +60,7 @@ export const CreateAccountFormComponent: React.FC<CreateAccountFormProps> = ({
     const {
         control,
         handleSubmit,
-        formState: { errors, isSubmitting },
+        formState: { isSubmitting },
         reset,
     } = useForm<CreateAccountFormData>({
         resolver: yupResolver(createAccountSchema) as any,
@@ -110,162 +114,97 @@ export const CreateAccountFormComponent: React.FC<CreateAccountFormProps> = ({
 
     return (
         <Stack spacing={2}>
-            <Box
-                sx={{
-                    p: 2,
-                    bgcolor: 'warning.light',
-                    border: '1px solid',
-                    borderColor: 'warning.main',
-                    borderRadius: 1,
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 1.5,
-                }}
-            >
-                <Icon component={AlertCircle} sx={{ fontSize: 20, color: 'warning.main', flexShrink: 0, mt: 0.25 }} />
-                <Box sx={{ typography: 'body2', color: 'warning.dark' }}>
-                    <Typography variant="body2" fontWeight="600" sx={{ mb: 0.5 }}>Secure Access</Typography>
-                    <Typography variant="body2">
-                        Admin accounts can only be created using your <strong>Nest Auth Secret Key</strong> configured
-                        in <code>adminConsole.secretKey</code>. This key is required for admin console security operations.
-                    </Typography>
-                </Box>
-            </Box>
+            <Alert severity="warning" sx={{ alignItems: 'flex-start' }}>
+                <Typography variant="body2" fontWeight={600} component="div" gutterBottom>
+                    Secure Access
+                </Typography>
+                <Typography variant="body2" component="div">
+                    Admin accounts can only be created using your <strong>Nest Auth Secret Key</strong> configured in{' '}
+                    <code>adminConsole.secretKey</code>. This key is required for admin console security operations.
+                </Typography>
+            </Alert>
 
             {success && (
-                <Box
-                    sx={{
-                        p: 1.5,
-                        bgcolor: 'success.light',
-                        border: '1px solid',
-                        borderColor: 'success.main',
-                        borderRadius: 1,
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 1,
-                    }}
-                >
-                    <Icon component={Check} sx={{ fontSize: 20, color: 'success.main', flexShrink: 0, mt: 0.25 }} />
-                    <Typography variant="body2" color="success.dark">Admin account created successfully! You can now sign in.</Typography>
-                </Box>
+                <Alert severity="success">Admin account created successfully! You can now sign in.</Alert>
             )}
 
-            {error && (
-                <Box
-                    sx={{
-                        p: 1.5,
-                        bgcolor: 'error.light',
-                        border: '1px solid',
-                        borderColor: 'error.main',
-                        borderRadius: 1,
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 1,
-                    }}
-                >
-                    <Icon component={AlertCircle} sx={{ fontSize: 20, color: 'error.main', flexShrink: 0, mt: 0.25 }} />
-                    <Typography variant="body2" color="error.dark">{error}</Typography>
-                </Box>
-            )}
+            {error && <Alert severity="error">{error}</Alert>}
 
             <form onSubmit={handleSubmit(onSubmit)}>
                 <Stack spacing={2}>
-                    <Controller
+                    <RHFSecretKeyField
                         name="secretKey"
                         control={control}
-                        render={({ field }) => (
-                            <SecretKeyField
-                                id="create-secret-key"
-                                label="Nest Auth Secret Key *"
-                                value={field.value}
-                                onChange={field.onChange}
-                                disabled={isSubmitting}
-                                error={errors.secretKey?.message}
-                                helpText={
-                                    !errors.secretKey ? (
-                                        <>
-                                            Your Nest Auth secret key configured in <code>adminConsole.secretKey</code>{' '}
-                                            (used for admin console security)
-                                        </>
-                                    ) : undefined
-                                }
-                            />
-                        )}
+                        id="create-secret-key"
+                        label="Nest Auth Secret Key"
+                        disabled={isSubmitting}
+                        helpText={
+                            <>
+                                Your Nest Auth secret key configured in <code>adminConsole.secretKey</code> (used for
+                                admin console security)
+                            </>
+                        }
                     />
 
-                    <Controller
+                    <RHFEmailField
                         name="email"
                         control={control}
-                        render={({ field }) => (
-                            <EmailField
-                                id="create-email"
-                                label="Email Address *"
-                                value={field.value}
-                                onChange={field.onChange}
-                                disabled={isSubmitting}
-                                error={errors.email?.message}
-                                autoComplete="username"
-                            />
-                        )}
+                        id="create-email"
+                        label="Email Address"
+                        disabled={isSubmitting}
+                        autoComplete="username"
+                        required
                     />
 
-                    <Controller
+                    <RHFTextField
                         name="name"
                         control={control}
-                        render={({ field }) => (
-                            <FormField
-                                startIcon={<User style={{ color: 'var(--mui-palette-text-secondary)' }} />}
-                                label="Name (Optional)"
-                                id="create-name"
-                                value={field.value}
-                                onChange={field.onChange}
-                                disabled={isSubmitting}
-                                placeholder="Admin User"
-                                error={errors.name?.message}
-                            />
-                        )}
+                        id="create-name"
+                        label="Name (Optional)"
+                        disabled={isSubmitting}
+                        placeholder="Admin User"
+                        slotProps={{
+                            input: {
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <PersonOutlineIcon fontSize="small" color="action" />
+                                    </InputAdornment>
+                                ),
+                            },
+                        }}
                     />
 
-                    <Controller
+                    <RHFPasswordField
                         name="password"
                         control={control}
-                        render={({ field }) => (
-                            <PasswordField
-                                id="create-password"
-                                label="Password *"
-                                value={field.value}
-                                onChange={field.onChange}
-                                disabled={isSubmitting}
-                                error={errors.password?.message}
-                                showGenerateButton={true}
-                                showStrengthIndicator={true}
-                            />
-                        )}
+                        id="create-password"
+                        label="Password"
+                        disabled={isSubmitting}
+                        showGenerateButton={true}
+                        showStrengthIndicator={true}
                     />
 
                     <PasswordRequirements />
 
-                    <Button type="submit" variant="contained" color="primary" disabled={isSubmitting} fullWidth sx={{ py: 1.5 }}>
-                        {isSubmitting ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                                <Box
-                                    sx={{
-                                        width: 20,
-                                        height: 20,
-                                        border: '2px solid',
-                                        borderColor: 'primary.contrastText',
-                                        borderTopColor: 'transparent',
-                                        borderRadius: '50%',
-                                        animation: 'spin 0.8s linear infinite',
-                                        '@keyframes spin': { to: { transform: 'rotate(360deg)' } },
-                                    }}
-                                />
-                                Creating account...
-                            </Box>
-                        ) : (
-                            'Create Admin Account'
-                        )}
-                    </Button>
+                    <Box >
+                        <Button
+                            type="submit"
+                            variant="contained"
+                            color="primary"
+                            disabled={isSubmitting}
+                            fullWidth
+                            sx={{ py: 1.5 }}
+                        >
+                            {isSubmitting ? (
+                                <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
+                                    <CircularProgress size={20} color="inherit" />
+                                    <span>Creating account...</span>
+                                </Stack>
+                            ) : (
+                                'Create Admin Account'
+                            )}
+                        </Button>
+                    </Box>
                 </Stack>
             </form>
         </Stack>

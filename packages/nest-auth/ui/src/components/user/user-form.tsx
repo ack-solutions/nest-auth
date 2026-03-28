@@ -1,10 +1,10 @@
 import React from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Box, Stack, Typography } from '@mui/material';
-import { EmailField } from '../form/email-field';
-import { Select } from '../select';
+import { RHFEmailField } from '../form/rhf-email-field';
+import { RHFSelect } from '../form/rhf-select';
 import { FormFooterAction } from '../form-footer';
 import { Plus } from 'lucide-react';
 import Icon from '@mui/material/Icon';
@@ -55,7 +55,7 @@ export const UserForm: React.FC<UserFormProps> = ({
     const {
         control,
         handleSubmit,
-        formState: { errors, isSubmitting },
+        formState: { isSubmitting },
         reset,
     } = useForm<UserFormData>({
         resolver: yupResolver(schema) as any,
@@ -114,52 +114,35 @@ export const UserForm: React.FC<UserFormProps> = ({
                     </Box>
                 )}
 
-                <Controller
-                name="email"
-                control={control}
-                render={({ field }) => (
-                    <EmailField
-                        id="user-email"
-                        label="Email Address"
-                        value={field.value}
-                        onChange={field.onChange}
-                        disabled={isSubmitting}
-                        error={errors.email?.message}
-                        placeholder="user@example.com"
-                    />
-                )}
-            />
+                <RHFEmailField
+                    name="email"
+                    control={control}
+                    id="user-email"
+                    label="Email Address"
+                    disabled={isSubmitting}
+                    placeholder="user@example.com"
+                />
 
-            {isIsolated && (
-                <div>
-                    <Controller
+                {isIsolated && (
+                    <RHFSelect
                         name="tenantId"
                         control={control}
-                        render={({ field }) => (
-                            <Select
-                                label="Tenant"
-                                value={field.value || ''}
-                                onChange={field.onChange}
-                                options={[
-                                    { value: '', label: 'Select tenant...' },
-                                    ...tenants.map((t) => ({ value: t.id, label: `${t.name} (${t.slug})` })),
-                                ]}
-                                placeholder="Select tenant..."
-                                required={true}
-                            />
-                        )}
+                        label="Tenant"
+                        options={[
+                            { value: '', label: 'Select tenant...' },
+                            ...tenants.map((t) => ({ value: t.id, label: `${t.name} (${t.slug})` })),
+                        ]}
+                        placeholder="Select tenant..."
+                        required
+                        disabled={isSubmitting}
                     />
-                    {errors.tenantId && (
-                        <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>{errors.tenantId.message}</Typography>
-                    )}
-                </div>
-            )}
+                )}
 
-            {tenantMode === 'shared' && (
-                <Typography variant="caption" color="text.secondary">
-                    Tenant and roles can be assigned when editing the user after creation.
-                </Typography>
-            )}
+                {tenantMode === 'shared' && (
+                    <Typography variant="caption" color="text.secondary">
+                        Tenant and roles can be assigned when editing the user after creation.
+                    </Typography>
+                )}
             </Stack>
         </form>
     );

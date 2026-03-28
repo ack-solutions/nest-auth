@@ -8,6 +8,7 @@
   "scripts": {
     "clean": "rm -rf dist tsconfig.build.tsbuildinfo",
     "generate:swagger": "node script/generate-nest-auth-swagger.mjs",
+    "start:ui": "npm --prefix ui install && npm --prefix ui run dev",
     "build:ui": "npm --prefix ui install && npm --prefix ui run build",
     "build": "pnpm clean && pnpm -C ../.. exec tsc -p packages/nest-auth/tsconfig.build.json && pnpm generate:swagger && pnpm build:ui",
     "format": "prettier --write \"src/**/*.ts\"",

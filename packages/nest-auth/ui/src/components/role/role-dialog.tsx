@@ -6,16 +6,16 @@ import Stack from '@mui/material/Stack';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
-import Switch from '@mui/material/Switch';
 import Paper from '@mui/material/Paper';
 import { FormDialog } from '../form-dialog';
 import { FormFooterAction } from '../form-footer';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { FormField } from '../form/form-field';
-import { Select } from '../select';
-import { RolePermissionChecklist } from './role-permission-checklist';
+import { RHFTextField } from '../form/rhf-text-field';
+import { RHFSelect } from '../form/rhf-select';
+import { RHFSwitch, RHFSwitchLabeledRow } from '../form/rhf-switch';
+import { RHFRolePermissionChecklist } from '../form/rhf-role-permission-checklist';
 import { useRoleGuards } from '../../hooks/use-role-guards';
 import type { Tenant, Role } from '../../types';
 
@@ -72,7 +72,7 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
     const {
         control,
         handleSubmit,
-        formState: { errors, isSubmitting },
+        formState: { isSubmitting },
         reset,
         watch,
         setValue,
@@ -195,49 +195,26 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                         </Stack>
                         <Grid container spacing={2}>
                             <Grid size={{ xs: 12, sm: isEdit ? 12 : 6 }}>
-                                <Controller
+                                <RHFTextField
                                     name="name"
                                     control={control}
-                                    render={({ field }) => (
-                                        <FormField
-                                            id="role-name"
-                                            label="Role Name"
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                            disabled={isSubmitting}
-                                            error={errors.name?.message}
-                                            placeholder="e.g. admin, editor, viewer"
-                                            startIcon={null}
-                                        />
-                                    )}
+                                    id="role-name"
+                                    label="Role Name"
+                                    disabled={isSubmitting}
+                                    placeholder="e.g. admin, editor, viewer"
                                 />
                             </Grid>
                             {!isEdit && (
                                 <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Controller
+                                    <RHFSelect
                                         name="guard"
                                         control={control}
-                                        render={({ field }) => (
-                                            <Box>
-                                                <Select
-                                                    label="Guard"
-                                                    value={field.value}
-                                                    onChange={field.onChange}
-                                                    options={guardOptions}
-                                                    placeholder="Select guard"
-                                                    disabled={isSubmitting}
-                                                    allowEmpty={false}
-                                                />
-                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                                                    {guardHelperText}
-                                                </Typography>
-                                                {errors.guard?.message && (
-                                                    <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
-                                                        {errors.guard.message}
-                                                    </Typography>
-                                                )}
-                                            </Box>
-                                        )}
+                                        label="Guard"
+                                        options={guardOptions}
+                                        placeholder="Select guard"
+                                        allowEmpty={false}
+                                        disabled={isSubmitting}
+                                        caption={guardHelperText}
                                     />
                                 </Grid>
                             )}
@@ -257,20 +234,12 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                             </Stack>
                         )}
                         <Box sx={{ mt: 2 }}>
-                            <Controller
+                            <RHFSwitch
                                 name="isActive"
                                 control={control}
-                                render={({ field }) => (
-                                    <Stack direction="row" alignItems="center" spacing={1}>
-                                        <Switch
-                                            checked={field.value ?? true}
-                                            onChange={(e) => field.onChange(e.target.checked)}
-                                            disabled={isSubmitting}
-                                            color="primary"
-                                        />
-                                        <Typography variant="body2" fontWeight={500}>Active</Typography>
-                                    </Stack>
-                                )}
+                                label="Active"
+                                disabled={isSubmitting}
+                                defaultChecked
                             />
                         </Box>
                     </Box>
@@ -286,74 +255,51 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                                     </Typography>
                                 </Stack>
                                 <Paper variant="outlined" sx={{ p: 0, borderRadius: 2, overflow: 'hidden' }}>
-                                    <Controller
-                                        name="isSystem"
-                                        control={control}
-                                        render={({ field }) => (
-                                            <Stack>
-                                                <Stack
-                                                    direction="row"
-                                                    alignItems="center"
-                                                    justifyContent="space-between"
-                                                    sx={{
-                                                        px: 2,
-                                                        py: 1.5,
-                                                        bgcolor: isSystem ? 'primary.50' : 'grey.50',
-                                                        borderBottom: '1px solid',
-                                                        borderColor: 'divider',
-                                                    }}
-                                                >
-                                                    <Stack spacing={0.25}>
-                                                        <Typography component="label" variant="body2" fontWeight={500} sx={{ cursor: 'pointer' }}>
-                                                            System role
-                                                        </Typography>
-                                                        <Typography variant="caption" color="text.secondary">
-                                                            {isSystem ? 'Available across all tenants. No tenant selection needed.' : 'Uncheck to assign this role to a specific tenant.'}
-                                                        </Typography>
-                                                    </Stack>
-                                                    <Switch
-                                                        checked={field.value || false}
-                                                        onChange={(e) => field.onChange(e.target.checked)}
-                                                        disabled={isSubmitting}
-                                                        color="primary"
-                                                    />
-                                                </Stack>
-                                                <Box sx={{ px: 2, py: 1.5 }}>
-                                                    <Controller
-                                                        name="tenantId"
-                                                        control={control}
-                                                        render={({ field }) => (
-                                                            <Select
-                                                                label="Tenant"
-                                                                value={field.value}
-                                                                onChange={field.onChange}
-                                                                options={[{ value: '', label: 'No tenant (global)' }, ...tenants.map((t) => ({ value: t.id, label: `${t.name} (${t.slug})` }))]}
-                                                                placeholder={isSystem ? 'Not used for system roles' : 'Select a tenant'}
-                                                                allowEmpty
-                                                                disabled={isSystem}
-                                                            />
-                                                        )}
-                                                    />
-                                                    {!isSystem && (
-                                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                                                            Leave empty for a global role, or pick a tenant for tenant-specific access.
-                                                        </Typography>
-                                                    )}
-                                                    {errors.tenantId && (
-                                                        <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
-                                                            {errors.tenantId.message}
-                                                        </Typography>
-                                                    )}
-                                                </Box>
-                                            </Stack>
-                                        )}
-                                    />
+                                    <Stack>
+                                        <RHFSwitchLabeledRow
+                                            name="isSystem"
+                                            control={control}
+                                            title="System role"
+                                            description={
+                                                isSystem
+                                                    ? 'Available across all tenants. No tenant selection needed.'
+                                                    : 'Uncheck to assign this role to a specific tenant.'
+                                            }
+                                            disabled={isSubmitting}
+                                            sx={{
+                                                px: 2,
+                                                py: 1.5,
+                                                bgcolor: isSystem ? 'primary.50' : 'grey.50',
+                                                borderBottom: '1px solid',
+                                                borderColor: 'divider',
+                                            }}
+                                        />
+                                        <Box sx={{ px: 2, py: 1.5 }}>
+                                            <RHFSelect
+                                                name="tenantId"
+                                                control={control}
+                                                label="Tenant"
+                                                options={[
+                                                    { value: '', label: 'No tenant (global)' },
+                                                    ...tenants.map((t) => ({ value: t.id, label: `${t.name} (${t.slug})` })),
+                                                ]}
+                                                placeholder={isSystem ? 'Not used for system roles' : 'Select a tenant'}
+                                                allowEmpty
+                                                disabled={isSystem || isSubmitting}
+                                            />
+                                            {!isSystem && (
+                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                                    Leave empty for a global role, or pick a tenant for tenant-specific access.
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    </Stack>
                                 </Paper>
                             </Box>
                         </>
                     )}
 
-                    {/* Section: Permissions — all permissions listed; select/unselect or search within list */}
+                    {/* Section: Permissions */}
                     <Box>
                         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
                             <Icon component={KeyRound} sx={sectionIconSx} />
@@ -361,18 +307,12 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                                 Permissions
                             </Typography>
                         </Stack>
-                        <Controller
+                        <RHFRolePermissionChecklist
                             name="permissions"
                             control={control}
-                            render={({ field }) => (
-                                <RolePermissionChecklist
-                                    guard={isEdit && role ? role.guard : guard}
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                    disabled={isSubmitting}
-                                    placeholder="Search permissions..."
-                                />
-                            )}
+                            guard={isEdit && role ? role.guard : guard}
+                            disabled={isSubmitting}
+                            placeholder="Search permissions..."
                         />
                     </Box>
                 </Stack>

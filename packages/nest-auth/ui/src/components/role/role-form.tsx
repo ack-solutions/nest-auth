@@ -1,13 +1,13 @@
 import React from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
-import { FormField } from '../form/form-field';
-import { Select } from '../select';
+import { RHFTextField } from '../form/rhf-text-field';
+import { RHFSelect } from '../form/rhf-select';
 import { FormFooterAction } from '../form-footer';
 import { useRoleGuards } from '../../hooks/use-role-guards';
 import { Plus, Pencil } from 'lucide-react';
@@ -53,7 +53,7 @@ export const RoleForm: React.FC<RoleFormProps> = ({
     const {
         control,
         handleSubmit,
-        formState: { errors, isSubmitting },
+        formState: { isSubmitting },
         reset,
         setValue,
     } = useForm<RoleFormData>({
@@ -65,7 +65,6 @@ export const RoleForm: React.FC<RoleFormProps> = ({
         },
     });
 
-
     // Reset form when initialData changes (for edit mode)
     React.useEffect(() => {
         if (initialData) {
@@ -75,7 +74,6 @@ export const RoleForm: React.FC<RoleFormProps> = ({
 
     const handleFormSubmit = async (data: RoleFormData) => {
         try {
-            // Always use the latest permissions from ref to avoid closure issues
             await onSubmit({
                 ...data,
             });
@@ -86,7 +84,6 @@ export const RoleForm: React.FC<RoleFormProps> = ({
             // Error handled by parent
         }
     };
-
 
     const handleCancel = () => {
         if (!isEdit) {
@@ -105,7 +102,6 @@ export const RoleForm: React.FC<RoleFormProps> = ({
         {
             label: submitLabel || (isEdit ? 'Update Role' : 'Create Role'),
             onClick: () => {
-                // Trigger form submission
                 const form = document.getElementById('role-form') as HTMLFormElement;
                 if (form) {
                     form.requestSubmit();
@@ -131,48 +127,25 @@ export const RoleForm: React.FC<RoleFormProps> = ({
                     <Alert severity="error" sx={{ py: 0 }}>{error}</Alert>
                 )}
 
-                <Controller
+                <RHFTextField
                     name="name"
                     control={control}
-                    render={({ field }) => (
-                        <FormField
-                            id="role-name"
-                            label="Role Name"
-                            value={field.value}
-                            onChange={field.onChange}
-                            disabled={isSubmitting}
-                            error={errors.name?.message}
-                            placeholder="admin, editor, viewer..."
-                            startIcon={null}
-                        />
-                    )}
+                    id="role-name"
+                    label="Role Name"
+                    disabled={isSubmitting}
+                    placeholder="admin, editor, viewer..."
                 />
 
                 {!isEdit && (
-                    <Controller
+                    <RHFSelect
                         name="guard"
                         control={control}
-                        render={({ field }) => (
-                            <Box>
-                                <Select
-                                    label="Guard"
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                    options={guardOptions}
-                                    placeholder="Select guard"
-                                    disabled={isSubmitting}
-                                    allowEmpty={false}
-                                />
-                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                                    {guardHelperText}
-                                </Typography>
-                                {errors.guard?.message && (
-                                    <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
-                                        {errors.guard.message}
-                                    </Typography>
-                                )}
-                            </Box>
-                        )}
+                        label="Guard"
+                        options={guardOptions}
+                        placeholder="Select guard"
+                        allowEmpty={false}
+                        disabled={isSubmitting}
+                        caption={guardHelperText}
                     />
                 )}
 
@@ -196,23 +169,15 @@ export const RoleForm: React.FC<RoleFormProps> = ({
 
                 {!isEdit && (
                     <div>
-                        <Controller
+                        <RHFSelect
                             name="tenantId"
                             control={control}
-                            render={({ field }) => (
-                                <Select
-                                    label="Tenant (Optional)"
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                    options={tenants.map((t) => ({ value: t.id, label: `${t.name} (${t.slug})` }))}
-                                    placeholder="Leave empty for global role"
-                                    allowEmpty={true}
-                                />
-                            )}
+                            label="Tenant (Optional)"
+                            options={tenants.map((t) => ({ value: t.id, label: `${t.name} (${t.slug})` }))}
+                            placeholder="Leave empty for global role"
+                            allowEmpty={true}
+                            disabled={isSubmitting}
                         />
-                        {errors.tenantId && (
-                            <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>{errors.tenantId.message}</Typography>
-                        )}
                     </div>
                 )}
 

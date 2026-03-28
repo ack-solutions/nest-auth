@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../modal';
-import { Select } from '../select';
-import { MultiSelect } from '../multi-select';
 import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
+import MenuItem from '@mui/material/MenuItem';
+import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { api } from '../../services/api';
@@ -32,6 +34,10 @@ export const AddTenantDialog: React.FC<AddTenantDialogProps> = ({
 
     const availableTenants = tenants.filter((t) => !existingTenantIds.includes(t.id));
     const tenantOptions = availableTenants.map((t) => ({ value: t.id, label: `${t.name || t.slug} (${t.slug || t.id})` }));
+    const roleOptions = rolesForTenant.map((r) => ({
+        value: r.id,
+        label: r.tenantId ? `${r.name} (${r.guard})` : `${r.name} (${r.guard}) – Global`,
+    }));
 
     useEffect(() => {
         if (!open) {
@@ -108,25 +114,73 @@ export const AddTenantDialog: React.FC<AddTenantDialogProps> = ({
                         {error}
                     </Typography>
                 )}
-                <Select
+                <TextField
+                    select
+                    fullWidth
                     label="Tenant"
                     value={selectedTenantId}
-                    onChange={setSelectedTenantId}
-                    options={[{ value: '', label: 'Select a tenant' }, ...tenantOptions]}
-                    allowEmpty
-                />
+                    onChange={(e) => setSelectedTenantId(e.target.value)}
+                    SelectProps={{ displayEmpty: true }}
+                >
+                    <MenuItem value="">
+                        <em>Select a tenant</em>
+                    </MenuItem>
+                    {tenantOptions.map((opt) => (
+                        <MenuItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                        </MenuItem>
+                    ))}
+                </TextField>
                 {selectedTenantId && (
-                    <MultiSelect
+                    <TextField
+                        select
+                        fullWidth
+                        disabled={loadingRoles}
                         label="Roles (optional)"
                         value={roleIds}
-                        onChange={setRoleIds}
-                        options={rolesForTenant.map((r) => ({
-                            value: r.id,
-                            label: r.tenantId ? `${r.name} (${r.guard})` : `${r.name} (${r.guard}) – Global`,
-                        }))}
-                        placeholder={loadingRoles ? 'Loading roles...' : 'Select roles...'}
-                        disabled={loadingRoles}
-                    />
+                        onChange={(e) => {
+                            const raw = e.target.value;
+                            setRoleIds(Array.isArray(raw) ? raw : [raw]);
+                        }}
+                        SelectProps={{
+                            multiple: true,
+                            renderValue: (selected) => (
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                    {(selected as string[]).length === 0 ? (
+                                        <Box component="span" sx={{ color: 'text.secondary' }}>
+                                            {loadingRoles ? 'Loading roles...' : 'Select roles...'}
+                                        </Box>
+                                    ) : (
+                                        (selected as string[]).map((val) => {
+                                            const opt = roleOptions.find((o) => o.value === val);
+                                            return (
+                                                <Chip
+                                                    key={val}
+                                                    label={opt?.label ?? val}
+                                                    size="small"
+                                                    onDelete={(ev) => {
+                                                        ev.stopPropagation();
+                                                        setRoleIds((prev) => prev.filter((v) => v !== val));
+                                                    }}
+                                                    onMouseDown={(ev) => ev.stopPropagation()}
+                                                />
+                                            );
+                                        })
+                                    )}
+                                </Box>
+                            ),
+                        }}
+                    >
+                        {roleOptions.length === 0 ? (
+                            <MenuItem disabled>No options available</MenuItem>
+                        ) : (
+                            roleOptions.map((option) => (
+                                <MenuItem key={option.value} value={option.value}>
+                                    {option.label}
+                                </MenuItem>
+                            ))
+                        )}
+                    </TextField>
                 )}
             </Stack>
         </Modal>

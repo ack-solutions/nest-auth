@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Phone, Shield, User as UserIcon, Lock, AlertCircle, CheckCircle, XCircle, Smartphone } from 'lucide-react';
+import { Mail, Shield, User as UserIcon, Lock, AlertCircle, CheckCircle, XCircle, Smartphone } from 'lucide-react';
 import Icon from '@mui/material/Icon';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
@@ -7,10 +7,12 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
+import MenuItem from '@mui/material/MenuItem';
+import Chip from '@mui/material/Chip';
 import { Modal } from '../modal';
+import InputAdornment from '@mui/material/InputAdornment';
+import PhoneIcon from '@mui/icons-material/Phone';
 import { EmailField } from '../form/email-field';
-import { FormField } from '../form/form-field';
-import { MultiSelect } from '../multi-select';
 import { PasswordField } from '../form/password-field';
 import type { User, Role, Tenant } from '../../types';
 
@@ -65,14 +67,23 @@ export const EditBasicInfoModal: React.FC<EditModalProps> = ({ isOpen, onClose, 
                     placeholder="user@example.com"
                     required
                 />
-                <FormField
+                <TextField
                     id="edit-phone"
                     label="Phone Number"
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="+1234567890"
-                    startIcon={<Icon component={Phone} sx={{ color: 'text.secondary' }} />}
+                    fullWidth
+                    slotProps={{
+                        input: {
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <PhoneIcon fontSize="small" color="action" />
+                                </InputAdornment>
+                            ),
+                        },
+                    }}
                 />
             </Stack>
         </Modal>
@@ -255,26 +266,71 @@ export const EditRolesModal: React.FC<EditModalProps & { roles: Role[]; tenants:
                 {!accessTenants.length ? (
                     <Typography variant="body2" color="text.secondary">User has no tenants. Add tenants first, then assign roles.</Typography>
                 ) : (
-                    accessTenants.map(({ tenantId, tenant }) => (
-                        <Box key={tenantId} sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', bgcolor: 'grey.50', p: 1.5 }}>
-                            <Box sx={{ mb: 1 }}>
-                                <Typography variant="body2" fontWeight="500">
-                                    {tenant?.name ?? tenant?.slug ?? tenantId}
-                                </Typography>
+                    accessTenants.map(({ tenantId, tenant }) => {
+                        const roleOptions = roles
+                            .filter((r) => !r.tenantId || r.tenantId === tenantId)
+                            .map((r) => ({
+                                value: r.id,
+                                label: r.tenantId ? `${r.name} (${r.guard})` : `${r.name} (${r.guard}) – Global`,
+                            }));
+                        const value = tenantRoleIds[tenantId] ?? [];
+                        return (
+                            <Box key={tenantId} sx={{ borderRadius: 1, border: '1px solid', borderColor: 'divider', bgcolor: 'grey.50', p: 1.5 }}>
+                                <Box sx={{ mb: 1 }}>
+                                    <Typography variant="body2" fontWeight="500">
+                                        {tenant?.name ?? tenant?.slug ?? tenantId}
+                                    </Typography>
+                                </Box>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    value={value}
+                                    onChange={(e) => {
+                                        const raw = e.target.value;
+                                        updateRolesForTenant(tenantId, Array.isArray(raw) ? raw : [raw]);
+                                    }}
+                                    SelectProps={{
+                                        multiple: true,
+                                        renderValue: (selected) => (
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                {(selected as string[]).length === 0 ? (
+                                                    <Box component="span" sx={{ color: 'text.secondary' }}>
+                                                        Select roles...
+                                                    </Box>
+                                                ) : (
+                                                    (selected as string[]).map((val) => {
+                                                        const opt = roleOptions.find((o) => o.value === val);
+                                                        return (
+                                                            <Chip
+                                                                key={val}
+                                                                label={opt?.label ?? val}
+                                                                size="small"
+                                                                onDelete={(ev) => {
+                                                                    ev.stopPropagation();
+                                                                    updateRolesForTenant(tenantId, value.filter((v) => v !== val));
+                                                                }}
+                                                                onMouseDown={(ev) => ev.stopPropagation()}
+                                                            />
+                                                        );
+                                                    })
+                                                )}
+                                            </Box>
+                                        ),
+                                    }}
+                                >
+                                    {roleOptions.length === 0 ? (
+                                        <MenuItem disabled>No options available</MenuItem>
+                                    ) : (
+                                        roleOptions.map((option) => (
+                                            <MenuItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </MenuItem>
+                                        ))
+                                    )}
+                                </TextField>
                             </Box>
-                            <MultiSelect
-                                value={tenantRoleIds[tenantId] ?? []}
-                                onChange={(roleIds) => updateRolesForTenant(tenantId, roleIds)}
-                                options={roles
-                                    .filter((r) => !r.tenantId || r.tenantId === tenantId)
-                                    .map((r) => ({
-                                        value: r.id,
-                                        label: r.tenantId ? `${r.name} (${r.guard})` : `${r.name} (${r.guard}) – Global`,
-                                    }))}
-                                placeholder="Select roles..."
-                            />
-                        </Box>
-                    ))
+                        );
+                    })
                 )}
             </Stack>
         </Modal>
@@ -283,6 +339,10 @@ export const EditRolesModal: React.FC<EditModalProps & { roles: Role[]; tenants:
 
 export const EditTenantsModal: React.FC<EditModalProps & { tenants: Tenant[] }> = ({ isOpen, onClose, onSave, user, loading, tenants }) => {
     const [selectedTenants, setSelectedTenants] = useState<string[]>([]);
+    const tenantOptions = tenants.map((t) => ({
+        value: t.id,
+        label: `${t.name || t.slug || t.id}`,
+    }));
 
     useEffect(() => {
         if (isOpen) {
@@ -310,16 +370,50 @@ export const EditTenantsModal: React.FC<EditModalProps & { tenants: Tenant[] }> 
             }
         >
             <Stack spacing={2} sx={{ py: 2 }}>
-                <MultiSelect
+                <TextField
+                    select
+                    fullWidth
                     label="Tenants"
                     value={selectedTenants}
-                    onChange={setSelectedTenants}
-                    options={tenants.map((t) => ({
-                        value: t.id,
-                        label: `${t.name || t.slug || t.id}`,
-                    }))}
-                    placeholder="Select tenants..."
-                />
+                    onChange={(e) => {
+                        const raw = e.target.value;
+                        setSelectedTenants(Array.isArray(raw) ? raw : [raw]);
+                    }}
+                    SelectProps={{
+                        multiple: true,
+                        renderValue: (selected) => (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                {(selected as string[]).length === 0 ? (
+                                    <Box component="span" sx={{ color: 'text.secondary' }}>
+                                        Select tenants...
+                                    </Box>
+                                ) : (
+                                    (selected as string[]).map((val) => {
+                                        const opt = tenantOptions.find((o) => o.value === val);
+                                        return (
+                                            <Chip
+                                                key={val}
+                                                label={opt?.label ?? val}
+                                                size="small"
+                                                onDelete={(ev) => {
+                                                    ev.stopPropagation();
+                                                    setSelectedTenants((prev) => prev.filter((v) => v !== val));
+                                                }}
+                                                onMouseDown={(ev) => ev.stopPropagation()}
+                                            />
+                                        );
+                                    })
+                                )}
+                            </Box>
+                        ),
+                    }}
+                >
+                    {tenantOptions.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                            {option.label}
+                        </MenuItem>
+                    ))}
+                </TextField>
             </Stack>
         </Modal>
     );

@@ -1,11 +1,11 @@
 import React from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Typography } from '@mui/material';
-import { EmailField } from '../form/email-field';
-import { FormField } from '../form/form-field';
-import { PasswordField } from '../form/password-field';
+import { RHFEmailField } from '../form/rhf-email-field';
+import { RHFPasswordField } from '../form/rhf-password-field';
+import { RHFTextField } from '../form/rhf-text-field';
 import { FormFooterAction } from '../form-footer';
 import { CheckCircle } from 'lucide-react';
 import Icon from '@mui/material/Icon';
@@ -50,7 +50,7 @@ export const AdminForm: React.FC<AdminFormProps> = ({
     const {
         control,
         handleSubmit,
-        formState: { errors, isSubmitting },
+        formState: { isSubmitting },
         reset,
     } = useForm<AdminFormData>({
         resolver: yupResolver(adminSchema) as any,
@@ -118,54 +118,32 @@ export const AdminForm: React.FC<AdminFormProps> = ({
                 </div>
             )}
 
-            <Controller
+            <RHFEmailField
                 name="email"
                 control={control}
-                render={({ field }) => (
-                    <EmailField
-                        id="admin-email"
-                        label="Email Address"
-                        value={field.value}
-                        onChange={field.onChange}
-                        disabled={isSubmitting}
-                        error={errors.email?.message}
-                        placeholder="admin@example.com"
-                    />
-                )}
+                id="admin-email"
+                label="Email Address"
+                disabled={isSubmitting}
+                placeholder="admin@example.com"
             />
 
-            <Controller
+            <RHFTextField
                 name="name"
                 control={control}
-                render={({ field }) => (
-                    <FormField
-                        id="admin-name"
-                        label="Name (Optional)"
-                        value={field.value}
-                        onChange={field.onChange}
-                        disabled={isSubmitting}
-                        error={errors.name?.message}
-                        placeholder="Admin User"
-                        startIcon={null}
-                    />
-                )}
+                id="admin-name"
+                label="Name (Optional)"
+                disabled={isSubmitting}
+                placeholder="Admin User"
             />
 
-            <Controller
+            <RHFPasswordField
                 name="password"
                 control={control}
-                render={({ field }) => (
-                    <PasswordField
-                        id="admin-password"
-                        label="Password"
-                        value={field.value}
-                        onChange={field.onChange}
-                        disabled={isSubmitting}
-                        error={errors.password?.message}
-                        showGenerateButton={true}
-                        showStrengthIndicator={true}
-                    />
-                )}
+                id="admin-password"
+                label="Password"
+                disabled={isSubmitting}
+                showGenerateButton={true}
+                showStrengthIndicator={true}
             />
         </form>
     );

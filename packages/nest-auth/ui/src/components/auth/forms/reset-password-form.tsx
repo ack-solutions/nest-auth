@@ -1,15 +1,19 @@
 import React from 'react';
-import { AlertCircle, Check } from 'lucide-react';
-import Icon from '@mui/material/Icon';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { Box, Stack, Typography } from '@mui/material';
-import { PasswordRequirements } from '../components/password-requirements';
-import { PasswordField } from '../../form/password-field';
-import { EmailField } from '../../form/email-field';
-import { SecretKeyField } from '../../form/secret-key-field';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import { PasswordRequirements } from '../components/password-requirements';
+import { RHFEmailField } from '../../form/rhf-email-field';
+import { RHFPasswordField } from '../../form/rhf-password-field';
+import { RHFSecretKeyField } from '../../form/rhf-secret-key-field';
+
+const RESET_PASSWORD_FORM_ID = 'nest-auth-reset-password-form';
 
 interface ResetPasswordFormData {
     email: string;
@@ -53,7 +57,7 @@ export const ResetPasswordFormComponent: React.FC<ResetPasswordFormProps> = ({
     const {
         control,
         handleSubmit,
-        formState: { errors, isSubmitting },
+        formState: { isSubmitting },
         reset,
     } = useForm<ResetPasswordFormData>({
         resolver: yupResolver(resetPasswordSchema) as any,
@@ -105,147 +109,99 @@ export const ResetPasswordFormComponent: React.FC<ResetPasswordFormProps> = ({
 
     return (
         <Stack spacing={2}>
-            <Box
-                sx={{
-                    p: 2,
-                    bgcolor: 'warning.light',
-                    border: '1px solid',
-                    borderColor: 'warning.main',
-                    borderRadius: 1,
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 1.5,
-                }}
-            >
-                <Icon component={AlertCircle} sx={{ fontSize: 20, color: 'warning.main', flexShrink: 0, mt: 0.25 }} />
-                <Box sx={{ typography: 'body2', color: 'warning.dark' }}>
-                    <Typography variant="body2" fontWeight="600" sx={{ mb: 0.5 }}>Security Required</Typography>
-                    <Typography variant="body2">
-                        Password reset requires your <strong>Nest Auth Secret Key</strong> configured in{' '}
-                        <code>adminConsole.secretKey</code>.
-                    </Typography>
-                </Box>
-            </Box>
+            <Alert severity="warning" sx={{ alignItems: 'flex-start' }}>
+                <Typography variant="body2" fontWeight={600} component="div" gutterBottom>
+                    Security Required
+                </Typography>
+                <Typography variant="body2" component="div">
+                    Password reset requires your <strong>Nest Auth Secret Key</strong> configured in{' '}
+                    <code>adminConsole.secretKey</code>.
+                </Typography>
+            </Alert>
 
             {success && (
-                <Box
-                    sx={{
-                        p: 1.5,
-                        bgcolor: 'success.light',
-                        border: '1px solid',
-                        borderColor: 'success.main',
-                        borderRadius: 1,
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 1,
-                    }}
-                >
-                    <Icon component={Check} sx={{ fontSize: 20, color: 'success.main', flexShrink: 0, mt: 0.25 }} />
-                    <Typography variant="body2" color="success.dark">Password reset successfully! You can now sign in with your new password.</Typography>
-                </Box>
+                <Alert severity="success">
+                    Password reset successfully! You can now sign in with your new password.
+                </Alert>
             )}
 
-            {error && (
-                <Box
-                    sx={{
-                        p: 1.5,
-                        bgcolor: 'error.light',
-                        border: '1px solid',
-                        borderColor: 'error.main',
-                        borderRadius: 1,
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 1,
-                    }}
-                >
-                    <Icon component={AlertCircle} sx={{ fontSize: 20, color: 'error.main', flexShrink: 0, mt: 0.25 }} />
-                    <Typography variant="body2" color="error.dark">{error}</Typography>
-                </Box>
-            )}
+            {error && <Alert severity="error">{error}</Alert>}
 
-            <form onSubmit={handleSubmit(onSubmit)}>
+            <form id={RESET_PASSWORD_FORM_ID} onSubmit={handleSubmit(onSubmit)}>
                 <Stack spacing={2}>
-                    <Controller
+                    <RHFEmailField
                         name="email"
                         control={control}
-                        render={({ field }) => (
-                            <EmailField
-                                id="reset-email"
-                                label="Email Address *"
-                                value={field.value}
-                                onChange={field.onChange}
-                                disabled={isSubmitting}
-                                error={errors.email?.message}
-                                autoComplete="username"
-                            />
-                        )}
+                        id="reset-email"
+                        label="Email Address"
+                        disabled={isSubmitting}
+                        autoComplete="username"
+                        required
                     />
 
-                    <Controller
+                    <RHFSecretKeyField
                         name="secretKey"
                         control={control}
-                        render={({ field }) => (
-                            <SecretKeyField
-                                id="reset-secret-key"
-                                label="Nest Auth Secret Key *"
-                                value={field.value}
-                                onChange={field.onChange}
-                                disabled={isSubmitting}
-                                error={errors.secretKey?.message}
-                                helpText={
-                                    !errors.secretKey ? (
-                                        <>
-                                            Your Nest Auth secret key configured in <code>adminConsole.secretKey</code>{' '}
-                                            (used for admin console security)
-                                        </>
-                                    ) : undefined
-                                }
-                            />
-                        )}
+                        id="reset-secret-key"
+                        label="Nest Auth Secret Key"
+                        disabled={isSubmitting}
+                        helpText={
+                            <>
+                                Your Nest Auth secret key configured in <code>adminConsole.secretKey</code> (used for
+                                admin console security)
+                            </>
+                        }
                     />
 
-                    <Controller
+                    <RHFPasswordField
                         name="newPassword"
                         control={control}
-                        render={({ field }) => (
-                            <PasswordField
-                                id="reset-new-password"
-                                label="New Password *"
-                                value={field.value}
-                                onChange={field.onChange}
-                                disabled={isSubmitting}
-                                error={errors.newPassword?.message}
-                                showGenerateButton={true}
-                                showStrengthIndicator={true}
-                            />
-                        )}
+                        id="reset-new-password"
+                        label="New Password"
+                        disabled={isSubmitting}
+                        showGenerateButton={true}
+                        showStrengthIndicator={true}
                     />
 
                     <PasswordRequirements />
-
-                    <Button type="submit" variant="contained" color="primary" disabled={isSubmitting} fullWidth sx={{ py: 1.5 }}>
-                        {isSubmitting ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                                <Box
-                                    sx={{
-                                        width: 20,
-                                        height: 20,
-                                        border: '2px solid',
-                                        borderColor: 'primary.contrastText',
-                                        borderTopColor: 'transparent',
-                                        borderRadius: '50%',
-                                        animation: 'spin 0.8s linear infinite',
-                                        '@keyframes spin': { to: { transform: 'rotate(360deg)' } },
-                                    }}
-                                />
-                                Resetting password...
-                            </Box>
-                        ) : (
-                            'Reset Password'
-                        )}
-                    </Button>
                 </Stack>
             </form>
+
+            <Box
+                sx={{
+                    position: 'sticky',
+                    bottom: 0,
+                    zIndex: 2,
+                    pt: 2,
+                    mt: 1,
+                    mx: -2,
+                    px: 2,
+                    pb: 0,
+                    mb: -2,
+                    bgcolor: 'background.paper',
+                    borderTop: 1,
+                    borderColor: 'divider',
+                }}
+            >
+                <Button
+                    form={RESET_PASSWORD_FORM_ID}
+                    type="submit"
+                    variant="contained"
+                    color="primary"
+                    disabled={isSubmitting}
+                    fullWidth
+                    sx={{ py: 1.5 }}
+                >
+                    {isSubmitting ? (
+                        <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
+                            <CircularProgress size={20} color="inherit" />
+                            <span>Resetting password...</span>
+                        </Stack>
+                    ) : (
+                        'Reset Password'
+                    )}
+                </Button>
+            </Box>
         </Stack>
     );
 };

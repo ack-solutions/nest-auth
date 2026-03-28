@@ -52,7 +52,13 @@ export const Modal: React.FC<ModalProps> = ({
 }) => {
     const open = openProp ?? isOpen ?? false;
     const subtitle = subTitle ?? description;
-    const muiMaxWidth = fullScreen ? false : (['2xl', '3xl', '5xl'].includes(maxWidth ?? '') ? 'xl' : maxWidth ?? 'sm');
+    const muiMaxWidth = (
+        fullScreen
+            ? false
+            : ['2xl', '3xl', '5xl'].includes(maxWidth ?? '')
+              ? 'xl'
+              : (maxWidth ?? 'sm')
+    ) as false | 'xs' | 'sm' | 'md' | 'lg' | 'xl';
     return (
         <Dialog
             open={open}
@@ -104,7 +110,15 @@ export const Modal: React.FC<ModalProps> = ({
                     {tabs}
                 </Box>
             )}
-            <DialogContent sx={{ px: 2, py: 2 }}>
+            <DialogContent
+                sx={{
+                    px: 2,
+                    py: 2,
+                    flex: '1 1 auto',
+                    minHeight: 0,
+                    overflowY: 'auto',
+                }}
+            >
                 {children}
             </DialogContent>
             {footer != null && <DialogActions sx={{ px: 2, py: 1.5 }}>{footer}</DialogActions>}

@@ -1,10 +1,11 @@
 import React from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { Alert, Box, Stack, TextField, Typography } from '@mui/material';
-import Autocomplete from '@mui/material/Autocomplete';
-import { Select } from '../select';
+import { Alert, Box, Stack, Typography } from '@mui/material';
+import { RHFTextField } from '../form/rhf-text-field';
+import { RHFSelect } from '../form/rhf-select';
+import { RHFAutocompleteFreeSolo } from '../form/rhf-autocomplete-free-solo';
 import { useRoleGuards } from '../../hooks/use-role-guards';
 
 export interface PermissionFormData {
@@ -35,7 +36,7 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
     initialData,
     categories,
     onSubmit,
-    onCancel,
+    onCancel: _onCancel,
     error,
     isEdit = false,
     originalName,
@@ -44,7 +45,7 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
     const {
         control,
         handleSubmit,
-        formState: { errors, isSubmitting },
+        formState: { isSubmitting },
         reset,
         watch,
     } = useForm<PermissionFormData>({
@@ -78,13 +79,6 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
         }
     };
 
-    const handleCancel = () => {
-        if (!isEdit) {
-            reset();
-        }
-        onCancel();
-    };
-
     return (
         <form id="permission-form" onSubmit={handleSubmit(handleFormSubmit)}>
             <Stack spacing={2} sx={{ p: 2 }}>
@@ -94,96 +88,46 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
                     </Alert>
                 )}
 
-                <Controller
+                <RHFTextField
                     name="name"
                     control={control}
-                    render={({ field }) => (
-                        <TextField
-                            id="perm-name"
-                            label="Permission name"
-                            value={field.value}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            fullWidth
-                            disabled={isSubmitting}
-                            error={Boolean(errors.name)}
-                            helperText={errors.name?.message || 'Use dot notation (e.g., users.create)'}
-                            placeholder="users.create, posts.edit, admin.access…"
-                        />
-                    )}
+                    id="perm-name"
+                    label="Permission name"
+                    disabled={isSubmitting}
+                    helperText="Use dot notation (e.g., users.create)"
+                    placeholder="users.create, posts.edit, admin.access…"
                 />
 
-                <Controller
+                <RHFSelect
                     name="guard"
                     control={control}
-                    render={({ field }) => (
-                        <Box>
-                            <Select
-                                label="Guard"
-                                value={field.value}
-                                onChange={field.onChange}
-                                options={guardOptions}
-                                placeholder="Select guard"
-                                disabled={isSubmitting}
-                                allowEmpty={false}
-                            />
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                                {guardHelperText}
-                            </Typography>
-                            {errors.guard?.message && (
-                                <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
-                                    {errors.guard.message}
-                                </Typography>
-                            )}
-                        </Box>
-                    )}
+                    label="Guard"
+                    options={guardOptions}
+                    placeholder="Select guard"
+                    allowEmpty={false}
+                    disabled={isSubmitting}
+                    caption={guardHelperText}
                 />
 
-                <Controller
+                <RHFTextField
                     name="description"
                     control={control}
-                    render={({ field }) => (
-                        <TextField
-                            id="perm-description"
-                            label="Description (optional)"
-                            value={field.value || ''}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            fullWidth
-                            disabled={isSubmitting}
-                            error={Boolean(errors.description)}
-                            helperText={errors.description?.message}
-                            placeholder="What does this permission allow?"
-                            multiline
-                            minRows={2}
-                        />
-                    )}
+                    id="perm-description"
+                    label="Description (optional)"
+                    disabled={isSubmitting}
+                    placeholder="What does this permission allow?"
+                    multiline
+                    minRows={2}
                 />
 
-                <Controller
+                <RHFAutocompleteFreeSolo
                     name="category"
                     control={control}
-                    render={({ field }) => (
-                        <Autocomplete
-                            freeSolo
-                            options={categories}
-                            value={field.value || ''}
-                            onChange={(_, newValue) => field.onChange(newValue || '')}
-                            onInputChange={(_, newInput) => field.onChange(newInput)}
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    id="perm-category"
-                                    label="Category (optional)"
-                                    fullWidth
-                                    disabled={isSubmitting}
-                                    error={Boolean(errors.category)}
-                                    helperText={errors.category?.message}
-                                    placeholder="users, posts, admin, etc."
-                                />
-                            )}
-                        />
-                    )}
+                    options={categories}
+                    label="Category (optional)"
+                    placeholder="users, posts, admin, etc."
+                    disabled={isSubmitting}
+                    id="perm-category"
                 />
 
                 {isEdit && (

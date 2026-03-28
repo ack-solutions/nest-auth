@@ -1,10 +1,9 @@
 import React from 'react';
-import { useForm, FormProvider, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Typography } from '@mui/material';
-import { FormField } from '../form/form-field';
-import { FormTextarea } from '../form/form-textarea';
+import { RHFTextField } from '../form/rhf-text-field';
 import { FormFooterAction } from '../form-footer';
 import { Plus, Pencil } from 'lucide-react';
 import Icon from '@mui/material/Icon';
@@ -44,7 +43,12 @@ export const TenantForm: React.FC<TenantFormProps> = ({
     isEdit = false,
     onActionsReady,
 }) => {
-    const methods = useForm<TenantFormData>({
+    const {
+        control,
+        handleSubmit,
+        formState: { isSubmitting },
+        reset,
+    } = useForm<TenantFormData>({
         resolver: yupResolver(tenantSchema) as any,
         defaultValues: initialData || {
             name: '',
@@ -56,25 +60,23 @@ export const TenantForm: React.FC<TenantFormProps> = ({
     // Reset form when initialData changes (for edit mode)
     React.useEffect(() => {
         if (initialData) {
-            methods.reset(initialData);
+            reset(initialData);
         }
-    }, [initialData, methods]);
+    }, [initialData, reset]);
 
-    const handleSubmit = async (data: TenantFormData) => {
+    const handleSubmitForm = async (data: TenantFormData) => {
         try {
             await onSubmit(data);
-            methods.reset();
+            reset();
         } catch (err) {
             // Error handled by parent
         }
     };
 
     const handleCancel = () => {
-        methods.reset();
+        reset();
         onCancel();
     };
-
-    const { isSubmitting } = methods.formState;
 
     // Prepare footer actions
     const footerActions: FormFooterAction[] = React.useMemo(() => [
@@ -106,57 +108,40 @@ export const TenantForm: React.FC<TenantFormProps> = ({
     }, [onActionsReady, footerActions]);
 
     return (
-        <FormProvider {...methods}>
-            <form id="tenant-form" onSubmit={methods.handleSubmit(handleSubmit)} className="p-4 space-y-3">
-                {error && (
-                    <div className="p-2 bg-red-50 border border-red-200 rounded-lg">
-                        <Typography variant="caption" color="error">{error}</Typography>
-                    </div>
-                )}
-                <Controller
-                    name="name"
-                    control={methods.control}
-                    render={({ field, fieldState }) => (
-                        <FormField
-                            id="name"
-                            label="Tenant Name"
-                            value={field.value || ''}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            ref={field.ref}
-                            error={fieldState.error?.message}
-                            placeholder="Acme Corporation"
-                            required
-                        />
-                    )}
-                />
+        <form id="tenant-form" onSubmit={handleSubmit(handleSubmitForm)} className="p-4 space-y-3">
+            {error && (
+                <div className="p-2 bg-red-50 border border-red-200 rounded-lg">
+                    <Typography variant="caption" color="error">{error}</Typography>
+                </div>
+            )}
+            <RHFTextField
+                name="name"
+                control={control}
+                id="name"
+                label="Tenant Name"
+                placeholder="Acme Corporation"
+                required
+            />
 
-                <Controller
-                    name="slug"
-                    control={methods.control}
-                    render={({ field, fieldState }) => (
-                        <FormField
-                            id="slug"
-                            label="Slug"
-                            value={field.value || ''}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            ref={field.ref}
-                            error={fieldState.error?.message}
-                            placeholder="acme-corp"
-                            helpText="URL-friendly identifier (lowercase, hyphens only)"
-                            required
-                        />
-                    )}
-                />
+            <RHFTextField
+                name="slug"
+                control={control}
+                id="slug"
+                label="Slug"
+                placeholder="acme-corp"
+                helperText="URL-friendly identifier (lowercase, hyphens only)"
+                required
+            />
 
-                <FormTextarea
-                    name="description"
-                    label="Description"
-                    placeholder="Brief description of this tenant..."
-                    rows={2}
-                />
-            </form>
-        </FormProvider>
+            <RHFTextField
+                name="description"
+                control={control}
+                id="description"
+                label="Description"
+                placeholder="Brief description of this tenant..."
+                multiline
+                minRows={2}
+            />
+        </form>
     );
 };

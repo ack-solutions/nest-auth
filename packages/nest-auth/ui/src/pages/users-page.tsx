@@ -10,9 +10,11 @@ import { PageHeader } from '../components/page-header';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import { Link, useNavigate } from 'react-router-dom';
-import { Select } from '../components/select';
-import { MultiSelect } from '../components/multi-select';
-import { SearchInput } from '../components/search-input';
+import TextField from '@mui/material/TextField';
+import MenuItem from '@mui/material/MenuItem';
+import InputAdornment from '@mui/material/InputAdornment';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
 import { Table, Column, PaginationInfo } from '../components/table';
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
@@ -35,6 +37,7 @@ export const UsersPage: React.FC = () => {
     const [createError, setCreateError] = useState('');
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [searchInput, setSearchInput] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'verified' | 'unverified'>('all');
     const [filterTenant, setFilterTenant] = useState<string>('');
     const [filterRole, setFilterRole] = useState<string>('');
@@ -166,10 +169,13 @@ export const UsersPage: React.FC = () => {
     };
 
 
-    const handleSearch = (value: string) => {
-        setSearchTerm(value);
-        setPage(1); // Reset to first page on search
-    };
+    useEffect(() => {
+        const id = window.setTimeout(() => {
+            setSearchTerm(searchInput);
+            setPage(1);
+        }, 300);
+        return () => clearTimeout(id);
+    }, [searchInput, setPage]);
 
     const handlePageChange = (newPage: number) => {
         setPage(newPage);
@@ -344,30 +350,71 @@ export const UsersPage: React.FC = () => {
                     <CardContent>
                         <Stack spacing={1.5}>
                             <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5} useFlexGap flexWrap="wrap" >
-                                <SearchInput value={searchTerm} onChange={handleSearch} placeholder="Search users..." />
-                        
+                                <TextField
+                                    fullWidth
+                                    value={searchInput}
+                                    onChange={(e) => setSearchInput(e.target.value)}
+                                    placeholder="Search users..."
+                                    slotProps={{
+                                        input: {
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <SearchIcon fontSize="small" color="action" />
+                                                </InputAdornment>
+                                            ),
+                                            endAdornment: searchInput ? (
+                                                <InputAdornment position="end">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => setSearchInput('')}
+                                                        aria-label="Clear search"
+                                                    >
+                                                        <ClearIcon fontSize="small" />
+                                                    </IconButton>
+                                                </InputAdornment>
+                                            ) : null,
+                                        },
+                                    }}
+                                    sx={{ flex: 1, minWidth: 200 }}
+                                />
+
                                 <Stack direction="row" alignItems="center" spacing={1.5} useFlexGap >
-                                    <Select
-                                        options={[
-                                            { value: 'all', label: 'Status' },
-                                            { value: 'active', label: 'Active' },
-                                            { value: 'inactive', label: 'Inactive' },
-                                            { value: 'verified', label: 'Verified' },
-                                            { value: 'unverified', label: 'Unverified' },
-                                        ]}
+                                    <TextField
+                                        select
+                                        sx={{ minWidth: 130 }}
                                         value={filterStatus}
-                                        onChange={(v) => { setFilterStatus(v as any); setPage(1); }}
-                                    />
-                                    <Select
-                                        options={[{ value: '', label: 'Tenant' }, ...tenants.map((t) => ({ value: t.id, label: t.name || t.slug || t.id }))]}
+                                        onChange={(e) => { setFilterStatus(e.target.value as typeof filterStatus); setPage(1); }}
+                                    >
+                                        <MenuItem value="all">Status</MenuItem>
+                                        <MenuItem value="active">Active</MenuItem>
+                                        <MenuItem value="inactive">Inactive</MenuItem>
+                                        <MenuItem value="verified">Verified</MenuItem>
+                                        <MenuItem value="unverified">Unverified</MenuItem>
+                                    </TextField>
+                                    <TextField
+                                        select
+                                        sx={{ minWidth: 160 }}
                                         value={filterTenant}
-                                        onChange={(v) => { setFilterTenant(v); setPage(1); }}
-                                    />
-                                    <Select
-                                        options={[{ value: '', label: 'Role' }, ...roles.map((r) => ({ value: r.name, label: `${r.name} (${r.guard})` }))]}
+                                        onChange={(e) => { setFilterTenant(e.target.value); setPage(1); }}
+                                        SelectProps={{ displayEmpty: true }}
+                                    >
+                                        <MenuItem value=""><em>Tenant</em></MenuItem>
+                                        {tenants.map((t) => (
+                                            <MenuItem key={t.id} value={t.id}>{t.name || t.slug || t.id}</MenuItem>
+                                        ))}
+                                    </TextField>
+                                    <TextField
+                                        select
+                                        sx={{ minWidth: 180 }}
                                         value={filterRole}
-                                        onChange={(v) => { setFilterRole(v); setPage(1); }}
-                                    />
+                                        onChange={(e) => { setFilterRole(e.target.value); setPage(1); }}
+                                        SelectProps={{ displayEmpty: true }}
+                                    >
+                                        <MenuItem value=""><em>Role</em></MenuItem>
+                                        {roles.map((r) => (
+                                            <MenuItem key={r.id} value={r.name}>{`${r.name} (${r.guard})`}</MenuItem>
+                                        ))}
+                                    </TextField>
                                     {(filterStatus !== 'all' || filterTenant || filterRole) && (
                                         <Button size="small" onClick={() => { setFilterStatus('all'); setFilterTenant(''); setFilterRole(''); setPage(1); }} sx={{ typography: 'body2', fontWeight: 500, flexShrink: 0 }}>
                                             Clear all

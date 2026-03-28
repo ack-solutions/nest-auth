@@ -14,9 +14,12 @@ import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
+import TextField from '@mui/material/TextField';
+import MenuItem from '@mui/material/MenuItem';
+import InputAdornment from '@mui/material/InputAdornment';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
 import { Table, Column, PaginationInfo } from '../components/table';
-import { SearchInput } from '../components/search-input';
-import { Select } from '../components/select';
 import { CreatePermissionDialog } from '../components/permission/create-permission-dialog';
 import { EditPermissionDialog } from '../components/permission/edit-permission-dialog';
 import type { PermissionFormData } from '../components/permission/permission-form';
@@ -28,6 +31,7 @@ export const PermissionsPage: React.FC = () => {
     const [updateError, setUpdateError] = useState('');
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [searchInput, setSearchInput] = useState('');
     const [filterCategory, setFilterCategory] = useState<string>('all');
     const [selectedGuard, setSelectedGuard] = useState<string>('all');
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -87,6 +91,14 @@ export const PermissionsPage: React.FC = () => {
         loadPermissions();
         loadCategories();
     }, [loadPermissions, loadCategories]);
+
+    useEffect(() => {
+        const id = window.setTimeout(() => {
+            setSearchTerm(searchInput);
+            setPagination((prev) => ({ ...prev, page: 1 }));
+        }, 300);
+        return () => clearTimeout(id);
+    }, [searchInput]);
 
     const handleCreatePermission = async (data: PermissionFormData) => {
         setCreateError('');
@@ -159,11 +171,6 @@ export const PermissionsPage: React.FC = () => {
             setUpdateError(err.message || 'Failed to update permission');
             throw err;
         }
-    };
-
-    const handleSearch = (value: string) => {
-        setSearchTerm(value);
-        setPagination((prev) => ({ ...prev, page: 1 }));
     };
 
     const handlePageChange = (newPage: number) => {
@@ -290,37 +297,68 @@ export const PermissionsPage: React.FC = () => {
             <Paper variant="outlined" sx={{ p: 2 }}>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <SearchInput
-                            value={searchTerm}
-                            onChange={handleSearch}
+                        <TextField
+                            fullWidth
+                            value={searchInput}
+                            onChange={(e) => setSearchInput(e.target.value)}
                             placeholder="Search permissions..."
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon fontSize="small" color="action" />
+                                        </InputAdornment>
+                                    ),
+                                    endAdornment: searchInput ? (
+                                        <InputAdornment position="end">
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => setSearchInput('')}
+                                                aria-label="Clear search"
+                                            >
+                                                <ClearIcon fontSize="small" />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ) : null,
+                                },
+                            }}
                         />
                     </Box>
                     <Box sx={{ minWidth: { sm: 160 }, maxWidth: { sm: 240 } }}>
-                        <Select
+                        <TextField
+                            select
+                            fullWidth
                             label="Guard"
                             value={selectedGuard}
-                            onChange={(value) => {
-                                setSelectedGuard(value);
+                            onChange={(e) => {
+                                setSelectedGuard(e.target.value);
                                 setPagination((prev) => ({ ...prev, page: 1 }));
                             }}
-                            options={guardFilterOptions}
-                            placeholder="All Guards"
-                            allowEmpty={false}
-                        />
+                        >
+                            {guardFilterOptions.map((opt) => (
+                                <MenuItem key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                </MenuItem>
+                            ))}
+                        </TextField>
                     </Box>
                     <Box sx={{ minWidth: { sm: 200 }, maxWidth: { sm: 280 } }}>
-                        <Select
+                        <TextField
+                            select
+                            fullWidth
                             label="Category"
                             value={filterCategory}
-                            onChange={(value) => {
-                                setFilterCategory(value);
+                            onChange={(e) => {
+                                setFilterCategory(e.target.value);
                                 setPagination((prev) => ({ ...prev, page: 1 }));
                             }}
-                            options={categoryOptions}
-                            placeholder="All Categories"
-                            allowEmpty={false}
-                        />
+                        >
+                            {categoryOptions.map((opt) => (
+                                <MenuItem key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                </MenuItem>
+                            ))}
+                        </TextField>
                     </Box>
                 </Stack>
                 {guardHelperText && (

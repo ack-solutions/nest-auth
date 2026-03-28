@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import Icon from '@mui/material/Icon';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Box, Paper, Typography, Stack, Divider } from '@mui/material';
-import { PasswordField } from '../../form/password-field';
-import { EmailField } from '../../form/email-field';
 import Button from '@mui/material/Button';
+import { RHFEmailField } from '../../form/rhf-email-field';
+import { RHFPasswordField } from '../../form/rhf-password-field';
 import type { LoginForm } from '../types';
 
 const loginSchema = yup.object({
@@ -60,15 +60,7 @@ export const LoginFormComponent: React.FC<LoginFormProps> = ({
     const error = externalError || internalError;
 
     return (
-        <Paper elevation={8} sx={{ borderRadius: 2, p: 3 }}>
-            <Box sx={{ mb: 2 }}>
-                <Typography variant="h6" fontWeight="bold" color="text.primary">
-                    Welcome back
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    Sign in to your admin account
-                </Typography>
-            </Box>
+        <Paper elevation={8} sx={{ borderRadius: 2, p: 3, py: 6 }}>
 
             {error && (
                 <Box
@@ -91,37 +83,27 @@ export const LoginFormComponent: React.FC<LoginFormProps> = ({
 
             <form onSubmit={handleSubmit(onSubmit)}>
                 <Stack spacing={2}>
-                    <Controller
+                    <RHFEmailField
                         name="email"
                         control={control}
-                        render={({ field }) => (
-                            <EmailField
-                                id="email"
-                                label="Email Address"
-                                value={field.value}
-                                onChange={field.onChange}
-                                disabled={isSubmitting}
-                                placeholder="admin@example.com"
-                                autoComplete="username"
-                            />
-                        )}
+                        id="email"
+                        label="Email Address"
+                        disabled={isSubmitting}
+                        placeholder="admin@example.com"
+                        autoComplete="username"
                     />
 
                     <Box>
-                        <Controller
+                        <RHFPasswordField
                             name="password"
                             control={control}
-                            render={({ field }) => (
-                                <PasswordField
-                                    id="password"
-                                    label="Password"
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                    disabled={isSubmitting}
-                                    placeholder="••••••••"
-                                    autoComplete="current-password"
-                                />
-                            )}
+                            id="password"
+                            label="Password"
+                            disabled={isSubmitting}
+                            placeholder="••••••••"
+                            autoComplete="current-password"
+                            hideShowToggle={false}
+                            required
                         />
                         <Box sx={{ mt: 1, textAlign: 'right' }}>
                             <Button
@@ -138,7 +120,7 @@ export const LoginFormComponent: React.FC<LoginFormProps> = ({
 
                     <Button type="submit" variant="contained" color="primary" disabled={isSubmitting} fullWidth sx={{ py: 1.5 }}>
                         {isSubmitting ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                            <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
                                 <Box
                                     sx={{
                                         width: 20,
@@ -152,7 +134,7 @@ export const LoginFormComponent: React.FC<LoginFormProps> = ({
                                     }}
                                 />
                                 Signing in...
-                            </Box>
+                            </Stack>
                         ) : (
                             'Sign In'
                         )}
@@ -161,30 +143,11 @@ export const LoginFormComponent: React.FC<LoginFormProps> = ({
             </form>
 
             <Box sx={{ mt: 3 }}>
-                <Box sx={{ position: 'relative', py: 1 }}>
-                    <Divider />
-                    <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{
-                            position: 'absolute',
-                            left: '50%',
-                            top: '50%',
-                            transform: 'translate(-50%, -50%)',
-                            px: 1,
-                            bgcolor: 'background.paper',
-                        }}
-                    >
-                        New to this app?
-                    </Typography>
-                </Box>
 
                 <Button
                     type="button"
-                    variant="outlined"
                     color="inherit"
                     fullWidth
-                    sx={{ mt: 2, py: 1.5 }}
                     onClick={onOpenCreateAccount}
                 >
                     Create Admin Account
