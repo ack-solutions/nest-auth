@@ -15,7 +15,7 @@ import Alert from '@mui/material/Alert';
 import { Table, Column } from '../components/table';
 import { CreateTenantDialog } from '../components/tenant/create-tenant-dialog';
 import { EditTenantDialog } from '../components/tenant/edit-tenant-dialog';
-import type { TenantFormData } from '../components/tenant/tenant-form';
+import type { TenantFormData } from '../components/tenant/tenant-form-schema';
 
 export const TenantsPage: React.FC = () => {
     const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -175,7 +175,7 @@ export const TenantsPage: React.FC = () => {
             />
 
             <CreateTenantDialog
-                isOpen={showCreateModal}
+                open={showCreateModal}
                 onClose={() => {
                     setShowCreateModal(false);
                     setCreateError('');
@@ -186,7 +186,7 @@ export const TenantsPage: React.FC = () => {
 
             {editingTenant && (
                 <EditTenantDialog
-                    isOpen={!!editingTenant}
+                    open={!!editingTenant}
                     onClose={handleCloseEdit}
                     onSubmit={handleUpdateTenant}
                     tenant={editingTenant}

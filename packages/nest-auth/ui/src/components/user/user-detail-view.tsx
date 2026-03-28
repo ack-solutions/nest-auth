@@ -485,12 +485,12 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                 </Grid>
             </Stack>
 
-            <EditBasicInfoModal isOpen={showBasicInfoEdit} onClose={() => setShowBasicInfoEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} />
-            <EditStatusSecurityModal isOpen={showSecurityEdit} onClose={() => setShowSecurityEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} />
-            <EditPasswordModal isOpen={showPasswordEdit} onClose={() => setShowPasswordEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} />
-            <EditRolesModal isOpen={showRolesEdit} onClose={() => setShowRolesEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} roles={roles} tenants={tenants} />
-            <EditTenantsModal isOpen={showTenantsEdit} onClose={() => setShowTenantsEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} tenants={tenants} />
-            <EditMetadataModal isOpen={showMetadataEdit} onClose={() => setShowMetadataEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} />
+            <EditBasicInfoModal open={showBasicInfoEdit} onClose={() => setShowBasicInfoEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} />
+            <EditStatusSecurityModal open={showSecurityEdit} onClose={() => setShowSecurityEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} />
+            <EditPasswordModal open={showPasswordEdit} onClose={() => setShowPasswordEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} />
+            <EditRolesModal open={showRolesEdit} onClose={() => setShowRolesEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} roles={roles} tenants={tenants} />
+            <EditTenantsModal open={showTenantsEdit} onClose={() => setShowTenantsEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} tenants={tenants} />
+            <EditMetadataModal open={showMetadataEdit} onClose={() => setShowMetadataEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} />
             <AddTenantDialog
                 open={showAddTenant}
                 onClose={() => setShowAddTenant(false)}

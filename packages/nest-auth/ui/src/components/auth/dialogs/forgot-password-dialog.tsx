@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Terminal } from 'lucide-react';
 import Icon from '@mui/material/Icon';
-import { Modal } from '../../modal';
+import { Dialog } from '../../dialog';
 import { Tabs } from '../components/tabs';
 import { ResetPasswordCodeExamples } from '../components/reset-password-code-examples';
 import { ResetPasswordFormComponent } from '../forms/reset-password-form';
@@ -53,7 +53,7 @@ export const ForgotPasswordDialog: React.FC<ForgotPasswordDialogProps> = ({ open
     ];
 
     return (
-        <Modal
+        <Dialog
             open={open}
             onClose={handleClose}
             title="Reset Admin Password"
@@ -74,6 +74,6 @@ export const ForgotPasswordDialog: React.FC<ForgotPasswordDialogProps> = ({ open
             )}
 
             {activeTab === 'code' && <ResetPasswordCodeExamples />}
-        </Modal>
+        </Dialog>
     );
 };

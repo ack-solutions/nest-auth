@@ -1,37 +1,101 @@
 import React, { useState } from 'react';
 import { FormDialog } from '../form-dialog';
 import { AdminForm, AdminFormData } from './admin-form';
-import type { FormFooterAction } from '../form-footer';
+import { RHFPasswordField, RHFTextField } from '../form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { useForm } from 'react-hook-form';
+import * as yup from 'yup';
+import { Button } from '@mui/material';
 
 export interface CreateAdminDialogProps {
-    isOpen: boolean;
+    open: boolean;
     onClose: () => void;
     onSubmit: (data: AdminFormData) => Promise<void>;
     error?: string;
 }
 
+const adminSchema = yup.object({
+    email: yup.string().email('Invalid email address').required('Email is required'),
+    name: yup.string().optional(),
+    password: yup
+        .string()
+        .required('Password is required')
+        .min(8, 'Password must be at least 8 characters')
+        .max(128, 'Password must be less than 128 characters')
+        .matches(/[A-Z]/, 'Password must contain at least one uppercase letter')
+        .matches(/[a-z]/, 'Password must contain at least one lowercase letter')
+        .matches(/\d/, 'Password must contain at least one number')
+        .matches(/[@$!%*?&]/, 'Password must contain at least one special character (@$!%*?&)'),
+});
+
+
+const defaultValues: AdminFormData = {
+    email: '',
+    name: '',
+    password: '',
+};
+
+
 export const CreateAdminDialog: React.FC<CreateAdminDialogProps> = ({
-    isOpen,
+    open,
     onClose,
     onSubmit,
     error,
 }) => {
-    const [actions, setActions] = useState<FormFooterAction[]>([]);
+
+    const methods = useForm<AdminFormData>({
+        resolver: yupResolver(adminSchema) as any,
+        defaultValues,
+    });
 
     return (
         <FormDialog
-            isOpen={isOpen}
+            formContext={methods}
+            open={open}
             onClose={onClose}
             title="Create Admin Account"
             maxWidth="md"
-            actions={actions}
+            actions={
+                <>
+                    <Button
+                        variant="outlined"
+                        color="primary"
+                        disabled={methods.formState.isSubmitting}
+                        onClick={onClose}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        disabled={methods.formState.isSubmitting}
+                        onClick={methods.handleSubmit(onSubmit)}
+                    >
+                        Create Admin
+                    </Button>
+                </>
+            }
         >
-            <AdminForm
-                onSubmit={onSubmit}
-                onCancel={onClose}
-                error={error}
-                submitLabel="Create Admin"
-                onActionsReady={setActions}
+            <RHFTextField
+                name="email"
+                label="Email Address"
+                disabled={methods.formState.isSubmitting}
+                placeholder="admin@example.com"
+            />
+
+            <RHFTextField
+                name="name"
+                label="Name (Optional)"
+                disabled={methods.formState.isSubmitting}
+                placeholder="Admin User"
+            />
+
+            <RHFPasswordField
+                name="password"
+                label="Password"
+                disabled={methods.formState.isSubmitting}
+                showGenerateButton={true}
+                showStrengthIndicator={true}
             />
         </FormDialog>
     );

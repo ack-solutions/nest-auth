@@ -8,14 +8,14 @@ import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import Paper from '@mui/material/Paper';
 import { FormDialog } from '../form-dialog';
-import { FormFooterAction } from '../form-footer';
+import { FormFooter, FormFooterAction } from '../dialog';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { RHFTextField } from '../form/rhf-text-field';
+import { RHFTextField } from '../form/hook-form-fields/rhf-text-field';
 import { RHFSelect } from '../form/rhf-select';
-import { RHFSwitch, RHFSwitchLabeledRow } from '../form/rhf-switch';
-import { RHFRolePermissionChecklist } from '../form/rhf-role-permission-checklist';
+import { RHFSwitch } from '../form/hook-form-fields/rhf-switch';
+import { RHFRolePermissionChecklist } from '../form/hook-form-fields/rhf-role-permission-checklist';
 import { useRoleGuards } from '../../hooks/use-role-guards';
 import type { Tenant, Role } from '../../types';
 
@@ -49,7 +49,7 @@ const editRoleSchema = yup.object({
 });
 
 export interface RoleDialogProps {
-    isOpen: boolean;
+    open: boolean;
     onClose: () => void;
     onSubmit: (data: RoleFormData) => Promise<void>;
     tenants: Tenant[];
@@ -58,7 +58,7 @@ export interface RoleDialogProps {
 }
 
 export const RoleDialog: React.FC<RoleDialogProps> = ({
-    isOpen,
+    open,
     onClose,
     onSubmit,
     tenants,
@@ -69,14 +69,7 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
     const schema = isEdit ? editRoleSchema : createRoleSchema;
     const { roleGuards, guardOptions, helperText: guardHelperText } = useRoleGuards();
 
-    const {
-        control,
-        handleSubmit,
-        formState: { isSubmitting },
-        reset,
-        watch,
-        setValue,
-    } = useForm<RoleFormData>({
+    const methods = useForm<RoleFormData>({
         resolver: yupResolver(schema) as any,
         defaultValues: role ? {
             name: role.name,
@@ -95,12 +88,20 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
         },
     });
 
+    const {
+        control,
+        formState: { isSubmitting },
+        reset,
+        watch,
+        setValue,
+    } = methods;
+
     const guard = watch('guard');
     const isSystem = watch('isSystem');
 
     // Reset form when dialog opens or role changes (defaultValues only apply on mount)
     React.useEffect(() => {
-        if (!isOpen) return;
+        if (!open) return;
         if (role) {
             reset({
                 name: role.name,
@@ -120,7 +121,7 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                 permissions: [],
             });
         }
-    }, [isOpen, role, roleGuards, reset]);
+    }, [open, role, roleGuards, reset]);
 
     // Clear tenantId when isSystem is checked (create only)
     React.useEffect(() => {
@@ -169,15 +170,17 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
 
     return (
         <FormDialog
-            isOpen={isOpen}
+            formContext={methods}
+            onSuccess={handleFormSubmit}
+            formProps={{ id: 'role-form' }}
+            open={open}
             onClose={onClose}
             title={isEdit ? 'Edit Role' : 'Create New Role'}
-            description={isEdit ? 'Update role name, active status, and permissions' : 'Create a new role and assign permissions'}
+            subTitle={isEdit ? 'Update role name, active status, and permissions' : 'Create a new role and assign permissions'}
             icon={<Icon component={Shield} sx={{ color: 'primary.main' }} />}
             maxWidth="md"
-            actions={actions}
+            actions={<FormFooter actions={actions} />}
         >
-            <form id="role-form" onSubmit={handleSubmit(handleFormSubmit)}>
                 <Stack sx={{ p: 2 }} spacing={2.5}>
                     {error && (
                         <Alert severity="error" sx={{ '& .MuiAlert-message': { width: '100%' } }}>
@@ -197,7 +200,6 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                             <Grid size={{ xs: 12, sm: isEdit ? 12 : 6 }}>
                                 <RHFTextField
                                     name="name"
-                                    control={control}
                                     id="role-name"
                                     label="Role Name"
                                     disabled={isSubmitting}
@@ -208,7 +210,6 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                                 <Grid size={{ xs: 12, sm: 6 }}>
                                     <RHFSelect
                                         name="guard"
-                                        control={control}
                                         label="Guard"
                                         options={guardOptions}
                                         placeholder="Select guard"
@@ -236,7 +237,6 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                         <Box sx={{ mt: 2 }}>
                             <RHFSwitch
                                 name="isActive"
-                                control={control}
                                 label="Active"
                                 disabled={isSubmitting}
                                 defaultChecked
@@ -316,7 +316,6 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                         />
                     </Box>
                 </Stack>
-            </form>
         </FormDialog>
     );
 };

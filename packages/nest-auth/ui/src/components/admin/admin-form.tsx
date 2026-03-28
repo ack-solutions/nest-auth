@@ -3,10 +3,8 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Typography } from '@mui/material';
-import { RHFEmailField } from '../form/rhf-email-field';
-import { RHFPasswordField } from '../form/rhf-password-field';
-import { RHFTextField } from '../form/rhf-text-field';
-import { FormFooterAction } from '../form-footer';
+import { RHFPasswordField } from '../form/hook-form-fields/rhf-password-field';
+import { RHFTextField } from '../form/hook-form-fields/rhf-text-field';
 import { CheckCircle } from 'lucide-react';
 import Icon from '@mui/material/Icon';
 
@@ -112,16 +110,8 @@ export const AdminForm: React.FC<AdminFormProps> = ({
 
     return (
         <form id="admin-form" onSubmit={handleSubmit(handleFormSubmit)} className="p-4 space-y-3">
-            {error && (
-                <div className="p-2 bg-red-50 border border-red-200 rounded-lg">
-                    <Typography variant="caption" color="error">{error}</Typography>
-                </div>
-            )}
-
-            <RHFEmailField
+            <RHFTextField
                 name="email"
-                control={control}
-                id="admin-email"
                 label="Email Address"
                 disabled={isSubmitting}
                 placeholder="admin@example.com"
@@ -129,8 +119,6 @@ export const AdminForm: React.FC<AdminFormProps> = ({
 
             <RHFTextField
                 name="name"
-                control={control}
-                id="admin-name"
                 label="Name (Optional)"
                 disabled={isSubmitting}
                 placeholder="Admin User"
@@ -138,8 +126,6 @@ export const AdminForm: React.FC<AdminFormProps> = ({
 
             <RHFPasswordField
                 name="password"
-                control={control}
-                id="admin-password"
                 label="Password"
                 disabled={isSubmitting}
                 showGenerateButton={true}

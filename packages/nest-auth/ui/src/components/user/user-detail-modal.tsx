@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
-import { Modal } from '../modal';
+import { Dialog } from '../dialog';
 import { UserDetailView } from './user-detail-view';
 import type { User, Role, UserDetails, Tenant } from '../../types';
 import { api } from '../../services/api';
@@ -52,12 +52,12 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({ user: initialU
 
     if (loading || !userDetails) {
         return (
-            <Modal isOpen onClose={onClose} title="Loading..." maxWidth="sm">
+            <Dialog open onClose={onClose} title="Loading..." maxWidth="sm">
                 <Stack alignItems="center" justifyContent="center" spacing={2} sx={{ py: 8 }}>
                     <CircularProgress size={40} />
                     <Typography variant="body2" color="text.secondary">Loading user details...</Typography>
                 </Stack>
-            </Modal>
+            </Dialog>
         );
     }
 
@@ -68,8 +68,8 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({ user: initialU
     );
 
     return (
-        <Modal
-            isOpen
+        <Dialog
+            open
             onClose={onClose}
             title={userDetails.user.email}
             subTitle="User Details & Management"
@@ -85,6 +85,6 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({ user: initialU
                 onRefresh={loadUserDetails}
                 onClose={onClose}
             />
-        </Modal>
+        </Dialog>
     );
 };

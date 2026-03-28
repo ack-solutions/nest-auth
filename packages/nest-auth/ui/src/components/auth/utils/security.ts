@@ -2,29 +2,44 @@
  * Security utilities for authentication forms
  */
 
+/** 0–100 score: length + character classes (aligned across forms and RHF password field). */
+export function getPasswordStrengthScore(password: string): number {
+    if (!password) return 0;
+    let score = 0;
+    if (password.length >= 8) score += 25;
+    if (/[A-Z]/.test(password)) score += 15;
+    if (/[a-z]/.test(password)) score += 15;
+    if (/\d/.test(password)) score += 15;
+    if (/[@$!%*?&]/.test(password)) score += 15;
+    if (password.length >= 12) score += 15;
+    return Math.min(100, score);
+}
+
+export type PasswordStrengthCategory = 'weak' | 'medium' | 'strong';
+
+/** Maps score to coarse category (used for colors and legacy bar indicator). */
+export function getPasswordStrengthCategory(score: number): PasswordStrengthCategory {
+    if (score < 40) return 'weak';
+    if (score < 70) return 'medium';
+    return 'strong';
+}
+
+/** Human-readable label for the current score. */
+export function getPasswordStrengthLabel(score: number): string {
+    const c = getPasswordStrengthCategory(score);
+    if (c === 'weak') return 'Weak';
+    if (c === 'medium') return 'Medium';
+    return 'Strong';
+}
+
 /**
- * Calculates password strength for display
+ * Password strength for display (bar / text). Empty input → null.
  */
 export const calculatePasswordStrength = (password: string): 'weak' | 'medium' | 'strong' | null => {
     if (!password || password.length === 0) {
         return null;
     }
-
-    // Check for required character types
-    const hasUpperCase = /[A-Z]/.test(password);
-    const hasLowerCase = /[a-z]/.test(password);
-    const hasNumber = /\d/.test(password);
-    const hasSpecialChar = /[@$!%*?&]/.test(password);
-
-    const charVariety = [hasUpperCase, hasLowerCase, hasNumber, hasSpecialChar].filter(Boolean).length;
-
-    if (password.length >= 12 && charVariety === 4) {
-        return 'strong';
-    } else if (password.length >= 10 || charVariety >= 3) {
-        return 'medium';
-    }
-
-    return 'weak';
+    return getPasswordStrengthCategory(getPasswordStrengthScore(password));
 };
 
 /**

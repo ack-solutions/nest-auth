@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
-import { Modal } from '../../modal';
+import { Dialog } from '../../dialog';
 import { Tabs } from '../components/tabs';
 import { CreateAccountCodeExamples } from '../components/create-account-code-examples';
 import { CreateAccountFormComponent } from '../forms/create-account-form';
@@ -52,7 +52,7 @@ export const CreateAccountDialog: React.FC<CreateAccountDialogProps> = ({ open, 
     ];
 
     return (
-        <Modal
+        <Dialog
             open={open}
             onClose={handleClose}
             title="Create Admin Account"
@@ -74,6 +74,6 @@ export const CreateAccountDialog: React.FC<CreateAccountDialogProps> = ({ open, 
 
             {activeTab === 'code' && <CreateAccountCodeExamples />}
 
-        </Modal>
+        </Dialog>
     );
 };

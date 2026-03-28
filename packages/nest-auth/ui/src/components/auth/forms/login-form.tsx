@@ -6,8 +6,8 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Box, Paper, Typography, Stack, Divider } from '@mui/material';
 import Button from '@mui/material/Button';
-import { RHFEmailField } from '../../form/rhf-email-field';
-import { RHFPasswordField } from '../../form/rhf-password-field';
+import { RHFPasswordField } from '../../form/hook-form-fields/rhf-password-field';
+import { RHFTextField } from '../../form/hook-form-fields/rhf-text-field';
 import type { LoginForm } from '../types';
 
 const loginSchema = yup.object({
@@ -83,7 +83,8 @@ export const LoginFormComponent: React.FC<LoginFormProps> = ({
 
             <form onSubmit={handleSubmit(onSubmit)}>
                 <Stack spacing={2}>
-                    <RHFEmailField
+                    <RHFTextField
+                        fieldVariant="email"
                         name="email"
                         control={control}
                         id="email"

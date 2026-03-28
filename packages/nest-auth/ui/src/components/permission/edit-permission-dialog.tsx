@@ -14,7 +14,7 @@ import { PermissionForm, PermissionFormData } from './permission-form';
 import type { Permission } from '../../types';
 
 export interface EditPermissionDialogProps {
-    isOpen: boolean;
+    open: boolean;
     onClose: () => void;
     onSubmit: (data: PermissionFormData) => Promise<void>;
     permission: Permission;
@@ -23,7 +23,7 @@ export interface EditPermissionDialogProps {
 }
 
 export const EditPermissionDialog: React.FC<EditPermissionDialogProps> = ({
-    isOpen,
+    open,
     onClose,
     onSubmit,
     permission,
@@ -31,7 +31,7 @@ export const EditPermissionDialog: React.FC<EditPermissionDialogProps> = ({
     error,
 }) => {
     return (
-        <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="sm">
+        <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
             <DialogTitle>
                 <Stack direction="row" spacing={1} alignItems="center">
                     <Icon component={Key} sx={{ fontSize: 18 }} />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal } from '../modal';
+import { Dialog } from '../dialog';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
@@ -91,13 +91,13 @@ export const AddTenantDialog: React.FC<AddTenantDialogProps> = ({
     };
 
     return (
-        <Modal
+        <Dialog
             open={open}
             onClose={onClose}
             title="Add tenant"
             subTitle="Assign the user to a tenant and optionally select roles"
             maxWidth="sm"
-            footer={
+            actions={
                 <Stack direction="row" justifyContent="flex-end" spacing={1.5}>
                     <Button variant="outlined" color="inherit" onClick={onClose}>
                         Cancel
@@ -183,6 +183,6 @@ export const AddTenantDialog: React.FC<AddTenantDialogProps> = ({
                     </TextField>
                 )}
             </Stack>
-        </Modal>
+        </Dialog>
     );
 };

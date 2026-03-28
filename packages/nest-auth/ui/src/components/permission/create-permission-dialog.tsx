@@ -13,7 +13,7 @@ import {
 import { PermissionForm, PermissionFormData } from './permission-form';
 
 export interface CreatePermissionDialogProps {
-    isOpen: boolean;
+    open: boolean;
     onClose: () => void;
     onSubmit: (data: PermissionFormData) => Promise<void>;
     categories: string[];
@@ -21,14 +21,14 @@ export interface CreatePermissionDialogProps {
 }
 
 export const CreatePermissionDialog: React.FC<CreatePermissionDialogProps> = ({
-    isOpen,
+    open,
     onClose,
     onSubmit,
     categories,
     error,
 }) => {
     return (
-        <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth="sm">
+        <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
             <DialogTitle>
                 <Stack direction="row" spacing={1} alignItems="center">
                     <Icon component={Key} sx={{ fontSize: 18 }} />

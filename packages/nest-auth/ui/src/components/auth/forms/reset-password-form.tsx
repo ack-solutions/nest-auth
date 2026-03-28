@@ -9,11 +9,9 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { PasswordRequirements } from '../components/password-requirements';
-import { RHFEmailField } from '../../form/rhf-email-field';
-import { RHFPasswordField } from '../../form/rhf-password-field';
-import { RHFSecretKeyField } from '../../form/rhf-secret-key-field';
-
-const RESET_PASSWORD_FORM_ID = 'nest-auth-reset-password-form';
+import { RHFPasswordField } from '../../form/hook-form-fields/rhf-password-field';
+import { RHFTextField } from '../../form/hook-form-fields/rhf-text-field';
+import { FormContainer } from '@/components/form/form-container';
 
 interface ResetPasswordFormData {
     email: string;
@@ -54,12 +52,7 @@ export const ResetPasswordFormComponent: React.FC<ResetPasswordFormProps> = ({
     success,
     adminApiBaseUrl,
 }) => {
-    const {
-        control,
-        handleSubmit,
-        formState: { isSubmitting },
-        reset,
-    } = useForm<ResetPasswordFormData>({
+    const methods = useForm<ResetPasswordFormData>({
         resolver: yupResolver(resetPasswordSchema) as any,
         defaultValues: {
             email: '',
@@ -67,6 +60,11 @@ export const ResetPasswordFormComponent: React.FC<ResetPasswordFormProps> = ({
             newPassword: '',
         },
     });
+
+    const {
+        formState: { isSubmitting },
+        reset,
+    } = methods;
 
     const onSubmit = async (data: ResetPasswordFormData) => {
         try {
@@ -127,11 +125,10 @@ export const ResetPasswordFormComponent: React.FC<ResetPasswordFormProps> = ({
 
             {error && <Alert severity="error">{error}</Alert>}
 
-            <form id={RESET_PASSWORD_FORM_ID} onSubmit={handleSubmit(onSubmit)}>
+            <FormContainer formContext={methods} onSuccess={onSubmit}>
                 <Stack spacing={2}>
-                    <RHFEmailField
+                    <RHFTextField
                         name="email"
-                        control={control}
                         id="reset-email"
                         label="Email Address"
                         disabled={isSubmitting}
@@ -139,13 +136,12 @@ export const ResetPasswordFormComponent: React.FC<ResetPasswordFormProps> = ({
                         required
                     />
 
-                    <RHFSecretKeyField
+                    <RHFTextField
                         name="secretKey"
-                        control={control}
                         id="reset-secret-key"
                         label="Nest Auth Secret Key"
                         disabled={isSubmitting}
-                        helpText={
+                        helperText={
                             <>
                                 Your Nest Auth secret key configured in <code>adminConsole.secretKey</code> (used for
                                 admin console security)
@@ -155,7 +151,6 @@ export const ResetPasswordFormComponent: React.FC<ResetPasswordFormProps> = ({
 
                     <RHFPasswordField
                         name="newPassword"
-                        control={control}
                         id="reset-new-password"
                         label="New Password"
                         disabled={isSubmitting}
@@ -165,41 +160,19 @@ export const ResetPasswordFormComponent: React.FC<ResetPasswordFormProps> = ({
 
                     <PasswordRequirements />
                 </Stack>
-            </form>
+            </FormContainer>
 
             <Box
-                sx={{
-                    position: 'sticky',
-                    bottom: 0,
-                    zIndex: 2,
-                    pt: 2,
-                    mt: 1,
-                    mx: -2,
-                    px: 2,
-                    pb: 0,
-                    mb: -2,
-                    bgcolor: 'background.paper',
-                    borderTop: 1,
-                    borderColor: 'divider',
-                }}
             >
                 <Button
-                    form={RESET_PASSWORD_FORM_ID}
                     type="submit"
                     variant="contained"
                     color="primary"
                     disabled={isSubmitting}
                     fullWidth
-                    sx={{ py: 1.5 }}
+                    loading={isSubmitting}
                 >
-                    {isSubmitting ? (
-                        <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
-                            <CircularProgress size={20} color="inherit" />
-                            <span>Resetting password...</span>
-                        </Stack>
-                    ) : (
-                        'Reset Password'
-                    )}
+                    {isSubmitting ? 'Resetting password...' : 'Reset Password'}
                 </Button>
             </Box>
         </Stack>

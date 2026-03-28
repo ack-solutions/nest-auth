@@ -6,90 +6,113 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
-import { FormDialog } from '../form-dialog';
-import { FormFooterAction } from '../form-footer';
 import { RolePermissionChecklist } from './role-permission-checklist';
 import type { Role } from '../../types';
+import { FormDialog } from '../form-dialog';
+import { Button } from '@mui/material';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { useForm } from 'react-hook-form';
+import { array, object, string } from 'yup';
+import { RoleFormData } from './role-dialog';
 
 export interface RolePermissionsDialogProps {
-    isOpen: boolean;
+    open: boolean;
     onClose: () => void;
     role: Role | null;
     onSaved?: () => void;
     error?: string;
 }
 
+const roleSchema = object({
+    name: string().label('Name').required(),
+    guard: string().label('Guard').required(),
+    permissions: array().of(string()).label('Permissions').required(),
+});
+
+const defaultValues: RoleFormData = {
+    name: '',
+    guard: '',
+    permissions: [],
+    tenantId: '',
+    isSystem: false,
+    isActive: true,
+};
+
 export const RolePermissionsDialog: React.FC<RolePermissionsDialogProps> = ({
-    isOpen,
+    open,
     onClose,
     role,
     onSaved,
     error: externalError,
 }) => {
-    const [permissions, setPermissions] = useState<string[]>([]);
-    const [saving, setSaving] = useState(false);
-    const [error, setError] = useState('');
+
+    const methods = useForm<RoleFormData>({
+        resolver: yupResolver(roleSchema) as any,
+        defaultValues: role ? {
+            name: role.name,
+            guard: role.guard,
+            permissions: role.permissions ?? [],
+        } : defaultValues,
+    });
+
+    const {
+        formState: { isSubmitting },
+    } = methods;
+
 
     useEffect(() => {
-        if (isOpen && role) {
-            setPermissions(role.permissions ?? []);
-            setError('');
+        if (open && role) {
+            methods.reset({
+                name: role.name,
+                guard: role.guard,
+                permissions: role.permissions ?? [],
+            });
         }
-    }, [isOpen, role]);
+    }, [open, role]);
 
-    const handleSave = useCallback(async () => {
+    const handleSave = useCallback(async (data: RoleFormData) => {
         if (!role) return;
-        setError('');
-        setSaving(true);
         try {
             const { api } = await import('../../services/api');
-            await api.patch(`/api/roles/${role.id}`, { permissions });
+            await api.patch(`/api/roles/${role.id}`, data);
             onSaved?.();
             onClose();
         } catch (err: any) {
             const msg = err?.message ?? 'Failed to update permissions';
             const detail = err?.response?.data?.message || err?.response?.data?.message;
-            setError(detail || msg);
-        } finally {
-            setSaving(false);
         }
-    }, [role, permissions, onSaved, onClose]);
+    }, [role, onSaved, onClose]);
 
-    const actions: FormFooterAction[] = [
-        {
-            label: 'Cancel',
-            onClick: onClose,
-            variant: 'secondary',
-            disabled: saving,
-        },
-        {
-            label: 'Save permissions',
-            onClick: handleSave,
-            variant: 'primary',
-            disabled: saving,
-            icon: <Icon component={KeyRound} />,
-        },
-    ];
-
-    const displayError = externalError || error;
 
     return (
         <FormDialog
-            isOpen={isOpen}
+            open={open}
             onClose={onClose}
             title="Edit role permissions"
-            description="Assign permissions from the list below. Only permissions for this role's guard are shown."
+            subTitle="Assign permissions from the list below. Only permissions for this role's guard are shown."
             icon={<Icon component={Shield} sx={{ color: 'primary.main' }} />}
-            maxWidth="md"
-            actions={actions}
+            formContext={methods}
+            onSuccess={handleSave}
+            actions={
+                <>
+                    <Button
+                        onClick={onClose}
+                        variant="outlined"
+                        disabled={isSubmitting}
+                        type="button"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="contained"
+                        loading={isSubmitting}
+                    >
+                        Save permissions
+                    </Button>
+                </>
+            }
         >
             <Stack sx={{ p: 2 }} spacing={2}>
-                {displayError && (
-                    <Alert severity="error" onClose={() => setError('')} sx={{ '& .MuiAlert-message': { width: '100%' } }}>
-                        {displayError}
-                    </Alert>
-                )}
-
                 {role && (
                     <>
                         <Box
@@ -114,9 +137,9 @@ export const RolePermissionsDialog: React.FC<RolePermissionsDialogProps> = ({
 
                         <RolePermissionChecklist
                             guard={role.guard}
-                            value={permissions}
-                            onChange={setPermissions}
-                            disabled={saving}
+                            value={methods.getValues('permissions')}
+                            onChange={(permissions) => methods.setValue('permissions', permissions)}
+                            disabled={isSubmitting}
                             placeholder="Search permissions by name or description..."
                         />
                     </>

@@ -11,10 +11,9 @@ import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { PasswordRequirements } from '../components/password-requirements';
-import { RHFEmailField } from '../../form/rhf-email-field';
-import { RHFPasswordField } from '../../form/rhf-password-field';
-import { RHFSecretKeyField } from '../../form/rhf-secret-key-field';
-import { RHFTextField } from '../../form/rhf-text-field';
+import { RHFPasswordField } from '../../form/hook-form-fields/rhf-password-field';
+import { RHFTextField } from '../../form/hook-form-fields/rhf-text-field';
+import { FormContainer } from '@/components/form/form-container';
 
 interface CreateAccountFormData {
     email: string;
@@ -57,12 +56,7 @@ export const CreateAccountFormComponent: React.FC<CreateAccountFormProps> = ({
     success,
     adminApiBaseUrl,
 }) => {
-    const {
-        control,
-        handleSubmit,
-        formState: { isSubmitting },
-        reset,
-    } = useForm<CreateAccountFormData>({
+    const methods = useForm<CreateAccountFormData>({
         resolver: yupResolver(createAccountSchema) as any,
         defaultValues: {
             email: '',
@@ -71,6 +65,10 @@ export const CreateAccountFormComponent: React.FC<CreateAccountFormProps> = ({
             secretKey: '',
         },
     });
+    const {
+        formState: { isSubmitting },
+        reset,
+    } = methods;
 
     const onSubmit = async (data: CreateAccountFormData) => {
         try {
@@ -130,15 +128,14 @@ export const CreateAccountFormComponent: React.FC<CreateAccountFormProps> = ({
 
             {error && <Alert severity="error">{error}</Alert>}
 
-            <form onSubmit={handleSubmit(onSubmit)}>
+            <FormContainer formContext={methods} onSuccess={onSubmit}>
                 <Stack spacing={2}>
-                    <RHFSecretKeyField
+                    <RHFTextField
                         name="secretKey"
-                        control={control}
                         id="create-secret-key"
                         label="Nest Auth Secret Key"
                         disabled={isSubmitting}
-                        helpText={
+                        helperText={
                             <>
                                 Your Nest Auth secret key configured in <code>adminConsole.secretKey</code> (used for
                                 admin console security)
@@ -146,9 +143,8 @@ export const CreateAccountFormComponent: React.FC<CreateAccountFormProps> = ({
                         }
                     />
 
-                    <RHFEmailField
+                    <RHFTextField
                         name="email"
-                        control={control}
                         id="create-email"
                         label="Email Address"
                         disabled={isSubmitting}
@@ -158,7 +154,6 @@ export const CreateAccountFormComponent: React.FC<CreateAccountFormProps> = ({
 
                     <RHFTextField
                         name="name"
-                        control={control}
                         id="create-name"
                         label="Name (Optional)"
                         disabled={isSubmitting}
@@ -176,7 +171,6 @@ export const CreateAccountFormComponent: React.FC<CreateAccountFormProps> = ({
 
                     <RHFPasswordField
                         name="password"
-                        control={control}
                         id="create-password"
                         label="Password"
                         disabled={isSubmitting}
@@ -206,7 +200,7 @@ export const CreateAccountFormComponent: React.FC<CreateAccountFormProps> = ({
                         </Button>
                     </Box>
                 </Stack>
-            </form>
+            </FormContainer>
         </Stack>
     );
 };

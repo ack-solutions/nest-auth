@@ -3,10 +3,10 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Alert, Box, Stack, Typography } from '@mui/material';
-import { RHFTextField } from '../form/rhf-text-field';
-import { RHFSelect } from '../form/rhf-select';
-import { RHFAutocompleteFreeSolo } from '../form/rhf-autocomplete-free-solo';
+import { RHFTextField } from '../form/hook-form-fields/rhf-text-field';
+import { RHFSelect } from '../form/hook-form-fields/rhf-select';
 import { useRoleGuards } from '../../hooks/use-role-guards';
+import { RHFAutocomplete } from '../form/hook-form-fields/rhf-autocomplete';
 
 export interface PermissionFormData {
     name: string;
@@ -90,7 +90,6 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
 
                 <RHFTextField
                     name="name"
-                    control={control}
                     id="perm-name"
                     label="Permission name"
                     disabled={isSubmitting}
@@ -100,18 +99,14 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
 
                 <RHFSelect
                     name="guard"
-                    control={control}
                     label="Guard"
                     options={guardOptions}
                     placeholder="Select guard"
-                    allowEmpty={false}
                     disabled={isSubmitting}
-                    caption={guardHelperText}
                 />
 
                 <RHFTextField
                     name="description"
-                    control={control}
                     id="perm-description"
                     label="Description (optional)"
                     disabled={isSubmitting}
@@ -120,9 +115,9 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
                     minRows={2}
                 />
 
-                <RHFAutocompleteFreeSolo
+                <RHFAutocomplete
                     name="category"
-                    control={control}
+                    freeSolo
                     options={categories}
                     label="Category (optional)"
                     placeholder="users, posts, admin, etc."

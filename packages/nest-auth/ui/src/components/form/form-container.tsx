@@ -1,5 +1,6 @@
 /* eslint-disable react/no-multi-comp */
 import { yupResolver } from '@hookform/resolvers/yup';
+import { Box } from '@mui/material';
 import { FormEventHandler, FormHTMLAttributes, PropsWithChildren } from 'react';
 import {
     FormProvider,
@@ -54,9 +55,9 @@ export function FormContainer<TFieldValues extends FieldValues = FieldValues>({
     }
     return (
         <FormProvider {...formContext}>
-            <form
+            <Box
+                component="form"
                 noValidate
-                {...formProps}
                 onSubmit={
                     handleSubmit ||
                     (onSuccess ?
@@ -65,9 +66,10 @@ export function FormContainer<TFieldValues extends FieldValues = FieldValues>({
                             'submit handler `onSuccess` is missing',
                         ))
                 }
+                {...formProps}
             >
                 {children}
-            </form>
+            </Box>
         </FormProvider>
     );
 }
@@ -93,7 +95,9 @@ function FormProviderWithoutContext<
 
     return (
         <FormProvider {...methods}>
-            <form
+            <Box
+                component="form"
+                noValidate
                 onSubmit={handleSubmit(
                     onSuccess ?
                         (onSuccess as any) :
@@ -106,11 +110,10 @@ function FormProviderWithoutContext<
                             'submit handler `onError` is missing',
                         ) as any,
                 )}
-                noValidate
                 {...formProps}
             >
                 {children}
-            </form>
+            </Box>
         </FormProvider>
     );
 }

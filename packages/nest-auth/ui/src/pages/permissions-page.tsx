@@ -386,7 +386,7 @@ export const PermissionsPage: React.FC = () => {
             />
 
             <CreatePermissionDialog
-                isOpen={showCreateModal}
+                open={showCreateModal}
                 onClose={() => {
                     setShowCreateModal(false);
                     setCreateError('');
@@ -398,7 +398,7 @@ export const PermissionsPage: React.FC = () => {
 
             {editingPermission && (
                 <EditPermissionDialog
-                    isOpen={!!editingPermission}
+                    open={!!editingPermission}
                     onClose={() => {
                         setEditingPermission(null);
                         setUpdateError('');

@@ -23,8 +23,7 @@ import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
-import { CreateUserDialog } from '../components/user/create-user-dialog';
-import { UserFormData, TenantMode } from '../components/user/user-form';
+import { CreateUserDialog, UserFormData } from '../components/user/create-user-dialog';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 
@@ -458,7 +457,7 @@ export const UsersPage: React.FC = () => {
                 />
 
                 <CreateUserDialog
-                    isOpen={showCreateModal}
+                    open={showCreateModal}
                     onClose={() => {
                         setShowCreateModal(false);
                         setCreateError('');

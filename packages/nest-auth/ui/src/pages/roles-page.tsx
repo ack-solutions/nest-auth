@@ -323,7 +323,7 @@ export const RolesPage: React.FC = () => {
             />
 
             <RoleDialog
-                isOpen={showDialog}
+                open={showDialog}
                 onClose={handleCloseDialog}
                 onSubmit={handleSubmitRole}
                 tenants={tenants}
@@ -331,7 +331,7 @@ export const RolesPage: React.FC = () => {
                 error={dialogError}
             />
             <RolePermissionsDialog
-                isOpen={!!permissionsDialogRole}
+                open={!!permissionsDialogRole}
                 onClose={() => setPermissionsDialogRole(null)}
                 role={permissionsDialogRole}
                 onSaved={() => loadRoles()}

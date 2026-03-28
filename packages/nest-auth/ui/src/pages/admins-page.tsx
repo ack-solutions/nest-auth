@@ -7,9 +7,6 @@ import type { Admin } from '../types';
 import { PageHeader } from '../components/page-header';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
-import Paper from '@mui/material/Paper';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import { Table, Column } from '../components/table';
@@ -150,7 +147,7 @@ export const AdminsPage: React.FC = () => {
             />
 
             <CreateAdminDialog
-                isOpen={showCreateModal}
+                open={showCreateModal}
                 onClose={() => {
                     setShowCreateModal(false);
                     setCreateError('');
