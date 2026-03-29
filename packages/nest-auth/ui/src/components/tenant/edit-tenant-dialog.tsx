@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
-import { Building2, Pencil } from 'lucide-react';
+import React, { useCallback, useEffect } from 'react';
+import { Building2 } from 'lucide-react';
 import Icon from '@mui/material/Icon';
 import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
@@ -68,26 +68,6 @@ export const EditTenantDialog: React.FC<EditTenantDialogProps> = ({
         onClose();
     }, [reset, tenant, onClose]);
 
-    const actions: FormFooterAction[] = useMemo(
-        () => [
-            {
-                label: 'Cancel',
-                onClick: handleCancel,
-                variant: 'secondary',
-                disabled: isSubmitting,
-            },
-            {
-                label: isSubmitting ? 'Updating…' : 'Update Tenant',
-                onClick: () => {
-                    (document.getElementById(FORM_ID) as HTMLFormElement | null)?.requestSubmit();
-                },
-                variant: 'primary',
-                disabled: isSubmitting,
-                icon: <Icon component={Pencil} />,
-            },
-        ],
-        [handleCancel, isSubmitting],
-    );
 
     return (
         <FormDialog
@@ -102,7 +82,7 @@ export const EditTenantDialog: React.FC<EditTenantDialogProps> = ({
             maxWidth="md"
             actions={
                 <>
-                    <Button onClick={handleCancel} variant="outlined">Cancel</Button>
+                    <Button onClick={handleCancel} type="button" variant="outlined">Cancel</Button>
                     <Button type="submit" variant="contained" loading={isSubmitting}>Update Tenant</Button>
                 </>
             }

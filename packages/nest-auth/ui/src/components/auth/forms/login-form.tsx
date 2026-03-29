@@ -4,7 +4,7 @@ import Icon from '@mui/material/Icon';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { Box, Paper, Typography, Stack, Divider } from '@mui/material';
+import { Box, Paper, Typography, Stack } from '@mui/material';
 import Button from '@mui/material/Button';
 import { RHFPasswordField } from '../../form/hook-form-fields/rhf-password-field';
 import { RHFTextField } from '../../form/hook-form-fields/rhf-text-field';
@@ -84,10 +84,7 @@ export const LoginFormComponent: React.FC<LoginFormProps> = ({
             <form onSubmit={handleSubmit(onSubmit)}>
                 <Stack spacing={2}>
                     <RHFTextField
-                        fieldVariant="email"
                         name="email"
-                        control={control}
-                        id="email"
                         label="Email Address"
                         disabled={isSubmitting}
                         placeholder="admin@example.com"
@@ -97,8 +94,6 @@ export const LoginFormComponent: React.FC<LoginFormProps> = ({
                     <Box>
                         <RHFPasswordField
                             name="password"
-                            control={control}
-                            id="password"
                             label="Password"
                             disabled={isSubmitting}
                             placeholder="••••••••"
