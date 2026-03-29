@@ -229,28 +229,17 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                                 title="Basic Information"
                                 icon={<Icon component={UserIcon} sx={{ fontSize: 16, color: 'primary.main' }} />}
                                 action={
-                                    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                                        <Tooltip title="Edit roles for this user" slotProps={tooltipSlotProps}>
-                                            <Button size="small"
-                                                variant="outlined" color="inherit" onClick={() => setShowRolesEdit(true)}
-                                                startIcon={<Icon component={Shield} />}
-                                                sx={{ minWidth: 0, py: 0.5 }}>
-                                                Roles
-                                            </Button>
-                                        </Tooltip>
-                                        <Tooltip title="Edit email, phone, and basic info" slotProps={tooltipSlotProps}>
-                                            <Button
-                                             size="small"
-                                                variant="outlined"
-                                                color="inherit"
-                                                onClick={() => setShowBasicInfoEdit(true)}
-                                                startIcon={<Icon component={Pencil} />}
-                                                sx={{ minWidth: 0, py: 0.5 }}
-                                            >
-                                                Edit
-                                            </Button>
-                                        </Tooltip>
-                                    </Stack>
+                                    <Tooltip title="Edit email, phone, and basic info" slotProps={tooltipSlotProps}>
+                                        <Button
+                                            size="small"
+                                            variant="contained"
+                                            onClick={() => setShowBasicInfoEdit(true)}
+                                            startIcon={<Icon component={Pencil} />}
+                                            sx={{ minWidth: 0, py: 0.5 }}
+                                        >
+                                            Edit
+                                        </Button>
+                                    </Tooltip>
                                 }
                             >
                                 <Stack spacing={0.25}>

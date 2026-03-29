@@ -8,4 +8,5 @@ export * from './services/access-key.service';
 // Entities
 export * from './entities/user.entity';
 export * from './entities/identity.entity';
+export * from './entities/user-credential.entity';
 export * from './entities/access-key.entity';

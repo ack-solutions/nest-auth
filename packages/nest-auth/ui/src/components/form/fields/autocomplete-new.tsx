@@ -7,16 +7,16 @@ import {
     Stack,
     TextField,
     TextFieldProps,
+    Icon,
 } from '@mui/material';
 import MuiAutocomplete, {
     AutocompleteProps as MuiAutocompleteProps,
     createFilterOptions,
 } from '@mui/material/Autocomplete';
 import { has, isEqual, keyBy, map } from 'lodash';
+import { Trash } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Icon } from '../../components';
-import { IconEnum } from '../../components/icons/icons';
 
 
 const filter = createFilterOptions<any>();
@@ -241,7 +241,7 @@ export function AutocompleteNew({
                     </Box>
                     {deletable && !option.inputValue && canDeleteOptions?.(option) ? (
                         <IconButton onClick={handleDelete(option)}>
-                            <Icon icon={IconEnum.TRASH} />
+                            <Icon component={Trash} />
                         </IconButton>
                     ) : null}
                 </Stack>

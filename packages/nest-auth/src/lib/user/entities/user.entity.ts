@@ -18,6 +18,7 @@ import { hash, verify, Algorithm } from '@node-rs/argon2';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { NestAuthTenant } from "../../tenant/entities/tenant.entity";
 import { NestAuthIdentity } from "./identity.entity";
+import { NestAuthUserCredential } from "./user-credential.entity";
 import { NestAuthSession } from "../../session/entities/session.entity";
 import { chain } from "lodash";
 import { NestAuthOTP } from "../../auth/entities/otp.entity";
@@ -69,6 +70,9 @@ export class NestAuthUser extends BaseEntity {
 
     @OneToMany(() => NestAuthIdentity, identity => identity.user)
     identities: NestAuthIdentity[];
+
+    @OneToMany(() => NestAuthUserCredential, (cred) => cred.user)
+    userCredentials: NestAuthUserCredential[];
 
     @OneToMany(() => NestAuthMFASecret, mfaSecret => mfaSecret.user)
     mfaSecrets: NestAuthMFASecret[];

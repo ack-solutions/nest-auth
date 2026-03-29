@@ -1,5 +1,5 @@
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { FormProvider, useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Alert, Box, Stack, Typography } from '@mui/material';
@@ -42,13 +42,7 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
     originalName,
 }) => {
     const { guardOptions, helperText: guardHelperText } = useRoleGuards();
-    const {
-        control,
-        handleSubmit,
-        formState: { isSubmitting },
-        reset,
-        watch,
-    } = useForm<PermissionFormData>({
+    const methods = useForm<PermissionFormData>({
         resolver: yupResolver(permissionSchema) as any,
         defaultValues: initialData || {
             name: '',
@@ -57,6 +51,12 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
             category: '',
         },
     });
+    const {
+        handleSubmit,
+        formState: { isSubmitting },
+        reset,
+        watch,
+    } = methods;
 
     const name = watch('name');
     const nameChanged = isEdit && name.trim() !== (originalName || '');
@@ -80,8 +80,9 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
     };
 
     return (
-        <form id="permission-form" onSubmit={handleSubmit(handleFormSubmit)}>
-            <Stack spacing={2} sx={{ p: 2 }}>
+        <FormProvider {...methods}>
+            <form id="permission-form" onSubmit={handleSubmit(handleFormSubmit)}>
+                <Stack spacing={2} sx={{ p: 2 }}>
                 {error && (
                     <Alert severity="error" variant="outlined">
                         {error}
@@ -146,6 +147,7 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
                     </Box>
                 )}
             </Stack>
-        </form>
+            </form>
+        </FormProvider>
     );
 };

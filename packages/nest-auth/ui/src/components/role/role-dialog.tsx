@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Shield, Plus, Pencil, UserCircle, Building2, KeyRound } from 'lucide-react';
+import React from 'react';
+import { Shield, UserCircle, Building2, KeyRound } from 'lucide-react';
 import Icon from '@mui/material/Icon';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -8,16 +8,16 @@ import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import Paper from '@mui/material/Paper';
 import { FormDialog } from '../form-dialog';
-import { FormFooter, FormFooterAction } from '../dialog';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { RHFTextField } from '../form/hook-form-fields/rhf-text-field';
-import { RHFSelect } from '../form/rhf-select';
+import { RHFSelect } from '../form/hook-form-fields/rhf-select';
 import { RHFSwitch } from '../form/hook-form-fields/rhf-switch';
 import { RHFRolePermissionChecklist } from '../form/hook-form-fields/rhf-role-permission-checklist';
 import { useRoleGuards } from '../../hooks/use-role-guards';
 import type { Tenant, Role } from '../../types';
+import { Button } from '@mui/material';
 
 const sectionIconSx = { color: 'var(--mui-palette-primary-main)' };
 
@@ -141,45 +141,26 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
         }
     };
 
-    const handleCancel = () => {
-        if (!isEdit) reset();
-        onClose();
-    };
-
-    // Footer actions - managed internally
-    const actions: FormFooterAction[] = useMemo(() => [
-        {
-            label: 'Cancel',
-            onClick: handleCancel,
-            variant: 'secondary' as const,
-            disabled: isSubmitting,
-        },
-        {
-            label: isEdit ? 'Update Role' : 'Create Role',
-            onClick: () => {
-                const form = document.getElementById('role-form') as HTMLFormElement;
-                if (form) {
-                    form.requestSubmit();
-                }
-            },
-            variant: 'primary' as const,
-            disabled: isSubmitting,
-            icon: isEdit ? <Icon component={Pencil} /> : <Icon component={Plus} />,
-        },
-    ], [handleCancel, isSubmitting, isEdit]);
-
     return (
         <FormDialog
             formContext={methods}
             onSuccess={handleFormSubmit}
-            formProps={{ id: 'role-form' }}
             open={open}
             onClose={onClose}
             title={isEdit ? 'Edit Role' : 'Create New Role'}
             subTitle={isEdit ? 'Update role name, active status, and permissions' : 'Create a new role and assign permissions'}
             icon={<Icon component={Shield} sx={{ color: 'primary.main' }} />}
             maxWidth="md"
-            actions={<FormFooter actions={actions} />}
+            actions={
+                <>
+                    <Button variant="outlined" color="primary" disabled={isSubmitting} onClick={onClose}>
+                        Cancel
+                    </Button>
+                    <Button variant="contained" color="primary" disabled={isSubmitting} onClick={methods.handleSubmit(handleFormSubmit)}>
+                        {isEdit ? 'Update Role' : 'Create Role'}
+                    </Button>
+                </>
+            }
         >
                 <Stack sx={{ p: 2 }} spacing={2.5}>
                     {error && (
@@ -213,9 +194,8 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                                         label="Guard"
                                         options={guardOptions}
                                         placeholder="Select guard"
-                                        allowEmpty={false}
                                         disabled={isSubmitting}
-                                        caption={guardHelperText}
+                                        helperText={guardHelperText}
                                     />
                                 </Grid>
                             )}
@@ -256,15 +236,10 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                                 </Stack>
                                 <Paper variant="outlined" sx={{ p: 0, borderRadius: 2, overflow: 'hidden' }}>
                                     <Stack>
-                                        <RHFSwitchLabeledRow
+                                        <RHFSwitch
                                             name="isSystem"
-                                            control={control}
-                                            title="System role"
-                                            description={
-                                                isSystem
-                                                    ? 'Available across all tenants. No tenant selection needed.'
-                                                    : 'Uncheck to assign this role to a specific tenant.'
-                                            }
+                                            label="System role"
+                                            defaultChecked={isSystem}
                                             disabled={isSubmitting}
                                             sx={{
                                                 px: 2,
@@ -277,14 +252,12 @@ export const RoleDialog: React.FC<RoleDialogProps> = ({
                                         <Box sx={{ px: 2, py: 1.5 }}>
                                             <RHFSelect
                                                 name="tenantId"
-                                                control={control}
                                                 label="Tenant"
                                                 options={[
                                                     { value: '', label: 'No tenant (global)' },
                                                     ...tenants.map((t) => ({ value: t.id, label: `${t.name} (${t.slug})` })),
                                                 ]}
                                                 placeholder={isSystem ? 'Not used for system roles' : 'Select a tenant'}
-                                                allowEmpty
                                                 disabled={isSystem || isSubmitting}
                                             />
                                             {!isSystem && (

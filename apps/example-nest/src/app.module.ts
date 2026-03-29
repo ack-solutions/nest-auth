@@ -130,7 +130,7 @@ enum RoleGuardEnum {
         // Allow users to choose their preferred MFA method
         allowMethodSelection: true,
         // Available MFA methods (use enum values)
-        methods: [NestAuthMFAMethodEnum.TOTP, NestAuthMFAMethodEnum.EMAIL],
+        methods: [NestAuthMFAMethodEnum.TOTP, NestAuthMFAMethodEnum.EMAIL, NestAuthMFAMethodEnum.SMS],
         // TOTP-specific settings
         totp: {
           // Issuer name shown in authenticator app

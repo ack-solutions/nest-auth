@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Stack, Typography } from '@mui/material';
-import { RHFTextField } from '../form';
+import { RHFTextField } from '../form/hook-form-fields/rhf-text-field';
 
 export interface CreateUserDialogProps {
     open: boolean;
