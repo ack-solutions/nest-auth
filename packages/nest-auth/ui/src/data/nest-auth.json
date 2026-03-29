@@ -1273,9 +1273,9 @@
             "description": "User phone number (required if email not provided)",
             "example": "+1234567890"
           },
-          "otp": {
+          "code": {
             "type": "string",
-            "description": "One-time password code received via email or SMS",
+            "description": "Verification or magic-link code (OTP entity field `code`)",
             "example": "123456",
             "minLength": 6,
             "maxLength": 8
@@ -1287,7 +1287,7 @@
           }
         },
         "required": [
-          "otp"
+          "code"
         ]
       },
       "VerifyOtpResponseDto": {
@@ -1365,9 +1365,9 @@
       "NestAuthVerifyEmailRequestDto": {
         "type": "object",
         "properties": {
-          "otp": {
+          "code": {
             "type": "string",
-            "description": "One-time password code received via email",
+            "description": "Verification code received via email (OTP entity field `code`)",
             "example": "123456",
             "minLength": 6,
             "maxLength": 8
@@ -1379,7 +1379,7 @@
           }
         },
         "required": [
-          "otp"
+          "code"
         ]
       },
       "NestAuthEmailVerifiedResponseDto": {

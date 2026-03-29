@@ -58,6 +58,7 @@ export const AUTH_ERROR_CODES = {
     VERIFICATION_CODE_EXPIRED: 'VERIFICATION_CODE_EXPIRED',
     NO_EMAIL_ADDRESS: 'NO_EMAIL_ADDRESS',
     NO_PHONE_NUMBER: 'NO_PHONE_NUMBER',
+    PHONE_ALREADY_VERIFIED: 'PHONE_ALREADY_VERIFIED',
 } as const;
 
 // MFA Error Codes
@@ -170,6 +171,8 @@ export const DEFAULT_GUARD_NAME = 'web';
 export const NestAuthEvents = {
     EMAIL_VERIFICATION_REQUESTED: 'email.verification.requested',
     EMAIL_VERIFIED: 'email.verified',
+    PHONE_VERIFICATION_REQUESTED: 'phone.verification.requested',
+    PHONE_VERIFIED: 'phone.verified',
     // Auth events
     LOGGED_IN: 'nest_auth.logged_in',
     REGISTERED: 'nest_auth.registered',

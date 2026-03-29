@@ -15,7 +15,6 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { SessionManagerService } from '../../session/services/session-manager.service';
 import { RequestContext } from '../../request-context/request-context';
 import { NestAuthForgotPasswordRequestDto } from '../dto/requests/forgot-password.request.dto';
-import { generateOtp } from '../../utils/otp';
 import { UserPasswordChangedEvent } from '../events/user-password-changed.event';
 import { PasswordResetRequestedEvent } from '../events/password-reset-requested.event';
 import { PasswordResetEvent } from '../events/password-reset.event';
@@ -28,8 +27,8 @@ import { NestAuthResetPasswordWithTokenRequestDto } from '../dto/requests/reset-
 import { NestAuthChangePasswordRequestDto } from '../dto/requests/change-password.request.dto';
 import { VerifyOtpResponseDto } from '../dto/responses/verify-otp.response.dto';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import ms from 'ms';
 import { BaseAuthProvider } from '../../core/providers/base-auth.provider';
+import { OtpFlowService } from './otp-flow.service';
 import type { MessageResponseDto } from 'src/lib/core';
 
 @Injectable()
@@ -55,6 +54,8 @@ export class PasswordService {
         private readonly debugLogger: DebugLoggerService,
 
         private readonly authConfigService: AuthConfigService,
+
+        private readonly otpFlow: OtpFlowService,
     ) { }
 
     get mfaConfig() {
@@ -178,36 +179,13 @@ export class PasswordService {
             }
 
             const options = AuthConfigService.getOptions();
-            let code: string;
-            if (options.otp?.generate) {
-                code = await options.otp.generate(this.mfaConfig.otpLength);
-            } else {
-                code = generateOtp(this.mfaConfig.otpLength);
-            }
 
-            let expiresAtMs: number;
-            if (typeof this.mfaConfig.otpExpiresIn === 'string') {
-                expiresAtMs = ms(this.mfaConfig.otpExpiresIn);
-            } else {
-                expiresAtMs = this.mfaConfig.otpExpiresIn || 900000;
-            }
-
-            if (!expiresAtMs || isNaN(expiresAtMs) || expiresAtMs <= 0) {
-                expiresAtMs = 900000; // fallback
-            }
-
-            await this.otpRepository.delete({
-                userId: identity.user?.id,
-                type: NestAuthOTPTypeEnum.PASSWORD_RESET
-            });
-
-            const otpEntity = await this.otpRepository.create({
-                userId: identity.user?.id,
+            const { entity: otpEntity, plainCode } = await this.otpFlow.createOtp({
+                userId: identity.user!.id,
                 type: NestAuthOTPTypeEnum.PASSWORD_RESET,
-                expiresAt: new Date(Date.now() + expiresAtMs),
-                code,
+                otpOptions: options.otp,
+                replaceExisting: true,
             });
-            await this.otpRepository.save(otpEntity);
 
             await this.eventEmitter.emitAsync(
                 NestAuthEvents.PASSWORD_RESET_REQUESTED,
@@ -216,6 +194,7 @@ export class PasswordService {
                     tenantId,
                     input,
                     otp: otpEntity,
+                    code: plainCode,
                     provider,
                 })
             );
@@ -233,7 +212,7 @@ export class PasswordService {
     async verifyForgotPasswordOtp(input: NestAuthVerifyForgotPasswordOtpRequestDto): Promise<VerifyOtpResponseDto> {
         this.debugLogger.logFunctionEntry('verifyForgotPasswordOtp', 'PasswordService');
         try {
-            const { email, phone, otp, tenantId } = input;
+            const { email, phone, code, tenantId } = input;
 
             if (!email && !phone) {
                 throw new BadRequestException({
@@ -265,7 +244,7 @@ export class PasswordService {
             const validOtp = await this.otpRepository.findOne({
                 where: {
                     userId: identity.user?.id,
-                    code: otp,
+                    code,
                     type: NestAuthOTPTypeEnum.PASSWORD_RESET,
                     used: false,
                 },

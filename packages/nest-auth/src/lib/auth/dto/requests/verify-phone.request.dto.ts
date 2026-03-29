@@ -1,10 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsUUID, IsOptional } from 'class-validator';
-import { IVerifyEmailRequest } from '@ackplus/nest-auth-contracts';
+import { IVerifyPhoneRequest } from '@ackplus/nest-auth-contracts';
 
-export class NestAuthVerifyEmailRequestDto implements IVerifyEmailRequest {
+export class NestAuthVerifyPhoneRequestDto implements IVerifyPhoneRequest {
     @ApiProperty({
-        description: 'Verification code received via email',
+        description: 'Verification code received via SMS (matches OTP entity `code`)',
         example: '123456',
         minLength: 6,
         maxLength: 8,

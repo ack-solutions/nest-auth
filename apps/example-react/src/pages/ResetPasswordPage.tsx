@@ -83,7 +83,7 @@ export default function ResetPasswordPage() {
             // Verify the OTP and get reset token using client from provider
             const response = await client.verifyForgotPasswordOtp({
                 email: email.toLowerCase().trim(),
-                otp: otp.trim(),
+                code: otp.trim(),
             });
 
             // Store the reset token for step 2

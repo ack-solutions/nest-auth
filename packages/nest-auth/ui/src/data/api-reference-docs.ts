@@ -489,7 +489,7 @@ curl -X POST http://localhost:3000/auth/forgot-password \\
 {
   email?: string;       // Email (required if phone not provided)
   phone?: string;       // Phone (required if email not provided)
-  otp: string;          // 6-digit OTP from email/SMS
+  code: string;         // Verification or magic-link code (entity field `code`)
   tenantId?: string;    // Optional tenant ID
 }
 \`\`\`
@@ -508,7 +508,7 @@ curl -X POST http://localhost:3000/auth/verify-forgot-password-otp \\
   -H "Content-Type: application/json" \\
   -d '{
     "email": "user@example.com",
-    "otp": "123456"
+    "code": "123456"
   }'
 \`\`\`
 
@@ -609,7 +609,7 @@ curl -X POST http://localhost:3000/auth/send-email-verification \\
 **Request Body**:
 \`\`\`typescript
 {
-  otp: string;  // 6-digit OTP from email
+  code: string;  // Verification code from email (entity field `code`)
 }
 \`\`\`
 
@@ -626,7 +626,7 @@ curl -X POST http://localhost:3000/auth/verify-email \\
   -H "Authorization: Bearer <access_token>" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "otp": "123456"
+    "code": "123456"
   }'
 \`\`\`
 
@@ -1015,7 +1015,7 @@ curl -X POST http://localhost:3000/auth/verify-forgot-password-otp \\
   -H "Content-Type: application/json" \\
   -d '{
     "email": "user@example.com",
-    "otp": "123456"
+    "code": "123456"
   }'
 \`\`\`
 

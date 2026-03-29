@@ -23,14 +23,14 @@ export class NestAuthVerifyForgotPasswordOtpRequestDto implements IVerifyForgotP
     phone?: string;
 
     @ApiProperty({
-        description: 'One-time password code received via email or SMS',
+        description: 'Verification or magic-link code (matches OTP entity `code`)',
         example: '123456',
         minLength: 6,
         maxLength: 8,
     })
     @IsString()
     @IsNotEmpty()
-    otp: string;
+    code: string;
 
     @ApiPropertyOptional({
         description: 'Tenant ID for multi-tenant applications',

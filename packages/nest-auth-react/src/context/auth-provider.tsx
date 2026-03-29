@@ -16,6 +16,7 @@ import {
     ISignupRequest,
     IVerify2faRequest,
     IForgotPasswordRequest,
+    IVerifyForgotPasswordOtpRequest,
     IVerifyEmailRequest,
     IResendVerificationRequest,
     IChangePasswordRequest,
@@ -303,7 +304,7 @@ export function AuthProvider({
         }
     }, [client]);
 
-    const verifyForgotPasswordOtp = useCallback(async (dto: { email?: string; phone?: string; otp: string }) => {
+    const verifyForgotPasswordOtp = useCallback(async (dto: IVerifyForgotPasswordOtpRequest) => {
         setError(null);
         try {
             return await client.verifyForgotPasswordOtp(dto);

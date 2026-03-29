@@ -19,6 +19,7 @@ import {
     IVerify2faResponse,
     IForgotPasswordRequest,
     IVerifyEmailRequest,
+    IVerifyForgotPasswordOtpRequest,
     IResendVerificationRequest,
     IChangePasswordRequest,
     IMessageResponse,
@@ -73,7 +74,7 @@ export interface AuthContextValue {
     /** Request password reset (forgot password) */
     forgotPassword: (dto: IForgotPasswordRequest) => Promise<IMessageResponse>;
     /** Verify forgot password OTP */
-    verifyForgotPasswordOtp: (dto: { email?: string; phone?: string; otp: string }) => Promise<IVerifyOtpResponse>;
+    verifyForgotPasswordOtp: (dto: IVerifyForgotPasswordOtpRequest) => Promise<IVerifyOtpResponse>;
     /** Reset password with token */
     resetPassword: (dto: IResetPasswordWithTokenRequest) => Promise<IMessageResponse>;
     /** Change password (authenticated) */

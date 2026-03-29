@@ -198,15 +198,21 @@ export interface IPasswordHooks {
 }
 
 /**
- * OTP customization options
+ * OTP customization (password reset, MFA, email/phone verification, etc.).
+ * Used by verification send flows for `generate`, `length`, and `codeExpiresIn`.
  */
 export interface IOtpOptions {
-    /** Custom OTP generation function */
-    generate?: (length?: number) => string | Promise<string>;
-    /** OTP length (default: 6) */
+    /** Custom OTP/code generation function */
+    generate?: (length?: number, format?: 'numeric' | 'alphanumeric') => string | Promise<string>;
+    /** Code length when using the default generator or when passing `length` to `generate` (default: 6) */
     length?: number;
-    /** OTP format */
+    /** OTP format where applicable */
     format?: 'numeric' | 'alphanumeric';
+    /**
+     * TTL for email/phone verification codes (`send-email-verification` / `send-phone-verification`).
+     * Ms string (e.g. `30m`) or milliseconds number. Default: `30m`.
+     */
+    codeExpiresIn?: number | string;
 }
 
 /**
@@ -416,8 +422,7 @@ export interface IAuthModuleOptions {
     password?: IPasswordHooks;
 
     /**
-     * OTP customization
-     * Custom generation, format, and length
+     * OTP customization (generation, length, verification code expiry — see {@link IOtpOptions}).
      */
     otp?: IOtpOptions;
 

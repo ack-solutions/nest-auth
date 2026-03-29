@@ -7,8 +7,11 @@ import type { INestAuthTenant, INestAuthUserAccess } from './tenant';
 
 // OTP Type Enum
 export enum NestAuthOTPTypeEnum {
+    PASSWORDLESS_LOGIN = 'passwordless_login',
+    MAGIC_LINK_LOGIN = 'magic_link_login',
     PASSWORD_RESET = 'password_reset',
-    VERIFICATION = 'verification',
+    EMAIL_VERIFICATION = 'email_verification',
+    PHONE_VERIFICATION = 'phone_verification',
     MFA = 'mfa',
 }
 

@@ -58,8 +58,10 @@ export {
 // Verification
 export {
     IVerifyEmailRequest,
+    IVerifyPhoneRequest,
     IResendVerificationRequest,
     ISendEmailVerificationRequest,
+    ISendPhoneVerificationRequest,
     ISessionVerifyResponse,
 } from './verification';
 

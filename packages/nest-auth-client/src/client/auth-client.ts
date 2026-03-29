@@ -12,6 +12,7 @@ import {
     IForgotPasswordRequest as ForgotPasswordDto,
     IResetPasswordWithTokenRequest as ResetPasswordDto,
     IVerifyEmailRequest as VerifyEmailDto,
+    IVerifyForgotPasswordOtpRequest as VerifyForgotPasswordOtpDto,
     IResendVerificationRequest as ResendVerificationDto,
     IChangePasswordRequest as ChangePasswordDto,
     IVerify2faRequest as Verify2faDto,
@@ -683,7 +684,7 @@ export class AuthClient {
     /**
      * Verify forgot password OTP
      */
-    async verifyForgotPasswordOtp(dto: { email?: string; phone?: string; otp: string }, options?: RequestOptions): Promise<VerifyOtpResponse> {
+    async verifyForgotPasswordOtp(dto: VerifyForgotPasswordOtpDto, options?: RequestOptions): Promise<VerifyOtpResponse> {
         const endpoint = this.getEndpoint('verifyForgotPasswordOtp');
         const response = await this.request<VerifyOtpResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
 

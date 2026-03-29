@@ -15,6 +15,8 @@ import {
     NestAuthPasswordResetResponseDto,
     NestAuthEmailVerificationSentResponseDto,
     NestAuthEmailVerifiedResponseDto,
+    NestAuthPhoneVerificationSentResponseDto,
+    NestAuthPhoneVerifiedResponseDto,
     NestAuthMfaCodeSentResponseDto
 } from '../dto/responses/auth-messages.response.dto';
 import { NestAuthLoginRequestDto } from '../dto/requests/login.request.dto';
@@ -29,6 +31,8 @@ import { VerifyOtpResponseDto } from '../dto/responses/verify-otp.response.dto';
 import { NestAuthChangePasswordRequestDto } from '../dto/requests/change-password.request.dto';
 import { NestAuthSendEmailVerificationRequestDto } from '../dto/requests/send-email-verification.request.dto';
 import { NestAuthVerifyEmailRequestDto } from '../dto/requests/verify-email.request.dto';
+import { NestAuthSendPhoneVerificationRequestDto } from '../dto/requests/send-phone-verification.request.dto';
+import { NestAuthVerifyPhoneRequestDto } from '../dto/requests/verify-phone.request.dto';
 import { NestAuthSwitchTenantRequestDto } from '../dto/requests/switch-tenant.request.dto';
 import { ACCESS_TOKEN_COOKIE_NAME, REFRESH_TOKEN_COOKIE_NAME } from '../../auth.constants';
 
@@ -345,6 +349,28 @@ export class AuthController {
     async verifyEmail(@Body() input: NestAuthVerifyEmailRequestDto): Promise<NestAuthEmailVerifiedResponseDto> {
         await this.verificationService.verifyEmail(input);
         return { message: 'Email verified successfully' };
+    }
+
+    @ApiOperation({ summary: 'Send phone verification (SMS OTP)' })
+    @ApiResponse({ status: 200, type: NestAuthPhoneVerificationSentResponseDto })
+    @HttpCode(200)
+    @Post('send-phone-verification')
+    @SkipMfa()
+    @UseGuards(NestAuthAuthGuard)
+    async sendPhoneVerification(@Body() input: NestAuthSendPhoneVerificationRequestDto): Promise<NestAuthPhoneVerificationSentResponseDto> {
+        await this.verificationService.sendPhoneVerification(input);
+        return { message: 'Verification SMS sent' };
+    }
+
+    @ApiOperation({ summary: 'Verify phone number with OTP' })
+    @ApiResponse({ status: 200, type: NestAuthPhoneVerifiedResponseDto })
+    @HttpCode(200)
+    @Post('verify-phone')
+    @SkipMfa()
+    @UseGuards(NestAuthAuthGuard)
+    async verifyPhone(@Body() input: NestAuthVerifyPhoneRequestDto): Promise<NestAuthPhoneVerifiedResponseDto> {
+        await this.verificationService.verifyPhone(input);
+        return { message: 'Phone verified successfully' };
     }
 
     @ApiOperation({

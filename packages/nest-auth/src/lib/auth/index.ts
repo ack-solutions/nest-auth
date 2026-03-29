@@ -15,6 +15,8 @@ export * from './events/user-logged-in.event';
 export * from './events/user-refresh-token.event';
 export * from './events/user-registered.event';
 export * from './events/two-factor-code-sent.event';
+export * from './events/email-verification-requested.event';
+export * from './events/phone-verification-requested.event';
 
 // Services
 export * from './services/auth.service';

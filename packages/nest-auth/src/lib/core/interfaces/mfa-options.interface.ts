@@ -1,4 +1,5 @@
 import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
+import { IOtpOptions } from './auth-module-options.interface';
 
 export interface MFAOptions {
     // Whether MFA is enabled for the application
@@ -12,9 +13,6 @@ export interface MFAOptions {
 
     // Default MFA method to suggest to users
     defaultMethod?: NestAuthMFAMethodEnum;
-
-    // OTP length
-    otpLength?: number;
 
     // Default TOTP settings
     totp?: {
@@ -47,6 +45,9 @@ export interface MFAOptions {
 
     // Trusted device storage name/ cookie name OR hader name (only for mobile apps)
     trustDeviceStorageName?: string;
+
+    /** MFA OTP generation (length/format); separate from top-level {@link IOtpOptions} used for verification/password reset */
+    otp?: Pick<IOtpOptions, 'length' | 'format' | 'generate'>;
 
     // Default OTP code for development/testing (e.g. '1234')
     // If set, this code will be accepted for any user

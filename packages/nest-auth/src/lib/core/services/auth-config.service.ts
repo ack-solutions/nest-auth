@@ -1,9 +1,9 @@
-import { Injectable, Inject, Optional } from '@nestjs/common';
-import { randomBytes } from 'crypto';
+import { Injectable } from '@nestjs/common';
 import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
 import { SessionStorageType } from '../interfaces/session-options.interface';
 import { NestAuthMFAMethodEnum, TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { DEFAULT_GUARD_NAME, NEST_AUTH_TRUST_DEVICE_KEY } from '../../auth.constants';
+import { generateOtp } from '../../utils/otp';
 
 @Injectable()
 export class AuthConfigService {
@@ -40,7 +40,7 @@ export class AuthConfigService {
             methods: [NestAuthMFAMethodEnum.EMAIL, NestAuthMFAMethodEnum.TOTP],
             allowUserToggle: true,
             allowMethodSelection: true,
-            otpLength: 6,
+            otp: { length: 6, format: 'numeric' },
             required: false,
             otpExpiresIn: '15m',
             trustDeviceStorageName: NEST_AUTH_TRUST_DEVICE_KEY, // it work only when pass 'trustDevice' true in verify2fa request
@@ -69,19 +69,19 @@ export class AuthConfigService {
             prefix: '[NestAuth]',
             includeTimestamp: true,
             includeContext: true
-        }
+        },
+        otp: {
+            codeExpiresIn: '30m',
+            length: 6,
+            format: 'numeric',
+            generate: generateOtp,
+        },
     };
 
     private static options: IAuthModuleOptions;
     private static instance: AuthConfigService;
 
-    constructor(
-        @Inject('AUTH_MODULE_OPTIONS')
-        @Optional() options?: IAuthModuleOptions
-    ) {
-        if (options) {
-            AuthConfigService.options = options;
-        }
+    constructor() {
         if (!AuthConfigService.instance) {
             AuthConfigService.instance = this;
         }
@@ -102,45 +102,6 @@ export class AuthConfigService {
         return AuthConfigService.instance;
     }
 
-    /**
-     * Generates a secure random key using cryptographically strong random bytes.
-     * Used as fallback when no key is explicitly configured.
-     */
-    private static generateRandomKey(length: number = 32): string {
-        return randomBytes(length).toString('base64');
-    }
-
-    /**
-     * Resolves the Nest Auth Admin Console Secret Key from configuration.
-     * This key is used for:
-     * - Signing admin dashboard sessions
-     * - Admin console security operations (admin creation, password reset, etc.)
-     *
-     * Priority:
-     * 1. Explicitly configured key (adminConsole.secretKey)
-     * 2. Auto-generated random key (for development only, with warning)
-     * 3. undefined (if generation is disabled)
-     */
-    private static resolveSecretKey(options: IAuthModuleOptions): string | undefined {
-        // Check explicit configuration first
-        const adminConsoleKey = options.adminConsole?.secretKey;
-        if (adminConsoleKey) {
-            return adminConsoleKey;
-        }
-
-        // Auto-generate for development (only if NODE_ENV is not production)
-        if (process.env.NODE_ENV !== 'production') {
-            const generatedKey = this.generateRandomKey(32);
-            console.warn(
-                '[NestAuth] Warning: adminConsole.secretKey not configured. ' +
-                `Auto-generated key for development: ${generatedKey.slice(0, 20)}...\n` +
-                '⚠️  This key will change on each restart. Configure adminConsole.secretKey in your AuthModuleOptions!'
-            );
-            return generatedKey;
-        }
-
-        return undefined;
-    }
 
     static setOptions(options: IAuthModuleOptions): void {
         const deepmerge = require('deepmerge');

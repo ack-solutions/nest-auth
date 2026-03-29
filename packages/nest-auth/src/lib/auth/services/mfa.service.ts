@@ -13,9 +13,9 @@ import {
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthOTP } from '../../auth/entities/otp.entity';
 import { NestAuthOTPTypeEnum } from '@ackplus/nest-auth-contracts';
-import { generateOtp } from '../../utils/otp';
-import ms from 'ms';
 import { AuthConfigService } from '../../core/services/auth-config.service';
+import { OtpFlowService } from './otp-flow.service';
+import { IOtpOptions } from '../../core/interfaces/auth-module-options.interface';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TwoFactorCodeSentEvent } from '../events/two-factor-code-sent.event';
 import { NestAuthTrustedDevice } from '../entities/trusted-device.entity';
@@ -23,6 +23,7 @@ import { randomBytes } from 'crypto';
 import { User2faEnabledEvent } from '../events/user-2fa-enabled.event';
 import { User2faDisabledEvent } from '../events/user-2fa-disabled.event';
 import { RequestContext } from '../../request-context/request-context';
+import ms from 'ms';
 
 
 @Injectable()
@@ -42,6 +43,8 @@ export class MfaService {
         private trustedDeviceRepository: Repository<NestAuthTrustedDevice>,
 
         private eventEmitter: EventEmitter2,
+
+        private readonly otpFlow: OtpFlowService,
     ) { }
 
     get mfaConfig(): MFAOptions {
@@ -139,40 +142,11 @@ export class MfaService {
 
         this.requireMfaEnabledForApp(true)
 
-        const options = AuthConfigService.getOptions();
-        let code: string;
-
-        // Apply otp.generate hook if configured
-        if (options.otp?.generate) {
-            code = await options.otp.generate(this.mfaConfig.otpLength);
-        } else {
-            code = generateOtp(this.mfaConfig.otpLength);
-        }
-
-        let expiresAtMs: number;
-        if (typeof this.mfaConfig.otpExpiresIn === 'string') {
-            expiresAtMs = ms(this.mfaConfig.otpExpiresIn); // example: '15m', '1h', '1d'
-        } else {
-            expiresAtMs = this.mfaConfig.otpExpiresIn || 900000; // Default to 15m if undefined
-        }
-
-        if (!expiresAtMs || isNaN(expiresAtMs) || expiresAtMs <= 0) {
-            throw new Error(`Invalid MFA configuration: otpExpiresIn '${this.mfaConfig.otpExpiresIn}' results in invalid duration`);
-        }
-
-        // Invalidate previous MFA OTPs for this user
-        await this.otpRepository.delete({
-            userId,
-            type: NestAuthOTPTypeEnum.MFA
-        });
-
-        const otp = await this.otpRepository.create({
+        const { plainCode } = await this.otpFlow.createOtp({
             userId,
             type: NestAuthOTPTypeEnum.MFA,
-            expiresAt: new Date(Date.now() + expiresAtMs),
-            code,
-        })
-        await this.otpRepository.save(otp);
+            replaceExisting: true,
+        });
 
         if (method === NestAuthMFAMethodEnum.EMAIL || method === NestAuthMFAMethodEnum.SMS) {
             const user = await this.userRepository.findOne({ where: { id: userId } });
@@ -183,7 +157,7 @@ export class MfaService {
                         user,
                         tenantId: RequestContext.currentTenantId(),
                         method,
-                        code,
+                        code: plainCode,
                     })
                 );
             }
