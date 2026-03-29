@@ -69,8 +69,11 @@ export type {
     IForgotPasswordRequest as ForgotPasswordDto,
     IResetPasswordWithTokenRequest as ResetPasswordDto,
     IChangePasswordRequest as ChangePasswordDto,
-    // Email verification DTOs
+    // Email / phone verification DTOs (`code` — not MFA `otp`)
     IVerifyEmailRequest as VerifyEmailDto,
+    IVerifyPhoneRequest as VerifyPhoneDto,
+    ISendEmailVerificationRequest as SendEmailVerificationDto,
+    ISendPhoneVerificationRequest as SendPhoneVerificationDto,
     IResendVerificationRequest as ResendVerificationDto,
     // 2FA DTOs
     IVerify2faRequest as Verify2faDto,

@@ -21,6 +21,9 @@ import {
     IVerifyEmailRequest,
     IVerifyForgotPasswordOtpRequest,
     IResendVerificationRequest,
+    ISendEmailVerificationRequest,
+    ISendPhoneVerificationRequest,
+    IVerifyPhoneRequest,
     IChangePasswordRequest,
     IMessageResponse,
     IVerifyOtpResponse,
@@ -80,11 +83,15 @@ export interface AuthContextValue {
     /** Change password (authenticated) */
     changePassword: (dto: IChangePasswordRequest) => Promise<IMessageResponse>;
 
-    // Actions - Email Verification
+    // Actions - Email / phone verification (use `code` in verify DTOs; MFA flows use `otp`)
     /** Verify email address */
     verifyEmail: (dto: IVerifyEmailRequest) => Promise<IMessageResponse>;
-    /** Resend verification email */
-    resendVerification: (dto: IResendVerificationRequest) => Promise<IMessageResponse>;
+    /** Send email verification code (authenticated) */
+    sendEmailVerification: (dto?: ISendEmailVerificationRequest) => Promise<IMessageResponse>;
+    /** Send phone verification SMS (authenticated) */
+    sendPhoneVerification: (dto?: ISendPhoneVerificationRequest) => Promise<IMessageResponse>;
+    /** Verify phone with SMS code */
+    verifyPhone: (dto: IVerifyPhoneRequest) => Promise<IMessageResponse>;
 
     // Actions - 2FA
     /** Send 2FA code */
@@ -146,7 +153,9 @@ const defaultContextValue: AuthContextValue = {
     changePassword: () => Promise.reject(new Error('AuthProvider not found')),
     // Email verification
     verifyEmail: () => Promise.reject(new Error('AuthProvider not found')),
-    resendVerification: () => Promise.reject(new Error('AuthProvider not found')),
+    sendEmailVerification: () => Promise.reject(new Error('AuthProvider not found')),
+    sendPhoneVerification: () => Promise.reject(new Error('AuthProvider not found')),
+    verifyPhone: () => Promise.reject(new Error('AuthProvider not found')),
     // 2FA
     send2fa: () => Promise.reject(new Error('AuthProvider not found')),
     // TOTP / MFA Management

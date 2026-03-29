@@ -14,6 +14,9 @@ import {
     IVerifyEmailRequest as VerifyEmailDto,
     IVerifyForgotPasswordOtpRequest as VerifyForgotPasswordOtpDto,
     IResendVerificationRequest as ResendVerificationDto,
+    ISendEmailVerificationRequest as SendEmailVerificationDto,
+    ISendPhoneVerificationRequest as SendPhoneVerificationDto,
+    IVerifyPhoneRequest as VerifyPhoneDto,
     IChangePasswordRequest as ChangePasswordDto,
     IVerify2faRequest as Verify2faDto,
     IAuthResponse as AuthResponse,
@@ -682,7 +685,7 @@ export class AuthClient {
     }
 
     /**
-     * Verify forgot password OTP
+     * Verify forgot-password flow using the emailed/SMS `code` (not the MFA `otp` field).
      */
     async verifyForgotPasswordOtp(dto: VerifyForgotPasswordOtpDto, options?: RequestOptions): Promise<VerifyOtpResponse> {
         const endpoint = this.getEndpoint('verifyForgotPasswordOtp');
@@ -727,6 +730,35 @@ export class AuthClient {
     // Public API - Email Verification
     // ============================================================================
 
+
+    /**
+     * Request a new email verification code (authenticated). Body matches {@link ISendEmailVerificationRequest}.
+     */
+    async sendEmailVerification(dto: SendEmailVerificationDto = {}, options?: RequestOptions): Promise<MessageResponse> {
+        const endpoint = this.getEndpoint('sendEmailVerification');
+        const response = await this.request<MessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        return response.data;
+    }
+
+    /**
+     * Request a phone verification SMS (authenticated).
+     */
+    async sendPhoneVerification(dto: SendPhoneVerificationDto = {}, options?: RequestOptions): Promise<MessageResponse> {
+        const endpoint = this.getEndpoint('sendPhoneVerification');
+        const response = await this.request<MessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        return response.data;
+    }
+
     /**
      * Verify email address
      */
@@ -748,10 +780,10 @@ export class AuthClient {
     }
 
     /**
-     * Resend verification email
+     * Verify phone number with the SMS `code` (not the MFA `otp` field).
      */
-    async resendVerification(dto: ResendVerificationDto, options?: RequestOptions): Promise<MessageResponse> {
-        const endpoint = this.getEndpoint('resendVerification');
+    async verifyPhone(dto: VerifyPhoneDto, options?: RequestOptions): Promise<MessageResponse> {
+        const endpoint = this.getEndpoint('verifyPhone');
         const response = await this.request<MessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
 
         if (!response.ok) {

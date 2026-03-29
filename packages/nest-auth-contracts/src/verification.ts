@@ -6,6 +6,8 @@
 export interface IVerifyEmailRequest {
     /** Verification code (entity field `code`; may be OTP or magic-link code). */
     code: string;
+    /** Tenant ID for multi-tenant applications */
+    tenantId?: string;
 }
 
 export interface IResendVerificationRequest {

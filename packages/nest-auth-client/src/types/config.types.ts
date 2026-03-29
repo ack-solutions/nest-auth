@@ -111,8 +111,14 @@ export interface EndpointConfig {
     resetPassword?: string;
     /** Verify email endpoint (default: /auth/verify-email) */
     verifyEmail?: string;
-    /** Resend verification endpoint (default: /auth/send-email-verification) */
+    /** Send email verification OTP (default: /auth/send-email-verification) */
+    sendEmailVerification?: string;
+    /** Resend verification endpoint (default: /auth/send-email-verification); alias of send email verification */
     resendVerification?: string;
+    /** Send phone verification SMS (default: /auth/send-phone-verification) */
+    sendPhoneVerification?: string;
+    /** Verify phone with code (default: /auth/verify-phone) */
+    verifyPhone?: string;
     /** Change password endpoint (default: /auth/change-password) */
     changePassword?: string;
     /** Send 2FA code (default: /auth/mfa/challenge) */
@@ -155,7 +161,10 @@ export const DEFAULT_ENDPOINTS: Required<EndpointConfig> = {
     verifyForgotPasswordOtp: '/auth/verify-forgot-password-otp',
     resetPassword: '/auth/reset-password',
     verifyEmail: '/auth/verify-email',
+    sendEmailVerification: '/auth/send-email-verification',
     resendVerification: '/auth/send-email-verification',
+    sendPhoneVerification: '/auth/send-phone-verification',
+    verifyPhone: '/auth/verify-phone',
     changePassword: '/auth/change-password',
     send2fa: '/auth/mfa/challenge',
     verify2fa: '/auth/mfa/verify',

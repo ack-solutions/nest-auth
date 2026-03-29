@@ -19,6 +19,9 @@ import {
     IVerifyForgotPasswordOtpRequest,
     IVerifyEmailRequest,
     IResendVerificationRequest,
+    ISendEmailVerificationRequest,
+    ISendPhoneVerificationRequest,
+    IVerifyPhoneRequest,
     IChangePasswordRequest,
     IResetPasswordWithTokenRequest,
     IVerifyTotpSetupRequest,
@@ -350,10 +353,30 @@ export function AuthProvider({
         }
     }, [client, user]);
 
-    const resendVerification = useCallback(async (dto: IResendVerificationRequest) => {
+    const sendEmailVerification = useCallback(async (dto?: ISendEmailVerificationRequest) => {
         setError(null);
         try {
-            return await client.resendVerification(dto);
+            return await client.sendEmailVerification(dto ?? {});
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const sendPhoneVerification = useCallback(async (dto?: ISendPhoneVerificationRequest) => {
+        setError(null);
+        try {
+            return await client.sendPhoneVerification(dto ?? {});
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const verifyPhone = useCallback(async (dto: IVerifyPhoneRequest) => {
+        setError(null);
+        try {
+            return await client.verifyPhone(dto);
         } catch (err) {
             setError(err as AuthError);
             throw err;
@@ -493,9 +516,11 @@ export function AuthProvider({
         verifyForgotPasswordOtp,
         resetPassword,
         changePassword,
-        // Email verification
+        // Email / phone verification
         verifyEmail,
-        resendVerification,
+        sendEmailVerification,
+        sendPhoneVerification,
+        verifyPhone,
         // 2FA
         send2fa,
         // TOTP / MFA Management
@@ -532,7 +557,9 @@ export function AuthProvider({
         resetPassword,
         changePassword,
         verifyEmail,
-        resendVerification,
+        sendEmailVerification,
+        sendPhoneVerification,
+        verifyPhone,
         send2fa,
         setupTotp,
         verifyTotpSetup,
