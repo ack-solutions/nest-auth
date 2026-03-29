@@ -18,7 +18,6 @@ import {
     IForgotPasswordRequest,
     IVerifyForgotPasswordOtpRequest,
     IVerifyEmailRequest,
-    IResendVerificationRequest,
     ISendEmailVerificationRequest,
     ISendPhoneVerificationRequest,
     IVerifyPhoneRequest,
@@ -27,6 +26,7 @@ import {
     IVerifyTotpSetupRequest,
     IToggleMfaRequest,
     ISwitchTenantRequest,
+    IPasswordlessSendRequest,
 } from '@ackplus/nest-auth-client';
 import { AuthContext, AuthContextValue } from './auth-context';
 
@@ -296,6 +296,16 @@ export function AuthProvider({
         }
     }, [client, updatedSession]);
 
+    const passwordlessSend = useCallback(async (dto: IPasswordlessSendRequest) => {
+        setError(null);
+        try {
+            return await client.passwordlessSend(dto);
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
     // Password Management
     const forgotPassword = useCallback(async (dto: IForgotPasswordRequest) => {
         setError(null);
@@ -511,6 +521,7 @@ export function AuthProvider({
         verifySession,
         verify2fa,
         switchTenant,
+        passwordlessSend,
         // Password management
         forgotPassword,
         verifyForgotPasswordOtp,
@@ -552,6 +563,7 @@ export function AuthProvider({
         verifySession,
         verify2fa,
         switchTenant,
+        passwordlessSend,
         forgotPassword,
         verifyForgotPasswordOtp,
         resetPassword,

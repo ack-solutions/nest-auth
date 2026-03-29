@@ -489,7 +489,7 @@ curl -X POST http://localhost:3000/auth/forgot-password \\
 {
   email?: string;       // Email (required if phone not provided)
   phone?: string;       // Phone (required if email not provided)
-  code: string;         // Verification or magic-link code (entity field `code`)
+  code: string;         // Verification or magic-link code (entity field 'code')
   tenantId?: string;    // Optional tenant ID
 }
 \`\`\`
@@ -609,7 +609,7 @@ curl -X POST http://localhost:3000/auth/send-email-verification \\
 **Request Body**:
 \`\`\`typescript
 {
-  code: string;  // Verification code from email (entity field `code`)
+  code: string;  // Verification code from email (entity field 'code')
 }
 \`\`\`
 

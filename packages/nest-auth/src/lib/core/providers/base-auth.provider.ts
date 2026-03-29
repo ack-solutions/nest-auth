@@ -1,9 +1,9 @@
-import { Repository } from 'typeorm';
+import { Equal, Repository } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
 import { AuthConfigService } from '../services/auth-config.service';
 import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
-import { NestAuthLoginRequestDto, SocialCredentialsDto } from 'src/lib/auth';
+import { NestAuthLoginRequestDto } from '../../auth/dto/requests/login.request.dto';
 
 export interface AuthProviderUser {
     userId: string;
@@ -75,17 +75,18 @@ export abstract class BaseAuthProvider {
     /**
      * Find an existing identity for a provider
      */
-    async findIdentity(providerUserId: string): Promise<NestAuthIdentity | null> {
+    async findIdentity(providerUserId: string, tenantId?: string): Promise<NestAuthIdentity | null> {
         return this.authIdentityRepository.findOne({
             where: {
                 provider: this.providerName,
                 providerId: providerUserId,
+                ...(tenantId ? { user: { userAccesses: { tenantId: Equal(tenantId) } } } : {}),
             },
             relations: ['user'],
         });
     }
 
-    abstract validate(credentials: NestAuthLoginRequestDto['credentials']): Promise<AuthProviderUser | null>;
+    abstract validate(credentials: NestAuthLoginRequestDto['credentials'], tenantId?: string): Promise<AuthProviderUser | null>;
 
     abstract getRequiredFields(): string[];
 

@@ -15,6 +15,7 @@ import { DebugLoggerService } from './services/debug-logger.service';
 import { TenantModule } from '../tenant/tenant.module';
 import { NestAuthUser } from '../user/entities/user.entity';
 import { NestAuthIdentity } from '../user/entities/identity.entity';
+import { PasswordlessAuthProvider } from './providers/passwordless-auth.provider';
 
 /**
  * CoreModule provides core authentication services and providers.
@@ -33,6 +34,7 @@ import { NestAuthIdentity } from '../user/entities/identity.entity';
         AuthProviderRegistryService,
         EmailAuthProvider,
         PhoneAuthProvider,
+        PasswordlessAuthProvider,
         JwtAuthProvider,
         GoogleAuthProvider,
         FacebookAuthProvider,

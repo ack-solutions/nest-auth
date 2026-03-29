@@ -9,6 +9,7 @@ import { FacebookAuthProvider } from '../providers/facebook-auth.provider';
 import { GitHubAuthProvider } from '../providers/github-auth.provider';
 import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
 import { AuthConfigService } from './auth-config.service';
+import { PasswordlessAuthProvider } from '../providers/passwordless-auth.provider';
 
 @Injectable()
 export class AuthProviderRegistryService {
@@ -18,11 +19,13 @@ export class AuthProviderRegistryService {
     constructor(
         private readonly emailAuthProvider: EmailAuthProvider,
         private readonly phoneAuthProvider: PhoneAuthProvider,
+        private readonly passwordlessAuthProvider: PasswordlessAuthProvider,
         private readonly jwtAuthProvider: JwtAuthProvider,
         private readonly googleAuthProvider: GoogleAuthProvider,
         private readonly facebookAuthProvider: FacebookAuthProvider,
         private readonly appleAuthProvider: AppleAuthProvider,
         private readonly githubAuthProvider: GitHubAuthProvider,
+
     ) {
 
         this.options = AuthConfigService.getOptions();
@@ -36,6 +39,9 @@ export class AuthProviderRegistryService {
         }
         if (this.options.phoneAuth?.enabled) {
             this.registerProvider(this.phoneAuthProvider);
+        }
+        if (this.options.passwordless?.enabled) {
+            this.registerProvider(this.passwordlessAuthProvider);
         }
         if (this.options.jwt) {
             this.registerProvider(this.jwtAuthProvider);

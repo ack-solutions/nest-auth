@@ -2,13 +2,11 @@ import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
-import { NestAuthOTP } from '../../auth/entities/otp.entity';
 import { NestAuthOTPTypeEnum } from '@ackplus/nest-auth-contracts';
 import { ERROR_CODES, NestAuthEvents } from '../../auth.constants';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { RequestContext } from '../../request-context/request-context';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
-import moment from 'moment';
 import { OtpFlowService } from './otp-flow.service';
 import { NestAuthSendEmailVerificationRequestDto } from '../dto/requests/send-email-verification.request.dto';
 import { NestAuthVerifyEmailRequestDto } from '../dto/requests/verify-email.request.dto';
@@ -25,9 +23,6 @@ export class VerificationService {
     constructor(
         @InjectRepository(NestAuthUser)
         private readonly userRepository: Repository<NestAuthUser>,
-
-        @InjectRepository(NestAuthOTP)
-        private otpRepository: Repository<NestAuthOTP>,
 
         private readonly eventEmitter: EventEmitter2,
 
@@ -140,31 +135,11 @@ export class VerificationService {
                 });
             }
 
-            const validOtp = await this.otpRepository.findOne({
-                where: {
-                    userId: fullUser.id,
-                    code: input.code,
-                    type: NestAuthOTPTypeEnum.EMAIL_VERIFICATION,
-                    used: false,
-                },
+            await this.otpFlow.validateAndConsume({
+                userId: fullUser.id,
+                type: NestAuthOTPTypeEnum.EMAIL_VERIFICATION,
+                code: input.code,
             });
-
-            if (!validOtp) {
-                throw new BadRequestException({
-                    message: 'Invalid verification code',
-                    code: ERROR_CODES.VERIFICATION_CODE_INVALID,
-                });
-            }
-
-            if (moment(validOtp.expiresAt).isBefore(new Date())) {
-                throw new BadRequestException({
-                    message: 'Verification code has expired',
-                    code: ERROR_CODES.VERIFICATION_CODE_EXPIRED,
-                });
-            }
-
-            validOtp.used = true;
-            await this.otpRepository.save(validOtp);
 
             fullUser.emailVerifiedAt = new Date();
             fullUser.isVerified = true;
@@ -249,31 +224,11 @@ export class VerificationService {
                 });
             }
 
-            const validOtp = await this.otpRepository.findOne({
-                where: {
-                    userId: fullUser.id,
-                    code: input.code,
-                    type: NestAuthOTPTypeEnum.PHONE_VERIFICATION,
-                    used: false,
-                },
+            await this.otpFlow.validateAndConsume({
+                userId: fullUser.id,
+                type: NestAuthOTPTypeEnum.PHONE_VERIFICATION,
+                code: input.code,
             });
-
-            if (!validOtp) {
-                throw new BadRequestException({
-                    message: 'Invalid verification code',
-                    code: ERROR_CODES.VERIFICATION_CODE_INVALID,
-                });
-            }
-
-            if (moment(validOtp.expiresAt).isBefore(new Date())) {
-                throw new BadRequestException({
-                    message: 'Verification code has expired',
-                    code: ERROR_CODES.VERIFICATION_CODE_EXPIRED,
-                });
-            }
-
-            validOtp.used = true;
-            await this.otpRepository.save(validOtp);
 
             fullUser.phoneVerifiedAt = new Date();
             if (!fullUser.isVerified) {

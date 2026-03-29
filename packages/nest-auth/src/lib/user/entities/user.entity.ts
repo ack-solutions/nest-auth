@@ -4,7 +4,6 @@ import {
     Column,
     CreateDateColumn,
     UpdateDateColumn,
-    ManyToOne,
     OneToMany,
     BaseEntity,
     Index,
@@ -16,9 +15,7 @@ import {
 import { In } from 'typeorm';
 import { hash, verify, Algorithm } from '@node-rs/argon2';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import { NestAuthTenant } from "../../tenant/entities/tenant.entity";
 import { NestAuthIdentity } from "./identity.entity";
-import { NestAuthUserCredential } from "./user-credential.entity";
 import { NestAuthSession } from "../../session/entities/session.entity";
 import { chain } from "lodash";
 import { NestAuthOTP } from "../../auth/entities/otp.entity";
@@ -70,9 +67,6 @@ export class NestAuthUser extends BaseEntity {
 
     @OneToMany(() => NestAuthIdentity, identity => identity.user)
     identities: NestAuthIdentity[];
-
-    @OneToMany(() => NestAuthUserCredential, (cred) => cred.user)
-    userCredentials: NestAuthUserCredential[];
 
     @OneToMany(() => NestAuthMFASecret, mfaSecret => mfaSecret.user)
     mfaSecrets: NestAuthMFASecret[];
@@ -255,20 +249,6 @@ export class NestAuthUser extends BaseEntity {
 
     async setPassword(password: string): Promise<void> {
         const options = AuthConfigService.getOptions();
-
-        // Apply password.validate hook if configured
-        if (options.password?.validate) {
-            const isValid = await options.password.validate(password);
-            if (!isValid) {
-                throw new Error('Password does not meet requirements');
-            }
-        }
-
-        // Apply password.hash hook if configured
-        if (options.password?.hash) {
-            this.passwordHash = await options.password.hash(password);
-            return;
-        }
 
         // Argon2id is the recommended variant (hybrid of Argon2i and Argon2d)
         this.passwordHash = await hash(password, {

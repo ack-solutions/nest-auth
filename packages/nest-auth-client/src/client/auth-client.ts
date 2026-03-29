@@ -30,6 +30,7 @@ import {
     IToggleMfaRequest,
     ISwitchTenantRequest,
     INestAuthUserAccess,
+    IPasswordlessSendRequest,
 } from '@ackplus/nest-auth-contracts';
 import {
     AuthClientConfig,
@@ -506,6 +507,19 @@ export class AuthClient {
         await this.handleAuthResponse(response.data);
         return response.data;
     }
+
+    /**
+     * Passwordless — request a login code via email or SMS (`channel`).
+     */
+    async passwordlessSend(dto: IPasswordlessSendRequest, options?: RequestOptions): Promise<MessageResponse> {
+        const endpoint = this.getEndpoint('passwordlessSend');
+        const response = await this.request<MessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+        return response.data;
+    }
+
 
     /**
      * Clear tokens, in-memory state, persisted state, and emit logout events.

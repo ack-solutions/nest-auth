@@ -21,9 +21,6 @@ export class NestAuthOTP extends BaseEntity {
     @Column()
     expiresAt: Date;
 
-    @Column({ default: false })
-    used: boolean;
-
     @CreateDateColumn()
     createdAt: Date;
 

@@ -20,7 +20,6 @@ import {
     IForgotPasswordRequest,
     IVerifyEmailRequest,
     IVerifyForgotPasswordOtpRequest,
-    IResendVerificationRequest,
     ISendEmailVerificationRequest,
     ISendPhoneVerificationRequest,
     IVerifyPhoneRequest,
@@ -34,6 +33,7 @@ import {
     IMfaDevice,
     IToggleMfaRequest,
     ISwitchTenantRequest,
+    IPasswordlessSendRequest,
 } from '@ackplus/nest-auth-client';
 
 /**
@@ -72,6 +72,9 @@ export interface AuthContextValue {
     verify2fa: (dto: IVerify2faRequest) => Promise<IVerify2faResponse>;
     /** Switch active tenant */
     switchTenant: (dto: ISwitchTenantRequest) => Promise<IAuthResponse>;
+
+    /** Passwordless — send login code (email or SMS) */
+    passwordlessSend: (dto: IPasswordlessSendRequest) => Promise<IMessageResponse>;
 
     // Actions - Password Management
     /** Request password reset (forgot password) */
@@ -146,6 +149,7 @@ const defaultContextValue: AuthContextValue = {
     verifySession: () => Promise.reject(new Error('AuthProvider not found')),
     verify2fa: () => Promise.reject(new Error('AuthProvider not found')),
     switchTenant: () => Promise.reject(new Error('AuthProvider not found')),
+    passwordlessSend: () => Promise.reject(new Error('AuthProvider not found')),
     // Password management
     forgotPassword: () => Promise.reject(new Error('AuthProvider not found')),
     verifyForgotPasswordOtp: () => Promise.reject(new Error('AuthProvider not found')),

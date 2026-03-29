@@ -17,6 +17,7 @@ export * from './events/user-registered.event';
 export * from './events/two-factor-code-sent.event';
 export * from './events/email-verification-requested.event';
 export * from './events/phone-verification-requested.event';
+export * from './events/passwordless-code-requested.event';
 
 // Services
 export * from './services/auth.service';
@@ -32,6 +33,7 @@ export * from './dto/requests/signup.request.dto';
 export * from './dto/credentials/social-credentials.dto';
 export * from './dto/credentials/email-credentials.dto';
 export * from './dto/credentials/phone-credentials.dto';
+export * from './dto/credentials/passwordless-otp-credentials.dto';
 export * from './dto/requests/forgot-password.request.dto';
 export * from './dto/requests/reset-password-with-token.request.dto';
 export * from './dto/requests/verify-forgot-password-otp-request-dto';
@@ -42,6 +44,7 @@ export * from './dto/requests/refresh-token.request.dto';
 export * from './dto/requests/verify-2fa.request.dto';
 export * from './dto/requests/switch-tenant.request.dto';
 export * from './dto/requests/verify-totp-setup.request.dto';
+export * from './dto/requests/passwordless-send.request.dto';
 export * from './dto/responses/auth.response.dto';
 export * from './dto/responses/auth-cookie.response.dto';
 export * from './dto/responses/verify-otp.response.dto';

@@ -11,6 +11,8 @@ export const APPLE_AUTH_PROVIDER = 'apple';
 export const GITHUB_AUTH_PROVIDER = 'github';
 export const EMAIL_AUTH_PROVIDER = 'email';
 export const PHONE_AUTH_PROVIDER = 'phone';
+/** Login via `POST /auth/login` with `providerName: 'passwordless'` and OTP or magic-link credentials (after send endpoints). */
+export const PASSWORDLESS_AUTH_PROVIDER = 'passwordless';
 
 
 // Key for optional auth metadata
@@ -32,6 +34,8 @@ export const AUTH_ERROR_CODES = {
     INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
     INVALID_PROVIDER: 'INVALID_PROVIDER',
     MISSING_REQUIRED_FIELDS: 'MISSING_REQUIRED_FIELDS',
+    PASSWORDLESS_DISABLED: 'PASSWORDLESS_DISABLED',
+    MAGIC_LINK_URL_NOT_CONFIGURED: 'MAGIC_LINK_URL_NOT_CONFIGURED',
 
     // Account Status
     USER_NOT_FOUND: 'USER_NOT_FOUND',
@@ -175,6 +179,10 @@ export const NestAuthEvents = {
     PHONE_VERIFIED: 'phone.verified',
     // Auth events
     LOGGED_IN: 'nest_auth.logged_in',
+    /** Email/SMS OTP for passwordless login — send the `code` in the listener */
+    PASSWORDLESS_CODE_REQUESTED: 'nest_auth.passwordless.code.requested',
+    /** Magic link URL built — send email in listener */
+    MAGIC_LINK_REQUESTED: 'nest_auth.passwordless.magic_link.requested',
     REGISTERED: 'nest_auth.registered',
     TWO_FACTOR_VERIFIED: 'nest_auth.two_factor_verified',
     TWO_FACTOR_CODE_SENT: 'nest_auth.two_factor_code_sent',

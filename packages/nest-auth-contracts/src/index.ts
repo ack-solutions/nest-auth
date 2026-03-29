@@ -9,6 +9,7 @@ export {
     IEmailCredentials,
     IPhoneCredentials,
     ISocialCredentials,
+    IPasswordlessOtpLoginCredentials,
     ILoginCredentials,
     ILoginRequest,
     ISignupRequest,
@@ -64,6 +65,12 @@ export {
     ISendPhoneVerificationRequest,
     ISessionVerifyResponse,
 } from './verification';
+
+// Passwordless login
+export type {
+    PasswordlessChannel,
+    IPasswordlessSendRequest,
+} from './passwordless';
 
 // Admin
 export {

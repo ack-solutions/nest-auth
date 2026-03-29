@@ -5,7 +5,7 @@ import { BaseAuthProvider } from '../providers/base-auth.provider';
 import { DebugLogOptions } from '../services/debug-logger.service';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { SessionPayload, JWTTokenPayload } from './token-payload.interface';
-import { NestAuthSignupRequestDto } from 'src/lib/auth';
+import { NestAuthSignupRequestDto } from '../../auth/dto/requests/signup.request.dto';
 import { INestAuthTenantOptions, TenantModeEnum } from '@ackplus/nest-auth-contracts';
 
 /**
@@ -198,6 +198,21 @@ export interface IPasswordHooks {
 }
 
 /**
+ * Passwordless login (email/SMS OTP and optional magic link).
+ * Enable with `passwordless: { enabled: true }` and wire listeners for
+ * `passwordless.code.requested` / `passwordless.magic_link.requested` events.
+ */
+export interface IPasswordlessOptions {
+    /** Master switch (default false) */
+    enabled?: boolean;
+    /**
+     * Create a user on first send if they do not exist (default false).
+     * Requires global registration to be allowed.
+     */
+    allowSignUp?: boolean;
+}
+
+/**
  * OTP customization (password reset, MFA, email/phone verification, etc.).
  * Used by verification send flows for `generate`, `length`, and `codeExpiresIn`.
  */
@@ -316,6 +331,8 @@ export interface IAuthModuleOptions {
     emailAuth?: {
         enabled: boolean;
     };
+    passwordless?: IPasswordlessOptions;
+
     /**
      * Registration configuration
      * Controls user registration/signup behavior and profile fields
@@ -425,6 +442,7 @@ export interface IAuthModuleOptions {
      * OTP customization (generation, length, verification code expiry — see {@link IOtpOptions}).
      */
     otp?: IOtpOptions;
+
 
     /**
      * Authorization hooks

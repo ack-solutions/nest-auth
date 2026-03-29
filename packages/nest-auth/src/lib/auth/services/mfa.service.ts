@@ -1,21 +1,19 @@
 import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThan, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { NestAuthMFASecret } from '../../auth/entities/mfa-secret.entity';
 import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
 import { MFAOptions } from '../../core/interfaces/mfa-options.interface';
-import { IMfaConfig, NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
+import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
 import {
     ERROR_CODES,
     NestAuthEvents,
 } from '../../auth.constants';
 import { NestAuthUser } from '../../user/entities/user.entity';
-import { NestAuthOTP } from '../../auth/entities/otp.entity';
 import { NestAuthOTPTypeEnum } from '@ackplus/nest-auth-contracts';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { OtpFlowService } from './otp-flow.service';
-import { IOtpOptions } from '../../core/interfaces/auth-module-options.interface';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TwoFactorCodeSentEvent } from '../events/two-factor-code-sent.event';
 import { NestAuthTrustedDevice } from '../entities/trusted-device.entity';
@@ -35,9 +33,6 @@ export class MfaService {
 
         @InjectRepository(NestAuthUser)
         private userRepository: Repository<NestAuthUser>,
-
-        @InjectRepository(NestAuthOTP)
-        private otpRepository: Repository<NestAuthOTP>,
 
         @InjectRepository(NestAuthTrustedDevice)
         private trustedDeviceRepository: Repository<NestAuthTrustedDevice>,
@@ -201,21 +196,16 @@ export class MfaService {
         }
 
         if (method === NestAuthMFAMethodEnum.EMAIL || method === NestAuthMFAMethodEnum.SMS) {
-            const otp = await this.otpRepository.findOne({
-                where: {
+            try {
+                await this.otpFlow.validateAndConsume({
                     userId,
                     type: NestAuthOTPTypeEnum.MFA,
-                    used: false,
-                    expiresAt: MoreThan(new Date()),
-                    code: inputOtp
-                }
-            });
-
-            if (!otp) {
+                    code: inputOtp,
+                });
+                return true;
+            } catch {
                 return false;
             }
-            await this.otpRepository.delete(otp.id);
-            return true;
         }
 
         return false;

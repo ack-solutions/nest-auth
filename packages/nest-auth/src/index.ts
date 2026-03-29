@@ -21,6 +21,7 @@ export type {
   IAuthModuleOptionsFactory,
   IDefaultTenantOptions,
   IAdminConsoleOptions,
+  IPasswordlessOptions,
 } from './lib/core/interfaces/auth-module-options.interface';
 
 // Static configuration service

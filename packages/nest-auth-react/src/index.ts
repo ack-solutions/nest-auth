@@ -66,6 +66,7 @@ export type {
     IUpdateRoleInput,
     IRoleResponse,
     // Password management DTOs
+    IPasswordlessSendRequest as PasswordlessSendDto,
     IForgotPasswordRequest as ForgotPasswordDto,
     IResetPasswordWithTokenRequest as ResetPasswordDto,
     IChangePasswordRequest as ChangePasswordDto,

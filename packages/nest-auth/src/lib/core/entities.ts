@@ -1,6 +1,5 @@
 import { NestAuthUser } from '../user/entities/user.entity';
 import { NestAuthIdentity } from '../user/entities/identity.entity';
-import { NestAuthUserCredential } from '../user/entities/user-credential.entity';
 import { NestAuthAccessKey } from '../user/entities/access-key.entity';
 import { NestAuthTenant } from '../tenant/entities/tenant.entity';
 import { NestAuthUserAccess } from '../tenant/entities/user-access.entity';
@@ -15,7 +14,6 @@ import { NestAuthTrustedDevice } from '../auth';
 
 export * from '../user/entities/user.entity';
 export * from '../user/entities/identity.entity';
-export * from '../user/entities/user-credential.entity';
 export * from '../user/entities/access-key.entity';
 export * from '../tenant/entities/tenant.entity';
 export * from '../tenant/entities/user-access.entity';
@@ -30,7 +28,6 @@ export * from '../permission/entities/permission.entity';
 export const NestAuthEntities = [
     NestAuthUser,
     NestAuthIdentity,
-    NestAuthUserCredential,
     NestAuthRole,
     NestAuthRolePermission,
     NestAuthTenant,

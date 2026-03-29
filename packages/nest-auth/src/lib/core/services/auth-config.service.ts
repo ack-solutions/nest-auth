@@ -40,9 +40,7 @@ export class AuthConfigService {
             methods: [NestAuthMFAMethodEnum.EMAIL, NestAuthMFAMethodEnum.TOTP],
             allowUserToggle: true,
             allowMethodSelection: true,
-            otp: { length: 6, format: 'numeric' },
             required: false,
-            otpExpiresIn: '15m',
             trustDeviceStorageName: NEST_AUTH_TRUST_DEVICE_KEY, // it work only when pass 'trustDevice' true in verify2fa request
             trustedDeviceDuration: '30m',
         },
@@ -75,6 +73,10 @@ export class AuthConfigService {
             length: 6,
             format: 'numeric',
             generate: generateOtp,
+        },
+        passwordless: {
+            enabled: false,
+            allowSignUp: false,
         },
     };
 

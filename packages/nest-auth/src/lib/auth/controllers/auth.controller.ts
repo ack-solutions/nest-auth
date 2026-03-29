@@ -46,6 +46,7 @@ import { Auth } from '../../core/decorators/auth.decorator';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { TenantService } from '../../tenant/services/tenant.service';
 import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
+import { NestAuthPasswordlessSendRequestDto } from '../dto/requests/passwordless-send.request.dto';
 
 @Controller('auth')
 @UseFilters(AuthExceptionFilter)
@@ -96,6 +97,15 @@ export class AuthController {
             ...response,
             message: 'Login successful',
         };
+    }
+
+    @ApiOperation({ summary: 'Passwordless — send login code (email or SMS)' })
+    @ApiResponse({ status: 200, type: MessageResponseDto })
+    @HttpCode(200)
+    @Post('passwordless/send')
+    @SkipMfa()
+    async passwordlessSend(@Body() input: NestAuthPasswordlessSendRequestDto): Promise<MessageResponseDto> {
+        return this.authService.passwordlessSend(input);
     }
 
     @ApiOperation({

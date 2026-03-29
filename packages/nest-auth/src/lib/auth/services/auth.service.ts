@@ -23,7 +23,7 @@ import { NestAuthSignupRequestDto } from '../dto/requests/signup.request.dto';
 import { AuthResponseDto } from '../dto/responses/auth.response.dto';
 import { NestAuthLoginRequestDto } from '../dto/requests/login.request.dto';
 import { NestAuthVerify2faRequestDto } from '../dto/requests/verify-2fa.request.dto';
-import { NestAuthMFAMethodEnum, TenantModeEnum } from '@ackplus/nest-auth-contracts';
+import { NestAuthMFAMethodEnum, NestAuthOTPTypeEnum, TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { JWTTokenPayload, SessionPayload } from '../../core/interfaces/token-payload.interface';
 import { UserRegisteredEvent } from '../events/user-registered.event';
 import { UserLoggedInEvent } from '../events/user-logged-in.event';
@@ -43,10 +43,10 @@ import { UserService } from '../../user/services/user.service';
 import { NEST_AUTH_TENANT_CONTEXT_SERVICE } from '../../auth.constants';
 import { ITenantContextService } from '../../tenant/tenant-context/tenant-context.interface';
 import { IAuthModuleOptions } from '../../core/interfaces/auth-module-options.interface';
-import { INestAuthUser } from '@ackplus/nest-auth-contracts';
-import { getRolePermissionNames, mapRoleToResponse, mapRoleToSessionSnapshot } from '../../role/utils/role-mapper.util';
-
-
+import {  mapRoleToSessionSnapshot } from '../../role/utils/role-mapper.util';
+import { normalizedEmail, normalizedPhone } from '../../utils';
+import { OtpFlowService } from './otp-flow.service';
+import { PasswordlessCodeRequestedEvent } from '../events/passwordless-code-requested.event';
 
 
 @Injectable()
@@ -75,6 +75,8 @@ export class AuthService {
         private readonly authConfigService: AuthConfigService,
 
         private readonly userService: UserService,
+
+        private readonly otpFlow: OtpFlowService,
 
         @Inject(NEST_AUTH_TENANT_CONTEXT_SERVICE)
         private readonly tenantContext: ITenantContextService,
@@ -169,7 +171,7 @@ export class AuthService {
             // Check for existing identities across all providers
             for (const item of providersToLink) {
                 this.debugLogger.debug('Checking for existing identity', 'AuthService', { providerUserId: item.userId, type: item.type });
-                const identity = await item.provider.findIdentity(item.userId);
+                const identity = await item.provider.findIdentity(item.userId, tenantId);
 
                 if (identity) {
                     this.debugLogger.warn('Identity already exists', 'AuthService', { email: !!email, phone: !!phone, tenantId });
@@ -308,9 +310,9 @@ export class AuthService {
                     code: ERROR_CODES.MISSING_REQUIRED_FIELDS,
                 });
             }
-            const authProviderUser = await provider.validate(credentials);
+            const authProviderUser = await provider.validate(credentials, tenantId);
 
-            const identity = await provider.findIdentity(authProviderUser.userId);
+            const identity = await provider.findIdentity(authProviderUser.userId, tenantId);
 
             let user: NestAuthUser | null = identity?.user || null;
 
@@ -400,6 +402,144 @@ export class AuthService {
         }
     }
 
+
+    private async resolveOrCreateUserForSend(input: {
+        channel: 'email' | 'sms';
+        identifier: string;
+        tenantId?: string;
+    }): Promise<NestAuthUser | null> {
+
+        const passwordlessConfig = this.authConfigService.getConfig().passwordless;
+
+        const { channel, tenantId } = input;
+        const raw = input.identifier?.trim();
+        if (!raw) {
+            throw new BadRequestException({
+                message: 'Identifier is required',
+                code: ERROR_CODES.MISSING_REQUIRED_FIELD,
+            });
+        }
+
+
+        if (channel === 'email') {
+            const emailNorm = normalizedEmail(raw);
+            if (!emailNorm) {
+                throw new BadRequestException({
+                    message: 'A valid email is required',
+                    code: ERROR_CODES.MISSING_REQUIRED_FIELD,
+                });
+            }
+            const provider = this.authProviderRegistry.getProvider(EMAIL_AUTH_PROVIDER);
+            if (!provider) {
+                throw new BadRequestException({
+                    message: 'Email authentication is not enabled',
+                    code: ERROR_CODES.PROVIDER_NOT_FOUND,
+                });
+            }
+            const identity = await provider.findIdentity(emailNorm, tenantId);
+            if (identity?.user) {
+                return identity.user;
+            }
+            if (!passwordlessConfig.allowSignUp) {
+                return null;
+            }
+            const reg = this.authConfigService.getConfig().registration;
+            if (reg?.enabled === false) {
+                throw new ForbiddenException({
+                    message: 'Registration is disabled',
+                    code: ERROR_CODES.REGISTRATION_DISABLED,
+                });
+            }
+            return this.userService.createUser(
+                { email: emailNorm, isVerified: true },
+                tenantId ?? undefined,
+                { source: 'passwordless', channel: 'email' },
+            );
+        } else {
+            const phoneNorm = normalizedPhone(raw);
+
+            if (!phoneNorm) {
+                throw new BadRequestException({
+                    message: 'Phone is required',
+                    code: ERROR_CODES.MISSING_REQUIRED_FIELD,
+                });
+            }
+            const provider = this.authProviderRegistry.getProvider(PHONE_AUTH_PROVIDER);
+            if (!provider) {
+                throw new BadRequestException({
+                    message: 'Phone authentication is not enabled',
+                    code: ERROR_CODES.PROVIDER_NOT_FOUND,
+                });
+            }
+            const identity = await provider.findIdentity(phoneNorm, tenantId);
+            if (identity?.user) {
+                return identity.user;
+            }
+            if (!passwordlessConfig.allowSignUp) {
+                return null;
+            }
+            const reg = this.authConfigService.getConfig().registration;
+            if (reg?.enabled === false) {
+                throw new ForbiddenException({
+                    message: 'Registration is disabled',
+                    code: ERROR_CODES.REGISTRATION_DISABLED,
+                });
+            }
+            return this.userService.createUser(
+                { phone: phoneNorm, isVerified: true },
+                tenantId ?? undefined,
+                { source: 'passwordless', channel: 'sms' },
+            );
+        }
+    }
+
+    async passwordlessSend(input: {
+        identifier: string;
+        channel: 'email' | 'sms';
+        tenantId?: string;
+    }): Promise<{ message: string }> {
+        const passwordlessConfig = this.authConfigService.getConfig().passwordless;
+        if (!passwordlessConfig.enabled) {
+            throw new ForbiddenException({
+                message: 'Passwordless login is disabled',
+                code: ERROR_CODES.PASSWORDLESS_DISABLED,
+            });
+        }
+        this.debugLogger.logFunctionEntry('sendCode', 'AuthService', { channel: input.channel });
+
+        try {
+            await this.tenantService.resolveTenantId(input.tenantId);
+
+            const user = await this.resolveOrCreateUserForSend(input);
+            if (!user) {
+                return { message: 'If an account exists, a login code has been sent' };
+            }
+
+            const { entity: otpEntity, plainCode: code } = await this.otpFlow.createOtp({
+                userId: user.id,
+                type: NestAuthOTPTypeEnum.PASSWORDLESS_LOGIN,
+                replaceExisting: true,
+            });
+
+            await this.eventEmitter.emitAsync(
+                NestAuthEvents.PASSWORDLESS_CODE_REQUESTED,
+                new PasswordlessCodeRequestedEvent({
+                    user,
+                    tenantId: input.tenantId,
+                    channel: input.channel,
+                    otp: otpEntity,
+                    code,
+                }),
+            );
+
+            this.debugLogger.logFunctionExit('sendCode', 'AuthService', { userId: user.id });
+            return { message: 'If an account exists, a login code has been sent' };
+        } catch (error) {
+            this.debugLogger.logError(error, 'sendCode');
+            throw error;
+        }
+    }
+    
     async verify2fa(input: NestAuthVerify2faRequestDto) {
         this.debugLogger.logFunctionEntry('verify2fa', 'AuthService', { method: input.method });
 
@@ -470,6 +610,8 @@ export class AuthService {
         }
     }
 
+
+
     async switchTenant(tenantId?: string | null): Promise<AuthResponseDto> {
         const session = RequestContext.currentSession();
         if (!session) {
@@ -538,7 +680,7 @@ export class AuthService {
     ): Promise<NestAuthUser> {
 
         // Check if identity exists
-        let identity = await provider.findIdentity(providerUser.userId);
+        let identity = await provider.findIdentity(providerUser.userId, tenantId);
 
         if (identity) {
             return identity.user;

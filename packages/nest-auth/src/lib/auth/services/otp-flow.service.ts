@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NestAuthOTP } from '../entities/otp.entity';
@@ -6,6 +6,7 @@ import { NestAuthOTPTypeEnum } from '@ackplus/nest-auth-contracts';
 import { IOtpOptions } from '../../core/interfaces/auth-module-options.interface';
 import { generateOtp } from '../../utils/otp';
 import { AuthConfigService } from '../../core/services/auth-config.service';
+import { ERROR_CODES } from '../../auth.constants';
 import ms from 'ms';
 
 export interface CreateOtpParams {
@@ -97,5 +98,57 @@ export class OtpFlowService {
         await entity.setCode(plainCode);
 
         return { entity, plainCode };
+    }
+
+    /**
+     * Validates a plaintext code against stored hashes for `userId` + `type`, enforces expiry,
+     * then deletes the OTP row on success (same consume semantics as passwordless flows).
+     *
+     * @throws BadRequestException `VERIFICATION_CODE_INVALID` or `VERIFICATION_CODE_EXPIRED`
+     */
+    async validateAndConsume(params: {
+        userId: string;
+        type: NestAuthOTPTypeEnum;
+        code: string;
+    }): Promise<void> {
+        const { userId, type, code } = params;
+        const trimmed = code?.trim();
+        if (!trimmed) {
+            throw new BadRequestException({
+                message: 'Verification code is required',
+                code: ERROR_CODES.MISSING_REQUIRED_FIELD,
+            });
+        }
+
+        const candidates = await this.otpRepository.find({
+            where: { userId, type },
+            order: { createdAt: 'DESC' },
+        });
+
+        for (const row of candidates) {
+            const otp = await this.otpRepository.findOne({ where: { id: row.id } });
+            if (!otp) {
+                continue;
+            }
+
+            const expired = otp.expiresAt.getTime() <= Date.now();
+            const matches = await otp.validateCode(trimmed);
+            if (!matches) {
+                continue;
+            }
+            if (expired) {
+                throw new BadRequestException({
+                    message: 'Verification code has expired',
+                    code: ERROR_CODES.VERIFICATION_CODE_EXPIRED,
+                });
+            }
+            await this.otpRepository.remove(otp);
+            return;
+        }
+
+        throw new BadRequestException({
+            message: 'Invalid verification code',
+            code: ERROR_CODES.VERIFICATION_CODE_INVALID,
+        });
     }
 }

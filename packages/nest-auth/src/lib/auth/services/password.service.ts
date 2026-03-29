@@ -2,7 +2,6 @@ import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
-import { NestAuthOTP } from '../../auth/entities/otp.entity';
 import { NestAuthOTPTypeEnum } from '@ackplus/nest-auth-contracts';
 import {
     EMAIL_AUTH_PROVIDER,
@@ -21,7 +20,6 @@ import { PasswordResetEvent } from '../events/password-reset.event';
 import { AuthProviderRegistryService } from '../../core/services/auth-provider-registry.service';
 import { TenantService } from '../../tenant/services/tenant.service';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
-import moment from 'moment';
 import { NestAuthVerifyForgotPasswordOtpRequestDto } from '../dto/requests/verify-forgot-password-otp-request-dto';
 import { NestAuthResetPasswordWithTokenRequestDto } from '../dto/requests/reset-password-with-token.request.dto';
 import { NestAuthChangePasswordRequestDto } from '../dto/requests/change-password.request.dto';
@@ -29,7 +27,7 @@ import { VerifyOtpResponseDto } from '../dto/responses/verify-otp.response.dto';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { BaseAuthProvider } from '../../core/providers/base-auth.provider';
 import { OtpFlowService } from './otp-flow.service';
-import type { MessageResponseDto } from 'src/lib/core';
+import type { MessageResponseDto } from '../../core/dto/message.response.dto';
 
 @Injectable()
 export class PasswordService {
@@ -37,9 +35,6 @@ export class PasswordService {
     constructor(
         @InjectRepository(NestAuthUser)
         private readonly userRepository: Repository<NestAuthUser>,
-
-        @InjectRepository(NestAuthOTP)
-        private otpRepository: Repository<NestAuthOTP>,
 
         private readonly authProviderRegistry: AuthProviderRegistryService,
 
@@ -241,30 +236,27 @@ export class PasswordService {
                 });
             }
 
-            const validOtp = await this.otpRepository.findOne({
-                where: {
-                    userId: identity.user?.id,
-                    code,
-                    type: NestAuthOTPTypeEnum.PASSWORD_RESET,
-                    used: false,
-                },
-                relations: ['user']
+            const userId = identity.user?.id;
+            if (!userId) {
+                throw new BadRequestException({
+                    message: 'Invalid reset request',
+                    code: ERROR_CODES.PASSWORD_RESET_INVALID_REQUEST,
+                });
+            }
+
+            await this.otpFlow.validateAndConsume({
+                userId,
+                type: NestAuthOTPTypeEnum.PASSWORD_RESET,
+                code,
             });
 
-            if (!validOtp) {
+            const user = await this.userRepository.findOne({ where: { id: userId } });
+            if (!user) {
                 throw new BadRequestException({
-                    message: 'Invalid OTP code',
-                    code: ERROR_CODES.OTP_INVALID,
+                    message: 'User not found',
+                    code: ERROR_CODES.USER_NOT_FOUND,
                 });
             }
-            if (moment(validOtp.expiresAt).isBefore(new Date())) {
-                throw new BadRequestException({
-                    message: 'OTP code expired',
-                    code: ERROR_CODES.OTP_EXPIRED,
-                });
-            }
-
-            const user = validOtp.user;
             const passwordHashPrefix = user.passwordHash ? user.passwordHash.substring(0, 10) : '';
             const resetToken = await this.jwtService.generatePasswordResetToken({
                 userId: user.id,
@@ -272,8 +264,6 @@ export class PasswordService {
                 tenantId: tenantId,
                 type: 'password-reset'
             });
-
-            await this.otpRepository.remove(validOtp);
 
             this.debugLogger.logFunctionExit('verifyForgotPasswordOtp', 'PasswordService');
             return {
