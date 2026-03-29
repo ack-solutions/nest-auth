@@ -6,15 +6,18 @@
  */
 
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useNestAuth } from '@ackplus/nest-auth-react';
 import { Box, CircularProgress } from '@mui/material';
+
+import { useAuth } from './context/auth-context';
+import { needsTenantSelectionFromUserAccesses } from './utils/tenant-access';
 
 // Layout
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Public Pages (no auth required)
-import LoginPage from './pages/LoginPage';
+import LoginPage from './pages/auth/LoginPage';
+import SelectTenantPage from './pages/auth/SelectTenantPage';
 import SignupPage from './pages/SignupPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
@@ -61,7 +64,8 @@ function LoadingScreen() {
  * - /sessions -> Protected session management
  */
 function App() {
-  const { status, isAuthenticated } = useNestAuth();
+  const { status, isAuthenticated, user } = useAuth();
+  const needsTenantSelection = needsTenantSelectionFromUserAccesses(user?.userAccesses);
 
   // Show loading while determining auth state
   if (status === 'loading') {
@@ -79,7 +83,7 @@ function App() {
         path="/"
         element={
           isAuthenticated ? (
-            <Navigate to="/dashboard" replace />
+            <Navigate to={needsTenantSelection ? '/select-tenant' : '/dashboard'} replace />
           ) : (
             <Navigate to="/login" replace />
           )
@@ -91,7 +95,7 @@ function App() {
         path="/login"
         element={
           isAuthenticated ? (
-            <Navigate to="/dashboard" replace />
+            <Navigate to={needsTenantSelection ? '/select-tenant' : '/dashboard'} replace />
           ) : (
             <LoginPage />
           )
@@ -103,9 +107,21 @@ function App() {
         path="/signup"
         element={
           isAuthenticated ? (
-            <Navigate to="/dashboard" replace />
+            <Navigate to={needsTenantSelection ? '/select-tenant' : '/dashboard'} replace />
           ) : (
             <SignupPage />
+          )
+        }
+      />
+
+      {/* Tenant selection */}
+      <Route
+        path="/select-tenant"
+        element={
+          isAuthenticated ? (
+            <SelectTenantPage />
+          ) : (
+            <Navigate to="/login" replace />
           )
         }
       />

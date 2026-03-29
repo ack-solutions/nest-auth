@@ -24,6 +24,7 @@ enum RoleGuardEnum {
   ADMIN = 'admin',
   PORTAL = 'portal',
 }
+
 @Module({
   imports: [
     /**
@@ -50,15 +51,7 @@ enum RoleGuardEnum {
       logging: false,
     }),
 
-    /**
-     * NestAuth Module
-     * Core authentication module providing:
-     * - User registration and login
-     * - Session management with JWT
-     * - Multi-factor authentication
-     * - Password management
-     * - Email verification
-     */
+
     NestAuthModule.forRoot({
       /**
        * Make auth services globally available
@@ -100,6 +93,23 @@ enum RoleGuardEnum {
         refreshTokenExpiresIn: '7d',
       },
 
+      emailAuth: {
+        enabled: true,
+      },
+      phoneAuth: {
+        enabled: true,
+      },
+      passwordless: {
+        enabled: true,
+        allowSignUp: true,
+      },
+
+      otp: {
+        codeExpiresIn: '15m',
+        length: 6,
+        format: 'numeric',
+      },
+
       /**
        * Session configuration
        * Controls session behavior
@@ -112,10 +122,12 @@ enum RoleGuardEnum {
         // Extend session on activity
         slidingExpiration: true,
       },
+
       tenant: {
         enabled: true,
         mode: TenantModeEnum.SHARED,
       },
+
       // Only these guards can be used for roles/permissions. Admin UI shows them in a dropdown; to add more, extend RoleGuardEnum and list here.
       roleGuards: Object.values(RoleGuardEnum),
 

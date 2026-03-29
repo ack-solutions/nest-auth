@@ -67,6 +67,9 @@ export {
 } from './verification';
 
 // Passwordless login
+export {
+    NEST_AUTH_PASSWORDLESS_PROVIDER,
+} from './passwordless';
 export type {
     PasswordlessChannel,
     IPasswordlessSendRequest,

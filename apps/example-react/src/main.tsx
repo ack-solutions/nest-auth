@@ -13,10 +13,10 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { SnackbarProvider } from 'notistack';
-import { AuthProvider } from '@ackplus/nest-auth-react';
 import { AuthClient, LocalStorageAdapter, SessionStorageAdapter } from '@ackplus/nest-auth-client';
 
-import App from './app-1';
+import { AppAuthProvider } from './context/auth-context';
+import App from './app';
 import theme from './theme';
 import './index.css';
 
@@ -86,12 +86,12 @@ createRoot(document.getElementById('root')!).render(
         autoHideDuration={4000}
       >
         {/* Authentication context */}
-        <AuthProvider client={authClient}>
+        <AppAuthProvider client={authClient}>
           {/* React Router */}
           <BrowserRouter>
             <App />
           </BrowserRouter>
-        </AuthProvider>
+        </AppAuthProvider>
       </SnackbarProvider>
     </ThemeProvider>
   </StrictMode>,
