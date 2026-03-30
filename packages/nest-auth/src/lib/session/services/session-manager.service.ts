@@ -271,6 +271,8 @@ export class SessionManagerService {
     private calculateExpiration(duration?: string | number): Date {
         const expiryDuration = duration || this.options.session?.sessionExpiry || '7d';
         let milliseconds: number;
+
+        console.log('expiryDuration', expiryDuration);
         
         if (typeof expiryDuration === 'string') {
             const parsed = ms(expiryDuration);

@@ -43,7 +43,7 @@ import { UserService } from '../../user/services/user.service';
 import { NEST_AUTH_TENANT_CONTEXT_SERVICE } from '../../auth.constants';
 import { ITenantContextService } from '../../tenant/tenant-context/tenant-context.interface';
 import { IAuthModuleOptions } from '../../core/interfaces/auth-module-options.interface';
-import {  mapRoleToSessionSnapshot } from '../../role/utils/role-mapper.util';
+import { mapRoleToSessionSnapshot } from '../../role/utils/role-mapper.util';
 import { normalizedEmail, normalizedPhone } from '../../utils';
 import { OtpFlowService } from './otp-flow.service';
 import { PasswordlessCodeRequestedEvent } from '../events/passwordless-code-requested.event';
@@ -114,6 +114,10 @@ export class AuthService {
 
     async signup(input: NestAuthSignupRequestDto): Promise<AuthResponseDto> {
         this.debugLogger.logFunctionEntry('signup', 'AuthService', { email: input.email, phone: input.phone, hasPassword: !!input.password });
+        const config = this.authConfigService.getConfig();
+
+        const tenantMode = config.tenant?.mode ?? TenantModeEnum.ISOLATED;
+        const tenetEnabled = config.tenant?.enabled ?? false;
 
         try {
             if (this.authConfig.registration?.enabled === false) {
@@ -144,19 +148,19 @@ export class AuthService {
                 });
             }
 
-            const providersToLink: Array<{ provider: BaseAuthProvider; userId: string; type: string }> = [];
+            const providersToLink: Array<{ provider: BaseAuthProvider; providerId: string; type: string }> = [];
 
             if (email && this.authConfig.emailAuth?.enabled !== false) {
                 const provider = this.authProviderRegistry.getProvider(EMAIL_AUTH_PROVIDER);
                 if (provider) {
-                    providersToLink.push({ provider, userId: email, type: 'email' });
+                    providersToLink.push({ provider, providerId: email, type: 'email' });
                 }
             }
 
             if (phone && this.authConfig.phoneAuth?.enabled === true) {
                 const provider = this.authProviderRegistry.getProvider(PHONE_AUTH_PROVIDER);
                 if (provider) {
-                    providersToLink.push({ provider, userId: phone, type: 'phone' });
+                    providersToLink.push({ provider, providerId: phone, type: 'phone' });
                 }
             }
 
@@ -167,12 +171,14 @@ export class AuthService {
                     code: ERROR_CODES.PROVIDER_NOT_FOUND,
                 });
             }
+            console.log('providersToLink', providersToLink);
 
             // Check for existing identities across all providers
             for (const item of providersToLink) {
-                this.debugLogger.debug('Checking for existing identity', 'AuthService', { providerUserId: item.userId, type: item.type });
-                const identity = await item.provider.findIdentity(item.userId, tenantId);
+                this.debugLogger.debug('Checking for existing identity', 'AuthService', { providerId: item.providerId, type: item.type });
+                const identity = await item.provider.findIdentity(item.providerId, (tenantMode === TenantModeEnum.ISOLATED && tenetEnabled) ? tenantId : undefined);
 
+                console.log('identity', identity);
                 if (identity) {
                     this.debugLogger.warn('Identity already exists', 'AuthService', { email: !!email, phone: !!phone, tenantId });
                     if (item.type === 'email') {
@@ -207,7 +213,7 @@ export class AuthService {
             for (const item of providersToLink) {
                 this.debugLogger.debug('Linking user to provider', 'AuthService', { userId: user.id, providerName: item.provider.providerName });
                 // Note: UserService might have already created the identity, but we ensure it's linked here
-                await item.provider.linkToUser(user.id, item.userId);
+                await item.provider.linkToUser(user.id, item.providerId);
             }
 
             // Apply onSignup hook if configured - BEFORE session creation
@@ -539,7 +545,7 @@ export class AuthService {
             throw error;
         }
     }
-    
+
     async verify2fa(input: NestAuthVerify2faRequestDto) {
         this.debugLogger.logFunctionEntry('verify2fa', 'AuthService', { method: input.method });
 

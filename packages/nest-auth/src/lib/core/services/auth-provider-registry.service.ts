@@ -43,7 +43,7 @@ export class AuthProviderRegistryService {
         if (this.options.passwordless?.enabled) {
             this.registerProvider(this.passwordlessAuthProvider);
         }
-        if (this.options.jwt) {
+        if (this.options.session?.jwt) {
             this.registerProvider(this.jwtAuthProvider);
         }
         if (this.options.google) {

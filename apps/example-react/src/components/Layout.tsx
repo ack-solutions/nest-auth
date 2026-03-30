@@ -39,6 +39,7 @@ import {
     Logout as LogoutIcon,
     Settings as SettingsIcon,
 } from '@mui/icons-material';
+import type { IAuthUser } from '@ackplus/nest-auth-client';
 
 /** Drawer width constant */
 const DRAWER_WIDTH = 240;
@@ -88,7 +89,8 @@ export default function Layout() {
             await logout();
             enqueueSnackbar('Logged out successfully', { variant: 'success' });
             navigate('/login');
-        } catch (error) {
+        } catch (error: unknown) {
+            console.error('Failed to logout:', error);
             enqueueSnackbar('Logout failed', { variant: 'error' });
         }
     };
@@ -108,7 +110,7 @@ export default function Layout() {
      */
     const getUserInitials = () => {
         if (!user) return '?';
-        const metadata = (user as any).metadata || {};
+        const metadata = (user as IAuthUser).metadata || {};
         const firstName = metadata.firstName || '';
         const lastName = metadata.lastName || '';
         if (firstName || lastName) {
@@ -123,7 +125,7 @@ export default function Layout() {
     const drawerContent = (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Logo / Title */}
-            <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ minHeight: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                 <SecurityIcon color="primary" />
                 <Typography variant="h6" color="primary" fontWeight="bold">
                     NestAuth
@@ -182,6 +184,7 @@ export default function Layout() {
                     ml: { md: `${DRAWER_WIDTH}px` },
                     backgroundColor: 'background.paper',
                     color: 'text.primary',
+                    borderRadius: 0,
                 }}
             >
                 <Toolbar>
@@ -250,6 +253,9 @@ export default function Layout() {
                 onClose={() => setMobileOpen(false)}
                 ModalProps={{ keepMounted: true }}
                 sx={{
+                    borderRadius: 0,
+                    width: 240,
+                    flexShrink: 0,
                     display: { xs: 'block', md: 'none' },
                     '& .MuiDrawer-paper': {
                         boxSizing: 'border-box',
@@ -264,8 +270,12 @@ export default function Layout() {
             <Drawer
                 variant="permanent"
                 sx={{
+                    width: 240,
+                    flexShrink: 0,
+                    borderRadius: 0,
                     display: { xs: 'none', md: 'block' },
                     '& .MuiDrawer-paper': {
+                        borderRadius: 0,
                         boxSizing: 'border-box',
                         width: DRAWER_WIDTH,
                         borderRight: '1px solid',
@@ -281,7 +291,8 @@ export default function Layout() {
             <Box
                 component="main"
                 sx={{
-                    flexGrow: 1,
+                    flex: 1,
+                    minWidth: 0,
                     p: 3,
                     width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
                     mt: '64px', // AppBar height

@@ -57,6 +57,7 @@ export class AdminUsersController {
   private toSessionResponse(session: NestAuthSession) {
     return {
       id: session.id,
+      userId: session.userId,
       deviceName: session.deviceName || 'Unknown device',
       userAgent: session.userAgent,
       ipAddress: session.ipAddress,
@@ -199,7 +200,7 @@ export class AdminUsersController {
     const tenantMode = config.tenant?.mode ?? TenantModeEnum.ISOLATED;
 
     let tenantId: string | undefined;
-    console.log(tenantEnabled , tenantMode)
+    console.log(tenantEnabled, tenantMode)
     if (tenantEnabled && tenantMode === TenantModeEnum.ISOLATED) {
       if (!dto.tenantId?.trim()) {
         throw new BadRequestException('tenantId is required when tenant mode is isolated');
@@ -229,6 +230,7 @@ export class AdminUsersController {
 
   @Get(':id')
   async getUser(@Param('id') id: string) {
+    console.log('id', id);
     const user = await this.users.getUserById(id, {
       relations: [
         'mfaSecrets',
@@ -243,12 +245,14 @@ export class AdminUsersController {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+    console.log('user', user);
 
     const availableMethods = this.mfaService.getAvailableMethods();
-    const [enabledMethods, sessions] = await Promise.all([
-      this.mfaService.getEnabledMethods(user.id),
-      this.sessionManager.getUserSessions(user.id),
-    ]);
+    const enabledMethods = await this.mfaService.getEnabledMethods(user.id);
+    const sessions = await this.sessionManager.getUserSessions(user.id);
+
+    console.log('enabledMethods', enabledMethods);
+    console.log('sessions', sessions);
 
     const sortedSessions = sessions
       .sort((a, b) => {
@@ -470,19 +474,19 @@ export class AdminUsersController {
   async revokeSession(@Param('id') id: string, @Param('sessionId') sessionId: string) {
     const user = await this.ensureUserExists(id);
 
+    const sessions = await this.sessionManager.getUserSessions(user.id);
     try {
-      const session = await this.sessionManager.getSession(sessionId, false);
-      if (session.userId !== user.id) {
+      const session = sessions.find((s) => s.id === sessionId);
+      if (!session) {
         throw new NotFoundException('Session not found for this user');
       }
-    } catch {
+      await this.sessionManager.revokeSession(session.id);
+      return { message: 'Session revoked successfully' };
+    } catch (error) {
       throw new NotFoundException('Session not found for this user');
     }
-
-    await this.sessionManager.revokeSession(sessionId);
-    return { message: 'Session revoked successfully' };
   }
-
+  
   @Delete(':id/sessions')
   async revokeAllSessions(@Param('id') id: string) {
     const user = await this.ensureUserExists(id);

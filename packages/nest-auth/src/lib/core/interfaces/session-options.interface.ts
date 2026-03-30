@@ -45,6 +45,22 @@ export interface SessionOptions {
      */
     sessionExpiry?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
     refreshTokenExpiry?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
+
+    /**
+     * JWT configuration used to sign/verify tokens.
+     * Placed under `session` so all TTL/session-related security config lives together.
+     */
+    jwt?: {
+        /** JWT Secret used for signing and verification */
+        secret: string;
+
+        /**
+         * Optional custom access token validation.
+         * Called from the auth guard after the session is loaded.
+         */
+        validateToken?: (payload: JWTTokenPayload, session: SessionPayload) => Promise<boolean>;
+    };
+
     maxSessionsPerUser?: number; // Maximum number of active sessions per user (default: 10)
     slidingExpiration?: boolean; // Whether to extend session on activity (default: true)
 

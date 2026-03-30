@@ -92,10 +92,11 @@ export class OtpFlowService {
             type,
             expiresAt,
         });
-        await this.otpRepository.save(entity);
-
         const plainCode = await this.generatePlainCode(otpOptions ?? undefined);
+        console.info('plainCode', plainCode);
         await entity.setCode(plainCode);
+
+        await this.otpRepository.save(entity);
 
         return { entity, plainCode };
     }

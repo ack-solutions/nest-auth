@@ -184,19 +184,6 @@ export interface ILoginHooks {
     onLogin?: (user: NestAuthUser, input: any, context?: { request?: any; provider?: any }) => Promise<NestAuthUser | void> | NestAuthUser | void;
 }
 
-
-/**
- * Password customization hooks
- */
-export interface IPasswordHooks {
-    /** Custom password hashing (default: Argon2id) */
-    hash?: (password: string) => Promise<string>;
-    /** Custom password verification */
-    verify?: (password: string, hash: string) => Promise<boolean>;
-    /** Password policy validation */
-    validate?: (password: string) => { valid: boolean; errors?: string[] };
-}
-
 /**
  * Passwordless login (email/SMS OTP and optional magic link).
  * Enable with `passwordless: { enabled: true }` and wire listeners for
@@ -295,13 +282,6 @@ export interface IAuthModuleOptions {
     enableAutoRefresh?: boolean;
     accessTokenType?: 'header' | 'cookie';
     cookieOptions?: CookieOptions;
-    jwt: {
-        secret: string;
-        accessTokenExpiresIn?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
-        refreshTokenExpiresIn?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
-        /** Custom token validation - return false to reject the token */
-        validateToken?: (payload: JWTTokenPayload, session: SessionPayload) => Promise<boolean>;
-    };
     google?: {
         clientId: string;
         clientSecret: string;
@@ -362,9 +342,7 @@ export interface IAuthModuleOptions {
     mfa?: MFAOptions;
     session?: SessionOptions;
     customAuthProviders?: BaseAuthProvider[];
-    passwordResetOtpExpiresIn?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
-    passwordResetTokenExpiresIn?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
-
+   
     /**
      * Tenant support configuration.
      * When tenant.enabled is false, auth works without tenant checks.
@@ -436,8 +414,9 @@ export interface IAuthModuleOptions {
      * Password customization
      * Custom hashing, verification, and validation
      */
-    password?: IPasswordHooks;
-
+    password?: {
+        passwordResetTokenExpiresIn?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
+    };
     /**
      * OTP customization (generation, length, verification code expiry — see {@link IOtpOptions}).
      */

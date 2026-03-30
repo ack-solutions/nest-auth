@@ -14,15 +14,13 @@ export class AuthConfigService {
     private static defaultOptions: IAuthModuleOptions = {
         isGlobal: true,
         appName: 'Nest Auth',
-        passwordResetOtpExpiresIn: '15m',
-        passwordResetTokenExpiresIn: '1h',
         session: {
             storageType: SessionStorageType.DATABASE,
             sessionExpiry: '1h',
             refreshTokenExpiry: '30d',
-        },
-        jwt: {
-            secret: 'secret',
+            jwt: {
+                secret: 'secret',
+            },
         },
         accessTokenType: null,
         cookieOptions: {
@@ -77,6 +75,9 @@ export class AuthConfigService {
         passwordless: {
             enabled: false,
             allowSignUp: false,
+        },
+        password: {
+            passwordResetTokenExpiresIn: '1h',
         },
     };
 

@@ -96,6 +96,18 @@ export class ProfileResponseDto {
     lastName?: string;
 
     @ApiPropertyOptional({
+        description: 'User gender',
+        example: 'male',
+    })
+    gender?: string;
+
+    @ApiPropertyOptional({
+        description: 'Date of birth',
+        example: '1990-01-01',
+    })
+    dob?: Date | string;
+
+    @ApiPropertyOptional({
         description: 'Full name (computed)',
         example: 'John Doe',
     })

@@ -33,13 +33,13 @@ export abstract class BaseAuthProvider {
      * Link a provider identity to a user
      * Checks for existing identity before creating to prevent duplicates
      */
-    async linkToUser(userId: string, providerUserId: string, metadata?: Record<string, any>): Promise<void> {
+    async linkToUser(userId: string, providerId: string, metadata?: Record<string, any>): Promise<void> {
         // Check if identity already exists to prevent duplicates
         const existingIdentity = await this.authIdentityRepository.findOne({
             where: {
                 userId,
                 provider: this.providerName,
-                providerId: providerUserId,
+                providerId: providerId,
             },
         });
 
@@ -56,7 +56,7 @@ export abstract class BaseAuthProvider {
         const identity = this.authIdentityRepository.create({
             userId,
             provider: this.providerName,
-            providerId: providerUserId,
+            providerId: providerId,
             metadata: metadata || {},
         });
         await this.authIdentityRepository.save(identity);
@@ -75,11 +75,11 @@ export abstract class BaseAuthProvider {
     /**
      * Find an existing identity for a provider
      */
-    async findIdentity(providerUserId: string, tenantId?: string): Promise<NestAuthIdentity | null> {
+    async findIdentity(providerId: string, tenantId?: string): Promise<NestAuthIdentity | null> {
         return this.authIdentityRepository.findOne({
             where: {
                 provider: this.providerName,
-                providerId: providerUserId,
+                providerId: providerId,
                 ...(tenantId ? { user: { userAccesses: { tenantId: Equal(tenantId) } } } : {}),
             },
             relations: ['user'],

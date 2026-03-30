@@ -62,6 +62,7 @@ export interface TotpDevice {
 
 export interface UserSessionInfo {
     id: string;
+    userId?: string;
     deviceName?: string;
     userAgent?: string;
     ipAddress?: string;

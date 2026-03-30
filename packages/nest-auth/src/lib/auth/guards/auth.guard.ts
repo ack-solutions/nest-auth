@@ -213,8 +213,8 @@ export class NestAuthAuthGuard implements CanActivate {
                 });
             }
 
-            if (config.jwt?.validateToken) {
-                const isValid = await config.jwt.validateToken(payload, session);
+            if (config.session?.jwt?.validateToken) {
+                const isValid = await config.session.jwt.validateToken(payload, session);
                 if (!isValid) {
                     throw new UnauthorizedException({
                         message: 'Token validation failed',

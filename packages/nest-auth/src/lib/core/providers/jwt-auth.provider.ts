@@ -8,11 +8,12 @@ import { JwtService } from '../services/jwt.service';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
 import { SocialCredentialsDto } from '../../auth/dto/credentials/social-credentials.dto';
+import { SessionOptions } from '../interfaces/session-options.interface';
 
 @Injectable()
 export class JwtAuthProvider extends BaseAuthProvider {
     providerName = JWT_AUTH_PROVIDER;
-    private jwtConfig: IAuthModuleOptions['jwt'];
+    private jwtConfig: SessionOptions['jwt'];
 
 
     constructor(
@@ -24,7 +25,7 @@ export class JwtAuthProvider extends BaseAuthProvider {
     ) {
         super(userRepository, authIdentityRepository);
 
-        this.jwtConfig = this.options.jwt;
+        this.jwtConfig = this.options.session?.jwt;
         this.enabled = Boolean(this.jwtConfig);
     }
 

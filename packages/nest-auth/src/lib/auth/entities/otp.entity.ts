@@ -53,8 +53,6 @@ export class NestAuthOTP extends BaseEntity {
             timeCost: 3,       // 3 iterations
             parallelism: 4     // 4 parallel threads
         });
-
-        await NestAuthOTP.update({ id: this.id }, { code: hashedCode });
         this.code = hashedCode;
     }
 }

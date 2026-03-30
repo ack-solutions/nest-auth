@@ -19,6 +19,8 @@ import { AppAuthProvider } from './context/auth-context';
 import App from './app';
 import theme from './theme';
 import './index.css';
+import { instanceApi } from './api/axios-instance';
+import { config } from './config';
 
 /**
  * Auth Client Configuration
@@ -33,7 +35,7 @@ const authConfig = {
    * Backend API URL
    * Matches the example-nest app running on port 3000
    */
-  baseUrl: 'http://localhost:3333/api',
+  baseUrl: config.apiBaseOrigin || '',
 
   /**
    * Token mode: 'header' or 'cookie'
@@ -72,6 +74,16 @@ const authConfig = {
  */
 const authClient = new AuthClient(authConfig);
 
+const handleTokenSet = (tokens: { accessToken: string; refreshToken: string; trustToken?: string }) => {
+  if (tokens?.accessToken) {
+    instanceApi.defaults.headers.common['Authorization'] = `Bearer ${tokens.accessToken}`;
+  }
+};
+
+const handleTokenRemoved = () => {
+  delete instanceApi.defaults.headers.common?.['Authorization'];
+};
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {/* Material UI Theme */}
@@ -86,7 +98,11 @@ createRoot(document.getElementById('root')!).render(
         autoHideDuration={4000}
       >
         {/* Authentication context */}
-        <AppAuthProvider client={authClient}>
+        <AppAuthProvider
+          client={authClient}
+          onTokensSet={handleTokenSet}
+          onTokensRemoved={handleTokenRemoved}
+        >
           {/* React Router */}
           <BrowserRouter>
             <App />

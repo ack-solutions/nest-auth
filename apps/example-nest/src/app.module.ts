@@ -18,6 +18,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { SessionsModule } from './sessions/sessions.module';
 import { ProfileModule } from './profile/profile.module';
+import { AppUser } from './user/user.entity';
+import { UserModule } from './user/user.module';
 
 enum RoleGuardEnum {
   WEB = 'web',
@@ -46,7 +48,7 @@ enum RoleGuardEnum {
       password: process.env.DB_PASSWORD || '',
       database: process.env.DB_NAME || 'nest-auth-example',
       // Include nest-auth entities for user, session, and MFA storage
-      entities: [...NestAuthEntities],
+      entities: [...NestAuthEntities, AppUser],
       synchronize: true, // Auto-sync schema - disable in production
       logging: false,
     }),
@@ -71,27 +73,7 @@ enum RoleGuardEnum {
        */
       accessTokenType: 'header',
 
-      /**
-       * JWT Configuration (REQUIRED)
-       * Configures token signing and expiration
-       */
-      jwt: {
-        /**
-         * JWT Secret - In production, use environment variable
-         * IMPORTANT: Never hardcode secrets in production!
-         */
-        secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',
-        /**
-         * Access token expiration
-         * Short for security - client must refresh frequently
-         */
-        accessTokenExpiresIn: '15m',
-        /**
-         * Refresh token expiration
-         * Longer for user convenience
-         */
-        refreshTokenExpiresIn: '7d',
-      },
+      // JWT Configuration now lives under `session`
 
       emailAuth: {
         enabled: true,
@@ -117,6 +99,13 @@ enum RoleGuardEnum {
       session: {
         // Storage type for sessions
         storageType: SessionStorageType.DATABASE,
+        jwt: {
+          secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',
+        },
+        // Access token TTL (drives JWT `exp` for access tokens)
+        sessionExpiry: '2m',
+        // Refresh token TTL (drives JWT `exp` for refresh tokens)
+        refreshTokenExpiry: '7d',
         // Maximum concurrent sessions per user (0 = unlimited)
         maxSessionsPerUser: 5,
         // Extend session on activity
@@ -194,6 +183,7 @@ enum RoleGuardEnum {
      */
     SessionsModule,
     ProfileModule,
+    UserModule,
   ],
   controllers: [AppController],
   providers: [AppService],
