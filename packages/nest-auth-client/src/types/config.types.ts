@@ -228,4 +228,6 @@ export interface RequestOptions {
     signal?: AbortSignal;
     /** Skip automatic token refresh on 401 */
     skipRefresh?: boolean;
+    /** Skip adding Authorization header */
+    skipAuthHeader?: boolean;
 }

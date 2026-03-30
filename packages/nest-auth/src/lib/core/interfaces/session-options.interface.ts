@@ -76,7 +76,7 @@ export interface SessionOptions {
     };
 
     maxSessionsPerUser?: number; // Maximum number of active sessions per user (default: 10)
-    slidingExpiration?: boolean; // Whether to extend session on activity (default: true)
+    slidingExpiration?: boolean; // Whether to extend session on activity (default: false)
 
     /**
      * Customize the data stored in the session (database).

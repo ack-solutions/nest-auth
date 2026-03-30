@@ -33,7 +33,7 @@ export class SessionManagerService {
     }
 
     private get slidingExpiration(): boolean {
-        return this.options.session?.slidingExpiration ?? true;
+        return this.options.session?.slidingExpiration ?? false;
     }
 
     /**
@@ -77,10 +77,20 @@ export class SessionManagerService {
         return session;
     }
 
+    private shouldTouchSession(session: NestAuthSession): boolean {
+        const now = Date.now();
+        const lastActive = session.lastActive ? new Date(session.lastActive).getTime() : 0;
+        const expiresAt = session.expiresAt ? new Date(session.expiresAt).getTime() : 0;
+
+        const touchedRecently = now - lastActive < 5 * 60 * 1000; // 5 minutes
+
+        return !touchedRecently
+    }
+
     /**
      * Get session by ID and optionally refresh it
      */
-    async getSession(sessionId: string, refreshSession = true): Promise<NestAuthSession> {
+    async getSession(sessionId: string): Promise<NestAuthSession> {
         const session = await this.store.findById(sessionId);
 
         if (!session) {
@@ -92,10 +102,10 @@ export class SessionManagerService {
             await this.store.delete(sessionId);
             throw new UnauthorizedException('Session expired');
         }
-
         // Update last active if sliding expiration enabled
-        if (refreshSession && this.slidingExpiration) {
-            await this.touchSession(sessionId);
+        if (this.slidingExpiration && this.shouldTouchSession(session)) {
+            const updatedSession = await this.touchSession(sessionId);
+            return updatedSession;
         }
 
         return session;
@@ -229,7 +239,7 @@ export class SessionManagerService {
      */
     async validateSession(sessionId: string): Promise<NestAuthSession | null> {
         try {
-            return await this.getSession(sessionId, true);
+            return await this.getSession(sessionId);
         } catch {
             return null;
         }
@@ -272,8 +282,6 @@ export class SessionManagerService {
         const expiryDuration = duration || this.options.session?.sessionExpiry || '7d';
         let milliseconds: number;
 
-        console.log('expiryDuration', expiryDuration);
-        
         if (typeof expiryDuration === 'string') {
             const parsed = ms(expiryDuration);
             if (parsed === undefined || !Number.isFinite(parsed) || parsed <= 0) {

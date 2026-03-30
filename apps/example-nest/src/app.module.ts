@@ -100,13 +100,13 @@ enum RoleGuardEnum {
           secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',
         },
         // Access token TTL (drives JWT `exp` for access tokens)
-        sessionExpiry: '2m',
+        sessionExpiry: '1m',
         // Refresh token TTL (drives JWT `exp` for refresh tokens)
         refreshTokenExpiry: '7d',
         // Maximum concurrent sessions per user (0 = unlimited)
         maxSessionsPerUser: 5,
         // Extend session on activity
-        slidingExpiration: true,
+        slidingExpiration: false,
         cookieOptions: {
           // Use secure cookies in production (requires HTTPS)
           secure: process.env.NODE_ENV === 'production',

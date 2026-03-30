@@ -13,7 +13,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { SnackbarProvider } from 'notistack';
-import { AuthClient, LocalStorageAdapter, SessionStorageAdapter } from '@ackplus/nest-auth-client';
+import { AuthClient, createAxiosAdapter, LocalStorageAdapter, SessionStorageAdapter } from '@ackplus/nest-auth-client';
 
 import { AppAuthProvider } from './context/auth-context';
 import App from './app';
@@ -44,6 +44,8 @@ const authConfig = {
    * - null: Auto-detect based on backend response
    */
   accessTokenType: 'header' as const,
+
+  httpAdapter: createAxiosAdapter(instanceApi),
 
   /**
    * Storage adapter for tokens (only relevant for header mode)

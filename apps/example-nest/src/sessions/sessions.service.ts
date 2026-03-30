@@ -92,7 +92,7 @@ export class SessionsService {
         }
 
         // Verify session exists and belongs to user
-        const session = await this.sessionManager.getSession(sessionId, false);
+        const session = await this.sessionManager.getSession(sessionId);
 
         if (!session) {
             throw new NotFoundException({

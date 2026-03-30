@@ -261,11 +261,11 @@ export function AuthProvider({
     const verifySession = useCallback(async () => {
         setError(null);
         try {
-            const verifyResponce = await client.verifySession();
-            if (verifyResponce?.valid) {
+            const verifyResponse = await client.verifySession();
+            if (verifyResponse?.valid) {
                 updatedSession();
             }
-            return verifyResponce?.valid;
+            return verifyResponse?.valid;
         } catch (err) {
             setError(err as AuthError);
             throw err;

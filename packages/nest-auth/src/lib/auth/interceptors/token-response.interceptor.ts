@@ -102,34 +102,33 @@ export class TokenResponseInterceptor implements NestInterceptor {
         refreshToken?: string,
         trustToken?: string
     }): void {
+        const accessDuration =  this.options.session?.sessionExpiry || '1h';
+        const refreshDuration = this.options.session?.refreshTokenExpiry || '30d';
+
         if (tokens.accessToken) {
-            this.debugLogger.debug(
-                `Setting access token cookie: ${ACCESS_TOKEN_COOKIE_NAME}`,
-                'TokenResponseInterceptor'
-            );
-            this.setCookie(response, ACCESS_TOKEN_COOKIE_NAME, tokens.accessToken);
+            this.setCookie(response, ACCESS_TOKEN_COOKIE_NAME, tokens.accessToken, {
+                maxAge: ms(accessDuration),
+            });
         }
         if (tokens.refreshToken) {
-            this.debugLogger.debug(
-                `Setting refresh token cookie: ${REFRESH_TOKEN_COOKIE_NAME}`,
-                'TokenResponseInterceptor'
-            );
-            this.setCookie(response, REFRESH_TOKEN_COOKIE_NAME, tokens.refreshToken);
+            this.setCookie(response, REFRESH_TOKEN_COOKIE_NAME, tokens.refreshToken, {
+                maxAge: ms(refreshDuration),
+            });
         }
         if (tokens.trustToken) {
             const trustCookieName = AuthConfigService.getOptions().mfa?.trustDeviceStorageName || NEST_AUTH_TRUST_DEVICE_KEY;
             const duration = AuthConfigService.getOptions().mfa?.trustedDeviceDuration || '30d';
-            const maxAge = typeof duration === 'string' ? ms(duration) : duration;
-
-            this.debugLogger.debug(
-                `Setting trust device cookie: ${trustCookieName}`,
-                'TokenResponseInterceptor',
-                { duration, maxAge }
-            );
             this.setCookie(response, trustCookieName, tokens.trustToken, {
-                maxAge,
+                maxAge: ms(duration),
             });
         }
+
+        this.debugLogger.debug('Setting tokens in cookies', 'TokenResponseInterceptor', {
+            tokens,
+            accessDuration,
+            refreshDuration,
+        });
+
     }
 
     private setCookie(response: Response, name: string, token: string, options?: Partial<CookieOptions>): void {

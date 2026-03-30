@@ -79,7 +79,19 @@ export function createAxiosAdapter(axiosInstance: any): HttpAdapter {
                     };
                 }
 
-                // Network error or timeout
+                // If the axios instance has a response interceptor that normalizes errors,
+                // we may receive a plain object like:
+                // { status, data, message, code, url, method }
+                if (typeof error?.status === 'number') {
+                    return {
+                        status: error.status,
+                        data: error.data ?? error,
+                        headers: {},
+                        ok: false,
+                    };
+                }
+
+                // Network error or timeout (no status available)
                 throw error;
             }
         },

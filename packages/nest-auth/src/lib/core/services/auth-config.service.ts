@@ -19,6 +19,7 @@ export class AuthConfigService {
             storageType: SessionStorageType.DATABASE,
             sessionExpiry: '1h',
             refreshTokenExpiry: '30d',
+            slidingExpiration: false,
             jwt: {
                 secret: 'secret',
             },
