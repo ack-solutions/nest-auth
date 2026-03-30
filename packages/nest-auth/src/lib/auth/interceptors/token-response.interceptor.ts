@@ -22,25 +22,26 @@ export class TokenResponseInterceptor implements NestInterceptor {
 
     isUsingCookies(req: Request): boolean {
         const headerTokenType = req.headers['x-access-token-type'];
-        if (!this.options.accessTokenType && headerTokenType === 'cookie') {
+        const accessTokenType = this.options.session?.accessTokenType ?? null;
+        if (!accessTokenType && headerTokenType === 'cookie') {
             this.debugLogger.debug(
                 'Using cookies mode (from x-access-token-type header)',
                 'TokenResponseInterceptor',
                 { headerTokenType }
             );
             return true;
-        } else if (this.options.accessTokenType === 'cookie') {
+        } else if (accessTokenType === 'cookie') {
             this.debugLogger.debug(
                 'Using cookies mode (from config)',
                 'TokenResponseInterceptor',
-                { configTokenType: this.options.accessTokenType }
+                { configTokenType: accessTokenType }
             );
             return true;
         }
         this.debugLogger.debug(
             'Using header mode for tokens',
             'TokenResponseInterceptor',
-            { configTokenType: this.options.accessTokenType, headerTokenType }
+            { configTokenType: accessTokenType, headerTokenType }
         );
         return false;
     }
@@ -135,9 +136,9 @@ export class TokenResponseInterceptor implements NestInterceptor {
         const cookieOptions = {
             httpOnly: true,
             path: '/',
-            secure: this.options.cookieOptions?.secure,
-            ...this.options.cookieOptions?.domain ? { domain: this.options.cookieOptions?.domain } : {},
-            sameSite: this.options.cookieOptions?.sameSite as 'strict' | 'lax' | 'none' | undefined,
+            secure: this.options.session?.cookieOptions?.secure,
+            ...this.options.session?.cookieOptions?.domain ? { domain: this.options.session?.cookieOptions?.domain } : {},
+            sameSite: this.options.session?.cookieOptions?.sameSite as 'strict' | 'lax' | 'none' | undefined,
             maxAge: ms(this.options.session?.sessionExpiry || '7d'),
             ...options,
         };

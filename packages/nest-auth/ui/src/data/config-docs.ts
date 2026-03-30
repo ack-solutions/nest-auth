@@ -32,10 +32,10 @@ export class AppModule {}
 NestAuthModule.forRoot({
   isGlobal: true,
   appName: 'My App',
-  accessTokenType: 'header', // or 'cookie'
   enableAutoRefresh: true,
 
   session: {
+    accessTokenType: 'header', // or 'cookie'
     jwt: {
       secret: process.env.JWT_SECRET,
     },
@@ -112,7 +112,7 @@ NestAuthModule.forRoot({
 }
 \`\`\`
 
-### accessTokenType
+### session.accessTokenType
 - **Type**: \`'header' | 'cookie'\`
 - **Default**: \`'header'\`
 - **Description**: How to deliver tokens to clients
@@ -129,7 +129,9 @@ NestAuthModule.forRoot({
 
 \`\`\`typescript
 {
-  accessTokenType: 'cookie', // Use cookies
+  session: {
+    accessTokenType: 'cookie', // Use cookies
+  },
 }
 \`\`\`
 
@@ -144,17 +146,19 @@ NestAuthModule.forRoot({
 }
 \`\`\`
 
-### cookieOptions
+### session.cookieOptions
 - **Type**: \`CookieOptions\`
-- **Description**: Custom cookie options (applies to both auth and admin cookies)
+- **Description**: Custom cookie options for access/refresh tokens (when using session.accessTokenType: 'cookie')
 
 \`\`\`typescript
 {
-  cookieOptions: {
-    httpOnly: true,
-    secure: true, // HTTPS only
-    sameSite: 'strict',
-    domain: '.myapp.com',
+  session: {
+    cookieOptions: {
+      httpOnly: true,
+      secure: true, // HTTPS only
+      sameSite: 'strict',
+      domain: '.myapp.com',
+    },
   },
 }
 \`\`\`
@@ -683,9 +687,9 @@ NestAuthModule.forRootAsync({
 \`\`\`typescript
 NestAuthModule.forRoot({
   appName: 'My App',
-  accessTokenType: 'cookie',
   enableAutoRefresh: true,
   session: {
+    accessTokenType: 'cookie',
     jwt: {
       secret: process.env.JWT_SECRET,
     },
@@ -694,16 +698,16 @@ NestAuthModule.forRoot({
     sessionExpiry: '15m',
     refreshTokenExpiry: '7d',
     maxSessionsPerUser: 3,
+    cookieOptions: {
+      secure: true,
+      sameSite: 'strict',
+    },
   },
   mfa: {
     enabled: true,
     required: false,
     methods: ['totp', 'email'],
     trustedDeviceDuration: '30d',
-  },
-  cookieOptions: {
-    secure: true,
-    sameSite: 'strict',
   },
 })
 \`\`\`
@@ -712,8 +716,8 @@ NestAuthModule.forRoot({
 \`\`\`typescript
 NestAuthModule.forRoot({
   appName: 'My Mobile App',
-  accessTokenType: 'header', // Required for mobile
   session: {
+    accessTokenType: 'header', // Required for mobile
     jwt: {
       secret: process.env.JWT_SECRET,
     },

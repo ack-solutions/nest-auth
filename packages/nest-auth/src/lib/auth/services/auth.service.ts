@@ -360,8 +360,10 @@ export class AuthService {
             }
             user.isMfaEnabled = isRequiresMfa;
 
-            if (guard && user.roles) {
-                const isExistsGuard = user.roles.some(r => r.guard === guard);
+            const userRoles = user.userAccesses?.map(access => access.roles).flat();
+
+            if (guard && userRoles?.length) {
+                const isExistsGuard = userRoles.some(r => r.guard === guard);
                 if (!isExistsGuard) {
                     throw new UnauthorizedException({
                         message: 'Invalid credentials',

@@ -280,8 +280,6 @@ export interface IAuthModuleOptions {
      * Default: true (automatic refresh enabled)
      */
     enableAutoRefresh?: boolean;
-    accessTokenType?: 'header' | 'cookie';
-    cookieOptions?: CookieOptions;
     google?: {
         clientId: string;
         clientSecret: string;
@@ -416,6 +414,11 @@ export interface IAuthModuleOptions {
      */
     password?: {
         passwordResetTokenExpiresIn?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
+        /**
+         * Custom password verification hook.
+         * When provided, this is used to validate passwords instead of the default argon2 verify.
+         */
+        verify?: (password: string, hash: string) => Promise<boolean>;
     };
     /**
      * OTP customization (generation, length, verification code expiry — see {@link IOtpOptions}).

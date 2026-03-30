@@ -66,13 +66,6 @@ enum RoleGuardEnum {
        */
       appName: 'NestAuth Example',
 
-      /**
-       * Access token delivery method
-       * - 'header': Return tokens in response body, client sends in Authorization header
-       * - 'cookie': Set tokens in httpOnly cookies (more secure for web)
-       */
-      accessTokenType: 'header',
-
       // JWT Configuration now lives under `session`
 
       emailAuth: {
@@ -99,6 +92,10 @@ enum RoleGuardEnum {
       session: {
         // Storage type for sessions
         storageType: SessionStorageType.DATABASE,
+        // Access token delivery method
+        // - 'header': Return tokens in response body, client sends in Authorization header
+        // - 'cookie': Set tokens in httpOnly cookies (more secure for web)
+        accessTokenType: 'header',
         jwt: {
           secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',
         },
@@ -110,6 +107,14 @@ enum RoleGuardEnum {
         maxSessionsPerUser: 5,
         // Extend session on activity
         slidingExpiration: true,
+        cookieOptions: {
+          // Use secure cookies in production (requires HTTPS)
+          secure: process.env.NODE_ENV === 'production',
+          // Same-site policy for CSRF protection
+          sameSite: 'lax',
+          // HTTP-only prevents JavaScript access to cookies
+          httpOnly: true,
+        },
       },
 
       tenant: {
@@ -149,19 +154,6 @@ enum RoleGuardEnum {
         enabled: true,
         // Auto login after signup
         autoLoginAfterSignup: true,
-      },
-
-      /**
-       * Cookie configuration for session handling
-       * Used when accessTokenType is 'cookie'
-       */
-      cookieOptions: {
-        // Use secure cookies in production (requires HTTPS)
-        secure: process.env.NODE_ENV === 'production',
-        // Same-site policy for CSRF protection
-        sameSite: 'lax',
-        // HTTP-only prevents JavaScript access to cookies
-        httpOnly: true,
       },
 
       /**

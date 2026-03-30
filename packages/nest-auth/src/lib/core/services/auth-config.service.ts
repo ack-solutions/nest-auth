@@ -15,17 +15,17 @@ export class AuthConfigService {
         isGlobal: true,
         appName: 'Nest Auth',
         session: {
+            accessTokenType: null,
             storageType: SessionStorageType.DATABASE,
             sessionExpiry: '1h',
             refreshTokenExpiry: '30d',
             jwt: {
                 secret: 'secret',
             },
-        },
-        accessTokenType: null,
-        cookieOptions: {
-            httpOnly: true,
-            secure: false,
+            cookieOptions: {
+                httpOnly: true,
+                secure: false,
+            },
         },
         emailAuth: {
             enabled: true,

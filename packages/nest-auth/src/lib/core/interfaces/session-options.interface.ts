@@ -47,6 +47,20 @@ export interface SessionOptions {
     refreshTokenExpiry?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
 
     /**
+     * Cookie options for access/refresh tokens when using `accessTokenType: 'cookie'`.
+     * Placed under `session` so all token/session settings live together.
+     */
+    cookieOptions?: CookieOptions;
+
+    /**
+     * Token delivery method for access/refresh tokens.
+     * - `header`: tokens are returned in response body (client sends `Authorization`)
+     * - `cookie`: tokens are written to HTTP-only cookies
+     * - `null/undefined`: check both (header first)
+     */
+    accessTokenType?: 'header' | 'cookie' | null;
+
+    /**
      * JWT configuration used to sign/verify tokens.
      * Placed under `session` so all TTL/session-related security config lives together.
      */

@@ -138,7 +138,7 @@ export class NestAuthAuthGuard implements CanActivate {
      */
     private extractToken(request: Request): { token: string | null; authType: 'bearer' | 'apikey' | null } {
         const config = this.authConfigService.getConfig();
-        const accessTokenType = config.accessTokenType;
+        const accessTokenType = config.session?.accessTokenType ?? null;
 
         // Determine which sources to check based on configuration
         const checkHeader = accessTokenType !== 'cookie';
