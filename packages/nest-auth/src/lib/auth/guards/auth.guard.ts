@@ -104,12 +104,11 @@ export class NestAuthAuthGuard implements CanActivate {
                     }
             }
         } catch (error) {
-            this.debugLogger.logError(error as Error, 'AuthGuard', { isOptional, authType });
             if (isOptional) {
                 // If optional auth fails, silently proceed without user data (e.g. invalid token)
                 return true;
             } else {
-                // If required auth fails, re-throw the error
+                // If required auth fails, re-throw so Nest returns the right HTTP status
                 throw error;
             }
         }
@@ -308,7 +307,6 @@ export class NestAuthAuthGuard implements CanActivate {
 
             return true;
         } catch (error) {
-            this.debugLogger.logError(error as Error, 'AuthGuard.handleApiKeyAuth');
             if (isOptional) {
                 return true;
             } else {

@@ -100,9 +100,9 @@ enum RoleGuardEnum {
           secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',
         },
         // Access token TTL (drives JWT `exp` for access tokens)
-        sessionExpiry: '1m',
+        accessTokenValidity: '1m',
         // Refresh token TTL (drives JWT `exp` for refresh tokens)
-        refreshTokenExpiry: '7d',
+        refreshTokenValidity: '7d',
         // Maximum concurrent sessions per user (0 = unlimited)
         maxSessionsPerUser: 5,
         // Extend session on activity
@@ -138,6 +138,7 @@ enum RoleGuardEnum {
         // Available MFA methods (use enum values)
         methods: [NestAuthMFAMethodEnum.TOTP, NestAuthMFAMethodEnum.EMAIL, NestAuthMFAMethodEnum.SMS],
         // TOTP-specific settings
+        trustedDeviceSecret: process.env.TRUSTED_DEVICE_SECRET || 'your-super-secret-trusted-device-secret-change-in-production',
         totp: {
           // Issuer name shown in authenticator app
           issuer: 'NestAuth Example',

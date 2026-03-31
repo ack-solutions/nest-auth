@@ -18,6 +18,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TwoFactorCodeSentEvent } from '../events/two-factor-code-sent.event';
 import { NestAuthTrustedDevice } from '../entities/trusted-device.entity';
 import { randomBytes } from 'crypto';
+import { IsNull, MoreThan } from 'typeorm';
 import { User2faEnabledEvent } from '../events/user-2fa-enabled.event';
 import { User2faDisabledEvent } from '../events/user-2fa-disabled.event';
 import { RequestContext } from '../../request-context/request-context';
@@ -164,11 +165,6 @@ export class MfaService {
     async verifyMfa(userId: string, inputOtp: string, method: NestAuthMFAMethodEnum): Promise<boolean> {
 
         this.requireMfaEnabledForApp(true)
-
-        // Check for default OTP (Magic Code)
-        if (this.mfaConfig.defaultOtp && this.mfaConfig.defaultOtp === inputOtp) {
-            return true;
-        }
 
         if (method === NestAuthMFAMethodEnum.TOTP) {
             const devices = await this.mfaSecretRepository.find({
@@ -476,39 +472,66 @@ export class MfaService {
         return Boolean(user?.mfaRecoveryCode);
     }
 
+    private getTrustedDeviceSecret(): string {
+        const secret = this.mfaConfig.trustedDeviceSecret;
+        if (!secret) {
+            throw new Error(
+                'Trusted device HMAC secret is not configured. Set mfa.trustedDeviceSecret or session.jwt.secret.'
+            );
+        }
+        return secret;
+    }
+
     async createTrustedDevice(userId: string, userAgent: string, ipAddress: string): Promise<string> {
         this.requireMfaEnabledForApp(true);
 
-        const token = randomBytes(32).toString('hex');
-        const duration = this.mfaConfig.trustedDeviceDuration || '30m';
-        const expiresAtMs = typeof duration === 'string' ? ms(duration) : duration;
+        const plainToken = randomBytes(32).toString('base64url');
+        const duration = this.mfaConfig.trustedDeviceDuration;
+        const expiresAtMs = ms(duration);
 
-        await this.trustedDeviceRepository.save({
+        const secret = this.getTrustedDeviceSecret();
+        const device = this.trustedDeviceRepository.create({
             userId,
-            token,
             userAgent,
             ipAddress,
             expiresAt: new Date(Date.now() + expiresAtMs),
+            revokedAt: null,
         });
+        await device.setTrustToken(secret, plainToken);
+        await this.trustedDeviceRepository.save(device);
 
-        return token;
+        return plainToken;
     }
 
+    /**
+     * Validates the presented bearer token by verifying against active trusted devices.
+     * Enforces expiry/revocation, touches lastUsedAt on success.
+     */
     async validateTrustedDevice(userId: string, token: string): Promise<boolean> {
-        if (!token) return false;
-
-        const device = await this.trustedDeviceRepository.findOne({
-            where: { userId, token },
-        });
-
-        if (!device) return false;
-
-        if (device.expiresAt < new Date()) {
-            await this.trustedDeviceRepository.remove(device);
+        if (!token) {
             return false;
         }
 
-        await this.trustedDeviceRepository.update(device.id, { lastUsedAt: new Date() });
-        return true;
+        const secret = this.getTrustedDeviceSecret();
+        const candidates = await this.trustedDeviceRepository.find({
+            where: {
+                userId,
+                revokedAt: IsNull(),
+                expiresAt: MoreThan(new Date()),
+            },
+            select: ['id', 'tokenHash'],
+        });
+
+        const now = new Date();
+        for (const device of candidates) {
+            if (!(await device.validateTrustToken(secret, token))) {
+                continue;
+            }
+            device.lastUsedAt = now;
+            await this.trustedDeviceRepository.save(device);
+            return true;
+        }
+
+        return false;
     }
 }

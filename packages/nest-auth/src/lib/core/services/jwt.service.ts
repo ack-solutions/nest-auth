@@ -25,10 +25,11 @@ export class JwtService {
                 {
                     ...payload,
                     type: 'access',
-                    exp: Math.floor(Date.now() / 1000) + ms(this.options.session.sessionExpiry),
-                    iat: Math.floor(Date.now() / 1000),
                 },
                 jwtSecret,
+                {
+                    expiresIn: this.options.session.accessTokenValidity,
+                },
                 (err, token) => {
                     if (err) reject(err);
                     else resolve(token);
@@ -47,10 +48,11 @@ export class JwtService {
                 {
                     ...payload,
                     type: 'refresh',
-                    exp: Math.floor(Date.now() / 1000) + ms(this.options.session.refreshTokenExpiry),
-                    iat: Math.floor(Date.now() / 1000),
                 },
                 jwtSecret,
+                {
+                    expiresIn: this.options.session.refreshTokenValidity,
+                },
                 (err, token) => {
                     if (err) reject(err);
                     else resolve(token);
@@ -100,7 +102,7 @@ export class JwtService {
                 if (!jwtSecret) {
                     return reject(new Error('Missing session.jwt.secret'));
                 }
-                jwt.sign({ ...decoded, ...payload }, jwtSecret, { expiresIn: this.options.session.sessionExpiry }, (err, token) => {
+                jwt.sign({ ...decoded, ...payload }, jwtSecret, { expiresIn: this.options.session.accessTokenValidity }, (err, token) => {
                     if (err) reject(err);
                     else resolve(token);
                 });

@@ -1,13 +1,6 @@
-import {
-    Entity,
-    PrimaryGeneratedColumn,
-    Column,
-    CreateDateColumn,
-    ManyToOne,
-    JoinColumn,
-    Index,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
+import { hmacSha256Hex, timingSafeEqualHex } from '../../utils/has-token';
 
 @Entity('nest_auth_trusted_devices')
 export class NestAuthTrustedDevice {
@@ -22,9 +15,8 @@ export class NestAuthTrustedDevice {
     @JoinColumn({ name: 'userId' })
     user: NestAuthUser;
 
-    @Column()
-    @Index()
-    token: string;
+    @Column({ type: 'text' , select: false})
+    tokenHash: string;
 
     @Column({ nullable: true })
     userAgent: string;
@@ -36,8 +28,21 @@ export class NestAuthTrustedDevice {
     expiresAt: Date;
 
     @Column({ nullable: true })
+    revokedAt: Date | null;
+
+    @Column({ nullable: true })
     lastUsedAt: Date;
 
     @CreateDateColumn()
     createdAt: Date;
+
+    async setTrustToken(secret: string, plainToken: string): Promise<void> {
+        this.tokenHash = hmacSha256Hex(secret, plainToken);
+    }
+
+    async validateTrustToken(secret: string, plainToken: string): Promise<boolean> {
+        if (!plainToken || !this.tokenHash) return false;
+        const computed = hmacSha256Hex(secret, plainToken);
+        return timingSafeEqualHex(this.tokenHash, computed);
+    }
 }

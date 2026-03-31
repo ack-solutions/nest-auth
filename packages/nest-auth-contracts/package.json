@@ -19,7 +19,8 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "tsup"
+    "build": "tsup",
+    "watch": "pnpm -C ../.. exec tsc -p packages/nest-auth-contracts/tsconfig.build.json -w"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

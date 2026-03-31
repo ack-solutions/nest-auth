@@ -7,6 +7,8 @@
     "build": "pnpm nest-auth-contracts build && pnpm nest-auth build && pnpm nest-auth-client build && pnpm nest-auth-react build",
     "nest-auth-contracts": "pnpm -C packages/nest-auth-contracts",
     "nest-auth": "pnpm -C packages/nest-auth",
+    "watch": "pnpm --filter \"./packages/*\" --parallel run watch",
+    "nest-auth-ui": "pnpm -C packages/nest-auth/ui",
     "nest-auth-client": "pnpm -C packages/nest-auth-client",
     "nest-auth-react": "pnpm -C packages/nest-auth-react",
     "nest": "pnpm -C apps/example-nest",

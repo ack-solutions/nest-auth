@@ -17,6 +17,7 @@ import { AdminPermissionsController } from './controllers/admin-permissions.cont
 import { AdminConsoleConfigService } from './services/admin-console-config.service';
 import { AuthModule } from '../auth/auth.module';
 import { NestAuthMFASecret } from '../auth/entities/mfa-secret.entity';
+import { NestAuthTrustedDevice } from '../auth/entities/trusted-device.entity';
 import { NestAuthUser } from '../user/entities/user.entity';
 import { PermissionModule } from '../permission/permission.module';
 import { SessionModule } from '../session/session.module';
@@ -25,7 +26,13 @@ import { AdminUserManagementService } from './services/admin-user-management.ser
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([NestAuthAdminUser, NestAuthMFASecret, NestAuthUser, NestAuthUserAccess]),
+    TypeOrmModule.forFeature([
+      NestAuthAdminUser,
+      NestAuthMFASecret,
+      NestAuthTrustedDevice,
+      NestAuthUser,
+      NestAuthUserAccess,
+    ]),
     forwardRef(() => AuthModule),
     forwardRef(() => UserModule),
     forwardRef(() => RoleModule),

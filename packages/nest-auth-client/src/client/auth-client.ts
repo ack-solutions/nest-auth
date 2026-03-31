@@ -314,7 +314,6 @@ export class AuthClient {
         }
 
         // Handle 401 with token refresh
-        console.log('response', response);
         if (
             response.status === 401 &&
             !options?.skipRefresh &&
@@ -541,7 +540,6 @@ export class AuthClient {
      */
     private async clearAuthState(): Promise<void> {
         await this.tokenManager.clearTokens();
-        await this.tokenManager.clearTrustToken();
         await this.events.emitAsync('tokensRemoved', undefined);
 
         this.user = null;
@@ -674,9 +672,7 @@ export class AuthClient {
      */
     async verifySession(options?: RequestOptions): Promise<{ valid: boolean; userId?: string; expiresAt?: string }> {
         const endpoint = this.getEndpoint('verifySession');
-        console.log('verifySession called');
         const response = await this.request<{ valid: boolean; userId?: string; expiresAt?: string }>('GET', endpoint, undefined, options);
-        console.log('verifySession response', response);
         if (!response.ok) {
             if (response.status === 401) {
                 // Unauthenticated - clear state

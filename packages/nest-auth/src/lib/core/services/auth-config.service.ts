@@ -17,8 +17,8 @@ export class AuthConfigService {
         session: {
             accessTokenType: null,
             storageType: SessionStorageType.DATABASE,
-            sessionExpiry: '1h',
-            refreshTokenExpiry: '30d',
+            accessTokenValidity: '1h',
+            refreshTokenValidity: '30d',
             slidingExpiration: false,
             jwt: {
                 secret: 'secret',
@@ -41,7 +41,7 @@ export class AuthConfigService {
             allowMethodSelection: true,
             required: false,
             trustDeviceStorageName: NEST_AUTH_TRUST_DEVICE_KEY, // it work only when pass 'trustDevice' true in verify2fa request
-            trustedDeviceDuration: '30m',
+            trustedDeviceDuration: '7d',
         },
         tenant: { 
             enabled: false,

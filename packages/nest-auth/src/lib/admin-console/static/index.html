@@ -739,7 +739,7 @@ NestAuthModule.forRoot({
       secret: process.env.JWT_SECRET,
     },
     storageType: SessionStorageType.DATABASE,
-    sessionExpiry: '7d',
+    accessTokenValidity: '7d',
     maxSessionsPerUser: 5,
     slidingExpiration: true,
   },
@@ -916,7 +916,7 @@ NestAuthModule.forRoot({
 }
 \`\`\`
 
-### session.sessionExpiry
+### session.accessTokenValidity
 - **Type**: \`string | number\`
 - **Default**: \`'7d'\`
 - **Description**: Session expiration time
@@ -924,7 +924,7 @@ NestAuthModule.forRoot({
 \`\`\`typescript
 {
   session: {
-    sessionExpiry: '30d', // 30 days
+    accessTokenValidity: '30d', // 30 days
   },
 }
 \`\`\`
@@ -1363,7 +1363,7 @@ NestAuthModule.forRootAsync({
       jwt: {
         secret: configService.get('JWT_SECRET'),
       },
-      sessionExpiry: configService.get('JWT_EXPIRES_IN'),
+      accessTokenValidity: configService.get('JWT_EXPIRES_IN'),
     },
     mfa: {
       enabled: configService.get('MFA_ENABLED') === 'true',
@@ -1394,8 +1394,8 @@ NestAuthModule.forRoot({
     },
     storageType: SessionStorageType.REDIS,
     redisUrl: process.env.REDIS_URL,
-    sessionExpiry: '15m',
-    refreshTokenExpiry: '7d',
+    accessTokenValidity: '15m',
+    refreshTokenValidity: '7d',
     maxSessionsPerUser: 3,
     cookieOptions: {
       secure: true,
@@ -1420,8 +1420,8 @@ NestAuthModule.forRoot({
     jwt: {
       secret: process.env.JWT_SECRET,
     },
-    sessionExpiry: '1h',
-    refreshTokenExpiry: '30d',
+    accessTokenValidity: '1h',
+    refreshTokenValidity: '30d',
   },
   mfa: {
     enabled: true,

@@ -29,6 +29,7 @@ import { AuthConfigService } from '../../core/services/auth-config.service';
 import { NestAuthUserAccess } from '../../tenant/entities/user-access.entity';
 import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { mapRoleToResponse } from '../../role/utils/role-mapper.util';
+import { NestAuthTrustedDevice } from '../../auth/entities/trusted-device.entity';
 
 @Controller('auth/admin/api/users')
 @UseGuards(AdminSessionGuard)
@@ -44,6 +45,8 @@ export class AdminUsersController {
     private readonly mfaSecretRepository: Repository<NestAuthMFASecret>,
     @InjectRepository(NestAuthUserAccess)
     private readonly userAccessRepository: Repository<NestAuthUserAccess>,
+    @InjectRepository(NestAuthTrustedDevice)
+    private readonly trustedDeviceRepository: Repository<NestAuthTrustedDevice>,
   ) { }
 
   private async ensureUserExists(id: string): Promise<NestAuthUser> {
@@ -230,7 +233,6 @@ export class AdminUsersController {
 
   @Get(':id')
   async getUser(@Param('id') id: string) {
-    console.log('id', id);
     const user = await this.users.getUserById(id, {
       relations: [
         'mfaSecrets',
@@ -245,14 +247,34 @@ export class AdminUsersController {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    console.log('user', user);
+
+    const config = this.authConfigService.getConfig();
+    const emailAuthEnabled = config.emailAuth?.enabled !== false;
+    const phoneAuthEnabled = config.phoneAuth?.enabled === true;
+    const passwordlessEnabled = config.passwordless?.enabled === true;
+
+    const identities = (user.identities ?? []);
+    const hasEmailIdentity = (user.identities ?? []).some(
+      (i) => i.provider === EMAIL_AUTH_PROVIDER && i.providerId === user.email
+    );
+    const hasPhoneIdentity = (user.identities ?? []).some(
+      (i) => i.provider === PHONE_AUTH_PROVIDER && i.providerId === user.phone
+    );
+
+    const socialProviders = [
+      config.google?.clientId ? 'google' : null,
+      config.github?.clientId ? 'github' : null,
+      config.facebook?.appId ? 'facebook' : null,
+      config.apple?.clientId ? 'apple' : null,
+    ].filter(Boolean) as string[];
+
+    const socialIdentities = (user.identities ?? [])
+      .filter((i) => ![EMAIL_AUTH_PROVIDER, PHONE_AUTH_PROVIDER].includes(i.provider))
+      .map((i) => i.provider);
 
     const availableMethods = this.mfaService.getAvailableMethods();
     const enabledMethods = await this.mfaService.getEnabledMethods(user.id);
     const sessions = await this.sessionManager.getUserSessions(user.id);
-
-    console.log('enabledMethods', enabledMethods);
-    console.log('sessions', sessions);
 
     const sortedSessions = sessions
       .sort((a, b) => {
@@ -264,12 +286,49 @@ export class AdminUsersController {
 
     const safeUser = await this.toSafeUser(user);
 
+    const trustedDevices = await this.trustedDeviceRepository.find({
+      where: { userId: user.id },
+      order: { lastUsedAt: 'DESC', createdAt: 'DESC' } as any,
+      take: 50,
+    });
+
+    const mfaEnabledForApp = config.mfa?.enabled === true;
+    const mfaRequiredForAll = config.mfa?.required === true;
+    const mfaRequiredForUser = mfaEnabledForApp && (mfaRequiredForAll || user.isMfaEnabled === true);
+
     return {
       user: safeUser,
-      loginMethods: {
-        emailEnabled: !!user.email && !!user.emailVerifiedAt,
-        phoneEnabled: !!user.phone && !!user.phoneVerifiedAt,
-        hasPassword: !!user.passwordHash,
+      identities,
+      trustedDevices: trustedDevices,
+      loginCapabilities: {
+        // Config + identity-derived capabilities (more accurate than the legacy booleans)
+        email: {
+          enabledInConfig: emailAuthEnabled,
+          hasIdentity: hasEmailIdentity,
+          verified: !!user.emailVerifiedAt,
+          canPasswordLogin: emailAuthEnabled  && hasEmailIdentity && !!user.passwordHash,
+          canOtpLogin: emailAuthEnabled && passwordlessEnabled && hasEmailIdentity,
+        },
+        phone: {
+          enabledInConfig: phoneAuthEnabled,
+          hasIdentity: hasPhoneIdentity,
+          canPasswordLogin: phoneAuthEnabled && hasPhoneIdentity && !!user.passwordHash,
+          verified: !!user.phoneVerifiedAt,
+          canOtpLogin: phoneAuthEnabled && passwordlessEnabled && hasPhoneIdentity,
+        },
+        passwordless: {
+          enabledInConfig: passwordlessEnabled,
+          allowSignUp: config.passwordless?.allowSignUp === true,
+        },
+        social: {
+          enabledProviders: socialProviders,
+          identityProviders: Array.from(new Set(socialIdentities)),
+        },
+        mfa: {
+          enabledInConfig: mfaEnabledForApp,
+          requiredForAll: mfaRequiredForAll,
+          requiredForUser: mfaRequiredForUser,
+        },
       },
       mfa: {
         isEnabled: user.isMfaEnabled,
@@ -302,7 +361,7 @@ export class AdminUsersController {
       ],
     });
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('User not found');  
     }
 
     const oldEmail = user.email;

@@ -135,7 +135,7 @@ export class SessionModule {
     }
 
     private static resolveDefaultTtlSeconds(session?: SessionOptions): number {
-        const expiry = session?.sessionExpiry;
+        const expiry = session?.accessTokenValidity;
         if (typeof expiry === 'string') {
             const msValue = ms(expiry);
             if (typeof msValue === 'number' && msValue > 0) {

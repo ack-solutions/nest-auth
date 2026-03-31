@@ -40,7 +40,7 @@ NestAuthModule.forRoot({
       secret: process.env.JWT_SECRET,
     },
     storageType: SessionStorageType.DATABASE,
-    sessionExpiry: '7d',
+    accessTokenValidity: '7d',
     maxSessionsPerUser: 5,
     slidingExpiration: true,
   },
@@ -49,8 +49,7 @@ NestAuthModule.forRoot({
     enabled: true,
     required: false,
     methods: ['totp', 'email', 'sms'],
-    otpExpiresIn: '5m',
-    trustedDeviceDuration: '30d',
+    trustedDeviceDuration: '7d',
     trustDeviceStorageName: 'x-app-trust-token',
     allowUserToggle: true,
     allowMethodSelection: true,
@@ -217,7 +216,7 @@ NestAuthModule.forRoot({
 }
 \`\`\`
 
-### session.sessionExpiry
+### session.accessTokenValidity
 - **Type**: \`string | number\`
 - **Default**: \`'7d'\`
 - **Description**: Session expiration time
@@ -225,7 +224,7 @@ NestAuthModule.forRoot({
 \`\`\`typescript
 {
   session: {
-    sessionExpiry: '30d', // 30 days
+    accessTokenValidity: '30d', // 30 days
   },
 }
 \`\`\`
@@ -317,19 +316,6 @@ NestAuthModule.forRoot({
 }
 \`\`\`
 
-### mfa.otpExpiresIn
-- **Type**: \`string | number\`
-- **Default**: \`'5m'\`
-- **Description**: OTP code expiration time
-
-\`\`\`typescript
-{
-  mfa: {
-    otpExpiresIn: '10m', // OTPs valid for 10 minutes
-  },
-}
-\`\`\`
-
 ### mfa.trustedDeviceDuration
 - **Type**: \`string | number\`
 - **Default**: \`undefined\`
@@ -338,7 +324,7 @@ NestAuthModule.forRoot({
 \`\`\`typescript
 {
   mfa: {
-    trustedDeviceDuration: '30d', // Trust device for 30 days
+    trustedDeviceDuration: '7d', // Trust device for 7 days
   },
 }
 \`\`\`
@@ -664,7 +650,7 @@ NestAuthModule.forRootAsync({
       jwt: {
         secret: configService.get('JWT_SECRET'),
       },
-      sessionExpiry: configService.get('JWT_EXPIRES_IN'),
+      accessTokenValidity: configService.get('JWT_EXPIRES_IN'),
     },
     mfa: {
       enabled: configService.get('MFA_ENABLED') === 'true',
@@ -695,8 +681,8 @@ NestAuthModule.forRoot({
     },
     storageType: SessionStorageType.REDIS,
     redisUrl: process.env.REDIS_URL,
-    sessionExpiry: '15m',
-    refreshTokenExpiry: '7d',
+    accessTokenValidity: '15m',
+    refreshTokenValidity: '7d',
     maxSessionsPerUser: 3,
     cookieOptions: {
       secure: true,
@@ -707,7 +693,7 @@ NestAuthModule.forRoot({
     enabled: true,
     required: false,
     methods: ['totp', 'email'],
-    trustedDeviceDuration: '30d',
+    trustedDeviceDuration: '7d',
   },
 })
 \`\`\`
@@ -721,8 +707,8 @@ NestAuthModule.forRoot({
     jwt: {
       secret: process.env.JWT_SECRET,
     },
-    sessionExpiry: '1h',
-    refreshTokenExpiry: '30d',
+    accessTokenValidity: '1h',
+    refreshTokenValidity: '30d',
   },
   mfa: {
     enabled: true,

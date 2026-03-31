@@ -753,6 +753,7 @@ export class AuthService {
             let payload: JWTTokenPayload;
             try {
                 payload = await this.jwtService.verifyToken(refreshToken);
+                console.log('payload', payload);
             } catch (error) {
                 this.debugLogger.warn('Invalid or expired refresh token', 'AuthService');
                 throw new UnauthorizedException({
@@ -769,7 +770,6 @@ export class AuthService {
             }
 
             const session = await this.sessionManager.getSession(payload.sessionId);
-
             if (!session) {
                 throw new UnauthorizedException({
                     message: 'Invalid refresh token',

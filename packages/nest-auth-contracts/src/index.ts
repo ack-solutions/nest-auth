@@ -65,7 +65,6 @@ export {
     ISendPhoneVerificationRequest,
     ISessionVerifyResponse,
 } from './verification';
-
 // Passwordless login
 export {
     NEST_AUTH_PASSWORDLESS_PROVIDER,

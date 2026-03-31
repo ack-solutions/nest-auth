@@ -15,6 +15,7 @@
   },
   "scripts": {
     "clean": "rm -rf dist tsconfig.build.tsbuildinfo",
+    "watch": "pnpm -C ../.. exec tsc -p packages/nest-auth-react/tsconfig.build.json -w",
     "build": "pnpm clean && tsc -p tsconfig.build.json",
     "format": "prettier --write \"src/**/*.ts\" \"src/**/*.tsx\"",
     "lint": "eslint \"src/**/*.ts\" \"src/**/*.tsx\" --fix"
