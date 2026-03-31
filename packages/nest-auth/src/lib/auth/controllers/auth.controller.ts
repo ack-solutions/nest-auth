@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, UseGuards, Res, HttpCode, Query, Param, UnauthorizedException, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Res, HttpCode, Query, Param, UnauthorizedException, Req, BadRequestException } from '@nestjs/common';
 import { AuthService } from '../services/auth.service';
 import { NestAuthVerify2faRequestDto } from '../dto/requests/verify-2fa.request.dto';
 import { NestAuthRefreshTokenRequestDto } from '../dto/requests/refresh-token.request.dto';
@@ -47,6 +47,7 @@ import { AuthConfigService } from '../../core/services/auth-config.service';
 import { TenantService } from '../../tenant/services/tenant.service';
 import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { NestAuthPasswordlessSendRequestDto } from '../dto/requests/passwordless-send.request.dto';
+import { CookieHelper } from '../../utils/cookie.helper';
 
 @Controller('auth')
 @UseFilters(AuthExceptionFilter)
@@ -119,8 +120,22 @@ export class AuthController {
     @HttpCode(200)
     @Post('refresh-token')
     @UseInterceptors(TokenResponseInterceptor)
-    async refreshToken(@Body() input: NestAuthRefreshTokenRequestDto): Promise<AuthWithTokensResponseDto> {
-        const response = await this.authService.refreshToken(input.refreshToken);
+    async refreshToken(
+        @Body() input: NestAuthRefreshTokenRequestDto,
+        @Req() req: Request,
+    ): Promise<AuthWithTokensResponseDto> {
+        const headerTokenType = req.headers['x-access-token-type'];
+        const accessTokenType = AuthConfigService.getOptions().session?.accessTokenType ?? null;
+        const isCookieMode = accessTokenType === 'cookie' || (!accessTokenType && headerTokenType === 'cookie');
+
+       
+        const refreshToken = input.refreshToken || (isCookieMode ? CookieHelper.get(req, REFRESH_TOKEN_COOKIE_NAME) : undefined);
+
+        if (!refreshToken) {
+            throw new BadRequestException('refreshToken is required');
+        }
+
+        const response = await this.authService.refreshToken(refreshToken);
         return {
             ...response,
             isRequiresMfa: false,

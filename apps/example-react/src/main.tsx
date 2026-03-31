@@ -43,7 +43,7 @@ const authConfig = {
    * - 'cookie': Uses httpOnly cookies (more secure for web, handles CSRF)
    * - null: Auto-detect based on backend response
    */
-  accessTokenType: 'header' as const,
+  accessTokenType: 'cookie' as const,
 
   httpAdapter: createAxiosAdapter(instanceApi),
 

@@ -95,7 +95,7 @@ enum RoleGuardEnum {
         // Access token delivery method
         // - 'header': Return tokens in response body, client sends in Authorization header
         // - 'cookie': Set tokens in httpOnly cookies (more secure for web)
-        accessTokenType: 'header',
+        accessTokenType: null,
         jwt: {
           secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production',
         },
