@@ -118,8 +118,7 @@ enum RoleGuardEnum {
       },
 
       tenant: {
-        enabled: true,
-        mode: TenantModeEnum.SHARED,
+        enabled: false,
       },
 
       // Only these guards can be used for roles/permissions. Admin UI shows them in a dropdown; to add more, extend RoleGuardEnum and list here.

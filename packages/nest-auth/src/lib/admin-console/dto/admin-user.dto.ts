@@ -114,4 +114,13 @@ export class AdminUpdateUserDto {
   @ValidateNested({ each: true })
   @Type(() => AdminTenantRolesDto)
   tenantRoles?: AdminTenantRolesDto[];
+
+  /**
+   * Global role IDs when tenants are disabled (single-tenant / no-tenant mode).
+   * Stored on the user's access where tenantId is NULL.
+   */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  roleIds?: string[];
 }

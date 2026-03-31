@@ -4,7 +4,7 @@ import type { User } from '../../../types';
 export interface EditModalProps {
     open: boolean;
     onClose: () => void;
-    onSave: (updates: Partial<User>) => Promise<void>;
+    onSave: (updates: Partial<User> & { tenantIds?: string[]; tenantRoles?: { tenantId: string; roleIds: string[] }[]; roleIds?: string[] }) => Promise<void>;
     user: User;
     loading?: boolean;
 }

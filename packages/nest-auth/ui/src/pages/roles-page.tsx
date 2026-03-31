@@ -4,7 +4,6 @@ import Icon from '@mui/material/Icon';
 import { Box, Grid, Stack, Typography, Alert, Chip, Card, CardContent, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { api } from '../services/api';
 import { useConfirm } from '../hooks/use-confirm';
-import { useRoleGuards } from '../hooks/use-role-guards';
 import type { Role, Tenant } from '../types';
 import { PageHeader } from '../components/page-header';
 import Button from '@mui/material/Button';
@@ -13,6 +12,7 @@ import { Table, Column } from '../components/table';
 import { RoleDialog } from '../components/role/role-dialog';
 import { RolePermissionsDialog } from '../components/role/role-permissions-dialog';
 import type { RoleFormData } from '../components/role/role-dialog';
+import { useClientConfig } from '@/hooks/use-client-config';
 
 export const RolesPage: React.FC = () => {
     const [roles, setRoles] = useState<Role[]>([]);
@@ -26,7 +26,7 @@ export const RolesPage: React.FC = () => {
     const [filterGuard, setFilterGuard] = useState('');
     const [filterTenantId, setFilterTenantId] = useState<string>('');
     const confirm = useConfirm();
-    const { guardOptions, helperText: guardHelperText } = useRoleGuards();
+    const { roleGuards, tenantEnabled } = useClientConfig();
 
     const loadRoles = useCallback(async (overrides?: { guard?: string; tenantId?: string }) => {
         try {
@@ -36,7 +36,7 @@ export const RolesPage: React.FC = () => {
             const tenantId = overrides?.tenantId ?? filterTenantId;
             const params = new URLSearchParams();
             if (guard) params.set('guard', guard);
-            if (tenantId) params.set('tenantId', tenantId);
+            if (tenantEnabled && tenantId) params.set('tenantId', tenantId);
             const url = params.toString() ? `/api/roles?${params.toString()}` : '/api/roles';
             const { data } = await api.get<{ data: Role[] }>(url);
             setRoles(Array.isArray(data) ? data : []);
@@ -45,7 +45,7 @@ export const RolesPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [filterGuard, filterTenantId]);
+    }, [filterGuard, filterTenantId, tenantEnabled]);
 
     const loadTenants = useCallback(async () => {
         try {
@@ -57,8 +57,18 @@ export const RolesPage: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        loadTenants();
+        if (tenantEnabled) {
+            loadTenants();
+        } else {
+            setTenants([]);
+        }
     }, [loadTenants]);
+
+    useEffect(() => {
+        if (!tenantEnabled && filterTenantId) {
+            setFilterTenantId('');
+        }
+    }, [filterTenantId, tenantEnabled]);
 
     useEffect(() => {
         loadRoles();
@@ -163,15 +173,19 @@ export const RolesPage: React.FC = () => {
                 </Typography>
             ),
         },
-        {
-            key: 'tenant',
-            label: 'Tenant',
-            render: (role) => (
-                <Typography variant="caption" color="text.secondary">
-                    {role.isSystem ? '—' : (role.tenant?.name ?? role.tenant?.slug ?? '—')}
-                </Typography>
-            ),
-        },
+        ...(tenantEnabled
+            ? [
+                {
+                    key: 'tenant',
+                    label: 'Tenant',
+                    render: (role) => (
+                        <Typography variant="caption" color="text.secondary">
+                            {role.isSystem ? '—' : (role.tenant?.name ?? role.tenant?.slug ?? '—')}
+                        </Typography>
+                    ),
+                } satisfies Column<Role>,
+            ]
+            : []),
         {
             key: 'type',
             label: 'Type',
@@ -280,38 +294,44 @@ export const RolesPage: React.FC = () => {
                         }}
                     >
                         <MenuItem value="">All guards</MenuItem>
-                        {guardOptions.map((opt) => (
-                            <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                        {roleGuards.map((opt) => (
+                            <MenuItem key={opt} value={opt}>{opt}</MenuItem>
                         ))}
                     </Select>
                 </FormControl>
-                <FormControl size="small" sx={{ minWidth: 200 }}>
-                    <InputLabel id="roles-tenant-filter-label">Tenant</InputLabel>
-                    <Select
-                        labelId="roles-tenant-filter-label"
-                        label="Tenant"
-                        value={filterTenantId}
-                        onChange={(e) => {
-                            const v = e.target.value as string;
-                            setFilterTenantId(v);
-                            loadRoles({ tenantId: v });
+                {tenantEnabled && (
+                    <FormControl size="small" sx={{ minWidth: 200 }}>
+                        <InputLabel id="roles-tenant-filter-label">Tenant</InputLabel>
+                        <Select
+                            labelId="roles-tenant-filter-label"
+                            label="Tenant"
+                            value={filterTenantId}
+                            onChange={(e) => {
+                                const v = e.target.value as string;
+                                setFilterTenantId(v);
+                                loadRoles({ tenantId: v });
+                            }}
+                        >
+                            <MenuItem value="">All tenants</MenuItem>
+                            {tenants.map((t) => (
+                                <MenuItem key={t.id} value={t.id}>{t.name || t.slug}</MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                )}
+                {(filterGuard || (tenantEnabled && filterTenantId)) && (
+                    <Button
+                        size="small"
+                        onClick={() => {
+                            setFilterGuard('');
+                            setFilterTenantId('');
+                            loadRoles({ guard: '', tenantId: '' });
                         }}
                     >
-                        <MenuItem value="">All tenants</MenuItem>
-                        {tenants.map((t) => (
-                            <MenuItem key={t.id} value={t.id}>{t.name || t.slug}</MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
-                {(filterGuard || filterTenantId) && (
-                    <Button size="small" onClick={() => { setFilterGuard(''); setFilterTenantId(''); loadRoles({ guard: '', tenantId: '' }); }}>Clear</Button>
+                        Clear
+                    </Button>
                 )}
             </Stack>
-            {guardHelperText && (
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                    {guardHelperText}
-                </Typography>
-            )}
 
             <Table
                 columns={columns}

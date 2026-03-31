@@ -5,6 +5,7 @@ import { Box, Grid, Stack, Typography, Alert, CircularProgress, Icon } from '@mu
 import { useTheme } from '@mui/material/styles';
 import { api } from '../services/api';
 import Paper from '@mui/material/Paper';
+import { useClientConfig } from '../hooks/use-client-config';
 
 interface DashboardStats {
     totalUsers: number;
@@ -17,6 +18,7 @@ interface DashboardStats {
 
 export const DashboardPage: React.FC = () => {
     const theme = useTheme();
+    const { tenantEnabled } = useClientConfig();
     const [stats, setStats] = useState<DashboardStats>({
         totalUsers: 0,
         activeUsers: 0,
@@ -158,16 +160,18 @@ export const DashboardPage: React.FC = () => {
                         iconBg="secondary.200"
                     />
                 </Grid>
-                <Grid size={{ xs: 12, md: 6, lg: 3 }}>
-                    <StatCard
-                        title="Tenants"
-                        value={stats.totalTenants}
-                        icon={<Icon component={Building2} sx={{ fontSize: 20, color: 'warning.main' }} />}
-                        gradient={`linear-gradient(to bottom right, ${theme.palette.warning[50]}, ${theme.palette.warning[100]})`}
-                        borderColor="warning.200"
-                        iconBg="warning.200"
-                    />
-                </Grid>
+                {tenantEnabled && (
+                    <Grid size={{ xs: 12, md: 6, lg: 3 }}>
+                        <StatCard
+                            title="Tenants"
+                            value={stats.totalTenants}
+                            icon={<Icon component={Building2} sx={{ fontSize: 20, color: 'warning.main' }} />}
+                            gradient={`linear-gradient(to bottom right, ${theme.palette.warning[50]}, ${theme.palette.warning[100]})`}
+                            borderColor="warning.200"
+                            iconBg="warning.200"
+                        />
+                    </Grid>
+                )}
             </Grid>
 
             <Grid container spacing={2}>

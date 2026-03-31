@@ -30,7 +30,7 @@ export interface User {
  */
 export interface UserAccess {
     id: string;
-    tenantId: string;
+    tenantId: string | null;
     tenant?: Tenant;
     /**
      * Full Role objects. Populated when the access is loaded with role relations (read/display).
@@ -184,7 +184,7 @@ export interface LoginForm {
 export interface CreateRoleForm {
     name: string;
     guard: string;
-    tenantId: string;
+    tenantId: string | null;
     permissions: string[];
 }
 

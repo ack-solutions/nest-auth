@@ -10,6 +10,7 @@ import { LayoutDashboard, Users, Shield, Building2, BookOpen, UserCog, LogOut, F
 import { Icon } from '@mui/material';
 import { api } from '../services/api';
 import type { DashboardConfig, Admin } from '../types';
+import { useClientConfig } from '../hooks/use-client-config';
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -20,6 +21,7 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children, config, onLogout }) => {
     const theme = useTheme();
     const navigate = useNavigate();
+    const { tenantEnabled } = useClientConfig();
     const sidebarBg = theme.palette.grey[800];
     const sidebarLight = theme.palette.grey[700];
     const [currentAdmin, setCurrentAdmin] = useState<Admin | null>(null);
@@ -46,7 +48,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, config, onLogout }) =>
         { to: '/users', icon: Users, label: 'Users' },
         { to: '/roles', icon: Shield, label: 'Roles' },
         { to: '/permissions', icon: Key, label: 'Permissions' },
-        { to: '/tenants', icon: Building2, label: 'Tenants' },
+        ...(tenantEnabled ? [{ to: '/tenants', icon: Building2, label: 'Tenants' }] : []),
         { to: '/api', icon: FileText, label: 'API Docs' },
         ...(config.allowAdminManagement ? [{ to: '/admins', icon: UserCog, label: 'Admins' }] : []),
     ];

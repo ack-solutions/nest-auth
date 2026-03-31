@@ -135,6 +135,7 @@ export class NestAuthUser extends BaseEntity {
             where: { userId: this.id, tenantId: tenantId || IsNull() },
             relations: ['roles'],
         });
+        console.log('access', access);
         if (!access) {
             access = NestAuthUserAccess.create({ userId: this.id, tenantId });
             await access.save();

@@ -10,7 +10,7 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import Chip from '@mui/material/Chip';
-import { EditBasicInfoModal, EditStatusSecurityModal, EditRolesModal, EditMetadataModal, EditPasswordModal, EditTenantsModal } from './user-edit-dialogs';
+import { EditBasicInfoModal, EditStatusSecurityModal, EditRolesModal, EditGlobalRolesModal, EditMetadataModal, EditPasswordModal, EditTenantsModal } from './user-edit-dialogs';
 import { UserTenantCard } from './user-tenant-card';
 import { UserSessionsDisplay } from './user-sessions-display';
 import { UserIdentitiesDisplay } from './user-identities-display';
@@ -100,12 +100,13 @@ export interface UserDetailViewProps {
     roles: Role[];
     tenants: Tenant[];
     tenantMode?: TenantMode;
-    onUpdate: (id: string, updates: Partial<User> & { tenantIds?: string[]; tenantRoles?: { tenantId: string; roleIds: string[] }[] }) => Promise<void>;
+    tenantEnabled?: boolean;
+    onUpdate: (id: string, updates: Partial<User> & { tenantIds?: string[]; tenantRoles?: { tenantId: string; roleIds: string[] }[]; roleIds?: string[] }) => Promise<void>;
     onRefresh?: () => void | Promise<void>;
     onClose?: () => void;
 }
 
-export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, roles, tenants, tenantMode = null, onUpdate, onRefresh, onClose }) => {
+export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, roles, tenants, tenantMode = null, tenantEnabled = false, onUpdate, onRefresh, onClose }) => {
     const [saving, setSaving] = useState(false);
     const [sessionError, setSessionError] = useState<string>('');
     const [sessionActionId, setSessionActionId] = useState<string | null>(null);
@@ -113,6 +114,7 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
     const [showSecurityEdit, setShowSecurityEdit] = useState(false);
     const [showPasswordEdit, setShowPasswordEdit] = useState(false);
     const [showRolesEdit, setShowRolesEdit] = useState(false);
+    const [showGlobalRolesEdit, setShowGlobalRolesEdit] = useState(false);
     const [showTenantsEdit, setShowTenantsEdit] = useState(false);
     const [showMetadataEdit, setShowMetadataEdit] = useState(false);
     const [showAddTenant, setShowAddTenant] = useState(false);
@@ -189,6 +191,8 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
 
     const accessList = currentUser.userAccesses ?? [];
     const currentTenantIds = accessList.map((a) => a.tenantId).filter(Boolean);
+    const globalAccess = accessList.find((a) => a.tenantId == null);
+    const globalRoles = globalAccess?.roles ?? [];
 
     const handleRemoveTenant = async (tenantId: string) => {
         const confirmed = await confirm('Remove this user from the tenant? Their roles in this tenant will be removed.');
@@ -293,62 +297,90 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                                 title="Basic Information"
                                 icon={<Icon component={UserIcon} sx={{ fontSize: 16, color: 'primary.main' }} />}
                                 action={
-                                    <Tooltip title="Edit email, phone, and basic info" slotProps={tooltipSlotProps}>
-                                        <Button
-                                            size="small"
-                                            variant="contained"
-                                            onClick={() => setShowBasicInfoEdit(true)}
-                                            startIcon={<Icon component={Pencil} />}
-                                            sx={{ minWidth: 0, py: 0.5 }}
-                                        >
-                                            Edit
-                                        </Button>
-                                    </Tooltip>
+                                    <Stack direction="row" spacing={0.75}>
+                                        <Tooltip title="Edit email, phone, and basic info" slotProps={tooltipSlotProps}>
+                                            <Button
+                                                size="small"
+                                                variant="contained"
+                                                onClick={() => setShowBasicInfoEdit(true)}
+                                                startIcon={<Icon component={Pencil} />}
+                                                sx={{ minWidth: 0, py: 0.5 }}
+                                            >
+                                                Edit
+                                            </Button>
+                                        </Tooltip>
+                                        {!tenantEnabled && (
+                                            <Tooltip title="Manage user roles" slotProps={tooltipSlotProps}>
+                                                <Button
+                                                    size="small"
+                                                    variant="outlined"
+                                                    color="inherit"
+                                                    onClick={() => setShowGlobalRolesEdit(true)}
+                                                    sx={{ minWidth: 0, py: 0.5 }}
+                                                >
+                                                    Roles
+                                                </Button>
+                                            </Tooltip>
+                                        )}
+                                    </Stack>
                                 }
                             >
                                 <Stack spacing={0.25}>
                                     <InfoRow label="Email" value={currentUser.email} icon={<Icon component={Mail} sx={{ fontSize: 14 }} />} />
                                     <InfoRow label="Phone" value={currentUser.phone || '—'} icon={<Icon component={Phone} sx={{ fontSize: 14 }} />} />
-                                </Stack>
-                            </Section>
-
-                            <Section
-                                title="Tenants"
-                                icon={<Icon component={Building2} sx={{ fontSize: 16, color: 'primary.main' }} />}
-                                action={
-                                    tenantMode === 'shared' ? (
-                                        <Button
-                                            size="small"
-                                            variant="outlined"
-                                            color="primary"
-                                            onClick={() => setShowAddTenant(true)}
-                                            sx={{ py: 0.5 }}
-                                        >
-                                            Add tenant
-                                        </Button>
-                                    ) : null
-                                }
-                            >
-                                <Stack spacing={1}>
-                                    {accessList.length === 0 ? (
-                                        <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                                            No tenants assigned. {tenantMode === 'shared' ? 'Click "Add tenant" to assign.' : 'In isolated mode the user is assigned a tenant at creation.'}
-                                        </Typography>
-                                    ) : (
-                                        accessList.map((access) => (
-                                            <UserTenantCard
-                                                key={access.tenantId}
-                                                access={access}
-                                                rolesForTenant={roles.filter((r) => !r.tenantId || r.tenantId === access.tenantId)}
-                                                tenantMode={tenantMode}
-                                                onEditRoles={() => setShowRolesEdit(true)}
-                                                onRemove={tenantMode === 'shared' ? () => handleRemoveTenant(access.tenantId) : undefined}
-                                                loading={saving}
-                                            />
-                                        ))
+                                    {!tenantEnabled && (
+                                        <InfoRow
+                                            label="Roles"
+                                            value={
+                                                globalRoles.length
+                                                    ? globalRoles.map((r) => r.name).join(', ')
+                                                    : 'No roles'
+                                            }
+                                            icon={<Icon component={Shield} sx={{ fontSize: 14 }} />}
+                                        />
                                     )}
                                 </Stack>
                             </Section>
+
+                            {tenantEnabled && (
+                                <Section
+                                    title="Tenants"
+                                    icon={<Icon component={Building2} sx={{ fontSize: 16, color: 'primary.main' }} />}
+                                    action={
+                                        tenantMode === 'shared' ? (
+                                            <Button
+                                                size="small"
+                                                variant="outlined"
+                                                color="primary"
+                                                onClick={() => setShowAddTenant(true)}
+                                                sx={{ py: 0.5 }}
+                                            >
+                                                Add tenant
+                                            </Button>
+                                        ) : null
+                                    }
+                                >
+                                    <Stack spacing={1}>
+                                        {accessList.length === 0 ? (
+                                            <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                                                No tenants assigned. {tenantMode === 'shared' ? 'Click "Add tenant" to assign.' : 'In isolated mode the user is assigned a tenant at creation.'}
+                                            </Typography>
+                                        ) : (
+                                            accessList.map((access) => (
+                                                <UserTenantCard
+                                                    key={access.tenantId}
+                                                    access={access}
+                                                    rolesForTenant={roles.filter((r) => !r.tenantId || r.tenantId === access.tenantId)}
+                                                    tenantMode={tenantMode}
+                                                    onEditRoles={() => setShowRolesEdit(true)}
+                                                    onRemove={tenantMode === 'shared' ? () => handleRemoveTenant(access.tenantId) : undefined}
+                                                    loading={saving}
+                                                />
+                                            ))
+                                        )}
+                                    </Stack>
+                                </Section>
+                            )}
 
                             <Section
                                 title="Status & Security"
@@ -455,6 +487,7 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
             <EditStatusSecurityModal open={showSecurityEdit} onClose={() => setShowSecurityEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} />
             <EditPasswordModal open={showPasswordEdit} onClose={() => setShowPasswordEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} />
             <EditRolesModal open={showRolesEdit} onClose={() => setShowRolesEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} roles={roles} tenants={tenants} />
+            <EditGlobalRolesModal open={showGlobalRolesEdit} onClose={() => setShowGlobalRolesEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} roles={roles} />
             <EditTenantsModal open={showTenantsEdit} onClose={() => setShowTenantsEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} tenants={tenants} />
             <EditMetadataModal open={showMetadataEdit} onClose={() => setShowMetadataEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} />
             <AddTenantDialog
