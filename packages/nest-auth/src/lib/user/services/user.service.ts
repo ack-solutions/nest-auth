@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindManyOptions, FindOneOptions, In, Not, Repository } from 'typeorm';
+import { FindManyOptions, FindOneOptions, In, IsNull, Not, Repository } from 'typeorm';
 import { NestAuthUser } from '../entities/user.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EMAIL_AUTH_PROVIDER, ERROR_CODES, NestAuthEvents, PHONE_AUTH_PROVIDER } from '../../auth.constants';
@@ -319,9 +319,8 @@ export class UserService {
         tenantId: string,
         roleIds: string[]
     ): Promise<NestAuthUserAccess> {
-        const tenantRequired = await this.tenantService.checkRequiredTenant(tenantId);
         let access = await this.userAccessRepository.findOne({
-            where: { userId, ...(tenantRequired ? { tenantId: tenantId } : {}) },
+            where: { userId,  tenantId: tenantId || IsNull() },
             relations: ['roles'],
         });
         if (!access) {

@@ -480,7 +480,7 @@ export class AdminUsersController {
       for (const tr of dto.tenantRoles) {
         const resolved = await this.resolveTenantIds([tr.tenantId]);
         if (resolved.length) {
-          await this.users.setUserAccessRoles(id, resolved[0], tr.roleIds ?? []);
+          await this.users.setUserAccessRoles(id, tr.tenantId, tr.roleIds ?? []);
         }
       }
     }
