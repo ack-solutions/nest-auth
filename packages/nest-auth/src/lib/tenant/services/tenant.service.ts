@@ -10,8 +10,8 @@ import { ERROR_CODES, NestAuthEvents } from '../../auth.constants';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
 import { isValidSlug } from '../../utils/slug.util';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import { INestAuthTenantOptions, TenantModeEnum } from '@ackplus/nest-auth-contracts';
-import { requiredTenant } from 'src/lib/utils';
+import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
+import { requiredTenant } from '../../utils';
 
 @Injectable()
 export class TenantService {
