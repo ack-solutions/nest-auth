@@ -1,6 +1,6 @@
 {
   "name": "@ackplus/nest-auth-contracts",
-  "version": "2.0.0-beta.4",
+  "version": "2.0.0-beta.5",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
