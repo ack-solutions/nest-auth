@@ -82,6 +82,7 @@ export type {
     // Response types
     IMessageResponse as MessageResponse,
     IVerifyOtpResponse as VerifyOtpResponse,
+    ISwitchTenantRequest as SwitchTenantDto,
 } from '@ackplus/nest-auth-client';
 
 // Re-export client class for convenience

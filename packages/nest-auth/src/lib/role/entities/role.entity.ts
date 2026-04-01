@@ -52,23 +52,6 @@ export class NestAuthRole extends BaseEntity {
     @UpdateDateColumn()
     updatedAt: Date;
 
-    /**
-     * @deprecated Use 'userAccesses' instead. Will be removed in v2.0.0
-     */
-    @ManyToMany(() => NestAuthUser, user => user.roles, { onDelete: 'CASCADE' })
-    @JoinTable({
-        name: 'nest_auth_role_nest_auth_users',
-        joinColumn: {
-            name: 'nestAuthRolesId',
-            referencedColumnName: 'id',
-        },
-        inverseJoinColumn: {
-            name: 'nestAuthUsersId',
-            referencedColumnName: 'id',
-        },
-    })
-    users: NestAuthUser[];
-
     @ManyToMany(() => NestAuthUserAccess, access => access.roles, { onDelete: 'CASCADE' })
     userAccesses: NestAuthUserAccess[];
 }

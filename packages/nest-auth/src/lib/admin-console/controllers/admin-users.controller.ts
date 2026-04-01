@@ -148,7 +148,7 @@ export class AdminUsersController {
 
     // Add role filter if provided
     if (roleName && roleName.trim()) {
-      baseFilter.roles = { name: roleName.trim() };
+      (baseFilter as any).roles = { name: roleName.trim() };
     }
 
     // Build where clause with proper TypeORM typing
@@ -203,7 +203,6 @@ export class AdminUsersController {
     const tenantMode = config.tenant?.mode ?? TenantModeEnum.ISOLATED;
 
     let tenantId: string | undefined;
-    console.log(tenantEnabled, tenantMode)
     if (tenantEnabled && tenantMode === TenantModeEnum.ISOLATED) {
       if (!dto.tenantId?.trim()) {
         throw new BadRequestException('tenantId is required when tenant mode is isolated');

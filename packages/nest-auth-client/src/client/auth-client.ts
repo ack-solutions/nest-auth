@@ -859,20 +859,6 @@ export class AuthClient {
         if (!response.ok) {
             throw this.handleError(response);
         }
-
-        const responseData = response.data as any;
-        this.log('debug', 'verify2fa: Response received', {
-            hasAccessToken: !!responseData.accessToken,
-            hasRefreshToken: !!responseData.refreshToken,
-            hasUser: !!responseData.user,
-            userData: responseData.user ? {
-                id: responseData.user.id,
-                email: responseData.user.email,
-                roles: responseData.user.roles,
-                permissions: responseData.user.permissions,
-            } : null,
-        });
-
         // Cast to AuthResponse to handle user data properly
         await this.handleAuthResponse(response.data as AuthResponse);
 

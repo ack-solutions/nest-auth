@@ -370,7 +370,7 @@ export class NestAuthAuthGuard implements CanActivate {
 
         // Prefer session data for authorization checks as it has complete role/permission information
         // Token payload may have partial role data (permissions are removed for security)
-        const rolesForAuth = session?.data?.roles || user.roles || [];
+        const rolesForAuth = session?.data?.roles || user.userAccesses?.map(access => access.roles).flat() || [];
         const permissionsForAuth = session?.data?.permissions;
 
         // Check roles if required (also checks guard if specified)

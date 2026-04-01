@@ -43,10 +43,11 @@ import { UserService } from '../../user/services/user.service';
 import { NEST_AUTH_TENANT_CONTEXT_SERVICE } from '../../auth.constants';
 import { ITenantContextService } from '../../tenant/tenant-context/tenant-context.interface';
 import { IAuthModuleOptions } from '../../core/interfaces/auth-module-options.interface';
-import { mapRoleToSessionSnapshot } from '../../role/utils/role-mapper.util';
+import { getRolePermissionNames, mapRoleToSessionSnapshot } from '../../role/utils/role-mapper.util';
 import { normalizedEmail, normalizedPhone } from '../../utils';
 import { OtpFlowService } from './otp-flow.service';
 import { PasswordlessCodeRequestedEvent } from '../events/passwordless-code-requested.event';
+import { chain } from 'lodash';
 
 
 @Injectable()
@@ -90,7 +91,8 @@ export class AuthService {
         return this.userRepository.findOne({
             where: { id: userId },
             relations: [
-                'roles',
+                'userAccesses',
+                'userAccesses.roles',
                 ...relations
             ],
         });
@@ -230,8 +232,9 @@ export class AuthService {
             user = await this.getUserWithRolesAndPermissions(user.id);
 
             // Protect against unauthorized signup with guard(potential access violation)
-            if (input?.guard && user.roles) {
-                const isExistsGuard = user.roles.some(r => r.guard === input.guard);
+            const userRoles = user.userAccesses?.map(access => access.roles).flat();
+            if (input?.guard) {
+                const isExistsGuard = userRoles?.some(r => r.guard === input.guard);
                 if (!isExistsGuard) {
                     await this.userService.deleteUser(user.id);
                     throw new UnauthorizedException({
@@ -649,14 +652,20 @@ export class AuthService {
 
         await this.ensureTenantAccess(user, resolvedTenantId, false);
 
-        const roles = await user.getRoles(resolvedTenantId);
-        const permissions = await user.getPermissions(resolvedTenantId);
+        const rolesWithPermissions = user.userAccesses?.map(access => access.roles).flat();
+
+        const permissions =   chain(rolesWithPermissions)
+            .map((role) => getRolePermissionNames(role))
+            .flatten()
+            .uniq()
+            .value();;
+        const roles = rolesWithPermissions?.map((role) => mapRoleToSessionSnapshot(role));
 
         const updatedSession = await this.sessionManager.updateSession(session.id!, {
             data: {
                 ...(session.data || {}),
                 user,
-                roles: roles.map((role) => mapRoleToSessionSnapshot(role)),
+                roles,
                 permissions,
                 tenantId: resolvedTenantId || undefined,
             }

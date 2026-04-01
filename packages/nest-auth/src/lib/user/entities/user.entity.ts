@@ -77,12 +77,6 @@ export class NestAuthUser extends BaseEntity {
     @OneToMany(() => NestAuthOTP, otp => otp.user)
     otps: NestAuthOTP[];
 
-    /**
-     * @deprecated Use roles on userAccesses instead. Will be removed in v2.0.0
-     */
-    @ManyToMany(() => NestAuthRole, role => role.users, { onDelete: 'CASCADE' })
-    roles: NestAuthRole[];
-
     @OneToMany(() => NestAuthUserAccess, access => access.user)
     userAccesses: NestAuthUserAccess[];
 
@@ -101,7 +95,7 @@ export class NestAuthUser extends BaseEntity {
     }
 
     async getPermissions(tenantId: string): Promise<string[]> {
-        const roles = await this.getRoles(tenantId);
+        const roles = await this.getRoles(tenantId, true);
         return chain(roles)
             .map((role) => getRolePermissionNames(role))
             .flatten()
@@ -109,10 +103,10 @@ export class NestAuthUser extends BaseEntity {
             .value();
     }
 
-    async getRoles(tenantId?: string | null): Promise<NestAuthRole[]> {
+    async getRoles(tenantId?: string | null, withPermissions = false): Promise<NestAuthRole[]> {
         const access = await NestAuthUserAccess.findOne({
             where: { userId: this.id, tenantId: tenantId || IsNull() },
-            relations: ['roles', 'roles.rolePermissions', 'roles.rolePermissions.permission'],
+            relations: ['roles', ...(withPermissions ? ['roles.rolePermissions', 'roles.rolePermissions.permission'] : [])],
         });
         if (access?.roles?.length) {
             return access.roles;

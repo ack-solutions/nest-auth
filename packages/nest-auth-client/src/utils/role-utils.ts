@@ -32,17 +32,18 @@ export function hasRole(
     if(!role || role.length === 0) {
         return true;
     }
-    if (!user || !user.roles || user.roles.length === 0) {
+    const userRoles = user?.userAccesses?.map(access => access.roles).flat().map(r => r.name) ?? [];
+    if (!user || !userRoles || userRoles.length === 0) {
         return false;
     }
 
     const roles = Array.isArray(role) ? role : [role];
 
     if (matchAll) {
-        return roles.every(r => user.roles!.includes(r));
+        return roles.every(r => userRoles!.includes(r));
     }
 
-    return roles.some(r => user.roles!.includes(r));
+    return roles.some(r => userRoles!.includes(r));
 }
 
 /**

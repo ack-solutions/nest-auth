@@ -75,7 +75,7 @@ export interface IUserHooks {
      * serialize: (user) => ({
      *     id: user.id,
      *     email: user.email,
-     *     roles: user.roles
+     *     roles: user.userAccesses?.map(access => access.roles).flat()
      * })
      * ```
      */
@@ -146,7 +146,7 @@ export interface IRegistrationHooks {
      * onSignup: async (user, input, context) => {
      *     // Assign default role - this WILL be in the session
      *     const defaultRole = await roleService.findByName('user');
-     *     user.roles = [defaultRole];
+     *     user.userAccesses = [defaultRole];
      *     await userRepository.save(user);
      *     return user;
      * }
@@ -175,7 +175,7 @@ export interface ILoginHooks {
      * onLogin: async (user, input, context) => {
      *     // Sync roles from external system
      *     const externalRoles = await fetchRolesFromExternal(user.email);
-     *     user.roles = await roleService.findByNames(externalRoles);
+     *     user.userAccesses = await userAccessService.findByNames(externalRoles);
      *     await userRepository.save(user);
      *     return user;
      * }
