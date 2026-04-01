@@ -230,7 +230,14 @@ export class NestAuthUser extends BaseEntity {
 
         // Apply password.verify hook if configured
         const options = AuthConfigService.getOptions();
-        if (options.password?.verify) {
+
+        const hasCustomHash = !!options.password?.hash;
+        const hasCustomVerify = !!options.password?.verify;
+        if (hasCustomHash !== hasCustomVerify) {
+            throw new Error('password.hash and password.verify must be provided together');
+        }
+
+        if (hasCustomVerify) {
             return await options.password.verify(password, this.passwordHash);
         }
 
@@ -245,12 +252,22 @@ export class NestAuthUser extends BaseEntity {
     async setPassword(password: string): Promise<void> {
         const options = AuthConfigService.getOptions();
 
-        // Argon2id is the recommended variant (hybrid of Argon2i and Argon2d)
+        const hasCustomHash = !!options.password?.hash;
+        const hasCustomVerify = !!options.password?.verify;
+        if (hasCustomHash !== hasCustomVerify) {
+            throw new Error('password.hash and password.verify must be provided together');
+        }
+
+        if (hasCustomHash) {
+            this.passwordHash = await options.password.hash(password);
+            return;
+        }
+
         this.passwordHash = await hash(password, {
             algorithm: Algorithm.Argon2id,
-            memoryCost: 65536, // 64 MiB
-            timeCost: 3,       // 3 iterations
-            parallelism: 4     // 4 parallel threads
+            memoryCost: options.password?.argon2?.memoryCost ?? 65536,
+            timeCost: options.password?.argon2?.timeCost ?? 3,
+            parallelism: options.password?.argon2?.parallelism ?? 4,
         });
     }
 }

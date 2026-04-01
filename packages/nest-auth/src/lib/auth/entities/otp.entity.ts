@@ -2,7 +2,8 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, Up
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthOTPTypeEnum } from '@ackplus/nest-auth-contracts';
 import { BaseEntity } from 'typeorm';
-import { hash, verify, Algorithm } from '@node-rs/argon2';
+import { AuthConfigService } from '../../core/services/auth-config.service';
+import { hmacSha256Hex, timingSafeEqualHex } from '../../utils/has-token';
 
 @Entity('nest_auth_otps')
 export class NestAuthOTP extends BaseEntity {
@@ -30,6 +31,15 @@ export class NestAuthOTP extends BaseEntity {
     @ManyToOne(() => NestAuthUser, user => user.otps, { onDelete: 'CASCADE' })
     user: NestAuthUser;
 
+    private getOtpSecret(): string {
+        const opts = AuthConfigService.getOptions();
+        const secret = opts.otp?.secret || opts.session?.jwt?.secret;
+        if (!secret) {
+            throw new Error('OTP HMAC secret is not configured. Set otp.secret or session.jwt.secret.');
+        }
+        return secret;
+    }
+
     async validateCode(code: string): Promise<boolean> {
         let hashedCode: string;
         if (!this.code) {
@@ -42,17 +52,11 @@ export class NestAuthOTP extends BaseEntity {
             hashedCode = this.code;
         }
 
-        return await verify(hashedCode, code);
+        const computed = hmacSha256Hex(this.getOtpSecret(), code);
+        return timingSafeEqualHex(hashedCode, computed);
     }
 
     async setCode(code: string): Promise<void> {
-        // Argon2id is the recommended variant (hybrid of Argon2i and Argon2d)
-        const hashedCode = await hash(code, {
-            algorithm: Algorithm.Argon2id,
-            memoryCost: 65536, // 64 MiB
-            timeCost: 3,       // 3 iterations
-            parallelism: 4     // 4 parallel threads
-        });
-        this.code = hashedCode;
+        this.code = hmacSha256Hex(this.getOtpSecret(), code);
     }
 }

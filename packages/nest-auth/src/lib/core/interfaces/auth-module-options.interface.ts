@@ -204,6 +204,13 @@ export interface IPasswordlessOptions {
  * Used by verification send flows for `generate`, `length`, and `codeExpiresIn`.
  */
 export interface IOtpOptions {
+    /**
+     * Secret used to hash OTP codes at rest (HMAC-SHA256).
+     * Recommended: set to a strong random value (32+ bytes) via env.
+     *
+     * If not provided, Nest Auth falls back to `session.jwt.secret`.
+     */
+    secret?: string;
     /** Custom OTP/code generation function */
     generate?: (length?: number, format?: 'numeric' | 'alphanumeric') => string | Promise<string>;
     /** Code length when using the default generator or when passing `length` to `generate` (default: 6) */
@@ -415,10 +422,24 @@ export interface IAuthModuleOptions {
     password?: {
         passwordResetTokenExpiresIn?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
         /**
+         * Custom password hashing hook.
+         * When provided, this is used to hash passwords instead of the default argon2 hash.
+         */
+        hash?: (password: string) => Promise<string>;
+        /**
          * Custom password verification hook.
          * When provided, this is used to validate passwords instead of the default argon2 verify.
          */
         verify?: (password: string, hash: string) => Promise<boolean>;
+        /**
+         * Default argon2 password hashing options.
+         * When not provided, the default argon2 hash is used.
+         */
+        argon2?: {
+            memoryCost?: number; // default: 65536 (64 MiB)
+            timeCost?: number; // default: 3 (3 iterations)
+            parallelism?: number; // default: 4 (4 parallel threads)
+        };
     };
     /**
      * OTP customization (generation, length, verification code expiry — see {@link IOtpOptions}).

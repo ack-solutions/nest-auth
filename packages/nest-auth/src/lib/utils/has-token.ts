@@ -1,7 +1,6 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 
 export const SHA256_HEX_LENGTH = 64;
-export const DEFAULT_LOOKUP_HEX_LENGTH = 32;
 
 /**
  * Constant-time compare for equal-length hex strings.
