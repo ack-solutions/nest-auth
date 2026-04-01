@@ -23,7 +23,7 @@ import { NestAuthMFASecret } from "../../auth/entities/mfa-secret.entity";
 import { NestAuthRole } from "../../role/entities/role.entity";
 import { NestAuthUserAccess } from "../../tenant/entities/user-access.entity";
 import { EMAIL_AUTH_PROVIDER, PHONE_AUTH_PROVIDER } from "../../auth.constants";
-import { normalizedPhone } from '../../utils';
+import { normalizedPhone, requiredTenant } from '../../utils';
 import { getRolePermissionNames } from '../../role/utils/role-mapper.util';
 
 @Entity('nest_auth_users')
@@ -125,13 +125,15 @@ export class NestAuthUser extends BaseEntity {
     }
 
     private async getOrCreateUserAccess(tenantId?: string | null): Promise<NestAuthUserAccess> {
+        const config = AuthConfigService.getOptions();
+        const tenantRequired = requiredTenant(config?.tenant ?? {}, tenantId);
+        
         let access = await NestAuthUserAccess.findOne({
-            where: { userId: this.id, tenantId: tenantId || IsNull() },
+            where: { userId: this.id, ...tenantRequired ? { tenantId } : {}},
             relations: ['roles'],
         });
-        console.log('access', access);
         if (!access) {
-            access = NestAuthUserAccess.create({ userId: this.id, tenantId });
+            access = NestAuthUserAccess.create({ userId: this.id, ...tenantId ? { tenantId } : {} });
             await access.save();
             access.roles = []; // Initialize for consistency
         }

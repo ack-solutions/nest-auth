@@ -10,7 +10,8 @@ import { ERROR_CODES, NestAuthEvents } from '../../auth.constants';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
 import { isValidSlug } from '../../utils/slug.util';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
+import { INestAuthTenantOptions, TenantModeEnum } from '@ackplus/nest-auth-contracts';
+import { requiredTenant } from 'src/lib/utils';
 
 @Injectable()
 export class TenantService {
@@ -197,6 +198,11 @@ export class TenantService {
 
         const updatedTenant = await this.tenantRepository.save(tenant);
         return updatedTenant;
+    }
+
+    async checkRequiredTenant(inputTenantId: string | null, throwError: boolean = true): Promise<boolean> {
+        const config = this.authConfigService.getConfig();
+        return requiredTenant(config?.tenant ?? {}, inputTenantId, throwError);
     }
 
 

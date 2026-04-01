@@ -27,7 +27,7 @@ export class UserService {
         private readonly eventEmitter: EventEmitter2,
         private readonly authConfigService: AuthConfigService,
         private readonly debugLogger: DebugLoggerService,
-    ) {}
+    ) { }
 
     async createUser(data: Partial<NestAuthUser>, tenantId?: string, context?: any): Promise<NestAuthUser> {
         this.debugLogger.logFunctionEntry('createUser', 'UserService', { email: data.email, phone: data.phone, hasPassword: !!(data as any).password });
@@ -38,10 +38,7 @@ export class UserService {
             const email = normalizedEmail(data.email);
             const phone = normalizedPhone(data.phone);
 
-            console.log(config.tenant?.enabled , config.tenant?.mode === TenantModeEnum.ISOLATED)
-            if(config.tenant?.enabled && config.tenant?.mode === TenantModeEnum.ISOLATED) {
-                await this.tenantService.resolveTenantId(tenantId);
-            }
+            await this.tenantService.resolveTenantId(tenantId);
 
             // Check if user already exists (by email in same tenant context)
             if (email) {
@@ -87,9 +84,8 @@ export class UserService {
 
             await this.userRepository.save(user);
 
-            if (tenantId) {
-                await this.ensureUserAccess(user.id, tenantId);
-            }
+            await this.ensureUserAccess(user.id, tenantId);
+
             this.debugLogger.info('User created successfully', 'UserService', { userId: user.id });
 
             // Create identities
@@ -158,12 +154,14 @@ export class UserService {
             return null;
         }
 
+        const tenantRequired = await this.tenantService.checkRequiredTenant(tenantId);
+
         const user = await this.userRepository.findOne({
             ...(options ? options : {}),
             relations: ['userAccesses', ...(Array.isArray(options?.relations) ? options.relations : [])],
             where: {
                 email: emailNorm,
-                ...(tenantId ? { userAccesses: { tenantId: tenantId } } : {}),
+                ...(tenantRequired ? { userAccesses: { tenantId: tenantId } } : {}),
             },
         });
         if (user) {
@@ -183,12 +181,14 @@ export class UserService {
             return null;
         }
 
+        const tenantRequired = await this.tenantService.checkRequiredTenant(tenantId);
+
         const user = await this.userRepository.findOne({
             ...(options ? options : {}),
             relations: ['userAccesses', ...(Array.isArray(options?.relations) ? options.relations : [])],
             where: {
                 phone: phoneNorm,
-                ...(tenantId ? { userAccesses: { tenantId: tenantId } } : {}),
+                ...(tenantRequired ? { userAccesses: { tenantId: tenantId } } : {}),
             },
         });
 
@@ -202,21 +202,6 @@ export class UserService {
 
     async getUsers(options?: FindManyOptions<NestAuthUser>): Promise<NestAuthUser[]> {
         return this.userRepository.find(options);
-    }
-
-    async getUsersByTenant(tenantId: string, options?: FindManyOptions<NestAuthUser>): Promise<NestAuthUser[]> {
-        const relations = Array.isArray(options?.relations)
-            ? Array.from(new Set([...(options?.relations || []), 'userAccesses']))
-            : options?.relations;
-
-        return this.userRepository.find({
-            ...(options ? options : {}),
-            relations,
-            where: {
-                ...(options?.where ? options.where : {}),
-                userAccesses: { tenantId: tenantId },
-            },
-        });
     }
 
     async updateUser(id: string, data: Partial<NestAuthUser>): Promise<NestAuthUser> {
@@ -317,13 +302,17 @@ export class UserService {
         userId: string,
         tenantId: string,
     ): Promise<NestAuthUserAccess> {
-        if (!userId || !tenantId) {
-            this.debugLogger.warn('ensureUserAccess called with missing parameters', 'UserService', { userId: !!userId, tenantId: !!tenantId });
-            return null;
+        if (!userId) {
+            throw new BadRequestException({
+                message: 'User ID is required',
+                code: 'USER_ID_REQUIRED'
+            });
         }
 
+        const tenantRequired = await this.tenantService.checkRequiredTenant(tenantId);
+
         const existing = await this.userAccessRepository.findOne({
-            where: { userId, tenantId }
+            where: { userId, ...(tenantRequired ? { tenantId: tenantId } : {}) }
         });
 
         if (existing) {
@@ -332,7 +321,7 @@ export class UserService {
 
         const access = this.userAccessRepository.create({
             userId,
-            tenantId,
+            ...tenantId ? { tenantId } : {},
         });
         return await this.userAccessRepository.save(access);
     }
@@ -359,8 +348,9 @@ export class UserService {
         tenantId: string,
         roleIds: string[]
     ): Promise<NestAuthUserAccess> {
+        const tenantRequired = await this.tenantService.checkRequiredTenant(tenantId);
         let access = await this.userAccessRepository.findOne({
-            where: { userId, tenantId: tenantId },
+            where: { userId, ...(tenantRequired ? { tenantId: tenantId } : {}) },
             relations: ['roles'],
         });
         if (!access) {
