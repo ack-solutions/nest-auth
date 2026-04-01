@@ -24,7 +24,7 @@ import { AuthResponseDto } from '../dto/responses/auth.response.dto';
 import { NestAuthLoginRequestDto } from '../dto/requests/login.request.dto';
 import { NestAuthVerify2faRequestDto } from '../dto/requests/verify-2fa.request.dto';
 import { NestAuthMFAMethodEnum, NestAuthOTPTypeEnum, TenantModeEnum } from '@ackplus/nest-auth-contracts';
-import { JWTTokenPayload, SessionPayload } from '../../core/interfaces/token-payload.interface';
+import { JWTTokenPayload, SessionDataPayload, SessionPayload } from '../../core/interfaces/token-payload.interface';
 import { UserRegisteredEvent } from '../events/user-registered.event';
 import { UserLoggedInEvent } from '../events/user-logged-in.event';
 import { User2faVerifiedEvent } from '../events/user-2fa-verified.event';
@@ -229,7 +229,7 @@ export class AuthService {
                 }
             }
 
-            user = await this.getUserWithRoles(user.id);
+            user = await this.getUserWithRoles(user.id, ['userAccesses.roles.permissions', 'userAccesses.tenant']);
 
             // Protect against unauthorized signup with guard(potential access violation)
             const userRoles = user.userAccesses?.map(access => access.roles).flat();
@@ -652,13 +652,17 @@ export class AuthService {
 
         await this.ensureTenantAccess(user, resolvedTenantId, false);
 
-        const rolesWithPermissions = user.userAccesses?.map(access => access.roles).flat();
+        const accessForTenant = (user.userAccesses ?? []).find((a) => {
+            const aTenantId = (a as any)?.tenantId ?? null;
+            return aTenantId === (resolvedTenantId ?? null);
+        });
+        const rolesWithPermissions = accessForTenant?.roles ?? [];
 
-        const permissions =   chain(rolesWithPermissions)
+        const permissions = chain(rolesWithPermissions)
             .map((role) => getRolePermissionNames(role))
             .flatten()
             .uniq()
-            .value();;
+            .value();
         const roles = rolesWithPermissions?.map((role) => mapRoleToSessionSnapshot(role));
 
         const updatedSession = await this.sessionManager.updateSession(session.id!, {
@@ -746,6 +750,62 @@ export class AuthService {
         return user;
     }
 
+    private async buildSessionDataFromUser(params: {
+        user: NestAuthUser;
+        tenantId?: string | null;
+        isMfaVerified?: boolean;
+    }): Promise<SessionDataPayload> {
+        const { user, tenantId = null, isMfaVerified = false } = params;
+
+        const accessForTenant = (user.userAccesses ?? []).find((a: any) => {
+            const aTenantId = a?.tenantId ?? null;
+            return (tenantId ?? null) === aTenantId;
+        });
+
+        const rolesFromUser = accessForTenant?.roles ?? [];
+        const hasRolesPreloaded = Array.isArray(rolesFromUser) && rolesFromUser.length >= 0;
+        const hasRolePermissionsPreloaded =
+            rolesFromUser?.some((r: any) =>
+                Array.isArray(r?.rolePermissions) &&
+                r.rolePermissions.some((rp: any) => !!rp?.permission?.name)
+            ) ?? false;
+
+        // Prefer already-loaded roles/permissions from user object (no DB hit)
+        // Fall back to a single DB fetch (with permissions) otherwise.
+        const roles =
+            hasRolesPreloaded && rolesFromUser.length
+                ? rolesFromUser
+                : await user.getRoles(tenantId, true);
+
+        const permissions = hasRolePermissionsPreloaded
+            ? chain(rolesFromUser)
+                .map((role: any) => getRolePermissionNames(role))
+                .flatten()
+                .uniq()
+                .value()
+            : chain(roles)
+                .map((role: any) => getRolePermissionNames(role))
+                .flatten()
+                .uniq()
+                .value();
+
+        let sessionData: SessionDataPayload = {
+            user,
+            isMfaVerified,
+            roles: roles.map((role) => mapRoleToSessionSnapshot(role)),
+            permissions,
+            tenantId,
+        };
+
+        // Keep behavior aligned with SessionManagerService.createSessionFromUser
+        const customize = AuthConfigService.getOptions().session?.customizeSessionData;
+        if (customize) {
+            sessionData = await customize(sessionData, user);
+        }
+
+        return sessionData;
+    }
+
     async refreshToken(refreshToken: string) {
         this.debugLogger.logFunctionEntry('refreshToken', 'AuthService', { hasRefreshToken: !!refreshToken });
 
@@ -762,7 +822,6 @@ export class AuthService {
             let payload: JWTTokenPayload;
             try {
                 payload = await this.jwtService.verifyToken(refreshToken);
-                console.log('payload', payload);
             } catch (error) {
                 this.debugLogger.warn('Invalid or expired refresh token', 'AuthService');
                 throw new UnauthorizedException({
@@ -786,26 +845,72 @@ export class AuthService {
                 });
             }
 
-            // Refresh existing session
-            const newSession = await this.sessionManager.refreshSession(session);
+            const user = await this.userRepository.findOne({
+                where: { id: session.userId },
+                relations: ['userAccesses.roles.permissions', 'userAccesses.tenant']
+            });
+
+            if (!user) {
+                await this.sessionManager.revokeSession(session.id);
+                throw new UnauthorizedException({
+                    message: 'User not found',
+                    code: ERROR_CODES.USER_NOT_FOUND,
+                });
+            }
+
+            if (user.isActive === false) {
+                await this.sessionManager.revokeSession(session.id);
+                throw new UnauthorizedException({
+                    message: 'Your account is suspended, please contact support',
+                    code: ERROR_CODES.ACCOUNT_INACTIVE,
+                });
+            }
+
+            // Refresh session snapshot (roles/permissions/tenant) before generating new tokens
+            const tenantId = session.data?.tenantId ?? null;
+            try {
+                await this.ensureTenantAccess(user, tenantId, false);
+            } catch (e) {
+                // If tenant membership changed, revoke the session to prevent further refreshes.
+                await this.sessionManager.revokeSession(session.id);
+                throw e;
+            }
+
+            const isMfaVerified = !!session.data?.isMfaVerified;
+            const freshSessionData = await this.buildSessionDataFromUser({
+                user,
+                tenantId,
+                isMfaVerified,
+            });
+
+            // Refresh existing session (expiry/lastActive) and then persist refreshed snapshot
+            const refreshedSession = await this.sessionManager.refreshSession(session);
+            const updatedSession = await this.sessionManager.updateSession(refreshedSession.id, {
+                data: {
+                    ...(refreshedSession.data ?? {}),
+                    ...freshSessionData,
+                },
+            });
 
             // Generate new tokens
-            this.debugLogger.debug('Generating new tokens from refreshed session', 'AuthService', { sessionId: newSession.id });
-            const tokens = await this.generateTokensFromSession(newSession);
+            this.debugLogger.debug('Generating new tokens from refreshed session', 'AuthService', { sessionId: updatedSession.id });
+            const tokens = await this.generateTokensFromSession(updatedSession);
 
             // Emit refresh token event
-            this.debugLogger.debug('Emitting refresh token event', 'AuthService', { sessionId: newSession.id });
+            this.debugLogger.debug('Emitting refresh token event', 'AuthService', { sessionId: updatedSession.id });
             await this.eventEmitter.emitAsync(
                 NestAuthEvents.REFRESH_TOKEN,
                 new UserRefreshTokenEvent({
                     oldRefreshToken: refreshToken,
-                    session: newSession,
+                    session: updatedSession,
                     tokens,
                 })
             );
 
-            this.debugLogger.logFunctionExit('refreshToken', 'AuthService', { sessionId: newSession.id });
-            return tokens;
+            this.debugLogger.logFunctionExit('refreshToken', 'AuthService', { sessionId: updatedSession.id });
+
+            // Return the same shape as login/signup: tokens + up-to-date user/roles/permissions snapshot
+            return this.generateAuthResponse(user, updatedSession, tokens, false);
 
         } catch (error) {
             this.debugLogger.logError(error, 'refreshToken', { hasRefreshToken: !!refreshToken });
@@ -966,7 +1071,7 @@ export class AuthService {
                 tenants = [fallbackTenant];
             }
         }
-        let userWithAccesses: NestAuthUser = user 
+        let userWithAccesses: NestAuthUser = user
         if (!user?.userAccesses?.length) {
             userWithAccesses = await this.getUserWithRoles(user.id, [
                 'userAccesses.tenant',
