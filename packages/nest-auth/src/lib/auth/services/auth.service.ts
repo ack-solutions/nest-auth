@@ -87,7 +87,7 @@ export class AuthService {
         this.authConfig = this.authConfigService.getConfig();
     }
 
-    getUserWithRolesAndPermissions(userId: string, relations: string[] = []): Promise<NestAuthUser> {
+    getUserWithRoles(userId: string, relations: string[] = []): Promise<NestAuthUser> {
         return this.userRepository.findOne({
             where: { id: userId },
             relations: [
@@ -103,7 +103,7 @@ export class AuthService {
         if (!user) {
             return null
         }
-        const fullUser = await this.getUserWithRolesAndPermissions(user.id);
+        const fullUser = await this.getUserWithRoles(user.id);
 
         // Apply user.serialize hook if configured
         let serializedUser: any = fullUser;
@@ -229,7 +229,7 @@ export class AuthService {
                 }
             }
 
-            user = await this.getUserWithRolesAndPermissions(user.id);
+            user = await this.getUserWithRoles(user.id);
 
             // Protect against unauthorized signup with guard(potential access violation)
             const userRoles = user.userAccesses?.map(access => access.roles).flat();
@@ -343,7 +343,7 @@ export class AuthService {
                 });
             }
 
-            user = await this.getUserWithRolesAndPermissions(user!.id);
+            user = await this.getUserWithRoles(user!.id, ['userAccesses.tenant']);
             // Apply onLogin hook if configured - BEFORE session creation
             // This allows role sync to be reflected in the session
             if (this.authConfig.loginHooks?.onLogin) {
@@ -966,10 +966,9 @@ export class AuthService {
                 tenants = [fallbackTenant];
             }
         }
-        let userWithAccesses: NestAuthUser;
+        let userWithAccesses: NestAuthUser = user 
         if (!user?.userAccesses?.length) {
-            userWithAccesses = await this.getUserWithRolesAndPermissions(user.id, [
-                'userAccesses',
+            userWithAccesses = await this.getUserWithRoles(user.id, [
                 'userAccesses.tenant',
             ]);
         }
