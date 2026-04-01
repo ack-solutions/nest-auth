@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { FindManyOptions, FindOneOptions, In, Not, Repository } from 'typeorm';
 import { NestAuthUser } from '../entities/user.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { EMAIL_AUTH_PROVIDER, NestAuthEvents, PHONE_AUTH_PROVIDER } from '../../auth.constants';
+import { EMAIL_AUTH_PROVIDER, ERROR_CODES, NestAuthEvents, PHONE_AUTH_PROVIDER } from '../../auth.constants';
 import { UserUpdatedEvent } from '../events/user-updated.event';
 import { UserDeletedEvent } from '../events/user-deleted.event';
 import { UserCreatedEvent } from '../events/user-created.event';
@@ -30,8 +30,6 @@ export class UserService {
     ) { }
 
     async createUser(data: Partial<NestAuthUser>, tenantId?: string, context?: any): Promise<NestAuthUser> {
-        this.debugLogger.logFunctionEntry('createUser', 'UserService', { email: data.email, phone: data.phone, hasPassword: !!(data as any).password });
-
         const config = this.authConfigService.getConfig();
 
         try {
@@ -44,7 +42,6 @@ export class UserService {
             if (email) {
                 const existingUser = await this.getUserByEmail(email, tenantId);
                 if (existingUser) {
-                    this.debugLogger.warn('User with email already exists', 'UserService', { email, tenantId });
                     throw new ConflictException({
                         message: 'User with this email already exists',
                         code: 'USER_ALREADY_EXISTS'
@@ -55,7 +52,6 @@ export class UserService {
             if (phone) {
                 const existingUser = await this.getUserByPhone(phone, tenantId);
                 if (existingUser) {
-                    this.debugLogger.warn('User with phone already exists', 'UserService', { phone, tenantId });
                     throw new ConflictException({
                         message: 'User with this phone number already exists',
                         code: 'USER_ALREADY_EXISTS'
@@ -68,8 +64,6 @@ export class UserService {
                 this.debugLogger.debug('Applying user.beforeCreate hook', 'UserService');
                 data = await config.user.beforeCreate?.(data, context) ?? data;
             }
-
-            this.debugLogger.debug('Creating new user entity', 'UserService');
 
             const user = this.userRepository.create({
                 ...data,
@@ -98,7 +92,6 @@ export class UserService {
             }
 
             // Emit user created event
-            this.debugLogger.debug('Emitting user created event', 'UserService', { userId: user.id });
             await this.eventEmitter.emitAsync(
                 NestAuthEvents.USER_CREATED,
                 new UserCreatedEvent({
@@ -110,7 +103,6 @@ export class UserService {
 
             // Apply user.afterCreate hook if configured
             if (config.user?.afterCreate) {
-                this.debugLogger.debug('Applying user.afterCreate hook', 'UserService', { userId: user.id });
                 await config.user.afterCreate?.(user, context);
             }
 
@@ -124,10 +116,7 @@ export class UserService {
     }
 
     async getUserById(id: string, options?: FindOneOptions<NestAuthUser>): Promise<NestAuthUser> {
-        this.debugLogger.debug('Getting user by ID', 'UserService', { userId: id });
-
         if (!id) {
-            this.debugLogger.warn('No user ID provided', 'UserService');
             return null;
         }
 
@@ -140,8 +129,6 @@ export class UserService {
             this.debugLogger.warn('User not found', 'UserService', { userId: id });
             return null;
         }
-
-        this.debugLogger.debug('User found', 'UserService', { userId: user.id });
         return user;
     }
 
@@ -164,11 +151,6 @@ export class UserService {
                 ...(tenantRequired ? { userAccesses: { tenantId: tenantId } } : {}),
             },
         });
-        if (user) {
-            this.debugLogger.debug('User found by email', 'UserService', { userId: user.id });
-        } else {
-            this.debugLogger.debug('No user found with email', 'UserService');
-        }
         return user;
     }
 
@@ -191,12 +173,6 @@ export class UserService {
                 ...(tenantRequired ? { userAccesses: { tenantId: tenantId } } : {}),
             },
         });
-
-        if (user) {
-            this.debugLogger.debug('User found by phone', 'UserService', { userId: user.id });
-        } else {
-            this.debugLogger.debug('No user found with phone', 'UserService');
-        }
         return user;
     }
 
@@ -211,7 +187,6 @@ export class UserService {
             const user = await this.getUserById(id);
 
             if (!user) {
-                this.debugLogger.error('User not found for update', 'UserService', { userId: id });
                 throw new NotFoundException({
                     message: `User with ID ${id} not found`,
                     code: 'USER_NOT_FOUND'
@@ -221,7 +196,6 @@ export class UserService {
             // If email or phone is being changed, check for conflicts (same tenant context via memberships)
             if (data.email || data.phone) {
                 const config = this.authConfigService.getConfig();
-                this.debugLogger.debug('Checking for conflicts during user update', 'UserService', { userId: id, email: !!data.email, phone: !!data.phone });
 
                 const userWithMemberships = await this.getUserById(id, {
                     relations: ['userAccesses'],
@@ -254,10 +228,9 @@ export class UserService {
                 }
 
                 if (existingUser) {
-                    this.debugLogger.warn('Conflict detected during user update', 'UserService', { userId: id, conflictingUserId: existingUser.id });
                     throw new ConflictException({
                         message: `User with ${data.email ? `email ${data.email}` : ''}${data.email && data.phone ? ' or ' : ''}${data.phone ? `phone ${data.phone}` : ''} already exists.`,
-                        code: 'USER_ALREADY_EXISTS'
+                        code: ERROR_CODES.USER_ALREADY_EXISTS,
                     });
                 }
             }
@@ -266,7 +239,6 @@ export class UserService {
             this.debugLogger.debug('Updating user data', 'UserService', { userId: id, fields: Object.keys(data) });
             Object.assign(user, data);
             const updatedUser = await this.userRepository.save(user);
-            this.debugLogger.info('User updated successfully', 'UserService', { userId: updatedUser.id });
 
             const updateConfig = this.authConfigService.getConfig();
             if (data.email && updateConfig.emailAuth?.enabled !== false) {
@@ -293,7 +265,6 @@ export class UserService {
             return updatedUser;
 
         } catch (error) {
-            this.debugLogger.logError(error, 'updateUser', { userId: id, fields: Object.keys(data) });
             throw error;
         }
     }
