@@ -279,11 +279,8 @@ export class UserService {
                 code: 'USER_ID_REQUIRED'
             });
         }
-
-        const tenantRequired = await this.tenantService.checkRequiredTenant(tenantId);
-
         const existing = await this.userAccessRepository.findOne({
-            where: { userId, ...(tenantRequired ? { tenantId: tenantId } : {}) }
+            where: { userId, tenantId: tenantId || IsNull() }
         });
 
         if (existing) {
@@ -320,7 +317,7 @@ export class UserService {
         roleIds: string[]
     ): Promise<NestAuthUserAccess> {
         let access = await this.userAccessRepository.findOne({
-            where: { userId,  tenantId: tenantId || IsNull() },
+            where: { userId, tenantId: tenantId || IsNull() },
             relations: ['roles'],
         });
         if (!access) {

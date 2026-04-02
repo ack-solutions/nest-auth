@@ -8,9 +8,12 @@ import { RequestContext } from '../../request-context/request-context';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { v4 as uuidv4 } from 'uuid';
 import ms from 'ms';
-import { mapRoleToSessionSnapshot } from '../../role/utils/role-mapper.util';
+import { getRolePermissionNames, mapRoleToSessionSnapshot } from '../../role/utils/role-mapper.util';
 import { AccessRoleResolver } from '../../role/utils/access-role-resolver.util';
 import { NestAuthRole } from '../../role/entities/role.entity';
+import { NestAuthUserAccess } from '../../user/entities/user-access.entity';
+import { chain } from 'lodash';
+import { NestAuthPlatformAccess } from '../../user/entities/platform-access.entity';
 
 export const SESSION_STORE = 'SESSION_STORE';
 export const SESSION_REPOSITORY = 'SESSION_REPOSITORY';
@@ -296,7 +299,8 @@ export class SessionManagerService {
      */
     async createSessionFromUser(
         user: NestAuthUser,
-        extraData: { isMfaVerified?: boolean; tenantId?: string | null; isPlatformAccess?: boolean } = {}
+        userAccess: NestAuthUserAccess,
+        extraData: { isMfaVerified?: boolean; tenantId?: string | null; isPlatformAccess?: boolean; platformAccess?: NestAuthPlatformAccess } = {}
     ): Promise<NestAuthSession> {
         const { deviceName, ipAddress, browser } = RequestContext.getDeviceInfo();
         const { isMfaVerified = false, tenantId = null, isPlatformAccess } = extraData;
@@ -309,17 +313,16 @@ export class SessionManagerService {
         let permissions: string[] = [];
 
         if (isPlatformAccess) {
-            const { roles: resolvedRoles, permissions: resolvedPermissions } = await AccessRoleResolver.resolvePlatformAccessRolesAndPermissions(user.id);
-            roles = resolvedRoles;
-            permissions = resolvedPermissions;
+            roles = extraData?.platformAccess?.roles ?? [];
         } else {
-            const { roles: resolvedRoles, permissions: resolvedPermissions } = await AccessRoleResolver.resolveRolesAndPermissionsForTenantContext({
-                userId: user.id,
-                tenantId: tenantId ?? null,
-            });
-            roles = resolvedRoles;
-            permissions = resolvedPermissions;
+            roles = userAccess?.roles ?? [];
+           
         }
+        permissions = chain(roles)
+            .map((role: any) => getRolePermissionNames(role))
+            .flatten()
+            .uniq()
+            .value();
 
         // Build default session data
         let sessionData: SessionDataPayload = {

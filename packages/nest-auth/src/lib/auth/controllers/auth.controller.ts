@@ -325,7 +325,11 @@ export class AuthController {
     @UseGuards(NestAuthAuthGuard)
     @Get('user')
     async getUser() {
-        return await this.authService.getUser();
+        const user = await RequestContext.currentUser();
+        if (!user) {
+            throw new UnauthorizedException('User not found');
+        }
+        return user
     }
 
     @ApiOperation({

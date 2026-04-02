@@ -1,12 +1,14 @@
 import { NestAuthUser } from "../../user/entities/user.entity";
 import { AuthTokensResponseDto } from "../dto/responses/auth.response.dto";
 import { NestAuthLoginRequestDto } from '../dto/requests/login.request.dto';
-import { SessionPayload } from "../../core";
+import { NestAuthPlatformAccess, NestAuthUserAccess, SessionPayload } from "../../core";
 import { BaseAuthProvider } from "../../core/providers/base-auth.provider";
 
 export interface UserLoggedInEventPayload {
     user: NestAuthUser;
     tenantId?: string;
+    userAccess?: NestAuthUserAccess;
+    platformAccess?: NestAuthPlatformAccess;
     input: NestAuthLoginRequestDto;
     provider: BaseAuthProvider;
     session: SessionPayload;
