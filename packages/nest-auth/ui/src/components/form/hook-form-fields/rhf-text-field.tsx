@@ -28,7 +28,6 @@ export const RHFTextField = forwardRef(
         } = useController({
             name,
             control,
-            // disabled: rest.disabled,
         });
 
         const handleInputRef = useForkRef(field.ref, inputRef);

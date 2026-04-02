@@ -5,3 +5,5 @@ export * from './database.utils';
 export * from './normalize.util';
 export * from './slug.util';
 export * from './security.util';
+export * from './has-token';
+export * from './tenant';

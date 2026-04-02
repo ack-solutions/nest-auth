@@ -6,7 +6,7 @@ import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
 import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
 import { BaseAuthProvider } from './base-auth.provider';
-import { SocialCredentialsDto } from 'src/lib/auth';
+import { SocialCredentialsDto } from '../../auth/dto/credentials/social-credentials.dto';
 
 @Injectable()
 export class GitHubAuthProvider extends BaseAuthProvider {
@@ -25,7 +25,7 @@ export class GitHubAuthProvider extends BaseAuthProvider {
         this.enabled = Boolean(this.githubConfig);
     }
 
-    async validate(credentials: SocialCredentialsDto) {
+    async validate(credentials: SocialCredentialsDto, _tenantId?: string) {
         try {
             // Fetch user info from GitHub API
             const userResponse = await fetch('https://api.github.com/user', {

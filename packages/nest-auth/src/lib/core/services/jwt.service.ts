@@ -17,14 +17,19 @@ export class JwtService {
 
     async generateAccessToken(payload: Partial<JWTTokenPayload>): Promise<string> {
         return new Promise((resolve, reject) => {
+            const jwtSecret = this.options.session?.jwt?.secret;
+            if (!jwtSecret) {
+                return reject(new Error('Missing session.jwt.secret'));
+            }
             jwt.sign(
                 {
                     ...payload,
                     type: 'access',
-                    exp: Math.floor(Date.now() / 1000) + ms(this.options.session.sessionExpiry),
-                    iat: Math.floor(Date.now() / 1000),
                 },
-                this.options.jwt.secret,
+                jwtSecret,
+                {
+                    expiresIn: this.options.session.accessTokenValidity,
+                },
                 (err, token) => {
                     if (err) reject(err);
                     else resolve(token);
@@ -35,14 +40,19 @@ export class JwtService {
 
     async generateRefreshToken(payload: Partial<JWTTokenPayload>): Promise<string> {
         return new Promise((resolve, reject) => {
+            const jwtSecret = this.options.session?.jwt?.secret;
+            if (!jwtSecret) {
+                return reject(new Error('Missing session.jwt.secret'));
+            }
             jwt.sign(
                 {
                     ...payload,
                     type: 'refresh',
-                    exp: Math.floor(Date.now() / 1000) + ms(this.options.session.refreshTokenExpiry),
-                    iat: Math.floor(Date.now() / 1000),
                 },
-                this.options.jwt.secret,
+                jwtSecret,
+                {
+                    expiresIn: this.options.session.refreshTokenValidity,
+                },
                 (err, token) => {
                     if (err) reject(err);
                     else resolve(token);
@@ -53,9 +63,13 @@ export class JwtService {
 
     async verifyToken(token: string): Promise<JWTTokenPayload> {
         return new Promise((resolve, reject) => {
+            const jwtSecret = this.options.session?.jwt?.secret;
+            if (!jwtSecret) {
+                return reject(new Error('Missing session.jwt.secret'));
+            }
             jwt.verify(
                 token,
-                this.options.jwt.secret,
+                jwtSecret,
                 (err, decoded) => {
                     if (err) reject(err);
                     else resolve(decoded as JWTTokenPayload);
@@ -84,7 +98,11 @@ export class JwtService {
             const decoded = this.decodeToken(token);
             if (!decoded) reject(new Error('Invalid token'));
             else {
-                jwt.sign({ ...decoded, ...payload }, this.options.jwt.secret, { expiresIn: this.options.session.sessionExpiry }, (err, token) => {
+                const jwtSecret = this.options.session?.jwt?.secret;
+                if (!jwtSecret) {
+                    return reject(new Error('Missing session.jwt.secret'));
+                }
+                jwt.sign({ ...decoded, ...payload }, jwtSecret, { expiresIn: this.options.session.accessTokenValidity }, (err, token) => {
                     if (err) reject(err);
                     else resolve(token);
                 });
@@ -106,14 +124,18 @@ export class JwtService {
 
     async generatePasswordResetToken(payload: { userId: string; passwordHashPrefix: string; type: string; tenantId?: string }): Promise<string> {
         return new Promise((resolve, reject) => {
-            const expiresIn = this.options.passwordResetTokenExpiresIn || '1h';
+            const expiresIn = this.options.password?.passwordResetTokenExpiresIn || '1h';
+            const jwtSecret = this.options.session?.jwt?.secret;
+            if (!jwtSecret) {
+                return reject(new Error('Missing session.jwt.secret'));
+            }
             jwt.sign(
                 {
                     ...payload,
                     exp: Math.floor(Date.now() / 1000) + ms(expiresIn),
                     iat: Math.floor(Date.now() / 1000),
                 },
-                this.options.jwt.secret,
+                jwtSecret,
                 (err, token) => {
                     if (err) reject(err);
                     else resolve(token);
@@ -124,9 +146,13 @@ export class JwtService {
 
     async verifyPasswordResetToken(token: string): Promise<any> {
         return new Promise((resolve, reject) => {
+            const jwtSecret = this.options.session?.jwt?.secret;
+            if (!jwtSecret) {
+                return reject(new Error('Missing session.jwt.secret'));
+            }
             jwt.verify(
                 token,
-                this.options.jwt.secret,
+                jwtSecret,
                 (err, decoded) => {
                     if (err) reject(err);
                     else resolve(decoded);

@@ -4,7 +4,6 @@ import {
     Column,
     CreateDateColumn,
     UpdateDateColumn,
-    ManyToOne,
     OneToMany,
     BaseEntity,
     Index,
@@ -24,7 +23,7 @@ import { NestAuthMFASecret } from "../../auth/entities/mfa-secret.entity";
 import { NestAuthRole } from "../../role/entities/role.entity";
 import { NestAuthUserAccess } from "./user-access.entity";
 import { EMAIL_AUTH_PROVIDER, PHONE_AUTH_PROVIDER } from "../../auth.constants";
-import { normalizedPhone } from '../../utils';
+import { normalizedPhone, requiredTenant } from '../../utils';
 import { getRolePermissionNames } from '../../role/utils/role-mapper.util';
 
 @Entity('nest_auth_users')
@@ -78,12 +77,6 @@ export class NestAuthUser extends BaseEntity {
     @OneToMany(() => NestAuthOTP, otp => otp.user)
     otps: NestAuthOTP[];
 
-    /**
-     * @deprecated Use roles on userAccesses instead. Will be removed in v2.0.0
-     */
-    @ManyToMany(() => NestAuthRole, role => role.users, { onDelete: 'CASCADE' })
-    roles: NestAuthRole[];
-
     @OneToMany(() => NestAuthUserAccess, access => access.user)
     userAccesses: NestAuthUserAccess[];
 
@@ -102,7 +95,7 @@ export class NestAuthUser extends BaseEntity {
     }
 
     async getPermissions(tenantId: string): Promise<string[]> {
-        const roles = await this.getRoles(tenantId);
+        const roles = await this.getRoles(tenantId, true);
         return chain(roles)
             .map((role) => getRolePermissionNames(role))
             .flatten()
@@ -110,10 +103,10 @@ export class NestAuthUser extends BaseEntity {
             .value();
     }
 
-    async getRoles(tenantId?: string | null): Promise<NestAuthRole[]> {
+    async getRoles(tenantId?: string | null, withPermissions = false): Promise<NestAuthRole[]> {
         const access = await NestAuthUserAccess.findOne({
             where: { userId: this.id, tenantId: tenantId || IsNull() },
-            relations: ['roles', 'roles.rolePermissions', 'roles.rolePermissions.permission'],
+            relations: ['roles', ...(withPermissions ? ['roles.rolePermissions', 'roles.rolePermissions.permission'] : [])],
         });
         if (access?.roles?.length) {
             return access.roles;
@@ -132,12 +125,15 @@ export class NestAuthUser extends BaseEntity {
     }
 
     private async getOrCreateUserAccess(tenantId?: string | null): Promise<NestAuthUserAccess> {
+        const config = AuthConfigService.getOptions();
+        const tenantRequired = requiredTenant(config?.tenant ?? {}, tenantId);
+        
         let access = await NestAuthUserAccess.findOne({
-            where: { userId: this.id, tenantId: tenantId || IsNull() },
+            where: { userId: this.id, ...tenantRequired ? { tenantId } : {}},
             relations: ['roles'],
         });
         if (!access) {
-            access = NestAuthUserAccess.create({ userId: this.id, tenantId });
+            access = NestAuthUserAccess.create({ userId: this.id, ...tenantId ? { tenantId } : {} });
             await access.save();
             access.roles = []; // Initialize for consistency
         }
@@ -236,7 +232,14 @@ export class NestAuthUser extends BaseEntity {
 
         // Apply password.verify hook if configured
         const options = AuthConfigService.getOptions();
-        if (options.password?.verify) {
+
+        const hasCustomHash = !!options.password?.hash;
+        const hasCustomVerify = !!options.password?.verify;
+        if (hasCustomHash !== hasCustomVerify) {
+            throw new Error('password.hash and password.verify must be provided together');
+        }
+
+        if (hasCustomVerify) {
             return await options.password.verify(password, this.passwordHash);
         }
 
@@ -251,26 +254,22 @@ export class NestAuthUser extends BaseEntity {
     async setPassword(password: string): Promise<void> {
         const options = AuthConfigService.getOptions();
 
-        // Apply password.validate hook if configured
-        if (options.password?.validate) {
-            const isValid = await options.password.validate(password);
-            if (!isValid) {
-                throw new Error('Password does not meet requirements');
-            }
+        const hasCustomHash = !!options.password?.hash;
+        const hasCustomVerify = !!options.password?.verify;
+        if (hasCustomHash !== hasCustomVerify) {
+            throw new Error('password.hash and password.verify must be provided together');
         }
 
-        // Apply password.hash hook if configured
-        if (options.password?.hash) {
+        if (hasCustomHash) {
             this.passwordHash = await options.password.hash(password);
             return;
         }
 
-        // Argon2id is the recommended variant (hybrid of Argon2i and Argon2d)
         this.passwordHash = await hash(password, {
             algorithm: Algorithm.Argon2id,
-            memoryCost: 65536, // 64 MiB
-            timeCost: 3,       // 3 iterations
-            parallelism: 4     // 4 parallel threads
+            memoryCost: options.password?.argon2?.memoryCost ?? 65536,
+            timeCost: options.password?.argon2?.timeCost ?? 3,
+            parallelism: options.password?.argon2?.parallelism ?? 4,
         });
     }
 }

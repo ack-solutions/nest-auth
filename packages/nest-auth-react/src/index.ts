@@ -66,11 +66,15 @@ export type {
     IUpdateRoleInput,
     IRoleResponse,
     // Password management DTOs
+    IPasswordlessSendRequest as PasswordlessSendDto,
     IForgotPasswordRequest as ForgotPasswordDto,
     IResetPasswordWithTokenRequest as ResetPasswordDto,
     IChangePasswordRequest as ChangePasswordDto,
-    // Email verification DTOs
+    // Email / phone verification DTOs (`code` — not MFA `otp`)
     IVerifyEmailRequest as VerifyEmailDto,
+    IVerifyPhoneRequest as VerifyPhoneDto,
+    ISendEmailVerificationRequest as SendEmailVerificationDto,
+    ISendPhoneVerificationRequest as SendPhoneVerificationDto,
     IResendVerificationRequest as ResendVerificationDto,
     // 2FA DTOs
     IVerify2faRequest as Verify2faDto,
@@ -78,6 +82,7 @@ export type {
     // Response types
     IMessageResponse as MessageResponse,
     IVerifyOtpResponse as VerifyOtpResponse,
+    ISwitchTenantRequest as SwitchTenantDto,
 } from '@ackplus/nest-auth-client';
 
 // Re-export client class for convenience

@@ -16,13 +16,17 @@ import {
     ISignupRequest,
     IVerify2faRequest,
     IForgotPasswordRequest,
+    IVerifyForgotPasswordOtpRequest,
     IVerifyEmailRequest,
-    IResendVerificationRequest,
+    ISendEmailVerificationRequest,
+    ISendPhoneVerificationRequest,
+    IVerifyPhoneRequest,
     IChangePasswordRequest,
     IResetPasswordWithTokenRequest,
     IVerifyTotpSetupRequest,
     IToggleMfaRequest,
     ISwitchTenantRequest,
+    IPasswordlessSendRequest,
 } from '@ackplus/nest-auth-client';
 import { AuthContext, AuthContextValue } from './auth-context';
 
@@ -257,11 +261,11 @@ export function AuthProvider({
     const verifySession = useCallback(async () => {
         setError(null);
         try {
-            const verifyResponce = await client.verifySession();
-            if (verifyResponce?.valid) {
+            const verifyResponse = await client.verifySession();
+            if (verifyResponse?.valid) {
                 updatedSession();
             }
-            return verifyResponce?.valid;
+            return verifyResponse?.valid;
         } catch (err) {
             setError(err as AuthError);
             throw err;
@@ -292,6 +296,16 @@ export function AuthProvider({
         }
     }, [client, updatedSession]);
 
+    const passwordlessSend = useCallback(async (dto: IPasswordlessSendRequest) => {
+        setError(null);
+        try {
+            return await client.passwordlessSend(dto);
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
     // Password Management
     const forgotPassword = useCallback(async (dto: IForgotPasswordRequest) => {
         setError(null);
@@ -303,7 +317,7 @@ export function AuthProvider({
         }
     }, [client]);
 
-    const verifyForgotPasswordOtp = useCallback(async (dto: { email?: string; phone?: string; otp: string }) => {
+    const verifyForgotPasswordOtp = useCallback(async (dto: IVerifyForgotPasswordOtpRequest) => {
         setError(null);
         try {
             return await client.verifyForgotPasswordOtp(dto);
@@ -349,10 +363,30 @@ export function AuthProvider({
         }
     }, [client, user]);
 
-    const resendVerification = useCallback(async (dto: IResendVerificationRequest) => {
+    const sendEmailVerification = useCallback(async (dto?: ISendEmailVerificationRequest) => {
         setError(null);
         try {
-            return await client.resendVerification(dto);
+            return await client.sendEmailVerification(dto ?? {});
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const sendPhoneVerification = useCallback(async (dto?: ISendPhoneVerificationRequest) => {
+        setError(null);
+        try {
+            return await client.sendPhoneVerification(dto ?? {});
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client]);
+
+    const verifyPhone = useCallback(async (dto: IVerifyPhoneRequest) => {
+        setError(null);
+        try {
+            return await client.verifyPhone(dto);
         } catch (err) {
             setError(err as AuthError);
             throw err;
@@ -487,14 +521,17 @@ export function AuthProvider({
         verifySession,
         verify2fa,
         switchTenant,
+        passwordlessSend,
         // Password management
         forgotPassword,
         verifyForgotPasswordOtp,
         resetPassword,
         changePassword,
-        // Email verification
+        // Email / phone verification
         verifyEmail,
-        resendVerification,
+        sendEmailVerification,
+        sendPhoneVerification,
+        verifyPhone,
         // 2FA
         send2fa,
         // TOTP / MFA Management
@@ -526,12 +563,15 @@ export function AuthProvider({
         verifySession,
         verify2fa,
         switchTenant,
+        passwordlessSend,
         forgotPassword,
         verifyForgotPasswordOtp,
         resetPassword,
         changePassword,
         verifyEmail,
-        resendVerification,
+        sendEmailVerification,
+        sendPhoneVerification,
+        verifyPhone,
         send2fa,
         setupTotp,
         verifyTotpSetup,

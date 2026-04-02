@@ -5,7 +5,7 @@ import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
 import { BaseAuthProvider, LinkUserWith } from './base-auth.provider';
 import { PHONE_AUTH_PROVIDER } from '../../auth.constants';
-import { PhoneCredentialsDto } from 'src/lib/auth';
+import { PhoneCredentialsDto } from '../../auth/dto/credentials/phone-credentials.dto';
 import { normalizedPhone } from '../../utils';
 
 @Injectable()
@@ -23,13 +23,13 @@ export class PhoneAuthProvider extends BaseAuthProvider {
         this.enabled = this.options.phoneAuth?.enabled;
     }
 
-    async findIdentity(providerUserId: string) {
+    async findIdentity(providerUserId: string, tenantId?: string): Promise<NestAuthIdentity | null> {
         const phoneNorm = normalizedPhone(providerUserId);
         if (phoneNorm) {
-            const normalizedIdentity = await super.findIdentity(phoneNorm);
+            const normalizedIdentity = await super.findIdentity(phoneNorm, tenantId);
             if (normalizedIdentity) return normalizedIdentity;
         }
-        return super.findIdentity(providerUserId);
+        return super.findIdentity(providerUserId, tenantId);
     }
 
     async validate(credentials: PhoneCredentialsDto) {

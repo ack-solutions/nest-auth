@@ -1,11 +1,10 @@
 import Checkbox from '@mui/material/Checkbox';
 import MenuItem from '@mui/material/MenuItem';
 import { get, isArray, startCase } from 'lodash';
-import { forwardRef, useEffect, useMemo } from 'react';
+import { forwardRef, useEffect, useMemo, useState } from 'react';
 import { useController, useFormContext } from 'react-hook-form';
 
 import { RHFTextField } from './rhf-text-field';
-import { useBoolean } from '../../hook';
 import { TextFieldRaw, TextFieldRawProps } from '../fields/text-field-raw';
 
 
@@ -40,7 +39,7 @@ export const RHFSelect = forwardRef(({
     ...other
 }: RHFSelectProps, ref) => {
     const { control } = useFormContext();
-    const isShowCheckboxes = useBoolean(false);
+    const [isShowCheckboxes, setIsShowCheckboxes] = useState(false);
 
     const {
         field,
@@ -90,7 +89,7 @@ export const RHFSelect = forwardRef(({
 
     useEffect(() => {
         if (isMultiple && withCheckboxes) {
-            isShowCheckboxes.onTrue();
+            setIsShowCheckboxes(true);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isMultiple, withCheckboxes]);
@@ -162,7 +161,7 @@ export const RHFSelect = forwardRef(({
                         key={optionValue}
                         value={optionValue}
                     >
-                        {isShowCheckboxes.value ? (
+                        {isShowCheckboxes ? (
                             <Checkbox
                                 checked={isChecked}
                                 style={{ marginRight: 8 }}

@@ -2,33 +2,46 @@ import {
     ExceptionFilter,
     Catch,
     ArgumentsHost,
-    UnauthorizedException,
+    HttpException,
     Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
 
-/**
- * Exception filter for authentication-related errors
- * 
- * Handles UnauthorizedException and AuthException without logging to console (reduces noise)
- * while still returning proper 401 responses with custom error codes to clients.
- */
-@Catch(UnauthorizedException)
+@Catch(HttpException)
 export class AuthExceptionFilter implements ExceptionFilter {
     private readonly logger = new Logger(AuthExceptionFilter.name);
 
-    catch(exception: UnauthorizedException, host: ArgumentsHost) {
+    catch(exception: HttpException, host: ArgumentsHost) {
         const ctx = host.switchToHttp();
         const response = ctx.getResponse<Response>();
 
-
-        // Handle standard UnauthorizedException
         const status = exception.getStatus();
-        // Return clean 401 response
+        const exceptionResponse = exception.getResponse();
+
+        const rawMessage =
+            typeof exceptionResponse === 'string'
+                ? exceptionResponse
+                : (exceptionResponse as any)?.message ?? exception.message;
+
+        const message = Array.isArray(rawMessage)
+            ? rawMessage[0]
+            : rawMessage;
+
+        const code =
+            typeof exceptionResponse === 'string'
+                ? undefined
+                : (exceptionResponse as any)?.code;
+
+        const error =
+            typeof exceptionResponse === 'string'
+                ? exception.name
+                : (exceptionResponse as any)?.error ?? exception.name;
+
         response.status(status).json({
             statusCode: status,
-            error: 'Unauthorized',
-            message: exception.message,
+            error,
+            message,
+            ...(code ? { code } : {}),
         });
     }
 }

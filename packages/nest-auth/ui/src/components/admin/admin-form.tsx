@@ -1,5 +1,5 @@
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { FormProvider, useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Typography } from '@mui/material';
@@ -28,13 +28,21 @@ const adminSchema = yup.object({
         .matches(/[@$!%*?&]/, 'Password must contain at least one special character (@$!%*?&)'),
 });
 
+export interface AdminFormFooterAction {
+    label: string;
+    onClick: () => void;
+    variant: 'primary' | 'secondary';
+    disabled?: boolean;
+    icon?: React.ReactNode;
+}
+
 export interface AdminFormProps {
     initialData?: Partial<AdminFormData>;
     onSubmit: (data: AdminFormData) => Promise<void>;
     onCancel: () => void;
     error?: string;
     submitLabel?: string;
-    onActionsReady?: (actions: FormFooterAction[]) => void;
+    onActionsReady?: (actions: AdminFormFooterAction[]) => void;
 }
 
 export const AdminForm: React.FC<AdminFormProps> = ({
@@ -45,12 +53,7 @@ export const AdminForm: React.FC<AdminFormProps> = ({
     submitLabel = 'Create Admin',
     onActionsReady,
 }) => {
-    const {
-        control,
-        handleSubmit,
-        formState: { isSubmitting },
-        reset,
-    } = useForm<AdminFormData>({
+    const methods = useForm<AdminFormData>({
         resolver: yupResolver(adminSchema) as any,
         defaultValues: initialData || {
             email: '',
@@ -58,6 +61,11 @@ export const AdminForm: React.FC<AdminFormProps> = ({
             password: '',
         },
     });
+    const {
+        handleSubmit,
+        formState: { isSubmitting },
+        reset,
+    } = methods;
 
     const handleFormSubmit = async (data: AdminFormData) => {
         try {
@@ -74,7 +82,7 @@ export const AdminForm: React.FC<AdminFormProps> = ({
     };
 
     // Prepare footer actions
-    const footerActions: FormFooterAction[] = React.useMemo(() => [
+    const footerActions: AdminFormFooterAction[] = React.useMemo(() => [
         {
             label: 'Cancel',
             onClick: handleCancel,
@@ -109,28 +117,30 @@ export const AdminForm: React.FC<AdminFormProps> = ({
     }, [onActionsReady, footerActions]);
 
     return (
-        <form id="admin-form" onSubmit={handleSubmit(handleFormSubmit)} className="p-4 space-y-3">
-            <RHFTextField
-                name="email"
-                label="Email Address"
-                disabled={isSubmitting}
-                placeholder="admin@example.com"
-            />
+        <FormProvider {...methods}>
+            <form id="admin-form" onSubmit={handleSubmit(handleFormSubmit)} className="p-4 space-y-3">
+                <RHFTextField
+                    name="email"
+                    label="Email Address"
+                    disabled={isSubmitting}
+                    placeholder="admin@example.com"
+                />
 
-            <RHFTextField
-                name="name"
-                label="Name (Optional)"
-                disabled={isSubmitting}
-                placeholder="Admin User"
-            />
+                <RHFTextField
+                    name="name"
+                    label="Name (Optional)"
+                    disabled={isSubmitting}
+                    placeholder="Admin User"
+                />
 
-            <RHFPasswordField
-                name="password"
-                label="Password"
-                disabled={isSubmitting}
-                showGenerateButton={true}
-                showStrengthIndicator={true}
-            />
-        </form>
+                <RHFPasswordField
+                    name="password"
+                    label="Password"
+                    disabled={isSubmitting}
+                    showGenerateButton={true}
+                    showStrengthIndicator={true}
+                />
+            </form>
+        </FormProvider>
     );
 };

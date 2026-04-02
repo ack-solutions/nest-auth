@@ -62,9 +62,10 @@ export class AccessKeyService {
             where: { publicKey },
             relations: [
                 'user',
-                'user.roles',
-                'user.roles.rolePermissions',
-                'user.roles.rolePermissions.permission',
+                'user.userAccesses',
+                'user.userAccesses.roles',
+                'user.userAccesses.roles.rolePermissions',
+                'user.userAccesses.roles.rolePermissions.permission',
             ],
         });
 

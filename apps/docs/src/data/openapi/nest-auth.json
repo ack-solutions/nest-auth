@@ -67,6 +67,38 @@
         ]
       }
     },
+    "/auth/passwordless/send": {
+      "post": {
+        "operationId": "AuthController_passwordlessSend",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthPasswordlessSendRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Passwordless — send login code (email or SMS)",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/auth/refresh-token": {
       "post": {
         "description": "Refresh access token. Response format depends on accessTokenType configuration:\n- Header mode (default): Returns new tokens in response body\n- Cookie mode: Sets new tokens in HTTP-only cookies and returns success message",
@@ -507,6 +539,70 @@
         ]
       }
     },
+    "/auth/send-phone-verification": {
+      "post": {
+        "operationId": "AuthController_sendPhoneVerification",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthSendPhoneVerificationRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthPhoneVerificationSentResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Send phone verification (SMS OTP)",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/verify-phone": {
+      "post": {
+        "operationId": "AuthController_verifyPhone",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthVerifyPhoneRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthPhoneVerifiedResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Verify phone number with OTP",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/auth/callback/{provider}": {
       "get": {
         "description": "OAuth callback endpoint for SSO providers. Exchanges authorization code for access token and returns raw SSO user info. Returns HTML page that posts SSO data to parent window and auto-closes.",
@@ -730,7 +826,7 @@
   "info": {
     "title": "@ackplus/nest-auth API",
     "description": "OpenAPI specification generated from the Nest Auth module",
-    "version": "1.1.69-beta.9",
+    "version": "2.0.0-beta.3",
     "contact": {}
   },
   "tags": [],
@@ -984,6 +1080,41 @@
           "token"
         ]
       },
+      "PasswordlessOtpCredentialsDto": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Email or phone (same value as in send request)",
+            "example": "user@example.com"
+          },
+          "channels": {
+            "type": "array",
+            "description": "Channel(s) to try in order. Use both when the client is unsure whether `identifier` is email or phone.",
+            "example": [
+              "email",
+              "sms"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "email",
+                "sms"
+              ]
+            }
+          },
+          "code": {
+            "type": "string",
+            "description": "One-time code from email or SMS",
+            "example": "123456"
+          }
+        },
+        "required": [
+          "identifier",
+          "channels",
+          "code"
+        ]
+      },
       "NestAuthLoginRequestDto": {
         "type": "object",
         "properties": {
@@ -994,6 +1125,7 @@
             "enum": [
               "email",
               "phone",
+              "passwordless",
               "google",
               "facebook",
               "apple",
@@ -1005,17 +1137,31 @@
             "description": "Login credentials - type varies by provider",
             "examples": {
               "emailLogin": {
-                "summary": "Email Login",
+                "summary": "Email + password",
                 "value": {
                   "email": "user@example.com",
                   "password": "SecurePass123!"
                 }
               },
               "phoneLogin": {
-                "summary": "Phone Login",
+                "summary": "Phone + password",
                 "value": {
                   "phone": "+1234567890",
                   "password": "SecurePass123!"
+                }
+              },
+              "passwordlessOtp": {
+                "summary": "Passwordless OTP — set providerName to passwordless (after POST /auth/passwordless/send)",
+                "value": {
+                  "providerName": "passwordless",
+                  "credentials": {
+                    "identifier": "user@example.com",
+                    "channels": [
+                      "email",
+                      "sms"
+                    ],
+                    "code": "123456"
+                  }
                 }
               },
               "socialLogin": {
@@ -1035,6 +1181,9 @@
               },
               {
                 "$ref": "#/components/schemas/SocialCredentialsDto"
+              },
+              {
+                "$ref": "#/components/schemas/PasswordlessOtpCredentialsDto"
               }
             ]
           },
@@ -1059,6 +1208,42 @@
           "credentials"
         ]
       },
+      "NestAuthPasswordlessSendRequestDto": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Email or phone (per `channel`)",
+            "example": "user@example.com"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "email",
+              "sms"
+            ]
+          },
+          "tenantId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "channel"
+        ]
+      },
+      "MessageResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
       "NestAuthRefreshTokenRequestDto": {
         "type": "object",
         "properties": {
@@ -1067,10 +1252,7 @@
             "description": "Refresh token to obtain new access token",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJ0eXBlIjoicmVmcmVzaCJ9.abc123"
           }
-        },
-        "required": [
-          "refreshToken"
-        ]
+        }
       },
       "NestAuthMfaCodeSentResponseDto": {
         "type": "object",
@@ -1215,18 +1397,6 @@
           "newPassword"
         ]
       },
-      "MessageResponseDto": {
-        "type": "object",
-        "properties": {
-          "message": {
-            "type": "string",
-            "description": "Response message"
-          }
-        },
-        "required": [
-          "message"
-        ]
-      },
       "NestAuthForgotPasswordRequestDto": {
         "type": "object",
         "properties": {
@@ -1273,9 +1443,9 @@
             "description": "User phone number (required if email not provided)",
             "example": "+1234567890"
           },
-          "otp": {
+          "code": {
             "type": "string",
-            "description": "One-time password code received via email or SMS",
+            "description": "Verification or magic-link code (matches OTP entity `code`)",
             "example": "123456",
             "minLength": 6,
             "maxLength": 8
@@ -1287,7 +1457,7 @@
           }
         },
         "required": [
-          "otp"
+          "code"
         ]
       },
       "VerifyOtpResponseDto": {
@@ -1365,9 +1535,9 @@
       "NestAuthVerifyEmailRequestDto": {
         "type": "object",
         "properties": {
-          "otp": {
+          "code": {
             "type": "string",
-            "description": "One-time password code received via email",
+            "description": "Verification code received via email",
             "example": "123456",
             "minLength": 6,
             "maxLength": 8
@@ -1379,7 +1549,7 @@
           }
         },
         "required": [
-          "otp"
+          "code"
         ]
       },
       "NestAuthEmailVerifiedResponseDto": {
@@ -1389,6 +1559,62 @@
             "type": "string",
             "description": "Response message",
             "example": "Email verified successfully"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthSendPhoneVerificationRequestDto": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        }
+      },
+      "NestAuthPhoneVerificationSentResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Verification SMS sent"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthVerifyPhoneRequestDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Verification code received via SMS (matches OTP entity `code`)",
+            "example": "123456",
+            "minLength": 6,
+            "maxLength": 8
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "NestAuthPhoneVerifiedResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Phone verified successfully"
           }
         },
         "required": [

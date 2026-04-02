@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { FormDialog } from '../form-dialog';
 import type { Tenant, Role } from '../../types';
 import { RHFSelect } from '../form/hook-form-fields/rhf-select';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { Stack, Typography } from '@mui/material';
-import { RHFTextField } from '../form';
+import { Button, Stack, Typography } from '@mui/material';
+import { RHFTextField } from '../form/hook-form-fields/rhf-text-field';
 
 export interface CreateUserDialogProps {
     open: boolean;
@@ -42,8 +42,6 @@ export const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     onSubmit,
     tenantMode,
     tenants,
-    roles,
-    error,
 }) => {
     const isIsolated = tenantMode === 'isolated';
     const schema = React.useMemo(() => makeSchema(isIsolated), [isIsolated]);
@@ -72,6 +70,27 @@ export const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
             onClose={onClose}
             title="Create New User"
             maxWidth="md"
+            onSuccess={handleFormSubmit}
+            actions={
+                <>
+                    <Button
+                        variant="outlined"
+                        color="inherit"
+                        onClick={onClose}
+                        disabled={methods.formState.isSubmitting}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="submit"
+                        variant="contained"
+                        color="primary"
+                        disabled={methods.formState.isSubmitting}
+                    >
+                        Create
+                    </Button>
+                </>
+            }
         >
             <Stack spacing={1.5} sx={{ p: 2 }}>
                 <RHFTextField
@@ -84,7 +103,7 @@ export const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                 {isIsolated && (
                     <RHFSelect
                         name="tenantId"
-                         label="Tenant"
+                        label="Tenant"
                         options={[
                             { value: '', label: 'Select tenant...' },
                             ...tenants.map((t) => ({ value: t.id, label: `${t.name} (${t.slug})` })),

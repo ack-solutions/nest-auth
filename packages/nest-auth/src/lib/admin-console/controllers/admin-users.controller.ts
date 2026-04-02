@@ -29,6 +29,7 @@ import { AuthConfigService } from '../../core/services/auth-config.service';
 import { NestAuthUserAccess } from '../../user/entities/user-access.entity';
 import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { mapRoleToResponse } from '../../role/utils/role-mapper.util';
+import { NestAuthTrustedDevice } from '../../auth/entities/trusted-device.entity';
 
 @Controller('auth/admin/api/users')
 @UseGuards(AdminSessionGuard)
@@ -44,6 +45,8 @@ export class AdminUsersController {
     private readonly mfaSecretRepository: Repository<NestAuthMFASecret>,
     @InjectRepository(NestAuthUserAccess)
     private readonly userAccessRepository: Repository<NestAuthUserAccess>,
+    @InjectRepository(NestAuthTrustedDevice)
+    private readonly trustedDeviceRepository: Repository<NestAuthTrustedDevice>,
   ) { }
 
   private async ensureUserExists(id: string): Promise<NestAuthUser> {
@@ -57,6 +60,7 @@ export class AdminUsersController {
   private toSessionResponse(session: NestAuthSession) {
     return {
       id: session.id,
+      userId: session.userId,
       deviceName: session.deviceName || 'Unknown device',
       userAgent: session.userAgent,
       ipAddress: session.ipAddress,
@@ -144,7 +148,7 @@ export class AdminUsersController {
 
     // Add role filter if provided
     if (roleName && roleName.trim()) {
-      baseFilter.roles = { name: roleName.trim() };
+      (baseFilter as any).roles = { name: roleName.trim() };
     }
 
     // Build where clause with proper TypeORM typing
@@ -199,7 +203,6 @@ export class AdminUsersController {
     const tenantMode = config.tenant?.mode ?? TenantModeEnum.ISOLATED;
 
     let tenantId: string | undefined;
-    console.log(tenantEnabled , tenantMode)
     if (tenantEnabled && tenantMode === TenantModeEnum.ISOLATED) {
       if (!dto.tenantId?.trim()) {
         throw new BadRequestException('tenantId is required when tenant mode is isolated');
@@ -244,11 +247,33 @@ export class AdminUsersController {
       throw new NotFoundException('User not found');
     }
 
+    const config = this.authConfigService.getConfig();
+    const emailAuthEnabled = config.emailAuth?.enabled !== false;
+    const phoneAuthEnabled = config.phoneAuth?.enabled === true;
+    const passwordlessEnabled = config.passwordless?.enabled === true;
+
+    const identities = (user.identities ?? []);
+    const hasEmailIdentity = (user.identities ?? []).some(
+      (i) => i.provider === EMAIL_AUTH_PROVIDER && i.providerId === user.email
+    );
+    const hasPhoneIdentity = (user.identities ?? []).some(
+      (i) => i.provider === PHONE_AUTH_PROVIDER && i.providerId === user.phone
+    );
+
+    const socialProviders = [
+      config.google?.clientId ? 'google' : null,
+      config.github?.clientId ? 'github' : null,
+      config.facebook?.appId ? 'facebook' : null,
+      config.apple?.clientId ? 'apple' : null,
+    ].filter(Boolean) as string[];
+
+    const socialIdentities = (user.identities ?? [])
+      .filter((i) => ![EMAIL_AUTH_PROVIDER, PHONE_AUTH_PROVIDER].includes(i.provider))
+      .map((i) => i.provider);
+
     const availableMethods = this.mfaService.getAvailableMethods();
-    const [enabledMethods, sessions] = await Promise.all([
-      this.mfaService.getEnabledMethods(user.id),
-      this.sessionManager.getUserSessions(user.id),
-    ]);
+    const enabledMethods = await this.mfaService.getEnabledMethods(user.id);
+    const sessions = await this.sessionManager.getUserSessions(user.id);
 
     const sortedSessions = sessions
       .sort((a, b) => {
@@ -260,12 +285,49 @@ export class AdminUsersController {
 
     const safeUser = await this.toSafeUser(user);
 
+    const trustedDevices = await this.trustedDeviceRepository.find({
+      where: { userId: user.id },
+      order: { lastUsedAt: 'DESC', createdAt: 'DESC' } as any,
+      take: 50,
+    });
+
+    const mfaEnabledForApp = config.mfa?.enabled === true;
+    const mfaRequiredForAll = config.mfa?.required === true;
+    const mfaRequiredForUser = mfaEnabledForApp && (mfaRequiredForAll || user.isMfaEnabled === true);
+
     return {
       user: safeUser,
-      loginMethods: {
-        emailEnabled: !!user.email && !!user.emailVerifiedAt,
-        phoneEnabled: !!user.phone && !!user.phoneVerifiedAt,
-        hasPassword: !!user.passwordHash,
+      identities,
+      trustedDevices: trustedDevices,
+      loginCapabilities: {
+        // Config + identity-derived capabilities (more accurate than the legacy booleans)
+        email: {
+          enabledInConfig: emailAuthEnabled,
+          hasIdentity: hasEmailIdentity,
+          verified: !!user.emailVerifiedAt,
+          canPasswordLogin: emailAuthEnabled  && hasEmailIdentity && !!user.passwordHash,
+          canOtpLogin: emailAuthEnabled && passwordlessEnabled && hasEmailIdentity,
+        },
+        phone: {
+          enabledInConfig: phoneAuthEnabled,
+          hasIdentity: hasPhoneIdentity,
+          canPasswordLogin: phoneAuthEnabled && hasPhoneIdentity && !!user.passwordHash,
+          verified: !!user.phoneVerifiedAt,
+          canOtpLogin: phoneAuthEnabled && passwordlessEnabled && hasPhoneIdentity,
+        },
+        passwordless: {
+          enabledInConfig: passwordlessEnabled,
+          allowSignUp: config.passwordless?.allowSignUp === true,
+        },
+        social: {
+          enabledProviders: socialProviders,
+          identityProviders: Array.from(new Set(socialIdentities)),
+        },
+        mfa: {
+          enabledInConfig: mfaEnabledForApp,
+          requiredForAll: mfaRequiredForAll,
+          requiredForUser: mfaRequiredForUser,
+        },
       },
       mfa: {
         isEnabled: user.isMfaEnabled,
@@ -298,7 +360,7 @@ export class AdminUsersController {
       ],
     });
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('User not found');  
     }
 
     const oldEmail = user.email;
@@ -408,12 +470,17 @@ export class AdminUsersController {
       await this.adminUserManagement.syncUserAccesses(id, resolvedIds);
     }
 
+    // Tenants disabled: set global roles (stored on access with tenantId = NULL)
+    if (!tenantEnabled && dto.roleIds !== undefined) {
+      await user.assignRoles(dto.roleIds ?? [], null);
+    }
+
     // Set roles per tenant (both SHARED and ISOLATED)
     if (dto.tenantRoles?.length) {
       for (const tr of dto.tenantRoles) {
         const resolved = await this.resolveTenantIds([tr.tenantId]);
         if (resolved.length) {
-          await this.users.setUserAccessRoles(id, resolved[0], tr.roleIds ?? []);
+          await this.users.setUserAccessRoles(id, tr.tenantId, tr.roleIds ?? []);
         }
       }
     }
@@ -470,19 +537,19 @@ export class AdminUsersController {
   async revokeSession(@Param('id') id: string, @Param('sessionId') sessionId: string) {
     const user = await this.ensureUserExists(id);
 
+    const sessions = await this.sessionManager.getUserSessions(user.id);
     try {
-      const session = await this.sessionManager.getSession(sessionId, false);
-      if (session.userId !== user.id) {
+      const session = sessions.find((s) => s.id === sessionId);
+      if (!session) {
         throw new NotFoundException('Session not found for this user');
       }
-    } catch {
+      await this.sessionManager.revokeSession(session.id);
+      return { message: 'Session revoked successfully' };
+    } catch (error) {
       throw new NotFoundException('Session not found for this user');
     }
-
-    await this.sessionManager.revokeSession(sessionId);
-    return { message: 'Session revoked successfully' };
   }
-
+  
   @Delete(':id/sessions')
   async revokeAllSessions(@Param('id') id: string) {
     const user = await this.ensureUserExists(id);

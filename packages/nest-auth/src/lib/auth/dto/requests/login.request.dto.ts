@@ -3,18 +3,24 @@ import { ApiProperty, ApiPropertyOptional, ApiExtraModels, getSchemaPath } from 
 import { EmailCredentialsDto } from '../credentials/email-credentials.dto';
 import { PhoneCredentialsDto } from '../credentials/phone-credentials.dto';
 import { SocialCredentialsDto } from '../credentials/social-credentials.dto';
+import { PasswordlessOtpCredentialsDto } from '../credentials/passwordless-otp-credentials.dto';
 import { ILoginRequest } from '@ackplus/nest-auth-contracts';
 
 /**
  * Login request DTO supporting multiple authentication providers
  */
-@ApiExtraModels(EmailCredentialsDto, PhoneCredentialsDto, SocialCredentialsDto)
+@ApiExtraModels(
+    EmailCredentialsDto,
+    PhoneCredentialsDto,
+    SocialCredentialsDto,
+    PasswordlessOtpCredentialsDto,
+)
 export class NestAuthLoginRequestDto implements ILoginRequest {
 
     @ApiPropertyOptional({
         description: 'Authentication provider name',
         example: 'email',
-        enum: ['email', 'phone', 'google', 'facebook', 'apple', 'github'],
+        enum: ['email', 'phone', 'passwordless', 'google', 'facebook', 'apple', 'github'],
         default: 'email',
     })
     @IsString()
@@ -26,12 +32,23 @@ export class NestAuthLoginRequestDto implements ILoginRequest {
         required: true,
         examples: {
             emailLogin: {
-                summary: 'Email Login',
+                summary: 'Email + password',
                 value: { email: 'user@example.com', password: 'SecurePass123!' },
             },
             phoneLogin: {
-                summary: 'Phone Login',
+                summary: 'Phone + password',
                 value: { phone: '+1234567890', password: 'SecurePass123!' },
+            },
+            passwordlessOtp: {
+                summary: 'Passwordless OTP — set providerName to passwordless (after POST /auth/passwordless/send)',
+                value: {
+                    providerName: 'passwordless',
+                    credentials: {
+                        identifier: 'user@example.com',
+                        channels: ['email', 'sms'],
+                        code: '123456',
+                    },
+                },
             },
             socialLogin: {
                 summary: 'Social Login (Google/Facebook/etc)',
@@ -42,10 +59,16 @@ export class NestAuthLoginRequestDto implements ILoginRequest {
             { $ref: getSchemaPath(EmailCredentialsDto) },
             { $ref: getSchemaPath(PhoneCredentialsDto) },
             { $ref: getSchemaPath(SocialCredentialsDto) },
+            { $ref: getSchemaPath(PasswordlessOtpCredentialsDto) },
         ],
     })
     @IsObject()
-    credentials: EmailCredentialsDto | PhoneCredentialsDto | SocialCredentialsDto | Record<string, any>;
+    credentials:
+        | EmailCredentialsDto
+        | PhoneCredentialsDto
+        | SocialCredentialsDto
+        | PasswordlessOtpCredentialsDto
+        | Record<string, any>;
 
     @ApiPropertyOptional({
         description: 'Tenant ID for multi-tenant applications',

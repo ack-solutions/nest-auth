@@ -22,25 +22,26 @@ export class TokenResponseInterceptor implements NestInterceptor {
 
     isUsingCookies(req: Request): boolean {
         const headerTokenType = req.headers['x-access-token-type'];
-        if (!this.options.accessTokenType && headerTokenType === 'cookie') {
+        const accessTokenType = this.options.session?.accessTokenType ?? null;
+        if (!accessTokenType && headerTokenType === 'cookie') {
             this.debugLogger.debug(
                 'Using cookies mode (from x-access-token-type header)',
                 'TokenResponseInterceptor',
                 { headerTokenType }
             );
             return true;
-        } else if (this.options.accessTokenType === 'cookie') {
+        } else if (accessTokenType === 'cookie') {
             this.debugLogger.debug(
                 'Using cookies mode (from config)',
                 'TokenResponseInterceptor',
-                { configTokenType: this.options.accessTokenType }
+                { configTokenType: accessTokenType }
             );
             return true;
         }
         this.debugLogger.debug(
             'Using header mode for tokens',
             'TokenResponseInterceptor',
-            { configTokenType: this.options.accessTokenType, headerTokenType }
+            { configTokenType: accessTokenType, headerTokenType }
         );
         return false;
     }
@@ -68,15 +69,6 @@ export class TokenResponseInterceptor implements NestInterceptor {
                 }
 
                 if (isUsingCookies) {
-                    this.debugLogger.debug(
-                        'Setting tokens in cookies and removing from response body',
-                        'TokenResponseInterceptor',
-                        {
-                            hasAccessToken: !!data.accessToken,
-                            hasRefreshToken: !!data.refreshToken,
-                            hasTrustToken: !!data.trustToken
-                        }
-                    );
                     this.setTokens(res, data);
                     // Remove tokens from response body
                     return omit(data, ['accessToken', 'refreshToken', 'trustToken']);
@@ -101,44 +93,43 @@ export class TokenResponseInterceptor implements NestInterceptor {
         refreshToken?: string,
         trustToken?: string
     }): void {
+        const accessDuration =  this.options.session?.accessTokenValidity;
+        const refreshDuration = this.options.session?.refreshTokenValidity;
+
         if (tokens.accessToken) {
-            this.debugLogger.debug(
-                `Setting access token cookie: ${ACCESS_TOKEN_COOKIE_NAME}`,
-                'TokenResponseInterceptor'
-            );
-            this.setCookie(response, ACCESS_TOKEN_COOKIE_NAME, tokens.accessToken);
+            this.setCookie(response, ACCESS_TOKEN_COOKIE_NAME, tokens.accessToken, {
+                maxAge: ms(accessDuration),
+            });
         }
         if (tokens.refreshToken) {
-            this.debugLogger.debug(
-                `Setting refresh token cookie: ${REFRESH_TOKEN_COOKIE_NAME}`,
-                'TokenResponseInterceptor'
-            );
-            this.setCookie(response, REFRESH_TOKEN_COOKIE_NAME, tokens.refreshToken);
+            this.setCookie(response, REFRESH_TOKEN_COOKIE_NAME, tokens.refreshToken, {
+                maxAge: ms(refreshDuration),
+            });
         }
         if (tokens.trustToken) {
             const trustCookieName = AuthConfigService.getOptions().mfa?.trustDeviceStorageName || NEST_AUTH_TRUST_DEVICE_KEY;
             const duration = AuthConfigService.getOptions().mfa?.trustedDeviceDuration || '30d';
-            const maxAge = typeof duration === 'string' ? ms(duration) : duration;
-
-            this.debugLogger.debug(
-                `Setting trust device cookie: ${trustCookieName}`,
-                'TokenResponseInterceptor',
-                { duration, maxAge }
-            );
             this.setCookie(response, trustCookieName, tokens.trustToken, {
-                maxAge,
+                maxAge: ms(duration),
             });
         }
+
+        this.debugLogger.debug('Setting tokens in cookies', 'TokenResponseInterceptor', {
+            tokens,
+            accessDuration,
+            refreshDuration,
+        });
+
     }
 
     private setCookie(response: Response, name: string, token: string, options?: Partial<CookieOptions>): void {
         const cookieOptions = {
             httpOnly: true,
             path: '/',
-            secure: this.options.cookieOptions?.secure,
-            ...this.options.cookieOptions?.domain ? { domain: this.options.cookieOptions?.domain } : {},
-            sameSite: this.options.cookieOptions?.sameSite as 'strict' | 'lax' | 'none' | undefined,
-            maxAge: ms(this.options.session?.sessionExpiry || '7d'),
+            secure: this.options.session?.cookieOptions?.secure,
+            ...this.options.session?.cookieOptions?.domain ? { domain: this.options.session?.cookieOptions?.domain } : {},
+            sameSite: this.options.session?.cookieOptions?.sameSite as 'strict' | 'lax' | 'none' | undefined,
+            maxAge: ms(this.options.session?.accessTokenValidity || '7d'),
             ...options,
         };
 

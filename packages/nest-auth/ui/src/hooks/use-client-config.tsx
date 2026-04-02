@@ -20,6 +20,7 @@ interface ClientConfigContextValue {
     refetch: () => Promise<void>;
     roleGuards: string[];
     tenantMode: TenantMode;
+    tenantEnabled: boolean;
 }
 
 const defaultState: ClientConfigState = {
@@ -42,9 +43,14 @@ export function ClientConfigProvider({ children }: { children: React.ReactNode }
             const res = await fetch(`${authBase}/client-config`, { credentials: 'include' });
             if (!res.ok) throw new Error('Failed to load config');
             const data = await res.json();
+
+            // If tenants are explicitly disabled from the backend, treat tenant UI as off.
+            const tenantsEnabled = data.tenants?.enabled;
+            const resolvedTenantMode: TenantMode = tenantsEnabled === false ? null : ((data.tenants?.mode ?? data.tenantMode ?? null) as TenantMode);
+
             const normalized: ClientConfigState = {
                 roleGuards: Array.isArray(data.roleGuards) ? data.roleGuards : [],
-                tenantMode: (data.tenants?.mode ?? data.tenantMode ?? null) as TenantMode,
+                tenantMode: resolvedTenantMode,
                 tenants: data.tenants,
                 emailAuth: data.emailAuth,
                 phoneAuth: data.phoneAuth,
@@ -71,6 +77,7 @@ export function ClientConfigProvider({ children }: { children: React.ReactNode }
         refetch: fetchConfig,
         roleGuards: config?.roleGuards ?? [],
         tenantMode: config?.tenantMode ?? null,
+        tenantEnabled: config?.tenants?.enabled ?? false,
     };
 
     return (

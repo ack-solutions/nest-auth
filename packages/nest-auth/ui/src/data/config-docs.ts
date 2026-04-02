@@ -16,8 +16,10 @@ import { NestAuthModule } from '@ackplus/nest-auth';
   imports: [
     NestAuthModule.forRoot({
       appName: 'My App',
-      jwt: {
-        secret: process.env.JWT_SECRET || 'your-secret-key',
+      session: {
+        jwt: {
+          secret: process.env.JWT_SECRET || 'your-secret-key',
+        },
       },
     }),
   ],
@@ -30,18 +32,15 @@ export class AppModule {}
 NestAuthModule.forRoot({
   isGlobal: true,
   appName: 'My App',
-  accessTokenType: 'header', // or 'cookie'
   enableAutoRefresh: true,
 
-  jwt: {
-    secret: process.env.JWT_SECRET,
-    accessTokenExpiresIn: '15m',
-    refreshTokenExpiresIn: '7d',
-  },
-
   session: {
+    accessTokenType: 'header', // or 'cookie'
+    jwt: {
+      secret: process.env.JWT_SECRET,
+    },
     storageType: SessionStorageType.DATABASE,
-    sessionExpiry: '7d',
+    accessTokenValidity: '7d',
     maxSessionsPerUser: 5,
     slidingExpiration: true,
   },
@@ -50,8 +49,7 @@ NestAuthModule.forRoot({
     enabled: true,
     required: false,
     methods: ['totp', 'email', 'sms'],
-    otpExpiresIn: '5m',
-    trustedDeviceDuration: '30d',
+    trustedDeviceDuration: '7d',
     trustDeviceStorageName: 'x-app-trust-token',
     allowUserToggle: true,
     allowMethodSelection: true,
@@ -113,7 +111,7 @@ NestAuthModule.forRoot({
 }
 \`\`\`
 
-### accessTokenType
+### session.accessTokenType
 - **Type**: \`'header' | 'cookie'\`
 - **Default**: \`'header'\`
 - **Description**: How to deliver tokens to clients
@@ -130,7 +128,9 @@ NestAuthModule.forRoot({
 
 \`\`\`typescript
 {
-  accessTokenType: 'cookie', // Use cookies
+  session: {
+    accessTokenType: 'cookie', // Use cookies
+  },
 }
 \`\`\`
 
@@ -145,61 +145,38 @@ NestAuthModule.forRoot({
 }
 \`\`\`
 
-### cookieOptions
+### session.cookieOptions
 - **Type**: \`CookieOptions\`
-- **Description**: Custom cookie options (applies to both auth and admin cookies)
+- **Description**: Custom cookie options for access/refresh tokens (when using session.accessTokenType: 'cookie')
 
 \`\`\`typescript
 {
-  cookieOptions: {
-    httpOnly: true,
-    secure: true, // HTTPS only
-    sameSite: 'strict',
-    domain: '.myapp.com',
+  session: {
+    cookieOptions: {
+      httpOnly: true,
+      secure: true, // HTTPS only
+      sameSite: 'strict',
+      domain: '.myapp.com',
+    },
   },
 }
 \`\`\`
 
 ---
 
-## JWT Configuration
+## Session JWT Configuration
 
-### jwt.secret
+### session.jwt.secret
 - **Type**: \`string\`
 - **Required**: Yes
 - **Description**: Secret key for signing JWT tokens
 
 \`\`\`typescript
 {
-  jwt: {
-    secret: process.env.JWT_SECRET || 'your-very-secret-key',
-  },
-}
-\`\`\`
-
-### jwt.accessTokenExpiresIn
-- **Type**: \`string | number\`
-- **Default**: \`'15m'\`
-- **Description**: Access token expiration time
-
-\`\`\`typescript
-{
-  jwt: {
-    accessTokenExpiresIn: '1h', // 1 hour
-    // or accessTokenExpiresIn: 3600, // seconds
-  },
-}
-\`\`\`
-
-### jwt.refreshTokenExpiresIn
-- **Type**: \`string | number\`
-- **Default**: \`'7d'\`
-- **Description**: Refresh token expiration time
-
-\`\`\`typescript
-{
-  jwt: {
-    refreshTokenExpiresIn: '30d', // 30 days
+  session: {
+    jwt: {
+      secret: process.env.JWT_SECRET || 'your-very-secret-key',
+    },
   },
 }
 \`\`\`
@@ -239,7 +216,7 @@ NestAuthModule.forRoot({
 }
 \`\`\`
 
-### session.sessionExpiry
+### session.accessTokenValidity
 - **Type**: \`string | number\`
 - **Default**: \`'7d'\`
 - **Description**: Session expiration time
@@ -247,7 +224,7 @@ NestAuthModule.forRoot({
 \`\`\`typescript
 {
   session: {
-    sessionExpiry: '30d', // 30 days
+    accessTokenValidity: '30d', // 30 days
   },
 }
 \`\`\`
@@ -339,19 +316,6 @@ NestAuthModule.forRoot({
 }
 \`\`\`
 
-### mfa.otpExpiresIn
-- **Type**: \`string | number\`
-- **Default**: \`'5m'\`
-- **Description**: OTP code expiration time
-
-\`\`\`typescript
-{
-  mfa: {
-    otpExpiresIn: '10m', // OTPs valid for 10 minutes
-  },
-}
-\`\`\`
-
 ### mfa.trustedDeviceDuration
 - **Type**: \`string | number\`
 - **Default**: \`undefined\`
@@ -360,7 +324,7 @@ NestAuthModule.forRoot({
 \`\`\`typescript
 {
   mfa: {
-    trustedDeviceDuration: '30d', // Trust device for 30 days
+    trustedDeviceDuration: '7d', // Trust device for 7 days
   },
 }
 \`\`\`
@@ -585,32 +549,6 @@ NestAuthModule.forRoot({
 
 ---
 
-## Password Reset Configuration
-
-### passwordResetOtpExpiresIn
-- **Type**: \`string | number\`
-- **Default**: \`'15m'\`
-- **Description**: Password reset OTP expiration time
-
-\`\`\`typescript
-{
-  passwordResetOtpExpiresIn: '30m', // 30 minutes
-}
-\`\`\`
-
-### passwordResetTokenExpiresIn
-- **Type**: \`string | number\`
-- **Default**: \`'1h'\`
-- **Description**: Password reset token expiration time
-
-\`\`\`typescript
-{
-  passwordResetTokenExpiresIn: '2h', // 2 hours
-}
-\`\`\`
-
----
-
 ## Admin Console Configuration
 
 ### adminConsole.enabled
@@ -708,9 +646,11 @@ NestAuthModule.forRootAsync({
   inject: [ConfigService],
   useFactory: async (configService: ConfigService) => ({
     appName: configService.get('APP_NAME'),
-    jwt: {
-      secret: configService.get('JWT_SECRET'),
-      accessTokenExpiresIn: configService.get('JWT_EXPIRES_IN'),
+    session: {
+      jwt: {
+        secret: configService.get('JWT_SECRET'),
+      },
+      accessTokenValidity: configService.get('JWT_EXPIRES_IN'),
     },
     mfa: {
       enabled: configService.get('MFA_ENABLED') === 'true',
@@ -733,28 +673,27 @@ NestAuthModule.forRootAsync({
 \`\`\`typescript
 NestAuthModule.forRoot({
   appName: 'My App',
-  accessTokenType: 'cookie',
   enableAutoRefresh: true,
-  jwt: {
-    secret: process.env.JWT_SECRET,
-    accessTokenExpiresIn: '15m',
-    refreshTokenExpiresIn: '7d',
-  },
   session: {
+    accessTokenType: 'cookie',
+    jwt: {
+      secret: process.env.JWT_SECRET,
+    },
     storageType: SessionStorageType.REDIS,
     redisUrl: process.env.REDIS_URL,
-    sessionExpiry: '7d',
+    accessTokenValidity: '15m',
+    refreshTokenValidity: '7d',
     maxSessionsPerUser: 3,
+    cookieOptions: {
+      secure: true,
+      sameSite: 'strict',
+    },
   },
   mfa: {
     enabled: true,
     required: false,
     methods: ['totp', 'email'],
-    trustedDeviceDuration: '30d',
-  },
-  cookieOptions: {
-    secure: true,
-    sameSite: 'strict',
+    trustedDeviceDuration: '7d',
   },
 })
 \`\`\`
@@ -763,11 +702,13 @@ NestAuthModule.forRoot({
 \`\`\`typescript
 NestAuthModule.forRoot({
   appName: 'My Mobile App',
-  accessTokenType: 'header', // Required for mobile
-  jwt: {
-    secret: process.env.JWT_SECRET,
-    accessTokenExpiresIn: '1h',
-    refreshTokenExpiresIn: '30d',
+  session: {
+    accessTokenType: 'header', // Required for mobile
+    jwt: {
+      secret: process.env.JWT_SECRET,
+    },
+    accessTokenValidity: '1h',
+    refreshTokenValidity: '30d',
   },
   mfa: {
     enabled: true,
@@ -781,10 +722,10 @@ NestAuthModule.forRoot({
 \`\`\`typescript
 NestAuthModule.forRoot({
   appName: 'Enterprise Platform',
-  jwt: {
-    secret: process.env.JWT_SECRET,
-  },
   session: {
+    jwt: {
+      secret: process.env.JWT_SECRET,
+    },
     storageType: SessionStorageType.DATABASE,
     maxSessionsPerUser: 10,
   },
@@ -809,8 +750,10 @@ NestAuthModule.forRoot({
 \`\`\`typescript
 NestAuthModule.forRoot({
   appName: 'My Simple App',
-  jwt: {
-    secret: process.env.JWT_SECRET,
+  session: {
+    jwt: {
+      secret: process.env.JWT_SECRET,
+    },
   },
   defaultTenant: {
     name: 'Default',

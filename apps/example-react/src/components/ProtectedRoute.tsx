@@ -6,7 +6,8 @@
  */
 
 import { Navigate, useLocation } from 'react-router-dom';
-import { useNestAuth } from '@ackplus/nest-auth-react';
+import { useAuth } from '../context/auth-context';
+import { needsTenantSelectionFromUserAccesses } from '../utils/tenant-access';
 import { Box, CircularProgress } from '@mui/material';
 
 interface ProtectedRouteProps {
@@ -27,7 +28,7 @@ interface ProtectedRouteProps {
  * to their originally requested page.
  */
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-    const { status, isAuthenticated } = useNestAuth();
+    const { status, isAuthenticated, user } = useAuth();
     const location = useLocation();
 
     // Still determining auth state - show loading
@@ -51,6 +52,11 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     if (!isAuthenticated) {
         // Save the attempted URL for redirect after login
         return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+
+    const needsTenantSelection = needsTenantSelectionFromUserAccesses(user?.userAccesses);
+    if (needsTenantSelection) {
+        return <Navigate to="/select-tenant" state={{ from: location }} replace />;
     }
 
     // Authenticated - render children

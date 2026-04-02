@@ -12,7 +12,11 @@ import {
     IForgotPasswordRequest as ForgotPasswordDto,
     IResetPasswordWithTokenRequest as ResetPasswordDto,
     IVerifyEmailRequest as VerifyEmailDto,
+    IVerifyForgotPasswordOtpRequest as VerifyForgotPasswordOtpDto,
     IResendVerificationRequest as ResendVerificationDto,
+    ISendEmailVerificationRequest as SendEmailVerificationDto,
+    ISendPhoneVerificationRequest as SendPhoneVerificationDto,
+    IVerifyPhoneRequest as VerifyPhoneDto,
     IChangePasswordRequest as ChangePasswordDto,
     IVerify2faRequest as Verify2faDto,
     IAuthResponse as AuthResponse,
@@ -26,6 +30,7 @@ import {
     IToggleMfaRequest,
     ISwitchTenantRequest,
     INestAuthUserAccess,
+    IPasswordlessSendRequest,
 } from '@ackplus/nest-auth-contracts';
 import {
     AuthClientConfig,
@@ -165,7 +170,7 @@ export class AuthClient {
             const tokens = await this.tokenManager.getTokens();
             if (tokens && tokens.accessToken && tokens.refreshToken) {
                 const trustToken = await this.tokenManager.getTrustToken();
-                
+
                 this.log('debug', 'emitTokensSetIfRestored: Tokens found in storage, emitting tokensSet event', {
                     hasAccessToken: !!tokens.accessToken,
                     hasRefreshToken: !!tokens.refreshToken,
@@ -236,7 +241,7 @@ export class AuthClient {
         }
 
         // Add authorization header if in header mode
-        if (this.tokenManager.isHeaderMode()) {
+        if (this.tokenManager.isHeaderMode() && !options?.skipAuthHeader) {
             const authHeader = await this.tokenManager.getAuthorizationHeader();
             if (authHeader) {
                 headers['Authorization'] = authHeader;
@@ -244,6 +249,7 @@ export class AuthClient {
             } else {
                 this.log('debug', 'buildHeaders: No auth header returned');
             }
+
         } else {
             this.log('debug', 'buildHeaders: Cookie mode - skipping Authorization header');
         }
@@ -292,8 +298,20 @@ export class AuthClient {
                 signal: options?.signal,
             });
         };
-
-        let response = await makeRequest();
+        let response: HttpResponse<T>;
+        try {
+            response = await makeRequest();
+        } catch (error) {
+            // Network error / adapter threw: return a consistent response shape
+            // so callers don't crash on `response.status`.
+            this.log('warn', 'AuthClient.request: HTTP adapter threw', { url, method, error });
+            response = {
+                status: 0,
+                ok: false,
+                data: null as any,
+                headers: {},
+            };
+        }
 
         // Handle 401 with token refresh
         if (
@@ -361,12 +379,12 @@ export class AuthClient {
                 accessToken: tokens.accessToken,
                 refreshToken: tokens.refreshToken,
             });
-            
+
             // Store trust token if present
             if (tokens.trustToken) {
                 await this.tokenManager.setTrustToken(tokens.trustToken);
             }
-            
+
             // Emit tokensSet event and wait for all listeners (include trust token if present)
             await this.events.emitAsync('tokensSet', {
                 accessToken: tokens.accessToken,
@@ -399,7 +417,7 @@ export class AuthClient {
                 accessToken: response.accessToken,
                 refreshToken: response.refreshToken,
             });
-            
+
             // Store trust token if present (works in both header and cookie mode)
             // In cookie mode, backend sets it as cookie, but we also store it for reference
             // In header mode, we need to send it in headers
@@ -407,7 +425,7 @@ export class AuthClient {
                 this.log('debug', 'handleAuthResponse: Storing trust token');
                 await this.tokenManager.setTrustToken(trustToken);
             }
-            
+
             // Emit tokensSet event and wait for all listeners (include trust token if present)
             await this.events.emitAsync('tokensSet', {
                 accessToken: response.accessToken,
@@ -431,7 +449,7 @@ export class AuthClient {
 
         // Create session and set active tenant from token, then user, then first membership, then config default
         const decoded = response.accessToken ? decodeJwt(response.accessToken) : null;
-        
+
         const activeTenantId = decoded?.tenantId;
 
         this.tenantId = activeTenantId;
@@ -504,12 +522,24 @@ export class AuthClient {
     }
 
     /**
+     * Passwordless — request a login code via email or SMS (`channel`).
+     */
+    async passwordlessSend(dto: IPasswordlessSendRequest, options?: RequestOptions): Promise<MessageResponse> {
+        const endpoint = this.getEndpoint('passwordlessSend');
+        const response = await this.request<MessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+        return response.data;
+    }
+
+
+    /**
      * Clear tokens, in-memory state, persisted state, and emit logout events.
      * Shared by logout() and logoutAll().
      */
     private async clearAuthState(): Promise<void> {
         await this.tokenManager.clearTokens();
-        await this.tokenManager.clearTrustToken();
         await this.events.emitAsync('tokensRemoved', undefined);
 
         this.user = null;
@@ -537,7 +567,7 @@ export class AuthClient {
             await this.request<MessageResponse>('POST', endpoint, undefined, { ...options, skipRefresh: true });
         } catch (error) {
             // Ignore logout errors - we'll clear local state anyway
-            this.log('debug', 'Logout API call failed (state will be cleared anyway)', error );
+            this.log('debug', 'Logout API call failed (state will be cleared anyway)', error);
         }
 
         await this.clearAuthState();
@@ -564,6 +594,7 @@ export class AuthClient {
      */
     async refresh(dto?: RefreshDto, options?: RequestOptions): Promise<TokenPair> {
         // Use refresh queue to prevent parallel refresh calls
+        console.log('refresh called');
         return this.refreshQueue.refresh(async () => {
             const endpoint = this.getEndpoint('refresh');
             let body: RefreshDto | undefined = dto;
@@ -576,12 +607,24 @@ export class AuthClient {
                 }
             }
 
-            const response = await this.request<AuthResponse>('POST', endpoint, body, { ...options, skipRefresh: true });
+            const response = await this.request<AuthResponse>('POST', endpoint, body, { ...options, skipAuthHeader: true, skipRefresh: true });
 
             if (!response.ok) {
                 // Refresh failed - logout
                 await this.logout();
                 throw this.handleError(response);
+            }
+
+            if (this.tokenManager.isCookieMode()) {
+                // Cookies already updated by server
+                this.events.emit('tokenRefreshed', null as any);
+                return null;
+            }
+            if (!response.data.accessToken || !response.data.refreshToken) {
+                throw {
+                    message: 'Refresh response missing tokens in header mode',
+                    statusCode: 500,
+                };
             }
 
             const tokens: TokenPair = {
@@ -630,7 +673,6 @@ export class AuthClient {
     async verifySession(options?: RequestOptions): Promise<{ valid: boolean; userId?: string; expiresAt?: string }> {
         const endpoint = this.getEndpoint('verifySession');
         const response = await this.request<{ valid: boolean; userId?: string; expiresAt?: string }>('GET', endpoint, undefined, options);
-
         if (!response.ok) {
             if (response.status === 401) {
                 // Unauthenticated - clear state
@@ -681,9 +723,9 @@ export class AuthClient {
     }
 
     /**
-     * Verify forgot password OTP
+     * Verify forgot-password flow using the emailed/SMS `code` (not the MFA `otp` field).
      */
-    async verifyForgotPasswordOtp(dto: { email?: string; phone?: string; otp: string }, options?: RequestOptions): Promise<VerifyOtpResponse> {
+    async verifyForgotPasswordOtp(dto: VerifyForgotPasswordOtpDto, options?: RequestOptions): Promise<VerifyOtpResponse> {
         const endpoint = this.getEndpoint('verifyForgotPasswordOtp');
         const response = await this.request<VerifyOtpResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
 
@@ -726,6 +768,35 @@ export class AuthClient {
     // Public API - Email Verification
     // ============================================================================
 
+
+    /**
+     * Request a new email verification code (authenticated). Body matches {@link ISendEmailVerificationRequest}.
+     */
+    async sendEmailVerification(dto: SendEmailVerificationDto = {}, options?: RequestOptions): Promise<MessageResponse> {
+        const endpoint = this.getEndpoint('sendEmailVerification');
+        const response = await this.request<MessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        return response.data;
+    }
+
+    /**
+     * Request a phone verification SMS (authenticated).
+     */
+    async sendPhoneVerification(dto: SendPhoneVerificationDto = {}, options?: RequestOptions): Promise<MessageResponse> {
+        const endpoint = this.getEndpoint('sendPhoneVerification');
+        const response = await this.request<MessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        return response.data;
+    }
+
     /**
      * Verify email address
      */
@@ -747,10 +818,10 @@ export class AuthClient {
     }
 
     /**
-     * Resend verification email
+     * Verify phone number with the SMS `code` (not the MFA `otp` field).
      */
-    async resendVerification(dto: ResendVerificationDto, options?: RequestOptions): Promise<MessageResponse> {
-        const endpoint = this.getEndpoint('resendVerification');
+    async verifyPhone(dto: VerifyPhoneDto, options?: RequestOptions): Promise<MessageResponse> {
+        const endpoint = this.getEndpoint('verifyPhone');
         const response = await this.request<MessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
 
         if (!response.ok) {
@@ -788,23 +859,9 @@ export class AuthClient {
         if (!response.ok) {
             throw this.handleError(response);
         }
-
-        const responseData = response.data as any;
-        this.log('debug', 'verify2fa: Response received', {
-            hasAccessToken: !!responseData.accessToken,
-            hasRefreshToken: !!responseData.refreshToken,
-            hasUser: !!responseData.user,
-            userData: responseData.user ? {
-                id: responseData.user.id,
-                email: responseData.user.email,
-                roles: responseData.user.roles,
-                permissions: responseData.user.permissions,
-            } : null,
-        });
-
         // Cast to AuthResponse to handle user data properly
         await this.handleAuthResponse(response.data as AuthResponse);
-        
+
         this.log('debug', 'verify2fa: State updated', {
             userSet: !!this.user,
             sessionSet: !!this.session,
@@ -959,7 +1016,7 @@ export class AuthClient {
         this.tenantId = id;
         if (this.session) {
             this.session = { ...this.session, tenantId: id };
-            this.persistState().catch((error) =>  this.log('warn', 'Failed to persist tenant change', error))
+            this.persistState().catch((error) => this.log('warn', 'Failed to persist tenant change', error))
         }
     }
 

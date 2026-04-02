@@ -54,8 +54,8 @@ import { NestAuthModule } from '@ackplus/nest-auth';
     NestAuthModule.forRoot({
       isGlobal: true,
       session: {
-        accessTokenExpiry: '15m',
-        refreshTokenExpiry: '7d',
+        accessTokenValidity: '15m',
+        refreshTokenValidity: '7d',
       },
       // ... other config
     }),

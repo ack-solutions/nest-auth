@@ -37,10 +37,6 @@ export class AdminConsoleController implements OnModuleInit {
     if (this.config.getConfig().enabled === false) {
       return;
     }
-    if (!existsSync(this.indexPath)) {
-      this.logger.error('Admin console index.html not found at startup', { path: this.indexPath });
-      throw new Error(`Admin console index.html not found at ${this.indexPath}`);
-    }
     try {
       this.cachedIndexHtml = readFileSync(this.indexPath, 'utf8');
       this.logger.log('Admin console index.html cached successfully');

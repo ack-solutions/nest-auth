@@ -33,6 +33,7 @@ export const Dialog: React.FC<DialogProps> = ({
     return (
         <MuiDialog
             fullScreen={fullScreen}
+            fullWidth
             slotProps={{
                 paper: {
                     sx: {

@@ -21,10 +21,11 @@ export interface INestAuthMFASecret {
 export interface INestAuthTrustedDevice {
     id: string;
     userId: string;
-    token: string;
+    tokenHash: string;
     userAgent?: string;
     ipAddress?: string;
     expiresAt: Date;
+    revokedAt?: Date | null;
     lastUsedAt?: Date;
     createdAt: Date;
 }

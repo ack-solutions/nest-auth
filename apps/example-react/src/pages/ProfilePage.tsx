@@ -7,7 +7,7 @@
  * - Email verification status
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNestAuth } from '@ackplus/nest-auth-react';
 import { useSnackbar } from 'notistack';
 import {
@@ -25,15 +25,14 @@ import {
     Chip,
 } from '@mui/material';
 import {
-    Person as PersonIcon,
     Email as EmailIcon,
-    Phone as PhoneIcon,
     Save as SaveIcon,
     Verified as VerifiedIcon,
 } from '@mui/icons-material';
 
-// API configuration
-const API_BASE_URL = 'http://localhost:3000';
+import { TotpManagement } from '../components/mfa/totp-management';
+import type { ProfileResponse } from '../services/profile.service';
+import { profileService } from '../services/profile.service';
 
 /**
  * ProfilePage Component
@@ -42,11 +41,11 @@ const API_BASE_URL = 'http://localhost:3000';
  * Uses the /profile endpoint from the example backend.
  */
 export default function ProfilePage() {
-    const { user, client } = useNestAuth();
+    const { user } = useNestAuth();
     const { enqueueSnackbar } = useSnackbar();
 
     // Profile data state
-    const [profile, setProfile] = useState<any>(null);
+    const [profile, setProfile] = useState<ProfileResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -58,35 +57,16 @@ export default function ProfilePage() {
     const [phone, setPhone] = useState('');
 
     /**
-     * Fetch profile data on mount
-     */
-    useEffect(() => {
-        fetchProfile();
-    }, []);
-
-    /**
      * Fetch profile from API
      */
-    const fetchProfile = async () => {
+    const fetchProfile = useCallback(async () => {
         setLoading(true);
         setError(null);
 
         try {
-            // Get access token for authenticated request
-            const token = await client.getAccessToken();
 
-            const response = await fetch(`${API_BASE_URL}/profile`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-            });
 
-            if (!response.ok) {
-                throw new Error('Failed to fetch profile');
-            }
-
-            const data = await response.json();
+            const data = await profileService.getProfile();
             setProfile(data);
 
             // Initialize form with fetched data
@@ -95,12 +75,21 @@ export default function ProfilePage() {
             setDisplayName(data.displayName || '');
             setPhone(data.phone || '');
 
-        } catch (err: any) {
-            setError(err.message || 'Failed to load profile');
+        } catch (err: unknown) {
+            console.error('Failed to load profile:', err);
+            const maybeError = err as { message?: string };
+            setError(maybeError.message || 'Failed to load profile');
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    /**
+     * Fetch profile data on mount
+     */
+    useEffect(() => {
+        void fetchProfile();
+    }, [fetchProfile]);
 
     /**
      * Save profile changes
@@ -110,34 +99,20 @@ export default function ProfilePage() {
         setError(null);
 
         try {
-            const token = await client.getAccessToken();
-
-            const response = await fetch(`${API_BASE_URL}/profile`, {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    firstName: firstName.trim(),
-                    lastName: lastName.trim(),
-                    displayName: displayName.trim(),
-                    phone: phone.trim(),
-                }),
+            const resp = await profileService.updateProfile({
+                firstName: firstName.trim(),
+                lastName: lastName.trim(),
+                displayName: displayName.trim(),
+                phone: phone.trim(),
             });
-
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.message || 'Failed to update profile');
-            }
-
-            const data = await response.json();
-            setProfile(data.profile);
+            setProfile(resp.profile);
 
             enqueueSnackbar('Profile updated successfully!', { variant: 'success' });
 
-        } catch (err: any) {
-            setError(err.message || 'Failed to save profile');
+        } catch (err: unknown) {
+            console.error('Failed to save profile:', err);
+            const maybeError = err as { message?: string };
+            setError(maybeError.message || 'Failed to save profile');
             enqueueSnackbar('Failed to update profile', { variant: 'error' });
         } finally {
             setSaving(false);
@@ -178,7 +153,7 @@ export default function ProfilePage() {
 
             <Grid container spacing={3}>
                 {/* Profile Card */}
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 4 }}>
                     <Card>
                         <CardContent sx={{ textAlign: 'center', py: 4 }}>
                             <Avatar
@@ -223,7 +198,7 @@ export default function ProfilePage() {
                 </Grid>
 
                 {/* Edit Form Card */}
-                <Grid item xs={12} md={8}>
+                <Grid size={{ xs: 12, md: 8 }}>
                     <Card>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>
@@ -234,7 +209,7 @@ export default function ProfilePage() {
                             </Typography>
 
                             <Grid container spacing={2}>
-                                <Grid item xs={12} sm={6}>
+                                <Grid size={{ xs: 12, sm: 6 }}>
                                     <TextField
                                         fullWidth
                                         label="First Name"
@@ -243,7 +218,7 @@ export default function ProfilePage() {
                                         disabled={saving}
                                     />
                                 </Grid>
-                                <Grid item xs={12} sm={6}>
+                                <Grid size={{ xs: 12, sm: 6 }}>
                                     <TextField
                                         fullWidth
                                         label="Last Name"
@@ -252,7 +227,7 @@ export default function ProfilePage() {
                                         disabled={saving}
                                     />
                                 </Grid>
-                                <Grid item xs={12}>
+                                <Grid size={{ xs: 12 }}>
                                     <TextField
                                         fullWidth
                                         label="Display Name"
@@ -262,7 +237,7 @@ export default function ProfilePage() {
                                         helperText="Your public display name"
                                     />
                                 </Grid>
-                                <Grid item xs={12}>
+                                <Grid size={{ xs: 12 }}>
                                     <TextField
                                         fullWidth
                                         label="Phone Number"
@@ -303,6 +278,11 @@ export default function ProfilePage() {
                             </Box>
                         </CardContent>
                     </Card>
+                </Grid>
+
+                {/* MFA / TOTP Management */}
+                <Grid size={12}>
+                    <TotpManagement />
                 </Grid>
             </Grid>
         </Box>

@@ -52,7 +52,9 @@ async function bootstrap() {
       'X-Requested-With',
       'Accept',
       'Origin',
-      'X-Tenant-Id', // For multi-tenant applications
+      // AuthClient sends these (see @ackplus/nest-auth-client buildHeaders)
+      'x-access-token-type', // header vs cookie mode; required or browser blocks preflight
+      'nest_auth_device_trust', // MFA trusted-device token in header mode (configurable name)
     ],
     // Headers exposed to the client
     exposedHeaders: ['Set-Cookie'],
@@ -88,32 +90,6 @@ async function bootstrap() {
    */
   const config = new DocumentBuilder()
     .setTitle('NestAuth Example API')
-    .setDescription(
-      `
-      ## Complete Authentication API Reference
-
-      This API demonstrates all authentication features of @ackplus/nest-auth:
-
-      ### Authentication
-      - User registration and login
-      - JWT-based session management
-      - Password reset flow
-
-      ### Multi-Factor Authentication
-      - TOTP setup (Google Authenticator)
-      - MFA verification during login
-      - Recovery code generation
-
-      ### Session Management
-      - List active sessions
-      - Revoke individual sessions
-      - Logout from all devices
-
-      ### User Profile
-      - View and update profile
-      - Change password
-      `
-    )
     .setVersion('1.0')
     .addTag('auth', 'Authentication endpoints (login, signup, password reset)')
     .addTag('mfa', 'Multi-factor authentication endpoints')
@@ -159,31 +135,7 @@ async function bootstrap() {
   const port = process.env.PORT ?? 3333;
   await app.listen(port);
 
-  console.log(`
-╔═══════════════════════════════════════════════════════════╗
-║                  NestAuth Example API                      ║
-╠═══════════════════════════════════════════════════════════╣
-║  🚀 Server running on: http://localhost:${port}              ║
-║  📚 Swagger docs:      http://localhost:${port}/api          ║
-║                                                            ║
-║  Auth Endpoints:                                           ║
-║  • POST /auth/signup     - Register new user               ║
-║  • POST /auth/login      - Login with credentials          ║
-║  • POST /auth/logout     - Logout current session          ║
-║  • POST /auth/refresh    - Refresh access token            ║
-║  • GET  /auth/me         - Get current user                ║
-║                                                            ║
-║  MFA Endpoints:                                            ║
-║  • GET  /auth/mfa/status - Get MFA status                  ║
-║  • POST /auth/mfa/setup-totp     - Setup authenticator     ║
-║  • POST /auth/mfa/verify-totp-setup - Verify setup         ║
-║                                                            ║
-║  Session Endpoints:                                        ║
-║  • GET    /sessions      - List active sessions            ║
-║  • DELETE /sessions/:id  - Revoke specific session         ║
-║  • DELETE /sessions      - Revoke all sessions             ║
-╚═══════════════════════════════════════════════════════════╝
-  `);
+  console.log(`Server running on: http://localhost:${port}`);
 }
 
 bootstrap();

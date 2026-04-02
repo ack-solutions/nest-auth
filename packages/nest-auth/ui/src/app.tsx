@@ -3,7 +3,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { api } from './services/api';
+import { api, ApiError } from './services/api';
 import { ConfirmProvider } from './hooks/use-confirm';
 import { ClientConfigProvider } from './hooks/use-client-config';
 import type { DashboardConfig } from './types';
@@ -56,8 +56,12 @@ export const App: React.FC = () => {
             setAuthenticated(true);
             const configData = await api.get<DashboardConfig>('/config');
             setConfig(configData);
-        } catch (err: any) {
-            console.error('Auth check failed:', err);
+        } catch (err: unknown) {
+            const status = err instanceof ApiError ? err.status : undefined;
+            const expectedUnauthenticated = status === 401 || status === 403;
+            if (!expectedUnauthenticated) {
+                console.error('Auth check failed:', err);
+            }
             setAuthenticated(false);
             try {
                 const configData = await api.get<DashboardConfig>('/config');

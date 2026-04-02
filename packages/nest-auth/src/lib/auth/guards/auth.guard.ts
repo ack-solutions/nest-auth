@@ -104,12 +104,11 @@ export class NestAuthAuthGuard implements CanActivate {
                     }
             }
         } catch (error) {
-            this.debugLogger.logError(error as Error, 'AuthGuard', { isOptional, authType });
             if (isOptional) {
                 // If optional auth fails, silently proceed without user data (e.g. invalid token)
                 return true;
             } else {
-                // If required auth fails, re-throw the error
+                // If required auth fails, re-throw so Nest returns the right HTTP status
                 throw error;
             }
         }
@@ -138,7 +137,7 @@ export class NestAuthAuthGuard implements CanActivate {
      */
     private extractToken(request: Request): { token: string | null; authType: 'bearer' | 'apikey' | null } {
         const config = this.authConfigService.getConfig();
-        const accessTokenType = config.accessTokenType;
+        const accessTokenType = config.session?.accessTokenType ?? null;
 
         // Determine which sources to check based on configuration
         const checkHeader = accessTokenType !== 'cookie';
@@ -213,8 +212,8 @@ export class NestAuthAuthGuard implements CanActivate {
                 });
             }
 
-            if (config.jwt?.validateToken) {
-                const isValid = await config.jwt.validateToken(payload, session);
+            if (config.session?.jwt?.validateToken) {
+                const isValid = await config.session.jwt.validateToken(payload, session);
                 if (!isValid) {
                     throw new UnauthorizedException({
                         message: 'Token validation failed',
@@ -308,7 +307,6 @@ export class NestAuthAuthGuard implements CanActivate {
 
             return true;
         } catch (error) {
-            this.debugLogger.logError(error as Error, 'AuthGuard.handleApiKeyAuth');
             if (isOptional) {
                 return true;
             } else {
@@ -372,7 +370,7 @@ export class NestAuthAuthGuard implements CanActivate {
 
         // Prefer session data for authorization checks as it has complete role/permission information
         // Token payload may have partial role data (permissions are removed for security)
-        const rolesForAuth = session?.data?.roles || user.roles || [];
+        const rolesForAuth = session?.data?.roles || user.userAccesses?.map(access => access.roles).flat() || [];
         const permissionsForAuth = session?.data?.permissions;
 
         // Check roles if required (also checks guard if specified)

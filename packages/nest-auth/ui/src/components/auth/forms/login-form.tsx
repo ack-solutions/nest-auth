@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import Icon from '@mui/material/Icon';
-import { useForm } from 'react-hook-form';
+import { FormProvider, useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Box, Paper, Typography, Stack } from '@mui/material';
@@ -30,18 +30,18 @@ export const LoginFormComponent: React.FC<LoginFormProps> = ({
 }) => {
     const [internalError, setInternalError] = useState('');
 
-    const {
-        control,
-        handleSubmit,
-        formState: { isSubmitting },
-        reset,
-    } = useForm<LoginForm>({
+    const methods = useForm<LoginForm>({
         resolver: yupResolver(loginSchema) as any,
         defaultValues: {
             email: '',
             password: '',
         },
     });
+    const {
+        handleSubmit,
+        formState: { isSubmitting },
+        reset,
+    } = methods;
 
     const onSubmit = async (data: LoginForm) => {
         try {
@@ -81,26 +81,27 @@ export const LoginFormComponent: React.FC<LoginFormProps> = ({
                 </Box>
             )}
 
-            <form onSubmit={handleSubmit(onSubmit)}>
-                <Stack spacing={2}>
-                    <RHFTextField
-                        name="email"
-                        label="Email Address"
-                        disabled={isSubmitting}
-                        placeholder="admin@example.com"
-                        autoComplete="username"
-                    />
-
-                    <Box>
-                        <RHFPasswordField
-                            name="password"
-                            label="Password"
+            <FormProvider {...methods}>
+                <form onSubmit={handleSubmit(onSubmit)}>
+                    <Stack spacing={2}>
+                        <RHFTextField
+                            name="email"
+                            label="Email Address"
                             disabled={isSubmitting}
-                            placeholder="••••••••"
-                            autoComplete="current-password"
-                            hideShowToggle={false}
-                            required
+                            placeholder="admin@example.com"
+                            autoComplete="username"
                         />
+
+                        <Box>
+                            <RHFPasswordField
+                                name="password"
+                                label="Password"
+                                disabled={isSubmitting}
+                                placeholder="••••••••"
+                                autoComplete="current-password"
+                                hideShowToggle={false}
+                                required
+                            />
                         <Box sx={{ mt: 1, textAlign: 'right' }}>
                             <Button
                                 type="button"
@@ -134,9 +135,10 @@ export const LoginFormComponent: React.FC<LoginFormProps> = ({
                         ) : (
                             'Sign In'
                         )}
-                    </Button>
-                </Stack>
-            </form>
+                        </Button>
+                    </Stack>
+                </form>
+            </FormProvider>
 
             <Box sx={{ mt: 3 }}>
 

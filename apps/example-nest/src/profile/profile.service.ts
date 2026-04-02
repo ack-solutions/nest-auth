@@ -11,6 +11,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { NestAuthUser } from '@ackplus/nest-auth';
 import { ProfileResponseDto, UpdateProfileDto, UpdateProfileResponseDto } from './dto/profile.dto';
+import { AppUser } from '../user/user.entity';
 
 @Injectable()
 export class ProfileService {
@@ -25,9 +26,14 @@ export class ProfileService {
      */
     async getProfile(userId: string): Promise<ProfileResponseDto> {
         // Fetch user from database for fresh data
-        const user = await NestAuthUser.findOne({
-            where: { id: userId },
-        });
+        const [user, appUser] = await Promise.all([
+            NestAuthUser.findOne({
+                where: { id: userId },
+            }),
+            AppUser.findOne({
+                where: { authUserId: userId },
+            }),
+        ]);
 
         if (!user) {
             throw new NotFoundException({
@@ -36,7 +42,7 @@ export class ProfileService {
             });
         }
 
-        return this.toProfileResponse(user);
+        return this.toProfileResponse(user, appUser ?? null);
     }
 
     /**
@@ -94,9 +100,16 @@ export class ProfileService {
         // Save changes
         await user.save();
 
+        // Keep app-specific user details in sync for fields we already manage here.
+        const existingAppUser = await AppUser.findOne({ where: { authUserId: userId } });
+        const appUser = existingAppUser ?? AppUser.create({ authUserId: userId });
+        if (dto.firstName !== undefined) appUser.firstName = dto.firstName;
+        if (dto.lastName !== undefined) appUser.lastName = dto.lastName;
+        await appUser.save();
+
         return {
             message: 'Profile updated successfully',
-            profile: this.toProfileResponse(user),
+            profile: this.toProfileResponse(user, appUser),
         };
     }
 
@@ -107,18 +120,24 @@ export class ProfileService {
      * Excludes sensitive fields like password hash.
      * Extracts profile fields from metadata JSON.
      */
-    private toProfileResponse(user: NestAuthUser): ProfileResponseDto {
+    private toProfileResponse(user: NestAuthUser, appUser: AppUser | null): ProfileResponseDto {
         const metadata = user.metadata || {};
+        const firstName = appUser?.firstName ?? metadata.firstName;
+        const lastName = appUser?.lastName ?? metadata.lastName;
+        const gender = appUser?.gender ?? metadata.gender;
+        const dob = appUser?.dob ?? metadata.dob;
 
         return {
             id: user.id,
             email: user.email,
-            firstName: metadata.firstName,
-            lastName: metadata.lastName,
-            fullName: this.getFullName(metadata),
+            firstName,
+            lastName,
+            fullName: this.getFullName({ firstName, lastName }),
             displayName: metadata.displayName,
             avatarUrl: metadata.avatarUrl,
             phone: user.phone,
+            gender,
+            dob,
             isVerified: user.isVerified,
             isMfaEnabled: user.isMfaEnabled,
             createdAt: user.createdAt,

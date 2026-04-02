@@ -32,6 +32,7 @@ export const UsersPage: React.FC = () => {
     const [tenants, setTenants] = useState<Tenant[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
     const { tenantMode } = useClientConfig();
+    const showTenants = tenantMode !== null;
     const [error, setError] = useState('');
     const [createError, setCreateError] = useState('');
     const [loading, setLoading] = useState(true);
@@ -70,7 +71,7 @@ export const UsersPage: React.FC = () => {
                 params.append('status', filterStatus);
             }
 
-            if (filterTenant) {
+            if (showTenants && filterTenant) {
                 params.append('tenantId', filterTenant);
             }
 
@@ -108,7 +109,7 @@ export const UsersPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [page, limit, searchTerm, filterStatus, filterTenant, filterRole]);
+    }, [page, limit, searchTerm, filterStatus, filterTenant, filterRole, showTenants]);
 
     const loadTenants = useCallback(async () => {
         try {
@@ -136,6 +137,12 @@ export const UsersPage: React.FC = () => {
         loadTenants();
         loadRoles();
     }, [loadTenants, loadRoles]);
+
+    useEffect(() => {
+        if (!showTenants) {
+            setFilterTenant('');
+        }
+    }, [showTenants]);
 
     const handleCreateUser = async (data: UserFormData) => {
         setCreateError('');
@@ -198,16 +205,18 @@ export const UsersPage: React.FC = () => {
                 </Box>
             ),
         },
-        {
-            key: 'tenantId',
-            label: 'Tenants',
-            render: (user) => {
-                const tenantNames = user.userAccesses?.map((a) => a.tenant?.name) ?? [];
-                return (
-                    <Typography variant="body2">{tenantNames.join(', ')}</Typography>
-                );
-            },
-        },
+        ...(showTenants
+            ? [
+                {
+                    key: 'tenantId',
+                    label: 'Tenants',
+                    render: (user) => {
+                        const tenantNames = user.userAccesses?.map((a) => a.tenant?.name) ?? [];
+                        return <Typography variant="body2">{tenantNames.join(', ')}</Typography>;
+                    },
+                },
+            ]
+            : []),
         {
             key: 'status',
             label: 'Status',
@@ -234,7 +243,7 @@ export const UsersPage: React.FC = () => {
                                     <Chip key={`${role}-${i}`} size="small" label={role} sx={{ bgcolor: 'secondary.50', color: 'secondary.dark', fontSize: '0.75rem', height: 22 }} />
                                 ))}
                                 {totalRoles > 2 && <Typography variant="caption" color="text.secondary">+{totalRoles - 2}</Typography>}
-                                {tenantCount > 1 && <Typography variant="caption" color="text.disabled">· {tenantCount} tenants</Typography>}
+                                {showTenants && tenantCount > 1 && <Typography variant="caption" color="text.disabled">· {tenantCount} tenants</Typography>}
                             </>
                         ) : (
                             <Typography variant="body2" color="text.disabled">No roles</Typography>
@@ -390,18 +399,20 @@ export const UsersPage: React.FC = () => {
                                         <MenuItem value="verified">Verified</MenuItem>
                                         <MenuItem value="unverified">Unverified</MenuItem>
                                     </TextField>
-                                    <TextField
-                                        select
-                                        sx={{ minWidth: 160 }}
-                                        value={filterTenant}
-                                        onChange={(e) => { setFilterTenant(e.target.value); setPage(1); }}
-                                        SelectProps={{ displayEmpty: true }}
-                                    >
-                                        <MenuItem value=""><em>Tenant</em></MenuItem>
-                                        {tenants.map((t) => (
-                                            <MenuItem key={t.id} value={t.id}>{t.name || t.slug || t.id}</MenuItem>
-                                        ))}
-                                    </TextField>
+                                    {showTenants && (
+                                        <TextField
+                                            select
+                                            sx={{ minWidth: 160 }}
+                                            value={filterTenant}
+                                            onChange={(e) => { setFilterTenant(e.target.value); setPage(1); }}
+                                            SelectProps={{ displayEmpty: true }}
+                                        >
+                                            <MenuItem value=""><em>Tenant</em></MenuItem>
+                                            {tenants.map((t) => (
+                                                <MenuItem key={t.id} value={t.id}>{t.name || t.slug || t.id}</MenuItem>
+                                            ))}
+                                        </TextField>
+                                    )}
                                     <TextField
                                         select
                                         sx={{ minWidth: 180 }}
@@ -414,20 +425,20 @@ export const UsersPage: React.FC = () => {
                                             <MenuItem key={r.id} value={r.name}>{`${r.name} (${r.guard})`}</MenuItem>
                                         ))}
                                     </TextField>
-                                    {(filterStatus !== 'all' || filterTenant || filterRole) && (
+                                    {(filterStatus !== 'all' || (showTenants && filterTenant) || filterRole) && (
                                         <Button size="small" onClick={() => { setFilterStatus('all'); setFilterTenant(''); setFilterRole(''); setPage(1); }} sx={{ typography: 'body2', fontWeight: 500, flexShrink: 0 }}>
                                             Clear all
                                         </Button>
                                     )}
                                 </Stack>
                             </Stack>
-                            {(filterStatus !== 'all' || filterTenant || filterRole) && (
+                            {(filterStatus !== 'all' || (showTenants && filterTenant) || filterRole) && (
                                 <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1} alignItems="center" sx={{ pt: 1, borderTop: 1, borderColor: 'divider' }}>
                                     <Typography variant="caption" fontWeight={500} color="text.secondary">Active:</Typography>
                                     {filterStatus !== 'all' && (
                                         <Chip size="small" label={filterStatus} onDelete={() => { setFilterStatus('all'); setPage(1); }} color="primary" sx={{ height: 24 }} />
                                     )}
-                                    {filterTenant && (
+                                    {showTenants && filterTenant && (
                                         <Chip size="small" icon={<Icon component={Building2} sx={{ fontSize: 12 }} />} label={tenants.find(t => t.id === filterTenant)?.name || 'Tenant'} onDelete={() => { setFilterTenant(''); setPage(1); }} sx={{ height: 24, bgcolor: 'secondary.50', color: 'secondary.dark' }} />
                                     )}
                                     {filterRole && (

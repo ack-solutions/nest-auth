@@ -11,6 +11,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { NestAuthUser } from '../user/entities/user.entity';
 import { PasswordService } from './services/password.service';
 import { VerificationService } from './services/verification.service';
+import { OtpFlowService } from './services/otp-flow.service';
 import { NestAuthOTP } from './entities/otp.entity';
 import { NestAuthMFASecret } from './entities/mfa-secret.entity';
 import { NestAuthAccessKey } from '../user/entities/access-key.entity';
@@ -49,12 +50,14 @@ import { PermissionModule } from '../permission';
         AuthSessionEventListener,
         PasswordService,
         VerificationService,
+        OtpFlowService,
     ],
     controllers: [AuthController, MfaController],
     exports: [
         AuthService,
         PasswordService,
         VerificationService,
+        OtpFlowService,
         MfaService,
         NestAuthAuthGuard,
         TokenResponseInterceptor,

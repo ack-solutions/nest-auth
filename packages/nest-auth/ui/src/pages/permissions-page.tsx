@@ -3,7 +3,6 @@ import { Key, Plus, Trash2, Pencil } from 'lucide-react';
 import Icon from '@mui/material/Icon';
 import { api } from '../services/api';
 import { useConfirm } from '../hooks/use-confirm';
-import { useRoleGuards } from '../hooks/use-role-guards';
 import type { Permission } from '../types';
 import { PageHeader } from '../components/page-header';
 import Button from '@mui/material/Button';
@@ -23,6 +22,7 @@ import { Table, Column, PaginationInfo } from '../components/table';
 import { CreatePermissionDialog } from '../components/permission/create-permission-dialog';
 import { EditPermissionDialog } from '../components/permission/edit-permission-dialog';
 import type { PermissionFormData } from '../components/permission/permission-form';
+import { useClientConfig } from '@/hooks/use-client-config';
 
 export const PermissionsPage: React.FC = () => {
     const [permissions, setPermissions] = useState<Permission[]>([]);
@@ -35,7 +35,7 @@ export const PermissionsPage: React.FC = () => {
     const [filterCategory, setFilterCategory] = useState<string>('all');
     const [selectedGuard, setSelectedGuard] = useState<string>('all');
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const { guardOptions, helperText: guardHelperText } = useRoleGuards();
+    const { roleGuards } = useClientConfig();
     const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
     const [categories, setCategories] = useState<string[]>([]);
     const [pagination, setPagination] = useState<PaginationInfo>({
@@ -184,7 +184,7 @@ export const PermissionsPage: React.FC = () => {
 
     const guardFilterOptions: Array<{ value: string; label: string }> = [
         { value: 'all', label: 'All Guards' },
-        ...guardOptions.map((opt) => ({ value: opt.value, label: opt.label })),
+        ...roleGuards.map((opt) => ({ value: opt, label: opt })),
     ];
 
     const columns: Column<Permission>[] = [
@@ -361,11 +361,6 @@ export const PermissionsPage: React.FC = () => {
                         </TextField>
                     </Box>
                 </Stack>
-                {guardHelperText && (
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5 }}>
-                        {guardHelperText}
-                    </Typography>
-                )}
             </Paper>
 
             {error && (

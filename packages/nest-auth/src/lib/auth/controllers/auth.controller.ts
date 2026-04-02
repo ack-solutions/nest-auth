@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, UseGuards, Res, HttpCode, Query, Param, UnauthorizedException, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Res, HttpCode, Query, Param, UnauthorizedException, Req, BadRequestException } from '@nestjs/common';
 import { AuthService } from '../services/auth.service';
 import { NestAuthVerify2faRequestDto } from '../dto/requests/verify-2fa.request.dto';
 import { NestAuthRefreshTokenRequestDto } from '../dto/requests/refresh-token.request.dto';
@@ -15,6 +15,8 @@ import {
     NestAuthPasswordResetResponseDto,
     NestAuthEmailVerificationSentResponseDto,
     NestAuthEmailVerifiedResponseDto,
+    NestAuthPhoneVerificationSentResponseDto,
+    NestAuthPhoneVerifiedResponseDto,
     NestAuthMfaCodeSentResponseDto
 } from '../dto/responses/auth-messages.response.dto';
 import { NestAuthLoginRequestDto } from '../dto/requests/login.request.dto';
@@ -29,6 +31,8 @@ import { VerifyOtpResponseDto } from '../dto/responses/verify-otp.response.dto';
 import { NestAuthChangePasswordRequestDto } from '../dto/requests/change-password.request.dto';
 import { NestAuthSendEmailVerificationRequestDto } from '../dto/requests/send-email-verification.request.dto';
 import { NestAuthVerifyEmailRequestDto } from '../dto/requests/verify-email.request.dto';
+import { NestAuthSendPhoneVerificationRequestDto } from '../dto/requests/send-phone-verification.request.dto';
+import { NestAuthVerifyPhoneRequestDto } from '../dto/requests/verify-phone.request.dto';
 import { NestAuthSwitchTenantRequestDto } from '../dto/requests/switch-tenant.request.dto';
 import { ACCESS_TOKEN_COOKIE_NAME, REFRESH_TOKEN_COOKIE_NAME } from '../../auth.constants';
 
@@ -42,6 +46,8 @@ import { Auth } from '../../core/decorators/auth.decorator';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { TenantService } from '../../tenant/services/tenant.service';
 import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
+import { NestAuthPasswordlessSendRequestDto } from '../dto/requests/passwordless-send.request.dto';
+import { CookieHelper } from '../../utils/cookie.helper';
 
 @Controller('auth')
 @UseFilters(AuthExceptionFilter)
@@ -94,6 +100,15 @@ export class AuthController {
         };
     }
 
+    @ApiOperation({ summary: 'Passwordless — send login code (email or SMS)' })
+    @ApiResponse({ status: 200, type: MessageResponseDto })
+    @HttpCode(200)
+    @Post('passwordless/send')
+    @SkipMfa()
+    async passwordlessSend(@Body() input: NestAuthPasswordlessSendRequestDto): Promise<MessageResponseDto> {
+        return this.authService.passwordlessSend(input);
+    }
+
     @ApiOperation({
         summary: 'Refresh Token',
         description: 'Refresh access token. Response format depends on accessTokenType configuration:\n' +
@@ -105,8 +120,22 @@ export class AuthController {
     @HttpCode(200)
     @Post('refresh-token')
     @UseInterceptors(TokenResponseInterceptor)
-    async refreshToken(@Body() input: NestAuthRefreshTokenRequestDto): Promise<AuthWithTokensResponseDto> {
-        const response = await this.authService.refreshToken(input.refreshToken);
+    async refreshToken(
+        @Body() input: NestAuthRefreshTokenRequestDto,
+        @Req() req: Request,
+    ): Promise<AuthWithTokensResponseDto> {
+        const headerTokenType = req.headers['x-access-token-type'];
+        const accessTokenType = AuthConfigService.getOptions().session?.accessTokenType ?? null;
+        const isCookieMode = accessTokenType === 'cookie' || (!accessTokenType && headerTokenType === 'cookie');
+
+       
+        const refreshToken = input.refreshToken || (isCookieMode ? CookieHelper.get(req, REFRESH_TOKEN_COOKIE_NAME) : undefined);
+
+        if (!refreshToken) {
+            throw new BadRequestException('refreshToken is required');
+        }
+
+        const response = await this.authService.refreshToken(refreshToken);
         return {
             ...response,
             isRequiresMfa: false,
@@ -345,6 +374,28 @@ export class AuthController {
     async verifyEmail(@Body() input: NestAuthVerifyEmailRequestDto): Promise<NestAuthEmailVerifiedResponseDto> {
         await this.verificationService.verifyEmail(input);
         return { message: 'Email verified successfully' };
+    }
+
+    @ApiOperation({ summary: 'Send phone verification (SMS OTP)' })
+    @ApiResponse({ status: 200, type: NestAuthPhoneVerificationSentResponseDto })
+    @HttpCode(200)
+    @Post('send-phone-verification')
+    @SkipMfa()
+    @UseGuards(NestAuthAuthGuard)
+    async sendPhoneVerification(@Body() input: NestAuthSendPhoneVerificationRequestDto): Promise<NestAuthPhoneVerificationSentResponseDto> {
+        await this.verificationService.sendPhoneVerification(input);
+        return { message: 'Verification SMS sent' };
+    }
+
+    @ApiOperation({ summary: 'Verify phone number with OTP' })
+    @ApiResponse({ status: 200, type: NestAuthPhoneVerifiedResponseDto })
+    @HttpCode(200)
+    @Post('verify-phone')
+    @SkipMfa()
+    @UseGuards(NestAuthAuthGuard)
+    async verifyPhone(@Body() input: NestAuthVerifyPhoneRequestDto): Promise<NestAuthPhoneVerifiedResponseDto> {
+        await this.verificationService.verifyPhone(input);
+        return { message: 'Phone verified successfully' };
     }
 
     @ApiOperation({

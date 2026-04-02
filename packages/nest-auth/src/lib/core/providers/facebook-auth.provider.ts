@@ -6,7 +6,7 @@ import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
 import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
 import { BaseAuthProvider } from './base-auth.provider';
-import { SocialCredentialsDto } from 'src/lib/auth';
+import { SocialCredentialsDto } from '../../auth/dto/credentials/social-credentials.dto';
 
 @Injectable()
 export class FacebookAuthProvider extends BaseAuthProvider {
@@ -26,7 +26,7 @@ export class FacebookAuthProvider extends BaseAuthProvider {
         this.enabled = Boolean(this.facebookConfig);
     }
 
-    async validate(credentials: SocialCredentialsDto) {
+    async validate(credentials: SocialCredentialsDto, _tenantId?: string) {
         let Facebook: any;
         try {
             Facebook = require('fb');

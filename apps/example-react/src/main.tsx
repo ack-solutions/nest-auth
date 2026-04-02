@@ -13,12 +13,14 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { SnackbarProvider } from 'notistack';
-import { AuthProvider } from '@ackplus/nest-auth-react';
-import { AuthClient, LocalStorageAdapter, SessionStorageAdapter } from '@ackplus/nest-auth-client';
+import { AuthClient, createAxiosAdapter, LocalStorageAdapter, SessionStorageAdapter } from '@ackplus/nest-auth-client';
 
-import App from './app-1';
+import { AppAuthProvider } from './context/auth-context';
+import App from './app';
 import theme from './theme';
 import './index.css';
+import { instanceApi } from './api/axios-instance';
+import { config } from './config';
 
 /**
  * Auth Client Configuration
@@ -33,7 +35,7 @@ const authConfig = {
    * Backend API URL
    * Matches the example-nest app running on port 3000
    */
-  baseUrl: 'http://localhost:3333/api',
+  baseUrl: config.apiBaseOrigin || '',
 
   /**
    * Token mode: 'header' or 'cookie'
@@ -41,7 +43,9 @@ const authConfig = {
    * - 'cookie': Uses httpOnly cookies (more secure for web, handles CSRF)
    * - null: Auto-detect based on backend response
    */
-  accessTokenType: 'header' as const,
+  accessTokenType: 'cookie' as const,
+
+  httpAdapter: createAxiosAdapter(instanceApi),
 
   /**
    * Storage adapter for tokens (only relevant for header mode)
@@ -72,6 +76,16 @@ const authConfig = {
  */
 const authClient = new AuthClient(authConfig);
 
+const handleTokenSet = (tokens: { accessToken: string; refreshToken: string; trustToken?: string }) => {
+  if (tokens?.accessToken) {
+    instanceApi.defaults.headers.common['Authorization'] = `Bearer ${tokens.accessToken}`;
+  }
+};
+
+const handleTokenRemoved = () => {
+  delete instanceApi.defaults.headers.common?.['Authorization'];
+};
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {/* Material UI Theme */}
@@ -86,12 +100,16 @@ createRoot(document.getElementById('root')!).render(
         autoHideDuration={4000}
       >
         {/* Authentication context */}
-        <AuthProvider client={authClient}>
+        <AppAuthProvider
+          client={authClient}
+          onTokensSet={handleTokenSet}
+          onTokensRemoved={handleTokenRemoved}
+        >
           {/* React Router */}
           <BrowserRouter>
             <App />
           </BrowserRouter>
-        </AuthProvider>
+        </AppAuthProvider>
       </SnackbarProvider>
     </ThemeProvider>
   </StrictMode>,

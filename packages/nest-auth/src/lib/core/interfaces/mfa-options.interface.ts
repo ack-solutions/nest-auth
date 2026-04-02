@@ -1,4 +1,5 @@
 import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
+import { IOtpOptions } from './auth-module-options.interface';
 
 export interface MFAOptions {
     // Whether MFA is enabled for the application
@@ -12,9 +13,6 @@ export interface MFAOptions {
 
     // Default MFA method to suggest to users
     defaultMethod?: NestAuthMFAMethodEnum;
-
-    // OTP length
-    otpLength?: number;
 
     // Default TOTP settings
     totp?: {
@@ -39,17 +37,20 @@ export interface MFAOptions {
     // Whether users can choose their MFA methods
     allowMethodSelection?: boolean;
 
-    // OTP expiry time i.e '15m', '1h', '1d', '1w', '1M', '1y' , 15000
-    otpExpiresIn?: string | number;
-
     // Trusted device duration i.e '15m', '1h', '1d', '1w', '1M', '1y' , 15000
     trustedDeviceDuration?: string | number;
 
     // Trusted device storage name/ cookie name OR hader name (only for mobile apps)
     trustDeviceStorageName?: string;
 
-    // Default OTP code for development/testing (e.g. '1234')
-    // If set, this code will be accepted for any user
-    defaultOtp?: string;
+    /**
+     * Secret used for HMAC-SHA256 when persisting trusted device tokens.
+     * If omitted, falls back to `session.jwt.secret` (set explicitly in production).
+     */
+    trustedDeviceSecret?: string;
+
+    /** MFA OTP generation (length/format); separate from top-level {@link IOtpOptions} used for verification/password reset */
+    otp?: Pick<IOtpOptions, 'length' | 'format' | 'generate'>;
+
 }
 

@@ -9,6 +9,7 @@ export {
     IEmailCredentials,
     IPhoneCredentials,
     ISocialCredentials,
+    IPasswordlessOtpLoginCredentials,
     ILoginCredentials,
     ILoginRequest,
     ISignupRequest,
@@ -58,10 +59,20 @@ export {
 // Verification
 export {
     IVerifyEmailRequest,
+    IVerifyPhoneRequest,
     IResendVerificationRequest,
     ISendEmailVerificationRequest,
+    ISendPhoneVerificationRequest,
     ISessionVerifyResponse,
 } from './verification';
+// Passwordless login
+export {
+    NEST_AUTH_PASSWORDLESS_PROVIDER,
+} from './passwordless';
+export type {
+    PasswordlessChannel,
+    IPasswordlessSendRequest,
+} from './passwordless';
 
 // Admin
 export {

@@ -19,7 +19,10 @@ import {
     IVerify2faResponse,
     IForgotPasswordRequest,
     IVerifyEmailRequest,
-    IResendVerificationRequest,
+    IVerifyForgotPasswordOtpRequest,
+    ISendEmailVerificationRequest,
+    ISendPhoneVerificationRequest,
+    IVerifyPhoneRequest,
     IChangePasswordRequest,
     IMessageResponse,
     IVerifyOtpResponse,
@@ -30,6 +33,7 @@ import {
     IMfaDevice,
     IToggleMfaRequest,
     ISwitchTenantRequest,
+    IPasswordlessSendRequest,
 } from '@ackplus/nest-auth-client';
 
 /**
@@ -69,21 +73,28 @@ export interface AuthContextValue {
     /** Switch active tenant */
     switchTenant: (dto: ISwitchTenantRequest) => Promise<IAuthResponse>;
 
+    /** Passwordless — send login code (email or SMS) */
+    passwordlessSend: (dto: IPasswordlessSendRequest) => Promise<IMessageResponse>;
+
     // Actions - Password Management
     /** Request password reset (forgot password) */
     forgotPassword: (dto: IForgotPasswordRequest) => Promise<IMessageResponse>;
     /** Verify forgot password OTP */
-    verifyForgotPasswordOtp: (dto: { email?: string; phone?: string; otp: string }) => Promise<IVerifyOtpResponse>;
+    verifyForgotPasswordOtp: (dto: IVerifyForgotPasswordOtpRequest) => Promise<IVerifyOtpResponse>;
     /** Reset password with token */
     resetPassword: (dto: IResetPasswordWithTokenRequest) => Promise<IMessageResponse>;
     /** Change password (authenticated) */
     changePassword: (dto: IChangePasswordRequest) => Promise<IMessageResponse>;
 
-    // Actions - Email Verification
+    // Actions - Email / phone verification (use `code` in verify DTOs; MFA flows use `otp`)
     /** Verify email address */
     verifyEmail: (dto: IVerifyEmailRequest) => Promise<IMessageResponse>;
-    /** Resend verification email */
-    resendVerification: (dto: IResendVerificationRequest) => Promise<IMessageResponse>;
+    /** Send email verification code (authenticated) */
+    sendEmailVerification: (dto?: ISendEmailVerificationRequest) => Promise<IMessageResponse>;
+    /** Send phone verification SMS (authenticated) */
+    sendPhoneVerification: (dto?: ISendPhoneVerificationRequest) => Promise<IMessageResponse>;
+    /** Verify phone with SMS code */
+    verifyPhone: (dto: IVerifyPhoneRequest) => Promise<IMessageResponse>;
 
     // Actions - 2FA
     /** Send 2FA code */
@@ -138,6 +149,7 @@ const defaultContextValue: AuthContextValue = {
     verifySession: () => Promise.reject(new Error('AuthProvider not found')),
     verify2fa: () => Promise.reject(new Error('AuthProvider not found')),
     switchTenant: () => Promise.reject(new Error('AuthProvider not found')),
+    passwordlessSend: () => Promise.reject(new Error('AuthProvider not found')),
     // Password management
     forgotPassword: () => Promise.reject(new Error('AuthProvider not found')),
     verifyForgotPasswordOtp: () => Promise.reject(new Error('AuthProvider not found')),
@@ -145,7 +157,9 @@ const defaultContextValue: AuthContextValue = {
     changePassword: () => Promise.reject(new Error('AuthProvider not found')),
     // Email verification
     verifyEmail: () => Promise.reject(new Error('AuthProvider not found')),
-    resendVerification: () => Promise.reject(new Error('AuthProvider not found')),
+    sendEmailVerification: () => Promise.reject(new Error('AuthProvider not found')),
+    sendPhoneVerification: () => Promise.reject(new Error('AuthProvider not found')),
+    verifyPhone: () => Promise.reject(new Error('AuthProvider not found')),
     // 2FA
     send2fa: () => Promise.reject(new Error('AuthProvider not found')),
     // TOTP / MFA Management

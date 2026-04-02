@@ -1,28 +1,28 @@
 import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThan, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { NestAuthMFASecret } from '../../auth/entities/mfa-secret.entity';
 import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
 import { MFAOptions } from '../../core/interfaces/mfa-options.interface';
-import { IMfaConfig, NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
+import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
 import {
     ERROR_CODES,
     NestAuthEvents,
 } from '../../auth.constants';
 import { NestAuthUser } from '../../user/entities/user.entity';
-import { NestAuthOTP } from '../../auth/entities/otp.entity';
 import { NestAuthOTPTypeEnum } from '@ackplus/nest-auth-contracts';
-import { generateOtp } from '../../utils/otp';
-import ms from 'ms';
 import { AuthConfigService } from '../../core/services/auth-config.service';
+import { OtpFlowService } from './otp-flow.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TwoFactorCodeSentEvent } from '../events/two-factor-code-sent.event';
 import { NestAuthTrustedDevice } from '../entities/trusted-device.entity';
 import { randomBytes } from 'crypto';
+import { IsNull, MoreThan } from 'typeorm';
 import { User2faEnabledEvent } from '../events/user-2fa-enabled.event';
 import { User2faDisabledEvent } from '../events/user-2fa-disabled.event';
 import { RequestContext } from '../../request-context/request-context';
+import ms from 'ms';
 
 
 @Injectable()
@@ -35,13 +35,12 @@ export class MfaService {
         @InjectRepository(NestAuthUser)
         private userRepository: Repository<NestAuthUser>,
 
-        @InjectRepository(NestAuthOTP)
-        private otpRepository: Repository<NestAuthOTP>,
-
         @InjectRepository(NestAuthTrustedDevice)
         private trustedDeviceRepository: Repository<NestAuthTrustedDevice>,
 
         private eventEmitter: EventEmitter2,
+
+        private readonly otpFlow: OtpFlowService,
     ) { }
 
     get mfaConfig(): MFAOptions {
@@ -139,40 +138,11 @@ export class MfaService {
 
         this.requireMfaEnabledForApp(true)
 
-        const options = AuthConfigService.getOptions();
-        let code: string;
-
-        // Apply otp.generate hook if configured
-        if (options.otp?.generate) {
-            code = await options.otp.generate(this.mfaConfig.otpLength);
-        } else {
-            code = generateOtp(this.mfaConfig.otpLength);
-        }
-
-        let expiresAtMs: number;
-        if (typeof this.mfaConfig.otpExpiresIn === 'string') {
-            expiresAtMs = ms(this.mfaConfig.otpExpiresIn); // example: '15m', '1h', '1d'
-        } else {
-            expiresAtMs = this.mfaConfig.otpExpiresIn || 900000; // Default to 15m if undefined
-        }
-
-        if (!expiresAtMs || isNaN(expiresAtMs) || expiresAtMs <= 0) {
-            throw new Error(`Invalid MFA configuration: otpExpiresIn '${this.mfaConfig.otpExpiresIn}' results in invalid duration`);
-        }
-
-        // Invalidate previous MFA OTPs for this user
-        await this.otpRepository.delete({
-            userId,
-            type: NestAuthOTPTypeEnum.MFA
-        });
-
-        const otp = await this.otpRepository.create({
+        const { plainCode } = await this.otpFlow.createOtp({
             userId,
             type: NestAuthOTPTypeEnum.MFA,
-            expiresAt: new Date(Date.now() + expiresAtMs),
-            code,
-        })
-        await this.otpRepository.save(otp);
+            replaceExisting: true,
+        });
 
         if (method === NestAuthMFAMethodEnum.EMAIL || method === NestAuthMFAMethodEnum.SMS) {
             const user = await this.userRepository.findOne({ where: { id: userId } });
@@ -183,7 +153,7 @@ export class MfaService {
                         user,
                         tenantId: RequestContext.currentTenantId(),
                         method,
-                        code,
+                        code: plainCode,
                     })
                 );
             }
@@ -195,11 +165,6 @@ export class MfaService {
     async verifyMfa(userId: string, inputOtp: string, method: NestAuthMFAMethodEnum): Promise<boolean> {
 
         this.requireMfaEnabledForApp(true)
-
-        // Check for default OTP (Magic Code)
-        if (this.mfaConfig.defaultOtp && this.mfaConfig.defaultOtp === inputOtp) {
-            return true;
-        }
 
         if (method === NestAuthMFAMethodEnum.TOTP) {
             const devices = await this.mfaSecretRepository.find({
@@ -227,21 +192,16 @@ export class MfaService {
         }
 
         if (method === NestAuthMFAMethodEnum.EMAIL || method === NestAuthMFAMethodEnum.SMS) {
-            const otp = await this.otpRepository.findOne({
-                where: {
+            try {
+                await this.otpFlow.validateAndConsume({
                     userId,
                     type: NestAuthOTPTypeEnum.MFA,
-                    used: false,
-                    expiresAt: MoreThan(new Date()),
-                    code: inputOtp
-                }
-            });
-
-            if (!otp) {
+                    code: inputOtp,
+                });
+                return true;
+            } catch {
                 return false;
             }
-            await this.otpRepository.delete(otp.id);
-            return true;
         }
 
         return false;
@@ -512,39 +472,66 @@ export class MfaService {
         return Boolean(user?.mfaRecoveryCode);
     }
 
+    private getTrustedDeviceSecret(): string {
+        const secret = this.mfaConfig.trustedDeviceSecret;
+        if (!secret) {
+            throw new Error(
+                'Trusted device HMAC secret is not configured. Set mfa.trustedDeviceSecret or session.jwt.secret.'
+            );
+        }
+        return secret;
+    }
+
     async createTrustedDevice(userId: string, userAgent: string, ipAddress: string): Promise<string> {
         this.requireMfaEnabledForApp(true);
 
-        const token = randomBytes(32).toString('hex');
-        const duration = this.mfaConfig.trustedDeviceDuration || '30m';
-        const expiresAtMs = typeof duration === 'string' ? ms(duration) : duration;
+        const plainToken = randomBytes(32).toString('base64url');
+        const duration = this.mfaConfig.trustedDeviceDuration;
+        const expiresAtMs = ms(duration);
 
-        await this.trustedDeviceRepository.save({
+        const secret = this.getTrustedDeviceSecret();
+        const device = this.trustedDeviceRepository.create({
             userId,
-            token,
             userAgent,
             ipAddress,
             expiresAt: new Date(Date.now() + expiresAtMs),
+            revokedAt: null,
         });
+        await device.setTrustToken(secret, plainToken);
+        await this.trustedDeviceRepository.save(device);
 
-        return token;
+        return plainToken;
     }
 
+    /**
+     * Validates the presented bearer token by verifying against active trusted devices.
+     * Enforces expiry/revocation, touches lastUsedAt on success.
+     */
     async validateTrustedDevice(userId: string, token: string): Promise<boolean> {
-        if (!token) return false;
-
-        const device = await this.trustedDeviceRepository.findOne({
-            where: { userId, token },
-        });
-
-        if (!device) return false;
-
-        if (device.expiresAt < new Date()) {
-            await this.trustedDeviceRepository.remove(device);
+        if (!token) {
             return false;
         }
 
-        await this.trustedDeviceRepository.update(device.id, { lastUsedAt: new Date() });
-        return true;
+        const secret = this.getTrustedDeviceSecret();
+        const candidates = await this.trustedDeviceRepository.find({
+            where: {
+                userId,
+                revokedAt: IsNull(),
+                expiresAt: MoreThan(new Date()),
+            },
+            select: ['id', 'tokenHash'],
+        });
+
+        const now = new Date();
+        for (const device of candidates) {
+            if (!(await device.validateTrustToken(secret, token))) {
+                continue;
+            }
+            device.lastUsedAt = now;
+            await this.trustedDeviceRepository.save(device);
+            return true;
+        }
+
+        return false;
     }
 }

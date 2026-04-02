@@ -10,6 +10,8 @@ import { ERROR_CODES, NestAuthEvents } from '../../auth.constants';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
 import { isValidSlug } from '../../utils/slug.util';
 import { AuthConfigService } from '../../core/services/auth-config.service';
+import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
+import { requiredTenant } from '../../utils';
 
 @Injectable()
 export class TenantService {
@@ -198,10 +200,16 @@ export class TenantService {
         return updatedTenant;
     }
 
+    async checkRequiredTenant(inputTenantId: string | null, throwError: boolean = true): Promise<boolean> {
+        const config = this.authConfigService.getConfig();
+        return requiredTenant(config?.tenant ?? {}, inputTenantId, throwError);
+    }
+
 
     async resolveTenantId(inputTenantId?: string | null): Promise<string | null> {
         const config = this.authConfigService.getConfig();
         if (config.tenant?.enabled) {
+            const mode = config.tenant?.mode ?? TenantModeEnum.ISOLATED;
             if (inputTenantId) {
                 const tenant = await this.getTenantById(inputTenantId);
                 if (!tenant) {
@@ -210,11 +218,16 @@ export class TenantService {
                         code: ERROR_CODES.TENANT_NOT_FOUND,
                     });
                 }
-            } else {
+            } else if (mode === TenantModeEnum.ISOLATED) {
+                // In isolated mode, login requires an active tenant.
                 throw new BadRequestException({
                     message: 'Tenant ID is required',
                     code: ERROR_CODES.TENANT_ID_REQUIRED,
                 });
+            } else {
+                // In shared mode, allow login without selecting a tenant.
+                // The client should call `/auth/switch-tenant` after user selection.
+                return inputTenantId;
             }
         }
 

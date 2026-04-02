@@ -5,7 +5,7 @@ import { BaseAuthProvider } from '../providers/base-auth.provider';
 import { DebugLogOptions } from '../services/debug-logger.service';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { SessionPayload, JWTTokenPayload } from './token-payload.interface';
-import { NestAuthSignupRequestDto } from 'src/lib/auth';
+import { NestAuthSignupRequestDto } from '../../auth/dto/requests/signup.request.dto';
 import { INestAuthTenantOptions, TenantModeEnum } from '@ackplus/nest-auth-contracts';
 
 /**
@@ -75,7 +75,7 @@ export interface IUserHooks {
      * serialize: (user) => ({
      *     id: user.id,
      *     email: user.email,
-     *     roles: user.roles
+     *     roles: user.userAccesses?.map(access => access.roles).flat()
      * })
      * ```
      */
@@ -146,7 +146,7 @@ export interface IRegistrationHooks {
      * onSignup: async (user, input, context) => {
      *     // Assign default role - this WILL be in the session
      *     const defaultRole = await roleService.findByName('user');
-     *     user.roles = [defaultRole];
+     *     user.userAccesses = [defaultRole];
      *     await userRepository.save(user);
      *     return user;
      * }
@@ -175,7 +175,7 @@ export interface ILoginHooks {
      * onLogin: async (user, input, context) => {
      *     // Sync roles from external system
      *     const externalRoles = await fetchRolesFromExternal(user.email);
-     *     user.roles = await roleService.findByNames(externalRoles);
+     *     user.userAccesses = await userAccessService.findByNames(externalRoles);
      *     await userRepository.save(user);
      *     return user;
      * }
@@ -184,29 +184,44 @@ export interface ILoginHooks {
     onLogin?: (user: NestAuthUser, input: any, context?: { request?: any; provider?: any }) => Promise<NestAuthUser | void> | NestAuthUser | void;
 }
 
-
 /**
- * Password customization hooks
+ * Passwordless login (email/SMS OTP and optional magic link).
+ * Enable with `passwordless: { enabled: true }` and wire listeners for
+ * `passwordless.code.requested` / `passwordless.magic_link.requested` events.
  */
-export interface IPasswordHooks {
-    /** Custom password hashing (default: Argon2id) */
-    hash?: (password: string) => Promise<string>;
-    /** Custom password verification */
-    verify?: (password: string, hash: string) => Promise<boolean>;
-    /** Password policy validation */
-    validate?: (password: string) => { valid: boolean; errors?: string[] };
+export interface IPasswordlessOptions {
+    /** Master switch (default false) */
+    enabled?: boolean;
+    /**
+     * Create a user on first send if they do not exist (default false).
+     * Requires global registration to be allowed.
+     */
+    allowSignUp?: boolean;
 }
 
 /**
- * OTP customization options
+ * OTP customization (password reset, MFA, email/phone verification, etc.).
+ * Used by verification send flows for `generate`, `length`, and `codeExpiresIn`.
  */
 export interface IOtpOptions {
-    /** Custom OTP generation function */
-    generate?: (length?: number) => string | Promise<string>;
-    /** OTP length (default: 6) */
+    /**
+     * Secret used to hash OTP codes at rest (HMAC-SHA256).
+     * Recommended: set to a strong random value (32+ bytes) via env.
+     *
+     * If not provided, Nest Auth falls back to `session.jwt.secret`.
+     */
+    secret?: string;
+    /** Custom OTP/code generation function */
+    generate?: (length?: number, format?: 'numeric' | 'alphanumeric') => string | Promise<string>;
+    /** Code length when using the default generator or when passing `length` to `generate` (default: 6) */
     length?: number;
-    /** OTP format */
+    /** OTP format where applicable */
     format?: 'numeric' | 'alphanumeric';
+    /**
+     * TTL for email/phone verification codes (`send-email-verification` / `send-phone-verification`).
+     * Ms string (e.g. `30m`) or milliseconds number. Default: `30m`.
+     */
+    codeExpiresIn?: number | string;
 }
 
 /**
@@ -272,15 +287,6 @@ export interface IAuthModuleOptions {
      * Default: true (automatic refresh enabled)
      */
     enableAutoRefresh?: boolean;
-    accessTokenType?: 'header' | 'cookie';
-    cookieOptions?: CookieOptions;
-    jwt: {
-        secret: string;
-        accessTokenExpiresIn?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
-        refreshTokenExpiresIn?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
-        /** Custom token validation - return false to reject the token */
-        validateToken?: (payload: JWTTokenPayload, session: SessionPayload) => Promise<boolean>;
-    };
     google?: {
         clientId: string;
         clientSecret: string;
@@ -310,6 +316,8 @@ export interface IAuthModuleOptions {
     emailAuth?: {
         enabled: boolean;
     };
+    passwordless?: IPasswordlessOptions;
+
     /**
      * Registration configuration
      * Controls user registration/signup behavior and profile fields
@@ -339,9 +347,7 @@ export interface IAuthModuleOptions {
     mfa?: MFAOptions;
     session?: SessionOptions;
     customAuthProviders?: BaseAuthProvider[];
-    passwordResetOtpExpiresIn?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
-    passwordResetTokenExpiresIn?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
-
+   
     /**
      * Tenant support configuration.
      * When tenant.enabled is false, auth works without tenant checks.
@@ -413,13 +419,33 @@ export interface IAuthModuleOptions {
      * Password customization
      * Custom hashing, verification, and validation
      */
-    password?: IPasswordHooks;
-
+    password?: {
+        passwordResetTokenExpiresIn?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
+        /**
+         * Custom password hashing hook.
+         * When provided, this is used to hash passwords instead of the default argon2 hash.
+         */
+        hash?: (password: string) => Promise<string>;
+        /**
+         * Custom password verification hook.
+         * When provided, this is used to validate passwords instead of the default argon2 verify.
+         */
+        verify?: (password: string, hash: string) => Promise<boolean>;
+        /**
+         * Default argon2 password hashing options.
+         * When not provided, the default argon2 hash is used.
+         */
+        argon2?: {
+            memoryCost?: number; // default: 65536 (64 MiB)
+            timeCost?: number; // default: 3 (3 iterations)
+            parallelism?: number; // default: 4 (4 parallel threads)
+        };
+    };
     /**
-     * OTP customization
-     * Custom generation, format, and length
+     * OTP customization (generation, length, verification code expiry — see {@link IOtpOptions}).
      */
     otp?: IOtpOptions;
+
 
     /**
      * Authorization hooks

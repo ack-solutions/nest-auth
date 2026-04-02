@@ -26,7 +26,7 @@ export * from './providers/google-auth.provider';
 export * from './providers/facebook-auth.provider';
 export * from './providers/apple-auth.provider';
 export * from './providers/github-auth.provider';
-
+export * from './providers/passwordless-auth.provider';
 
 // Services
 export * from './services/auth-provider-registry.service';

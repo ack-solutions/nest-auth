@@ -8,6 +8,7 @@ export interface PasswordResetRequestedEventPayload {
     tenantId?: string;
     input: NestAuthForgotPasswordRequestDto;
     otp: NestAuthOTP;
+    code: string;
     provider: BaseAuthProvider;
 }
 

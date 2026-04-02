@@ -86,66 +86,13 @@ export interface Logger {
     error?(message: string, ...args: any[]): void;
 }
 
-/**
- * Endpoint configuration
- * Customize API endpoint paths
- */
-export interface EndpointConfig {
-    /** Login endpoint (default: /auth/login) */
-    login?: string;
-    /** Signup endpoint (default: /auth/signup) */
-    signup?: string;
-    /** Logout endpoint (default: /auth/logout) */
-    logout?: string;
-    /** Logout from all devices endpoint (default: /auth/logout-all) */
-    logoutAll?: string;
-    /** Refresh token endpoint (default: /auth/refresh) */
-    refresh?: string;
-    /** Get current user endpoint (default: /auth/me) */
-    me?: string;
-    /** Forgot password endpoint (default: /auth/forgot-password) */
-    forgotPassword?: string;
-    /** Verify forgot password OTP (default: /auth/verify-forgot-password-otp) */
-    verifyForgotPasswordOtp?: string;
-    /** Reset password endpoint (default: /auth/reset-password) */
-    resetPassword?: string;
-    /** Verify email endpoint (default: /auth/verify-email) */
-    verifyEmail?: string;
-    /** Resend verification endpoint (default: /auth/send-email-verification) */
-    resendVerification?: string;
-    /** Change password endpoint (default: /auth/change-password) */
-    changePassword?: string;
-    /** Send 2FA code (default: /auth/mfa/challenge) */
-    send2fa?: string;
-    /** Verify 2FA (default: /auth/mfa/verify) */
-    verify2fa?: string;
-    /** Verify session endpoint (default: /auth/verify-session) */
-    verifySession?: string;
-    /** Switch active tenant endpoint (default: /auth/switch-tenant) */
-    switchTenant?: string;
-    /** Setup TOTP device (default: /auth/mfa/setup-totp) */
-    setupTotp?: string;
-    /** Verify TOTP setup (default: /auth/mfa/verify-totp-setup) */
-    verifyTotpSetup?: string;
-    /** Get MFA status (default: /auth/mfa/status) */
-    getMfaStatus?: string;
-    /** List TOTP devices (default: /auth/mfa/devices) */
-    listTotpDevices?: string;
-    /** Remove TOTP device (default: /auth/mfa/devices/:deviceId) */
-    removeTotpDevice?: string;
-    /** Toggle MFA (default: /auth/mfa/toggle) */
-    toggleMfa?: string;
-    /** Generate recovery code (default: /auth/mfa/generate-recovery-code) */
-    generateRecoveryCode?: string;
-    /** Reset MFA with recovery code (default: /auth/mfa/reset-totp) */
-    resetMfa?: string;
-}
 
 /**
  * Default endpoint paths
  */
-export const DEFAULT_ENDPOINTS: Required<EndpointConfig> = {
+export const DEFAULT_ENDPOINTS = {
     login: '/auth/login',
+    passwordlessSend: '/auth/passwordless/send',
     signup: '/auth/signup',
     logout: '/auth/logout',
     logoutAll: '/auth/logout-all',
@@ -155,7 +102,10 @@ export const DEFAULT_ENDPOINTS: Required<EndpointConfig> = {
     verifyForgotPasswordOtp: '/auth/verify-forgot-password-otp',
     resetPassword: '/auth/reset-password',
     verifyEmail: '/auth/verify-email',
+    sendEmailVerification: '/auth/send-email-verification',
     resendVerification: '/auth/send-email-verification',
+    sendPhoneVerification: '/auth/send-phone-verification',
+    verifyPhone: '/auth/verify-phone',
     changePassword: '/auth/change-password',
     send2fa: '/auth/mfa/challenge',
     verify2fa: '/auth/mfa/verify',
@@ -170,6 +120,8 @@ export const DEFAULT_ENDPOINTS: Required<EndpointConfig> = {
     generateRecoveryCode: '/auth/mfa/generate-recovery-code',
     resetMfa: '/auth/mfa/reset-totp',
 };
+
+export type EndpointConfig = typeof DEFAULT_ENDPOINTS;
 
 /**
  * Token mode for auth client
@@ -276,4 +228,6 @@ export interface RequestOptions {
     signal?: AbortSignal;
     /** Skip automatic token refresh on 401 */
     skipRefresh?: boolean;
+    /** Skip adding Authorization header */
+    skipAuthHeader?: boolean;
 }

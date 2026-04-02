@@ -6,7 +6,7 @@ import { IAuthModuleOptions } from '../../core';
 import { GOOGLE_AUTH_PROVIDER } from '../../auth.constants';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
-import { SocialCredentialsDto } from 'src/lib/auth';
+import { SocialCredentialsDto } from '../../auth/dto/credentials/social-credentials.dto';
 
 @Injectable()
 export class GoogleAuthProvider extends BaseAuthProvider {
@@ -44,7 +44,7 @@ export class GoogleAuthProvider extends BaseAuthProvider {
      * @param config - Optional configuration override
      * @returns AuthProviderUser - Validated user user info
      */
-    async validate(credentials: SocialCredentialsDto) {
+    async validate(credentials: SocialCredentialsDto, _tenantId?: string) {
         const currentConfig = this.googleConfig;
 
         if (!currentConfig) {

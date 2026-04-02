@@ -31,6 +31,16 @@ export class NestAuthEmailVerifiedResponseDto implements IMessageResponse {
     message: string;
 }
 
+export class NestAuthPhoneVerificationSentResponseDto implements IMessageResponse {
+    @ApiProperty({ description: 'Response message', example: 'Verification SMS sent' })
+    message: string;
+}
+
+export class NestAuthPhoneVerifiedResponseDto implements IMessageResponse {
+    @ApiProperty({ description: 'Response message', example: 'Phone verified successfully' })
+    message: string;
+}
+
 export class NestAuthMfaToggleResponseDto implements IMessageResponse {
     @ApiProperty({ description: 'Response message', example: 'MFA enabled successfully' })
     message: string;

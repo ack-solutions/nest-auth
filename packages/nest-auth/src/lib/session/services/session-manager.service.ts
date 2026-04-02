@@ -33,7 +33,7 @@ export class SessionManagerService {
     }
 
     private get slidingExpiration(): boolean {
-        return this.options.session?.slidingExpiration ?? true;
+        return this.options.session?.slidingExpiration ?? false;
     }
 
     /**
@@ -77,10 +77,21 @@ export class SessionManagerService {
         return session;
     }
 
+    private shouldTouchSession(session: NestAuthSession): boolean {
+        const now = Date.now();
+        const lastActive = session.lastActive ? new Date(session.lastActive).getTime() : 0;
+        const expiresAt = session.expiresAt ? new Date(session.expiresAt).getTime() : 0;
+
+        const touchedRecently = now - lastActive < 5 * 60 * 1000; // 5 minutes
+
+        return !touchedRecently
+    }
+
     /**
      * Get session by ID and optionally refresh it
      */
-    async getSession(sessionId: string, refreshSession = true): Promise<NestAuthSession> {
+    async getSession(sessionId: string): Promise<NestAuthSession> {
+        console.log('getSession called', sessionId);
         const session = await this.store.findById(sessionId);
 
         if (!session) {
@@ -88,14 +99,14 @@ export class SessionManagerService {
         }
 
         // Check if expired
-        if (this.isExpired(session)) {
-            await this.store.delete(sessionId);
-            throw new UnauthorizedException('Session expired');
-        }
-
+        // if (this.isExpired(session)) {
+        //     await this.store.delete(sessionId);
+        //     throw new UnauthorizedException('Session expired');
+        // }
         // Update last active if sliding expiration enabled
-        if (refreshSession && this.slidingExpiration) {
-            await this.touchSession(sessionId);
+        if (this.slidingExpiration && this.shouldTouchSession(session)) {
+            const updatedSession = await this.touchSession(sessionId);
+            return updatedSession;
         }
 
         return session;
@@ -174,19 +185,12 @@ export class SessionManagerService {
         return await this.store.deleteExpired();
     }
 
-    /**
-     * Extend session expiration
-     */
-    async extendSession(sessionId: string, duration?: string | number): Promise<NestAuthSession> {
-        const expiresAt = this.calculateExpiration(duration);
-        return await this.store.update(sessionId, { expiresAt } as any);
-    }
 
     /**
      * Touch session (update last active and extend expiry)
      */
-    async touchSession(sessionId: string, duration?: string | number): Promise<NestAuthSession> {
-        const expiresAt = this.calculateExpiration(duration);
+    async touchSession(sessionId: string): Promise<NestAuthSession> {
+        const expiresAt = this.calculateExpiration();
         return await this.store.update(sessionId, {
             lastActive: new Date(),
             expiresAt,
@@ -229,7 +233,7 @@ export class SessionManagerService {
      */
     async validateSession(sessionId: string): Promise<NestAuthSession | null> {
         try {
-            return await this.getSession(sessionId, true);
+            return await this.getSession(sessionId);
         } catch {
             return null;
         }
@@ -268,25 +272,11 @@ export class SessionManagerService {
     /**
      * Calculate session expiration date
      */
-    private calculateExpiration(duration?: string | number): Date {
-        const expiryDuration = duration || this.options.session?.sessionExpiry || '7d';
-        let milliseconds: number;
-        
-        if (typeof expiryDuration === 'string') {
-            const parsed = ms(expiryDuration);
-            if (parsed === undefined || !Number.isFinite(parsed) || parsed <= 0) {
-                // Fallback to default if invalid duration string
-                milliseconds = ms('7d') || 7 * 24 * 60 * 60 * 1000;
-            } else {
-                milliseconds = parsed;
-            }
-        } else {
-            milliseconds = expiryDuration * 1000;
-            if (!Number.isFinite(milliseconds) || milliseconds <= 0) {
-                throw new Error(`Invalid session expiry duration: ${expiryDuration} seconds`);
-            }
-        }
-        
+    private calculateExpiration(): Date {
+        const expiryDuration = this.options.session?.refreshTokenValidity;
+
+        const milliseconds = ms(expiryDuration);
+
         return new Date(Date.now() + milliseconds);
     }
 

@@ -5,7 +5,7 @@ import { BaseAuthProvider } from './base-auth.provider';
 import { EMAIL_AUTH_PROVIDER } from '../../auth.constants';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
-import { EmailCredentialsDto } from 'src/lib/auth';
+import { EmailCredentialsDto } from '../../auth/dto/credentials/email-credentials.dto';
 import { normalizedEmail } from '../../utils';
 
 @Injectable()
@@ -26,9 +26,13 @@ export class EmailAuthProvider extends BaseAuthProvider {
     /**
      * Override findIdentity to normalize email before searching
      */
-    async findIdentity(providerUserId: string): Promise<NestAuthIdentity | null> {
+    async findIdentity(providerUserId: string, tenantId?: string): Promise<NestAuthIdentity | null> {
         const emailNorm = normalizedEmail(providerUserId);
-        return super.findIdentity(emailNorm || providerUserId);
+        if (emailNorm) {
+            const normalizedIdentity = await super.findIdentity(emailNorm, tenantId);
+            if (normalizedIdentity) return normalizedIdentity;
+        }
+        return super.findIdentity(providerUserId, tenantId);
     }
 
     /**
@@ -39,14 +43,14 @@ export class EmailAuthProvider extends BaseAuthProvider {
         return super.linkToUser(userId, emailNorm || providerUserId, metadata);
     }
 
-    async validate(credentials: EmailCredentialsDto) {
+    async validate(credentials: EmailCredentialsDto, tenantId?: string) {
         const emailNorm = normalizedEmail(credentials.email);
 
         if (!emailNorm) {
             throw new BadRequestException('Email is required');
         }
 
-        const identity = await this.findIdentity(emailNorm);
+        const identity = await this.findIdentity(emailNorm, tenantId);
 
         if (!identity?.user || !(await identity.user.validatePassword(credentials.password))) {
             throw new UnauthorizedException('Invalid credentials');

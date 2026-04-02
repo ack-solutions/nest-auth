@@ -18,6 +18,8 @@ The module emits events using \`@nestjs/event-emitter\`. You can listen to these
 | \`nest_auth.logged_out_all\` | \`LOGGED_OUT_ALL\` | After logout all | User logged out from all sessions |
 | \`email.verification.requested\` | \`EMAIL_VERIFICATION_REQUESTED\` | When email verification is requested | Email verification OTP sent |
 | \`email.verified\` | \`EMAIL_VERIFIED\` | After email verification | Email successfully verified |
+| \`phone.verification.requested\` | \`PHONE_VERIFICATION_REQUESTED\` | When phone verification is requested | Phone verification OTP sent (send SMS in listener) |
+| \`phone.verified\` | \`PHONE_VERIFIED\` | After phone verification | Phone successfully verified |
 | \`nest_auth.user.created\` | \`USER_CREATED\` | When user is created via UserService | User created programmatically |
 | \`nest_auth.user.updated\` | \`USER_UPDATED\` | When user is updated | User details updated |
 | \`nest_auth.user.deleted\` | \`USER_DELETED\` | When user is deleted | User deleted |
@@ -124,15 +126,40 @@ The module emits events using \`@nestjs/event-emitter\`. You can listen to these
 \`\`\`
 
 #### EMAIL_VERIFICATION_REQUESTED
+Emitted as \`EmailVerificationRequestedEvent\`. Use \`event.payload\` in listeners.
 \`\`\`typescript
-{
-  user: NestAuthUser;              // The user
-  tenantId?: string;               // Tenant ID
-  otp: NestAuthOTP;                // OTP entity with code (use otp.code to send email)
+EmailVerificationRequestedEvent {
+  payload: {
+    user: NestAuthUser;              // The user
+    tenantId?: string;               // Tenant ID
+    otp: NestAuthOTP;                // OTP row (code is hashed; use payload.code for email)
+    code: string;                    // Plaintext code for templates
+  }
 }
 \`\`\`
 
 #### EMAIL_VERIFIED
+\`\`\`typescript
+{
+  user: NestAuthUser;              // The user
+  tenantId?: string;               // Tenant ID
+}
+\`\`\`
+
+#### PHONE_VERIFICATION_REQUESTED
+Emitted as \`PhoneVerificationRequestedEvent\`. Use \`event.payload\` in listeners.
+\`\`\`typescript
+PhoneVerificationRequestedEvent {
+  payload: {
+    user: NestAuthUser;              // The user
+    tenantId?: string;               // Tenant ID
+    otp: NestAuthOTP;                // OTP row (code is hashed; use payload.code for SMS)
+    code: string;                    // Plaintext code for SMS
+  }
+}
+\`\`\`
+
+#### PHONE_VERIFIED
 \`\`\`typescript
 {
   user: NestAuthUser;              // The user
@@ -232,7 +259,7 @@ Create a service and use the \`@OnEvent\` decorator:
 \`\`\`typescript
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { NestAuthEvents } from '@ackplus/nest-auth';
+import { NestAuthEvents, EmailVerificationRequestedEvent, PhoneVerificationRequestedEvent } from '@ackplus/nest-auth';
 
 @Injectable()
 export class NotificationService {
@@ -260,16 +287,22 @@ export class NotificationService {
   }
 
   @OnEvent(NestAuthEvents.EMAIL_VERIFICATION_REQUESTED)
-  async handleEmailVerification(payload: any) {
-    const { user, otp } = payload;
+  async handleEmailVerification(event: EmailVerificationRequestedEvent) {
+    const { user, otp, code } = event.payload;
 
     console.log('Sending verification email to:', user.email);
 
-    // Send email with OTP code
     await this.emailService.sendVerificationEmail(user.email, {
-      code: otp.code,
+      code,
       expiresAt: otp.expiresAt
     });
+  }
+
+  @OnEvent(NestAuthEvents.PHONE_VERIFICATION_REQUESTED)
+  async handlePhoneVerification(event: PhoneVerificationRequestedEvent) {
+    const { user, code } = event.payload;
+
+    await this.smsService.send(user.phone, \`Your verification code is: \${code}\`);
   }
 
   @OnEvent(NestAuthEvents.PASSWORD_RESET_REQUESTED)

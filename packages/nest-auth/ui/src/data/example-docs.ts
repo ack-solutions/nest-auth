@@ -308,7 +308,7 @@ export class UserProfileService {
 \`\`\`typescript
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { NestAuthEvents } from '@ackplus/nest-auth';
+import { NestAuthEvents, EmailVerificationRequestedEvent } from '@ackplus/nest-auth';
 import { MailerService } from '@nestjs-modules/mailer';
 
 @Injectable()
@@ -331,15 +331,15 @@ export class EmailNotificationService {
   }
 
   @OnEvent(NestAuthEvents.EMAIL_VERIFICATION_REQUESTED)
-  async sendVerificationEmail(payload: any) {
-    const { user, otp } = payload;
+  async sendVerificationEmail(event: EmailVerificationRequestedEvent) {
+    const { user, otp, code } = event.payload;
 
     await this.mailerService.sendMail({
       to: user.email,
       subject: 'Verify Your Email',
       template: 'verification',
       context: {
-        code: otp.code,
+        code,
         expiresAt: otp.expiresAt
       }
     });
@@ -493,7 +493,7 @@ await api.post('/auth/forgot-password', {
 // 2. User enters OTP from email
 const otpResponse = await api.post('/auth/verify-forgot-password-otp', {
   email: 'user@example.com',
-  otp: '123456'
+  code: '123456'
 });
 
 const { resetToken } = otpResponse.data;

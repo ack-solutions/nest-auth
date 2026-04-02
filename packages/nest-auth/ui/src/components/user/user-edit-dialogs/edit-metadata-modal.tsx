@@ -32,7 +32,7 @@ export function EditMetadataModal({ open, onClose, onSave, user, loading }: Edit
             open={open}
             onClose={onClose}
             title="Edit Metadata"
-            maxWidth="md"
+            maxWidth="sm"
             actions={
                 <Stack direction="row" justifyContent="flex-end" spacing={1.5}>
                     <Button variant="outlined" color="inherit" onClick={onClose}>

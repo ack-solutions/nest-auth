@@ -43,10 +43,40 @@ export interface SessionOptions {
      * Custom session repository implementation.
      * Required when storageType be set to SessionStorageType.CUSTOM
      */
-    sessionExpiry?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
-    refreshTokenExpiry?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
+    accessTokenValidity?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
+    refreshTokenValidity?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
+
+    /**
+     * Cookie options for access/refresh tokens when using `accessTokenType: 'cookie'`.
+     * Placed under `session` so all token/session settings live together.
+     */
+    cookieOptions?: CookieOptions;
+
+    /**
+     * Token delivery method for access/refresh tokens.
+     * - `header`: tokens are returned in response body (client sends `Authorization`)
+     * - `cookie`: tokens are written to HTTP-only cookies
+     * - `null/undefined`: check both (header first)
+     */
+    accessTokenType?: 'header' | 'cookie' | null;
+
+    /**
+     * JWT configuration used to sign/verify tokens.
+     * Placed under `session` so all TTL/session-related security config lives together.
+     */
+    jwt?: {
+        /** JWT Secret used for signing and verification */
+        secret: string;
+
+        /**
+         * Optional custom access token validation.
+         * Called from the auth guard after the session is loaded.
+         */
+        validateToken?: (payload: JWTTokenPayload, session: SessionPayload) => Promise<boolean>;
+    };
+
     maxSessionsPerUser?: number; // Maximum number of active sessions per user (default: 10)
-    slidingExpiration?: boolean; // Whether to extend session on activity (default: true)
+    slidingExpiration?: boolean; // Whether to extend session on activity (default: false)
 
     /**
      * Customize the data stored in the session (database).

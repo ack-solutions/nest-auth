@@ -209,7 +209,7 @@ export function createNextAuthHelpers(config: NextAuthHelpersConfig): NextAuthHe
             }
 
             // Verify the session with the backend
-            const verifyUrl = `${config.baseUrl}${config.endpoints?.verifySession || '/auth/verify-session'}`;
+            const verifyUrl = `${config.baseUrl}${config.endpoints?.verifySession}`;
             logger.debug(`Verifying session with backend: ${verifyUrl}`, 'NextAuthHelpers');
             
             const response = await fetch(verifyUrl, {

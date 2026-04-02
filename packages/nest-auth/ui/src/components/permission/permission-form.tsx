@@ -1,12 +1,12 @@
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { FormProvider, useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { Alert, Box, Stack, Typography } from '@mui/material';
 import { RHFTextField } from '../form/hook-form-fields/rhf-text-field';
 import { RHFSelect } from '../form/hook-form-fields/rhf-select';
-import { useRoleGuards } from '../../hooks/use-role-guards';
 import { RHFAutocomplete } from '../form/hook-form-fields/rhf-autocomplete';
+import { useClientConfig } from '@/hooks/use-client-config';
 
 export interface PermissionFormData {
     name: string;
@@ -41,22 +41,22 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
     isEdit = false,
     originalName,
 }) => {
-    const { guardOptions, helperText: guardHelperText } = useRoleGuards();
-    const {
-        control,
-        handleSubmit,
-        formState: { isSubmitting },
-        reset,
-        watch,
-    } = useForm<PermissionFormData>({
+    const { roleGuards } = useClientConfig();
+    const methods = useForm<PermissionFormData>({
         resolver: yupResolver(permissionSchema) as any,
         defaultValues: initialData || {
             name: '',
-            guard: guardOptions[0]?.value ?? 'web',
+            guard: roleGuards[0] ?? 'web',
             description: '',
             category: '',
         },
     });
+    const {
+        handleSubmit,
+        formState: { isSubmitting },
+        reset,
+        watch,
+    } = methods;
 
     const name = watch('name');
     const nameChanged = isEdit && name.trim() !== (originalName || '');
@@ -80,8 +80,9 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
     };
 
     return (
-        <form id="permission-form" onSubmit={handleSubmit(handleFormSubmit)}>
-            <Stack spacing={2} sx={{ p: 2 }}>
+        <FormProvider {...methods}>
+            <form id="permission-form" onSubmit={handleSubmit(handleFormSubmit)}>
+                <Stack spacing={2} sx={{ p: 2 }}>
                 {error && (
                     <Alert severity="error" variant="outlined">
                         {error}
@@ -100,7 +101,7 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
                 <RHFSelect
                     name="guard"
                     label="Guard"
-                    options={guardOptions}
+                    options={roleGuards}
                     placeholder="Select guard"
                     disabled={isSubmitting}
                 />
@@ -146,6 +147,7 @@ export const PermissionForm: React.FC<PermissionFormProps> = ({
                     </Box>
                 )}
             </Stack>
-        </form>
+            </form>
+        </FormProvider>
     );
 };

@@ -6,7 +6,6 @@ import {
     UpdateDateColumn,
     ManyToOne,
     RelationId,
-    Unique,
     Index,
     ManyToMany,
     JoinTable,

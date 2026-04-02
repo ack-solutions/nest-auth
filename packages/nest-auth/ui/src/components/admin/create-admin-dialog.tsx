@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { FormDialog } from '../form-dialog';
-import { AdminForm, AdminFormData } from './admin-form';
-import { RHFPasswordField, RHFTextField } from '../form';
+import { AdminFormData } from './admin-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useForm } from 'react-hook-form';
 import * as yup from 'yup';
 import { Button } from '@mui/material';
+import { RHFTextField } from '../form/hook-form-fields/rhf-text-field';
+import { RHFPasswordField } from '../form/hook-form-fields/rhf-password-field';
 
 export interface CreateAdminDialogProps {
     open: boolean;

@@ -9,7 +9,7 @@ export interface IForgotPasswordRequest {
 }
 
 export interface IResetPasswordRequest {
-    otp: string;
+    code: string;
     newPassword: string;
 }
 
@@ -26,7 +26,8 @@ export interface IChangePasswordRequest {
 export interface IVerifyForgotPasswordOtpRequest {
     email?: string;
     phone?: string;
-    otp: string;
+    /** Verification or magic-link code (matches entity `code` field). */
+    code: string;
     tenantId?: string;
 }
 

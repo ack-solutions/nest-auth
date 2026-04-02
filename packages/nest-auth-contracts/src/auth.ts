@@ -7,8 +7,11 @@ import type { INestAuthTenant, INestAuthUserAccess } from './tenant';
 
 // OTP Type Enum
 export enum NestAuthOTPTypeEnum {
+    PASSWORDLESS_LOGIN = 'passwordless_login',
+    MAGIC_LINK_LOGIN = 'magic_link_login',
     PASSWORD_RESET = 'password_reset',
-    VERIFICATION = 'verification',
+    EMAIL_VERIFICATION = 'email_verification',
+    PHONE_VERIFICATION = 'phone_verification',
     MFA = 'mfa',
 }
 
@@ -86,13 +89,25 @@ export interface ISocialCredentials {
     token: string;
 }
 
-export type ILoginCredentials = IEmailCredentials | IPhoneCredentials | ISocialCredentials | Record<string, any>;
+export interface IPasswordlessOtpLoginCredentials {
+    identifier: string;
+    channels?: Array<'email' | 'sms'>;
+    code: string;
+}
+
+export type ILoginCredentials =
+    | IEmailCredentials
+    | IPhoneCredentials
+    | ISocialCredentials
+    | IPasswordlessOtpLoginCredentials
+    | Record<string, any>;
 
 export interface ILoginRequest {
-    providerName?: 'email' | 'phone' | 'google' | 'facebook' | 'apple' | 'github' | string;
+    providerName?: 'email' | 'phone' | 'passwordless' | 'google' | 'facebook' | 'apple' | 'github' | string;
     credentials: ILoginCredentials;
     tenantId?: string;
     createUserIfNotExists?: boolean;
+    guard?: string;
 }
 
 export interface ISignupRequest {

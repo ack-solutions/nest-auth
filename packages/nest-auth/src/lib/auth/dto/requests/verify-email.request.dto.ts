@@ -4,14 +4,14 @@ import { IVerifyEmailRequest } from '@ackplus/nest-auth-contracts';
 
 export class NestAuthVerifyEmailRequestDto implements IVerifyEmailRequest {
     @ApiProperty({
-        description: 'One-time password code received via email',
+        description: 'Verification code received via email',
         example: '123456',
         minLength: 6,
         maxLength: 8,
     })
     @IsString()
     @IsNotEmpty()
-    otp: string;
+    code: string;
 
     @ApiPropertyOptional({
         description: 'Tenant ID for multi-tenant applications',

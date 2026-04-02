@@ -30,7 +30,7 @@ export interface User {
  */
 export interface UserAccess {
     id: string;
-    tenantId: string;
+    tenantId: string | null;
     tenant?: Tenant;
     /**
      * Full Role objects. Populated when the access is loaded with role relations (read/display).
@@ -62,6 +62,7 @@ export interface TotpDevice {
 
 export interface UserSessionInfo {
     id: string;
+    userId?: string;
     deviceName?: string;
     userAgent?: string;
     ipAddress?: string;
@@ -79,6 +80,26 @@ export interface UserMfaDetails {
     totpDevices: TotpDevice[];
 }
 
+export interface UserIdentityInfo {
+    id: string;
+    provider: string;
+    providerId?: string;
+    metadata?: Record<string, any>;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface TrustedDeviceInfo {
+    id: string;
+    userId: string;
+    userAgent?: string;
+    ipAddress?: string;
+    expiresAt: string;
+    revokedAt?: string | null;
+    lastUsedAt?: string;
+    createdAt: string;
+}
+
 export interface UserDetails {
     user: User;
     loginMethods: {
@@ -86,8 +107,38 @@ export interface UserDetails {
         phoneEnabled: boolean;
         hasPassword: boolean;
     };
+    loginCapabilities?: {
+        email?: {
+            enabledInConfig: boolean;
+            hasIdentity: boolean;
+            verified: boolean;
+            canPasswordLogin: boolean;
+            canOtpLogin: boolean;
+        };
+        phone?: {
+            enabledInConfig: boolean;
+            hasIdentity: boolean;
+            verified: boolean;
+            canOtpLogin: boolean;
+        };
+        passwordless?: {
+            enabledInConfig: boolean;
+            allowSignUp: boolean;
+        };
+        social?: {
+            enabledProviders: string[];
+            identityProviders: string[];
+        };
+        mfa?: {
+            enabledInConfig: boolean;
+            requiredForAll: boolean;
+            requiredForUser: boolean;
+        };
+    };
     mfa: UserMfaDetails;
     sessions: UserSessionInfo[];
+    identities?: UserIdentityInfo[];
+    trustedDevices?: TrustedDeviceInfo[];
 }
 
 export interface Role {
@@ -133,7 +184,7 @@ export interface LoginForm {
 export interface CreateRoleForm {
     name: string;
     guard: string;
-    tenantId: string;
+    tenantId: string | null;
     permissions: string[];
 }
 

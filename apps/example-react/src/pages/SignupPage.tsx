@@ -9,8 +9,8 @@
  * - Error handling
  */
 
-import { useState } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { useNestAuth } from '@ackplus/nest-auth-react';
 import { useSnackbar } from 'notistack';
 import {
@@ -46,19 +46,28 @@ import AuthCard from '../components/AuthCard';
 export default function SignupPage() {
     const { signup } = useNestAuth();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { enqueueSnackbar } = useSnackbar();
 
     // Form state
-    const [firstName, setFirstName] = useState('');
-    const [lastName, setLastName] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
+    const [firstName, setFirstName] = useState('Ajay');
+    const [lastName, setLastName] = useState('Kumar');
+    const [tenantId, setTenantId] = useState<string | null>(null);
+    const [email, setEmail] = useState('ajay@ackplus.ai');
+    const [phone, setPhone] = useState('+919876543210');
+    const [password, setPassword] = useState('Test@123');
+    const [confirmPassword, setConfirmPassword] = useState('Test@123');
     const [showPassword, setShowPassword] = useState(false);
 
     // UI state
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fromQuery = searchParams.get('tenantId')?.trim();
+        if (!fromQuery) return;
+        setTenantId(fromQuery);
+    }, [searchParams]);
 
     // Validation
     const passwordsMatch = password === confirmPassword;
@@ -82,19 +91,43 @@ export default function SignupPage() {
             return;
         }
 
+        if (!email.trim() && !phone.trim()) {
+            setError('Please enter email or phone');
+            return;
+        }
+
         setLoading(true);
 
         try {
-            // Attempt signup via nest-auth-react
-            await signup({
-                email: email.toLowerCase().trim(),
+            type SignupPayload = {
+                email?: string;
+                phone?: string;
+                password: string;
+                tenantId?: string;
+                metadata: {
+                    firstName: string;
+                    lastName: string;
+                };
+            };
+
+            const payload: SignupPayload = {
                 password,
-                // Pass additional data in metadata
+                ...(tenantId ? { tenantId } : {}),
                 metadata: {
                     firstName: firstName.trim(),
                     lastName: lastName.trim(),
                 },
-            });
+            };
+
+            if (email.trim()) {
+                payload.email = email.toLowerCase().trim();
+            }
+            if (phone.trim()) {
+                payload.phone = phone.trim();
+            }
+
+            // Attempt signup via nest-auth-react
+            await signup(payload);
 
             // Success
             enqueueSnackbar('Account created successfully! Welcome!', {
@@ -102,9 +135,10 @@ export default function SignupPage() {
             });
             navigate('/dashboard', { replace: true });
 
-        } catch (err: any) {
-            const errorMessage = err.message || 'Registration failed. Please try again.';
-            const errorCode = err.code || err.details?.code;
+        } catch (err: unknown) {
+            const maybeError = err as { message?: string; code?: string; details?: { code?: string } };
+            const errorMessage = maybeError.message || 'Registration failed. Please try again.';
+            const errorCode = maybeError.code || maybeError.details?.code;
 
             // Map common error codes to user-friendly messages
             switch (errorCode) {
@@ -112,8 +146,14 @@ export default function SignupPage() {
                 case 'USER_ALREADY_EXISTS':
                     setError('An account with this email already exists. Please sign in.');
                     break;
+                case 'PHONE_ALREADY_EXISTS':
+                    setError('An account with this phone number already exists. Please sign in.');
+                    break;
                 case 'INVALID_EMAIL':
                     setError('Please enter a valid email address.');
+                    break;
+                case 'INVALID_PHONE':
+                    setError('Please enter a valid phone number.');
                     break;
                 case 'WEAK_PASSWORD':
                     setError('Password is too weak. Use at least 8 characters with mixed case and numbers.');
@@ -144,7 +184,7 @@ export default function SignupPage() {
 
                 {/* Name Fields */}
                 <Grid container spacing={2}>
-                    <Grid item xs={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                             fullWidth
                             label="First Name"
@@ -163,7 +203,7 @@ export default function SignupPage() {
                             }}
                         />
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                             fullWidth
                             label="Last Name"
@@ -184,7 +224,7 @@ export default function SignupPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={loading}
-                    required
+                    required={false}
                     autoComplete="email"
                     margin="normal"
                     InputProps={{
@@ -194,6 +234,19 @@ export default function SignupPage() {
                             </InputAdornment>
                         ),
                     }}
+                />
+
+                {/* Phone Field (optional, but required if email is empty) */}
+                <TextField
+                    fullWidth
+                    label="Phone Number"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    disabled={loading}
+                    required={false}
+                    autoComplete="tel"
+                    margin="normal"
+                    helperText={!email.trim() && !phone.trim() ? 'Email or phone is required' : ''}
                 />
 
                 {/* Password Field */}
@@ -266,7 +319,12 @@ export default function SignupPage() {
                     fullWidth
                     variant="contained"
                     size="large"
-                    disabled={loading || !email || !password || !confirmPassword}
+                    disabled={
+                        loading ||
+                        (!email.trim() && !phone.trim()) ||
+                        !password ||
+                        !confirmPassword
+                    }
                     sx={{ mt: 3, mb: 2, height: 48 }}
                 >
                     {loading ? <CircularProgress size={24} color="inherit" /> : 'Create Account'}
