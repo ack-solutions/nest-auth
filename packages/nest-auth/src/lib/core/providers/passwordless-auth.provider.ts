@@ -22,7 +22,7 @@ import { PasswordlessOtpCredentialsDto } from 'src/lib/auth/dto/credentials/pass
 @Injectable()
 export class PasswordlessAuthProvider extends BaseAuthProvider {
     providerName = PASSWORDLESS_AUTH_PROVIDER;
-
+    skipMfa = true;
     otpRepository: Repository<NestAuthOTP>;
 
     constructor(
