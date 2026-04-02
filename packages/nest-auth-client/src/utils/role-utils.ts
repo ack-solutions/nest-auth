@@ -4,6 +4,23 @@
 
 import { IAuthUser as AuthUser } from '@ackplus/nest-auth-contracts';
 
+function getUserRoleSet(user: AuthUser | null | undefined): Set<string> {
+    return new Set(
+        user?.userAccesses
+            ?.flatMap(access => access.roles ?? [])
+            .map(role => role?.name?.trim())
+            .filter(Boolean) ?? [],
+    );
+}
+
+function getUserPermissionSet(user: AuthUser | null | undefined): Set<string> {
+    return new Set(
+        user?.permissions
+            ?.map(permission => permission?.trim())
+            .filter(Boolean) ?? [],
+    );
+}
+
 /**
  * Check if user has a specific role
  * 
@@ -24,26 +41,25 @@ import { IAuthUser as AuthUser } from '@ackplus/nest-auth-contracts';
  * if (hasRole(user, ['admin', 'verified'], true)) { ... }
  * ```
  */
+
 export function hasRole(
     user: AuthUser | null | undefined,
     role: string | string[],
-    matchAll: boolean = false
+    matchAll = false,
 ): boolean {
-    if(!role || role.length === 0) {
+    const rolesToCheck = Array.isArray(role) ? role : [role];
+
+    if (rolesToCheck.length === 0) {
         return true;
     }
-    const userRoles = user?.userAccesses?.map(access => access.roles).flat().map(r => r.name) ?? [];
-    if (!user || !userRoles || userRoles.length === 0) {
+
+    const userRoles = getUserRoleSet(user);
+
+    if (userRoles.size === 0) {
         return false;
     }
 
-    const roles = Array.isArray(role) ? role : [role];
-
-    if (matchAll) {
-        return roles.every(r => userRoles!.includes(r));
-    }
-
-    return roles.some(r => userRoles!.includes(r));
+    return matchAll ? rolesToCheck.every(roleName => userRoles.has(roleName)) : rolesToCheck.some(roleName => userRoles.has(roleName));
 }
 
 /**
@@ -66,27 +82,27 @@ export function hasRole(
  * if (hasPermission(user, ['orders.read', 'orders.write'], true)) { ... }
  * ```
  */
+
 export function hasPermission(
     user: AuthUser | null | undefined,
     permission: string | string[],
-    matchAll: boolean = false
+    matchAll = false,
 ): boolean {
-    // If no permission is specified, return true
-    if (!permission || permission.length === 0) {
+    const requiredPermissions = Array.isArray(permission) ? permission : [permission];
+
+    if (requiredPermissions.length === 0) {
         return true;
     }
 
-    if (!user || !user.permissions || user.permissions.length === 0) {
+    const userPermissions = getUserPermissionSet(user);
+
+    if (userPermissions.size === 0) {
         return false;
     }
 
-    const permissions = Array.isArray(permission) ? permission : [permission];
-
-    if (matchAll) {
-        return permissions.every(p => user.permissions!.includes(p));
-    }
-
-    return permissions.some(p => user.permissions!.includes(p));
+    return matchAll
+        ? requiredPermissions.every(permissionName => userPermissions.has(permissionName))
+        : requiredPermissions.some(permissionName => userPermissions.has(permissionName));
 }
 
 /**
@@ -105,24 +121,20 @@ export function hasPermission(
  */
 export function hasAnyAccess(
     user: AuthUser | null | undefined,
-    requirements: { roles?: string[]; permissions?: string[] }
+    requirements?: { roles?: string | string[]; permissions?: string | string[] },
 ): boolean {
-    // If no requirements are specified, return true
-    if (!requirements || (!requirements?.roles && !requirements?.permissions)) {
+    const requiredRoles = Array.isArray(requirements?.roles) ? requirements?.roles : [requirements?.roles];
+    const requiredPermissions = Array.isArray(requirements?.permissions) ? requirements?.permissions : [requirements?.permissions];
+
+    if (requiredRoles.length === 0 && requiredPermissions.length === 0) {
         return true;
     }
-    
-    if (!user) return false;
 
-    const hasRequiredRole = requirements.roles && requirements.roles.length > 0
-        ? hasRole(user, requirements.roles)
-        : false;
+    if (!user) {
+        return false;
+    }
 
-    const hasRequiredPermission = requirements.permissions && requirements.permissions.length > 0
-        ? hasPermission(user, requirements.permissions)
-        : false;
-
-    return hasRequiredRole || hasRequiredPermission;
+    return ( hasRole(user, requiredRoles, false) || hasPermission(user, requiredPermissions, false) );
 }
 
 /**
@@ -141,17 +153,23 @@ export function hasAnyAccess(
  */
 export function hasAllAccess(
     user: AuthUser | null | undefined,
-    requirements: { roles?: string[]; permissions?: string[] }
+    requirements?: { roles?: string | string[]; permissions?: string | string[] },
 ): boolean {
-    if (!user) return false;
+    const requiredRoles = Array.isArray(requirements?.roles) ? requirements?.roles : [requirements?.roles];
+    const requiredPermissions = Array.isArray(requirements?.permissions) ? requirements?.permissions : [requirements?.permissions];
 
-    const hasRequiredRoles = requirements.roles && requirements.roles.length > 0
-        ? hasRole(user, requirements.roles, true)
-        : true;
+    if (requiredRoles.length === 0 && requiredPermissions.length === 0) {
+        return true;
+    }
 
-    const hasRequiredPermissions = requirements.permissions && requirements.permissions.length > 0
-        ? hasPermission(user, requirements.permissions, true)
-        : true;
+    if (!user) {
+        return false;
+    }
+
+    const hasRequiredRoles = requiredRoles.length === 0 || hasRole(user, requiredRoles, true);
+
+    const hasRequiredPermissions = requiredPermissions.length === 0 || hasPermission(user, requiredPermissions, true);
 
     return hasRequiredRoles && hasRequiredPermissions;
 }
+
