@@ -69,25 +69,10 @@ export class NestAuthPlatformAccess extends BaseEntity {
 
     /** Assign multiple roles for a specific tenant (stores on user access). */
     async assignRoles(roleIds: string | string[]): Promise<void> {
-        const access = await this.getOrCreatePlatformAccess();
         const ids = Array.isArray(roleIds) ? roleIds : [roleIds];
-        access.roles = ids.length
+        this.roles = ids.length
             ? await NestAuthRole.find({ where: { id: In(ids) } })
             : [];
-        await access.save();
-    }
-
-    private async getOrCreatePlatformAccess(): Promise<NestAuthPlatformAccess> {
-    
-        let access = await NestAuthPlatformAccess.findOne({
-            where: { userId: this.userId },
-            relations: ['roles'],
-        });
-        if (!access) {
-            access = NestAuthPlatformAccess.create({ userId: this.userId });
-            await access.save();
-            access.roles = []; // Initialize for consistency
-        }
-        return access;
+        await this.save();
     }
 }

@@ -10,6 +10,8 @@ import {
     BeforeInsert,
     BeforeUpdate,
     OneToOne,
+    Equal,
+    IsNull,
 } from "typeorm";
 import { hash, verify, Algorithm } from '@node-rs/argon2';
 import { AuthConfigService } from '../../core/services/auth-config.service';
@@ -93,19 +95,34 @@ export class NestAuthUser extends BaseEntity {
         }
     }
 
-    static async getUserAccess(userId: string, tenantId?: string | null): Promise<NestAuthUserAccess> {
-        const config = AuthConfigService.getOptions();
-        const tenantRequired = requiredTenant(config?.tenant ?? {}, tenantId);
-
-        return NestAuthUserAccess.findOne({
-            where: { userId, ...tenantRequired ? { tenantId } : {} },
+    async getUserAccess(tenantId: string = null, createIfNotExists: boolean = false) {
+        const existingUserAccess = await NestAuthUserAccess.findOne({
+            where: { userId: this.id, tenantId: tenantId ? Equal(tenantId) : IsNull() }
         });
+        if (existingUserAccess) {
+            return existingUserAccess;
+        }
+        if (createIfNotExists) {
+            const userAccess = NestAuthUserAccess.create({ userId: this.id, tenantId });
+            await userAccess.save();
+            return userAccess;
+        }
+        return null;
     }
 
-    static async getPlatformAccess(userId: string): Promise<NestAuthPlatformAccess> {
-        return NestAuthPlatformAccess.findOne({
-            where: { userId },
+    async getPlatformAccess(createIfNotExists: boolean = false) {
+        const existingPlatformAccess = await NestAuthPlatformAccess.findOne({
+            where: { userId: this.id }
         });
+        if (existingPlatformAccess) {
+            return existingPlatformAccess;
+        }
+        if (createIfNotExists) {
+            const platformAccess = NestAuthPlatformAccess.create({ userId: this.id });
+            await platformAccess.save();
+            return platformAccess;
+        }
+        return null;
     }
 
     async findOrCreateIdentity(provider: string, providerId: string) {
