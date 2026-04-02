@@ -231,14 +231,14 @@ export class AuthService {
 
             // Apply onSignup hook if configured - BEFORE session creation
             // This allows role assignment to be reflected in the session
+            const { user: authUser, userAccess } = await this.getUserWithAccess(user.id, tenantId);
+
             if (this.authConfig.registrationHooks?.onSignup) {
                 this.debugLogger.debug('Applying registrationHooks.onSignup hook', 'AuthService', { userId: user.id });
                 const request = RequestContext.currentRequest();
                 await this.authConfig.registrationHooks.onSignup(user, input, {userAccess, request });
 
             }
-
-            const { user: authUser, userAccess } = await this.getUserWithAccess(user.id, tenantId);
 
             // Protect against unauthorized signup with guard(potential access violation)
             if (input?.guard) {
