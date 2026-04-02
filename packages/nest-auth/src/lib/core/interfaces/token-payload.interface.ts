@@ -28,6 +28,7 @@ export interface SessionDataPayload {
     roles: Partial<NestAuthRole>[];
     permissions: string[];
     tenantId?: string;
+    isPlatformAccess?: boolean;
     /** Allow custom fields to be added */
     [key: string]: any;
 }

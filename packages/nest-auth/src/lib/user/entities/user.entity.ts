@@ -9,22 +9,18 @@ import {
     Index,
     BeforeInsert,
     BeforeUpdate,
-    ManyToMany,
-    IsNull,
+    OneToOne,
 } from "typeorm";
-import { In } from 'typeorm';
 import { hash, verify, Algorithm } from '@node-rs/argon2';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { NestAuthIdentity } from "./identity.entity";
 import { NestAuthSession } from "../../session/entities/session.entity";
-import { chain } from "lodash";
 import { NestAuthOTP } from "../../auth/entities/otp.entity";
 import { NestAuthMFASecret } from "../../auth/entities/mfa-secret.entity";
-import { NestAuthRole } from "../../role/entities/role.entity";
 import { NestAuthUserAccess } from "./user-access.entity";
 import { EMAIL_AUTH_PROVIDER, PHONE_AUTH_PROVIDER } from "../../auth.constants";
 import { normalizedPhone, requiredTenant } from '../../utils';
-import { getRolePermissionNames } from '../../role/utils/role-mapper.util';
+import { NestAuthPlatformAccess } from "./platform-access.entity";
 
 @Entity('nest_auth_users')
 export class NestAuthUser extends BaseEntity {
@@ -80,6 +76,9 @@ export class NestAuthUser extends BaseEntity {
     @OneToMany(() => NestAuthUserAccess, access => access.user)
     userAccesses: NestAuthUserAccess[];
 
+    @OneToOne(() => NestAuthPlatformAccess, access => access.user)
+    platformAccess: NestAuthPlatformAccess;
+
     @CreateDateColumn()
     createdAt: Date;
 
@@ -94,50 +93,19 @@ export class NestAuthUser extends BaseEntity {
         }
     }
 
-    async getPermissions(tenantId: string): Promise<string[]> {
-        const roles = await this.getRoles(tenantId, true);
-        return chain(roles)
-            .map((role) => getRolePermissionNames(role))
-            .flatten()
-            .uniq()
-            .value();
-    }
-
-    async getRoles(tenantId?: string | null, withPermissions = false): Promise<NestAuthRole[]> {
-        const access = await NestAuthUserAccess.findOne({
-            where: { userId: this.id, tenantId: tenantId || IsNull() },
-            relations: ['roles', ...(withPermissions ? ['roles.rolePermissions', 'roles.rolePermissions.permission'] : [])],
-        });
-        if (access?.roles?.length) {
-            return access.roles;
-        }
-        return [];
-    }
-
-    /** Assign multiple roles for a specific tenant (stores on user access). */
-    async assignRoles(roleIds: string | string[], tenantId?: string | null): Promise<void> {
-        const access = await this.getOrCreateUserAccess(tenantId);
-        const ids = Array.isArray(roleIds) ? roleIds : [roleIds];
-        access.roles = ids.length
-            ? await NestAuthRole.find({ where: { id: In(ids) } })
-            : [];
-        await access.save();
-    }
-
-    private async getOrCreateUserAccess(tenantId?: string | null): Promise<NestAuthUserAccess> {
+    static async getUserAccess(userId: string, tenantId?: string | null): Promise<NestAuthUserAccess> {
         const config = AuthConfigService.getOptions();
         const tenantRequired = requiredTenant(config?.tenant ?? {}, tenantId);
-        
-        let access = await NestAuthUserAccess.findOne({
-            where: { userId: this.id, ...tenantRequired ? { tenantId } : {}},
-            relations: ['roles'],
+
+        return NestAuthUserAccess.findOne({
+            where: { userId, ...tenantRequired ? { tenantId } : {} },
         });
-        if (!access) {
-            access = NestAuthUserAccess.create({ userId: this.id, ...tenantId ? { tenantId } : {} });
-            await access.save();
-            access.roles = []; // Initialize for consistency
-        }
-        return access;
+    }
+
+    static async getPlatformAccess(userId: string): Promise<NestAuthPlatformAccess> {
+        return NestAuthPlatformAccess.findOne({
+            where: { userId },
+        });
     }
 
     async findOrCreateIdentity(provider: string, providerId: string) {

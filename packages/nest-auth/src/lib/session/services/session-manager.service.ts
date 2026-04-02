@@ -9,6 +9,8 @@ import { NestAuthUser } from '../../user/entities/user.entity';
 import { v4 as uuidv4 } from 'uuid';
 import ms from 'ms';
 import { mapRoleToSessionSnapshot } from '../../role/utils/role-mapper.util';
+import { AccessRoleResolver } from '../../role/utils/access-role-resolver.util';
+import { NestAuthRole } from '../../role/entities/role.entity';
 
 export const SESSION_STORE = 'SESSION_STORE';
 export const SESSION_REPOSITORY = 'SESSION_REPOSITORY';
@@ -294,17 +296,30 @@ export class SessionManagerService {
      */
     async createSessionFromUser(
         user: NestAuthUser,
-        extraData: { isMfaVerified?: boolean; tenantId?: string | null } = {}
+        extraData: { isMfaVerified?: boolean; tenantId?: string | null; isPlatformAccess?: boolean } = {}
     ): Promise<NestAuthSession> {
         const { deviceName, ipAddress, browser } = RequestContext.getDeviceInfo();
-        const { isMfaVerified = false, tenantId = null } = extraData;
+        const { isMfaVerified = false, tenantId = null, isPlatformAccess } = extraData;
 
         if (!user) {
             throw new UnauthorizedException('User not found');
         }
 
-        const roles = await user.getRoles(tenantId);
-        const permissions = await user.getPermissions(tenantId);
+        let roles: NestAuthRole[] = [];
+        let permissions: string[] = [];
+
+        if (isPlatformAccess) {
+            const { roles: resolvedRoles, permissions: resolvedPermissions } = await AccessRoleResolver.resolvePlatformAccessRolesAndPermissions(user.id);
+            roles = resolvedRoles;
+            permissions = resolvedPermissions;
+        } else {
+            const { roles: resolvedRoles, permissions: resolvedPermissions } = await AccessRoleResolver.resolveRolesAndPermissionsForTenantContext({
+                userId: user.id,
+                tenantId: tenantId ?? null,
+            });
+            roles = resolvedRoles;
+            permissions = resolvedPermissions;
+        }
 
         // Build default session data
         let sessionData: SessionDataPayload = {
@@ -313,6 +328,7 @@ export class SessionManagerService {
             roles: roles.map((role) => mapRoleToSessionSnapshot(role)),
             permissions,
             tenantId,
+            isPlatformAccess: isPlatformAccess ?? false,
         };
 
         // Apply custom session data hook if configured

@@ -13,7 +13,7 @@ import {
 import { normalizedEmail, normalizedPhone } from '../../utils';
 import { NestAuthOTP } from '../../auth/entities/otp.entity';
 import { NestAuthOTPTypeEnum } from '@ackplus/nest-auth-contracts';
-import { PasswordlessOtpCredentialsDto } from 'src/lib/auth/dto/credentials/passwordless-otp-credentials.dto';
+import { PasswordlessOtpCredentialsDto } from '../../auth/dto/credentials/passwordless-otp-credentials.dto';
 
 /**
  * Passwordless login (email/SMS OTP or magic link). Registered from AuthModule when

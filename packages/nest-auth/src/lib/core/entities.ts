@@ -2,6 +2,7 @@ import { NestAuthUser } from '../user/entities/user.entity';
 import { NestAuthIdentity } from '../user/entities/identity.entity';
 import { NestAuthAccessKey } from '../user/entities/access-key.entity';
 import { NestAuthTenant } from '../tenant/entities/tenant.entity';
+import { NestAuthPlatformAccess } from '../user/entities/platform-access.entity';
 import { NestAuthUserAccess } from '../user/entities/user-access.entity';
 import { NestAuthRole } from '../role/entities/role.entity';
 import { NestAuthRolePermission } from '../role/entities/role-permission.entity';
@@ -17,6 +18,7 @@ export * from '../user/entities/identity.entity';
 export * from '../user/entities/access-key.entity';
 export * from '../tenant/entities/tenant.entity';
 export * from '../user/entities/user-access.entity';
+export * from '../user/entities/platform-access.entity';
 export * from '../role/entities/role.entity';
 export * from '../role/entities/role-permission.entity';
 export * from '../auth/entities/mfa-secret.entity';
@@ -31,6 +33,7 @@ export const NestAuthEntities = [
     NestAuthRole,
     NestAuthRolePermission,
     NestAuthTenant,
+    NestAuthPlatformAccess,
     NestAuthUserAccess,
     NestAuthMFASecret,
     NestAuthSession,

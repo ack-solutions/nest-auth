@@ -7,6 +7,7 @@ import { Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
+import { AccessRoleResolver } from '../../role/utils/access-role-resolver.util';
 import {
     EMAIL_AUTH_PROVIDER,
     PHONE_AUTH_PROVIDER,
@@ -48,6 +49,7 @@ import { normalizedEmail, normalizedPhone } from '../../utils';
 import { OtpFlowService } from './otp-flow.service';
 import { PasswordlessCodeRequestedEvent } from '../events/passwordless-code-requested.event';
 import { chain } from 'lodash';
+import { NestAuthRole } from '../../role/entities/role.entity';
 
 
 @Injectable()
@@ -294,13 +296,20 @@ export class AuthService {
     async login(input: NestAuthLoginRequestDto): Promise<AuthResponseDto> {
         let { credentials, providerName, createUserIfNotExists = false, guard, tenantId } = input;
 
+        const isPlatformAccess = await AccessRoleResolver.isPlatformAccess();
+
         this.debugLogger.logFunctionEntry('login', 'AuthService', { providerName, createUserIfNotExists, guard, tenantId });
 
         try {
-            // Resolve tenant ID
-            await this.tenantService.resolveTenantId(tenantId);
+            let resolvedTenantId: string | null = null;
+            if (isPlatformAccess) {
+                resolvedTenantId = null;
+            } else {
+                await this.tenantService.resolveTenantId(tenantId);
+                resolvedTenantId = tenantId;
+            }
 
-            this.debugLogger.logAuthOperation('login', providerName, undefined, { resolvedTenantId: tenantId, createUserIfNotExists });
+            this.debugLogger.logAuthOperation('login', providerName, undefined, { tenantId, resolvedTenantId, createUserIfNotExists, isPlatformAccess });
 
             const provider = this.authProviderRegistry.getProvider(providerName);
 
@@ -319,9 +328,9 @@ export class AuthService {
                     code: ERROR_CODES.MISSING_REQUIRED_FIELDS,
                 });
             }
-            const authProviderUser = await provider.validate(credentials, tenantId);
+            const authProviderUser = await provider.validate(credentials, resolvedTenantId);
 
-            const identity = await provider.findIdentity(authProviderUser.userId, tenantId);
+            const identity = await provider.findIdentity(authProviderUser.userId, resolvedTenantId);
 
             let user: NestAuthUser | null = identity?.user || null;
 
@@ -333,7 +342,7 @@ export class AuthService {
                     });
                 }
                 // Create new user if not exists and link to provider
-                user = await this.handleSocialLogin(provider, authProviderUser!, tenantId);
+                user = await this.handleSocialLogin(provider, authProviderUser!, resolvedTenantId);
             }
 
             if (user.isActive === false) {
@@ -342,6 +351,7 @@ export class AuthService {
                     code: ERROR_CODES.ACCOUNT_INACTIVE,
                 });
             }
+
 
             user = await this.getUserWithRoles(user!.id, ['userAccesses.tenant']);
             // Apply onLogin hook if configured - BEFORE session creation
@@ -352,7 +362,18 @@ export class AuthService {
                 await this.authConfig.loginHooks.onLogin(user, input, { request, provider });
             }
 
-            await this.ensureTenantAccess(user, tenantId, createUserIfNotExists);
+
+            if (isPlatformAccess) {
+                const isPlatformAdmin = await AccessRoleResolver.isPlatformAdminUser(user!.id);
+                if (!isPlatformAdmin) {
+                    throw new ForbiddenException({
+                        message: 'Only platform admins can login',
+                        code: ERROR_CODES.ACCESS_DENIED,
+                    });
+                }
+            } else {
+                await this.ensureTenantAccess(user, resolvedTenantId, createUserIfNotExists);
+            }
 
 
             let isRequiresMfa = false;
@@ -363,10 +384,20 @@ export class AuthService {
             }
             user.isMfaEnabled = isRequiresMfa;
 
-            const userRoles = user.userAccesses?.map(access => access.roles).flat();
+            if (guard) {
+                let guardRoles: NestAuthRole[] = [];
+                if (isPlatformAccess) {
+                    const { roles } = await AccessRoleResolver.resolvePlatformAccessRolesAndPermissions(user.id);
+                    guardRoles = roles;
+                } else {
+                    const { roles } = await AccessRoleResolver.resolveRolesAndPermissionsForTenantContext({
+                        userId: user.id,
+                        tenantId: resolvedTenantId ?? null,
+                    });
+                    guardRoles = roles;
+                }
 
-            if (guard && userRoles?.length) {
-                const isExistsGuard = userRoles.some(r => r.guard === guard);
+                const isExistsGuard = guardRoles.some(r => r.guard === guard);
                 if (!isExistsGuard) {
                     throw new UnauthorizedException({
                         message: 'Invalid credentials',
@@ -375,7 +406,10 @@ export class AuthService {
                 }
             }
 
-            let session = await this.sessionManager.createSessionFromUser(user, { tenantId });
+            let session = await this.sessionManager.createSessionFromUser(user, {
+                tenantId: resolvedTenantId,
+                isPlatformAccess: isPlatformAccess ?? false
+            });
 
             if (isRequiresMfa) {
                 isTrusted = await this.checkTrustedDevice(user);
@@ -756,38 +790,10 @@ export class AuthService {
         isMfaVerified?: boolean;
     }): Promise<SessionDataPayload> {
         const { user, tenantId = null, isMfaVerified = false } = params;
-
-        const accessForTenant = (user.userAccesses ?? []).find((a: any) => {
-            const aTenantId = a?.tenantId ?? null;
-            return (tenantId ?? null) === aTenantId;
+        const { roles, permissions } = await AccessRoleResolver.resolveRolesAndPermissionsForTenantContext({
+            userId: user.id,
+            tenantId: tenantId ?? null,
         });
-
-        const rolesFromUser = accessForTenant?.roles ?? [];
-        const hasRolesPreloaded = Array.isArray(rolesFromUser) && rolesFromUser.length >= 0;
-        const hasRolePermissionsPreloaded =
-            rolesFromUser?.some((r: any) =>
-                Array.isArray(r?.rolePermissions) &&
-                r.rolePermissions.some((rp: any) => !!rp?.permission?.name)
-            ) ?? false;
-
-        // Prefer already-loaded roles/permissions from user object (no DB hit)
-        // Fall back to a single DB fetch (with permissions) otherwise.
-        const roles =
-            hasRolesPreloaded && rolesFromUser.length
-                ? rolesFromUser
-                : await user.getRoles(tenantId, true);
-
-        const permissions = hasRolePermissionsPreloaded
-            ? chain(rolesFromUser)
-                .map((role: any) => getRolePermissionNames(role))
-                .flatten()
-                .uniq()
-                .value()
-            : chain(roles)
-                .map((role: any) => getRolePermissionNames(role))
-                .flatten()
-                .uniq()
-                .value();
 
         let sessionData: SessionDataPayload = {
             user,
@@ -1006,8 +1012,6 @@ export class AuthService {
             });
         }
     }
-
-
 
     private async generateTokensPayload(session: SessionPayload, otherPayload: Partial<JWTTokenPayload> = {}): Promise<JWTTokenPayload> {
 

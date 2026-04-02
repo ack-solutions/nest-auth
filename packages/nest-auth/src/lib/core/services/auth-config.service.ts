@@ -4,6 +4,7 @@ import { SessionStorageType } from '../interfaces/session-options.interface';
 import { NestAuthMFAMethodEnum, TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { DEFAULT_GUARD_NAME, NEST_AUTH_TRUST_DEVICE_KEY } from '../../auth.constants';
 import { generateOtp } from '../../utils/otp';
+import { Request } from 'express';
 
 @Injectable()
 export class AuthConfigService {
@@ -43,7 +44,7 @@ export class AuthConfigService {
             trustDeviceStorageName: NEST_AUTH_TRUST_DEVICE_KEY, // it work only when pass 'trustDevice' true in verify2fa request
             trustedDeviceDuration: '7d',
         },
-        tenant: { 
+        tenant: {
             enabled: false,
             mode: TenantModeEnum.ISOLATED,
         },
@@ -79,6 +80,12 @@ export class AuthConfigService {
         },
         password: {
             passwordResetTokenExpiresIn: '1h',
+        },
+        platformAccess: {
+            enabled: false,
+            validate: (request: Request) => {
+                return true;
+            },
         },
     };
 

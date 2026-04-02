@@ -7,6 +7,7 @@ import { NestAuthUser } from '../../user/entities/user.entity';
 import { SessionPayload, JWTTokenPayload } from './token-payload.interface';
 import { NestAuthSignupRequestDto } from '../../auth/dto/requests/signup.request.dto';
 import { INestAuthTenantOptions, TenantModeEnum } from '@ackplus/nest-auth-contracts';
+import { Request } from 'express';
 
 /**
  * Default Tenant Options
@@ -440,6 +441,15 @@ export interface IAuthModuleOptions {
             timeCost?: number; // default: 3 (3 iterations)
             parallelism?: number; // default: 4 (4 parallel threads)
         };
+    };
+
+    /**
+     * Platform access configuration.
+     * When enabled, platform access is used to store platform-wide roles and permissions.
+     */
+    platformAccess?: {
+        enabled?: boolean;
+        validate?: (request: Request) => Promise<boolean> | boolean;
     };
     /**
      * OTP customization (generation, length, verification code expiry — see {@link IOtpOptions}).

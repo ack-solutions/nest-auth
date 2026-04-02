@@ -15,6 +15,7 @@ import {
 import { DEFAULT_GUARD_NAME } from "../../auth.constants";
 import { NestAuthTenant } from "../../tenant/entities/tenant.entity";
 import { NestAuthUser } from "../../user/entities/user.entity";
+import { NestAuthPlatformAccess } from "../../user/entities/platform-access.entity";
 import { NestAuthUserAccess } from "../../user/entities/user-access.entity";
 import { NestAuthRolePermission } from "./role-permission.entity";
 
@@ -54,4 +55,8 @@ export class NestAuthRole extends BaseEntity {
 
     @ManyToMany(() => NestAuthUserAccess, access => access.roles, { onDelete: 'CASCADE' })
     userAccesses: NestAuthUserAccess[];
+
+    /** Platform-wide roles (used for platform admin / global access). */
+    @ManyToMany(() => NestAuthPlatformAccess, access => access.roles, { onDelete: 'CASCADE' })
+    platformAccesses: NestAuthPlatformAccess[];
 }
