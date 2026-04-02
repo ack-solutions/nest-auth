@@ -472,7 +472,8 @@ export class AdminUsersController {
 
     // Tenants disabled: set global roles (stored on access with tenantId = NULL)
     if (!tenantEnabled && dto.roleIds !== undefined) {
-      await user.userAccesses?.[0]?.assignRoles(dto.roleIds ?? [], null);
+      const userAccess = await user.getUserAccess(null, true);
+      await userAccess.assignRoles(dto.roleIds ?? []);
     }
 
     // Set roles per tenant (both SHARED and ISOLATED)
