@@ -229,7 +229,7 @@ export class AuthService {
                 }
             }
 
-            user = await this.getUserWithRoles(user.id, ['userAccesses.roles.permissions', 'userAccesses.tenant']);
+            user = await this.getUserWithRoles(user.id, ['userAccesses', 'userAccesses.roles', 'userAccesses.tenant']);
 
             // Protect against unauthorized signup with guard(potential access violation)
             const userRoles = user.userAccesses?.map(access => access.roles).flat();
@@ -847,7 +847,13 @@ export class AuthService {
 
             const user = await this.userRepository.findOne({
                 where: { id: session.userId },
-                relations: ['userAccesses.roles.permissions', 'userAccesses.tenant']
+                relations: [
+                    'userAccesses',
+                    'userAccesses.roles',
+                    'userAccesses.roles.rolePermissions',
+                    'userAccesses.roles.rolePermissions.permission',
+                    'userAccesses.tenant'
+                ]
             });
 
             if (!user) {
