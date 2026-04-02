@@ -8,6 +8,7 @@ import { SessionPayload, JWTTokenPayload } from './token-payload.interface';
 import { NestAuthSignupRequestDto } from '../../auth/dto/requests/signup.request.dto';
 import { INestAuthTenantOptions, TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { Request } from 'express';
+import { NestAuthPlatformAccess, NestAuthUserAccess } from '../entities';
 
 /**
  * Default Tenant Options
@@ -153,7 +154,7 @@ export interface IRegistrationHooks {
      * }
      * ```
      */
-    onSignup?: (user: NestAuthUser, input: any, context?: { request?: any }) => Promise<NestAuthUser | void> | NestAuthUser | void;
+    onSignup?: (user: NestAuthUser, input: any, context?: { userAccess?: NestAuthUserAccess; request?: any }) => Promise<NestAuthUser | void> | NestAuthUser | void;
 }
 
 /**
@@ -182,7 +183,7 @@ export interface ILoginHooks {
      * }
      * ```
      */
-    onLogin?: (user: NestAuthUser, input: any, context?: { request?: any; provider?: any }) => Promise<NestAuthUser | void> | NestAuthUser | void;
+    onLogin?: (user: NestAuthUser, input: any, context?: { userAccess?: NestAuthUserAccess; platformAccess?: NestAuthPlatformAccess; request?: any; provider?: any }) => Promise<NestAuthUser | void> | NestAuthUser | void;
 }
 
 /**

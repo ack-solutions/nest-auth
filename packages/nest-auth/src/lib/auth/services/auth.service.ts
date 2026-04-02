@@ -234,7 +234,7 @@ export class AuthService {
             if (this.authConfig.registrationHooks?.onSignup) {
                 this.debugLogger.debug('Applying registrationHooks.onSignup hook', 'AuthService', { userId: user.id });
                 const request = RequestContext.currentRequest();
-                await this.authConfig.registrationHooks.onSignup(user, input, { request });
+                await this.authConfig.registrationHooks.onSignup(user, input, {userAccess, request });
 
             }
 
@@ -365,7 +365,7 @@ export class AuthService {
             if (this.authConfig.loginHooks?.onLogin) {
                 this.debugLogger.debug('Applying loginHooks.onLogin hook', 'AuthService', { userId: authUser.id });
                 const request = RequestContext.currentRequest();
-                await this.authConfig.loginHooks.onLogin(authUser, input, { request, provider });
+                await this.authConfig.loginHooks.onLogin(authUser, input, { userAccess, platformAccess, request, provider });
             }
 
 
