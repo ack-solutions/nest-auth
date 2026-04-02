@@ -10,7 +10,7 @@ import { UserCreatedEvent } from '../events/user-created.event';
 import { TenantService } from '../../tenant';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import { NestAuthUserAccess } from '../../tenant/entities/user-access.entity';
+import { NestAuthUserAccess } from '../entities/user-access.entity';
 import { NestAuthTenant } from '../../tenant/entities/tenant.entity';
 import { NestAuthRole } from '../../role/entities/role.entity';
 import { TenantModeEnum } from '@ackplus/nest-auth-contracts';

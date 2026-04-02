@@ -1,5 +1,5 @@
 import { JWTTokenPayload, SessionPayload } from '../interfaces/token-payload.interface';
-import { NestAuthUserAccess } from '../tenant/entities/user-access.entity';
+import { NestAuthUserAccess } from '../user/entities/user-access.entity';
 
 declare global {
     namespace Express {

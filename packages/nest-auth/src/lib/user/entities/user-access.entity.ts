@@ -12,8 +12,8 @@ import {
     JoinTable,
     BaseEntity,
 } from 'typeorm';
-import { NestAuthTenant } from './tenant.entity';
-import { NestAuthUser } from '../../user/entities/user.entity';
+import { NestAuthTenant } from '../../tenant/entities/tenant.entity';
+import { NestAuthUser } from './user.entity';
 import { NestAuthRole } from '../../role/entities/role.entity';
 
 @Entity('nest_auth_user_accesses')

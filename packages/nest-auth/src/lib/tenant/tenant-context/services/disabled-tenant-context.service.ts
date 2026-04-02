@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ITenantContextService } from '../tenant-context.interface';
 import { NestAuthTenant } from '../../entities/tenant.entity';
-import { NestAuthUserAccess } from '../../entities/user-access.entity';
+import { NestAuthUserAccess } from '../../../user/entities/user-access.entity';
 
 /**
  * No-op tenant context when tenant support is disabled.

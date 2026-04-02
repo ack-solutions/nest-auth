@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TenantService } from '../../tenant/services/tenant.service';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import { NestAuthUserAccess } from '../../tenant/entities/user-access.entity';
+import { NestAuthUserAccess } from '../../user/entities/user-access.entity';
 import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
 
 /**

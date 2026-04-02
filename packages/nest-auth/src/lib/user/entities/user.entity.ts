@@ -16,14 +16,13 @@ import {
 import { In } from 'typeorm';
 import { hash, verify, Algorithm } from '@node-rs/argon2';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import { NestAuthTenant } from "../../tenant/entities/tenant.entity";
 import { NestAuthIdentity } from "./identity.entity";
 import { NestAuthSession } from "../../session/entities/session.entity";
 import { chain } from "lodash";
 import { NestAuthOTP } from "../../auth/entities/otp.entity";
 import { NestAuthMFASecret } from "../../auth/entities/mfa-secret.entity";
 import { NestAuthRole } from "../../role/entities/role.entity";
-import { NestAuthUserAccess } from "../../tenant/entities/user-access.entity";
+import { NestAuthUserAccess } from "./user-access.entity";
 import { EMAIL_AUTH_PROVIDER, PHONE_AUTH_PROVIDER } from "../../auth.constants";
 import { normalizedPhone } from '../../utils';
 import { getRolePermissionNames } from '../../role/utils/role-mapper.util';

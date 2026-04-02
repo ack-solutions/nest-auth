@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'async_hooks';
 import { Request, Response } from 'express';
 import { JWTTokenPayload, SessionPayload } from '../core/interfaces/token-payload.interface';
-import { NestAuthUserAccess } from '../tenant/entities/user-access.entity';
+import { NestAuthUserAccess } from '../user/entities/user-access.entity';
 import { FindOneOptions, IsNull } from 'typeorm';
 import { NestAuthUser } from '../user/entities/user.entity';
 

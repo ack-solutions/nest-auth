@@ -1,5 +1,5 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { NestAuthUserAccess } from '../entities/user-access.entity';
+import { NestAuthUserAccess } from '../../user/entities/user-access.entity';
 
 /**
  * Parameter decorator to get the current user's access for the active tenant (includes roles).

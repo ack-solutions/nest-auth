@@ -26,7 +26,7 @@ import { MfaService } from '../../auth/services/mfa.service';
 import { SessionManagerService } from '../../session/services/session-manager.service';
 import { NestAuthSession } from '../../session/entities/session.entity';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import { NestAuthUserAccess } from '../../tenant/entities/user-access.entity';
+import { NestAuthUserAccess } from '../../user/entities/user-access.entity';
 import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { mapRoleToResponse } from '../../role/utils/role-mapper.util';
 

@@ -15,7 +15,7 @@ import {
 import { DEFAULT_GUARD_NAME } from "../../auth.constants";
 import { NestAuthTenant } from "../../tenant/entities/tenant.entity";
 import { NestAuthUser } from "../../user/entities/user.entity";
-import { NestAuthUserAccess } from "../../tenant/entities/user-access.entity";
+import { NestAuthUserAccess } from "../../user/entities/user-access.entity";
 import { NestAuthRolePermission } from "./role-permission.entity";
 
 @Entity('nest_auth_roles')

@@ -1,6 +1,6 @@
 import { ITenantContextService } from '../tenant-context.interface';
 import { NestAuthTenant } from '../../entities/tenant.entity';
-import { NestAuthUserAccess } from '../../entities/user-access.entity';
+import { NestAuthUserAccess } from '../../../user/entities/user-access.entity';
 import { TenantService } from '../../services/tenant.service';
 import { RequestContext } from '../../../request-context/request-context';
 

@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from "typeorm";
-import { NestAuthUserAccess } from "./user-access.entity";
+import { NestAuthUserAccess } from "../../user/entities/user-access.entity";
 
 @Entity('nest_auth_tenants')
 export class NestAuthTenant {

@@ -1,6 +1,6 @@
 import { Request } from 'express';
 import { NestAuthTenant } from '../entities/tenant.entity';
-import { NestAuthUserAccess } from '../entities/user-access.entity';
+import { NestAuthUserAccess } from '../../user/entities/user-access.entity';
 
 export interface ITenantContextService {
     isEnabled(): boolean;

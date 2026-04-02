@@ -7,7 +7,7 @@ import { AuthModule } from '../auth/auth.module';
 import { NestAuthAccessKey } from './entities/access-key.entity';
 import { NestAuthIdentity } from './entities/identity.entity';
 import { TenantModule } from '../tenant/tenant.module';
-import { NestAuthUserAccess } from '../tenant/entities/user-access.entity';
+import { NestAuthUserAccess } from './entities/user-access.entity';
 
 @Module({
     imports: [
