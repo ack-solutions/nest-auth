@@ -154,7 +154,7 @@ export interface IRegistrationHooks {
      * }
      * ```
      */
-    onSignup?: (user: NestAuthUser, input: any, context?: { userAccess?: NestAuthUserAccess; request?: any }) => Promise<NestAuthUser | void> | NestAuthUser | void;
+    onSignup?: (user: NestAuthUser, input: any, context?: { request?: any }) => Promise<void> | void;
 }
 
 /**
@@ -183,7 +183,7 @@ export interface ILoginHooks {
      * }
      * ```
      */
-    onLogin?: (user: NestAuthUser, input: any, context?: { userAccess?: NestAuthUserAccess; platformAccess?: NestAuthPlatformAccess; request?: any; provider?: any }) => Promise<NestAuthUser | void> | NestAuthUser | void;
+    onLogin?: (user: NestAuthUser, input: any, context?: { userAccess?: NestAuthUserAccess; platformAccess?: NestAuthPlatformAccess; request?: any; provider?: any }) => Promise<void> | void;
 }
 
 /**

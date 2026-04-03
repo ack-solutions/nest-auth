@@ -129,10 +129,6 @@ export class AuthService {
 
     async signup(input: NestAuthSignupRequestDto): Promise<AuthResponseDto> {
         this.debugLogger.logFunctionEntry('signup', 'AuthService', { email: input.email, phone: input.phone, hasPassword: !!input.password });
-        const config = this.authConfigService.getConfig();
-
-        const tenantMode = config.tenant?.mode ?? TenantModeEnum.ISOLATED;
-        const tenetEnabled = config.tenant?.enabled ?? false;
 
         try {
             if (this.authConfig.registration?.enabled === false) {
@@ -229,28 +225,14 @@ export class AuthService {
                 await item.provider.linkToUser(user.id, item.providerId);
             }
 
-            // Apply onSignup hook if configured - BEFORE session creation
-            // This allows role assignment to be reflected in the session
-            const { user: authUser, userAccess } = await this.getUserWithAccess(user.id, tenantId);
 
             if (this.authConfig.registrationHooks?.onSignup) {
                 this.debugLogger.debug('Applying registrationHooks.onSignup hook', 'AuthService', { userId: user.id });
                 const request = RequestContext.currentRequest();
-                await this.authConfig.registrationHooks.onSignup(user, input, {userAccess, request });
-
+                await this.authConfig.registrationHooks.onSignup(user, input, {request });
             }
 
-            // Protect against unauthorized signup with guard(potential access violation)
-            if (input?.guard) {
-                const isExistsGuard = userAccess?.roles?.some(r => r?.guard === input.guard);
-                if (!isExistsGuard) {
-                    await this.userService.deleteUser(user.id);
-                    throw new UnauthorizedException({
-                        message: 'Not allowed to signup with this guard',
-                        code: ERROR_CODES.FORBIDDEN,
-                    });
-                }
-            }
+            const { user: authUser, userAccess } = await this.getUserWithAccess(user.id, tenantId);
 
             this.debugLogger.debug('Creating session for new user', 'AuthService', { userId: authUser.id });
             const session = await this.sessionManager.createSessionFromUser(authUser, userAccess, { tenantId });
@@ -389,7 +371,7 @@ export class AuthService {
             }
             user.isMfaEnabled = isRequiresMfa;
 
-            if (guard) {
+            if (guard && (platformAccess || userAccess)) {
                 let guardRoles: NestAuthRole[] = [];
                 if (isPlatformAccess) {
                     guardRoles = platformAccess?.roles ?? [];
