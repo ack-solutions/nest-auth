@@ -100,7 +100,7 @@ export default function DashboardPage() {
                                 {user?.email}
                             </Typography>
                             <Box sx={{ display: 'flex', gap: 2, mt: 1 }}>
-                                {user?.isVerified ? (
+                                {user?.emailVerifiedAt ? (
                                     <Typography variant="caption" color="success.main">
                                         ✓ Email verified
                                     </Typography>
@@ -109,7 +109,7 @@ export default function DashboardPage() {
                                         ⚠ Email not verified
                                     </Typography>
                                 )}
-                                {(user as any)?.isMfaEnabled ? (
+                                {user?.isMfaEnabled ? (
                                     <Typography variant="caption" color="success.main">
                                         ✓ MFA enabled
                                     </Typography>

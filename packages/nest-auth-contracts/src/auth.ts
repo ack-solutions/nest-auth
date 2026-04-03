@@ -3,7 +3,9 @@
  * Contains: Login/Signup/Token types + Auth Entities (Session, Identity, AccessKey, OTP)
  */
 
+import { INestAuthRole } from './role';
 import type { INestAuthTenant, INestAuthUserAccess } from './tenant';
+import { INestAuthUser } from './user';
 
 // OTP Type Enum
 export enum NestAuthOTPTypeEnum {
@@ -19,7 +21,7 @@ export enum NestAuthOTPTypeEnum {
 export enum NestAuthMFAMethodEnum {
     EMAIL = 'email',
     SMS = 'sms',
-    TOTP  = 'totp',
+    TOTP = 'totp',
 }
 
 // --- Entity Interfaces ---
@@ -68,7 +70,6 @@ export interface INestAuthOTP {
     code: string;
     type: NestAuthOTPTypeEnum;
     expiresAt: Date;
-    used: boolean;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -131,24 +132,25 @@ export interface ITokenPair {
     refreshToken: string;
 }
 
-export interface IAuthUser {
-    id: string;
-    email?: string;
-    phone?: string;
-    isVerified?: boolean;
-    isMfaEnabled?: boolean;
-    roles?: string[];
-    permissions?: string[];
-    metadata?: Record<string, any>;
-    userAccesses?: INestAuthUserAccess[];
-}
+export type ISessionUserData<
+    SerializedUser extends Record<string, any> = Record<string, any>
+> = SerializedUser & Pick<INestAuthUser, 'id' | 'email' | 'phone' | 'emailVerifiedAt' | 'phoneVerifiedAt' | 'isMfaEnabled' | 'metadata'> & {
+    roles?: Pick<INestAuthRole, 'id' | 'name' | 'guard'>[];
+    permissions: string[];
+};
+
+// export interface ISessionUserData<SerializedUser = any> {
+//     [key in SerializedUser]: SerializedUser[key];
+// roles ?: INestAuthRole[];
+// permissions: string[];
+// }
 
 export interface IAuthResponse extends ITokenPair {
     message?: string;
     isRequiresMfa?: boolean;
     mfaMethods?: NestAuthMFAMethodEnum[];
     defaultMfaMethod?: NestAuthMFAMethodEnum;
-    user?: IAuthUser;
+    user?: ISessionUserData;
 }
 
 export interface IAuthSession {
@@ -176,7 +178,8 @@ export interface IUserResponse {
     id: string;
     email?: string;
     phone?: string;
-    isVerified?: boolean;
+    emailVerifiedAt?: Date;
+    phoneVerifiedAt?: Date;
     isMfaEnabled?: boolean;
     roles?: string[];
     permissions?: string[];

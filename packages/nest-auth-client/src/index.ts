@@ -55,3 +55,6 @@ export { RefreshQueue, RetryTracker } from './client/refresh-queue';
 
 // Utilities
 export { hasRole, hasPermission, hasAnyAccess, hasAllAccess } from './utils/role-utils';
+
+// Re-export all shared types and enums from contracts for consumers
+export * from '@ackplus/nest-auth-contracts';

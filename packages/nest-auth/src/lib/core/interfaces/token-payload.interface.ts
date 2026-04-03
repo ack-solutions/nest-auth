@@ -6,7 +6,8 @@ export interface JWTTokenPayload {
     sub?: string; // user id
     email?: string;
     phone?: string;
-    isVerified?: boolean;
+    emailVerifiedAt?: Date;
+    phoneVerifiedAt?: Date;
     roles?: Partial<NestAuthRole>[];
     tenantId?: string;
     isMfaEnabled?: boolean;

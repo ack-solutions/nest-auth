@@ -4,25 +4,22 @@
  */
 
 import {
-    IAuthUser as AuthUser,
-    ITokenPair as TokenPair,
-    ILoginRequest as LoginDto,
-    ISignupRequest as SignupDto,
-    IRefreshRequest as RefreshDto,
-    IForgotPasswordRequest as ForgotPasswordDto,
-    IResetPasswordWithTokenRequest as ResetPasswordDto,
-    IVerifyEmailRequest as VerifyEmailDto,
-    IVerifyForgotPasswordOtpRequest as VerifyForgotPasswordOtpDto,
-    IResendVerificationRequest as ResendVerificationDto,
-    ISendEmailVerificationRequest as SendEmailVerificationDto,
-    ISendPhoneVerificationRequest as SendPhoneVerificationDto,
-    IVerifyPhoneRequest as VerifyPhoneDto,
-    IChangePasswordRequest as ChangePasswordDto,
-    IVerify2faRequest as Verify2faDto,
-    IAuthResponse as AuthResponse,
-    IMessageResponse as MessageResponse,
-    IVerifyOtpResponse as VerifyOtpResponse,
-    IVerify2faResponse as Verify2faResponse,
+    ITokenPair,
+    ISignupRequest,
+    IRefreshRequest,
+    IForgotPasswordRequest,
+    IResetPasswordWithTokenRequest,
+    IVerifyEmailRequest,
+    IVerifyForgotPasswordOtpRequest,
+    ISendEmailVerificationRequest,
+    ISendPhoneVerificationRequest,
+    IVerifyPhoneRequest,
+    IChangePasswordRequest,
+    IVerify2faRequest,
+    IAuthResponse,
+    IMessageResponse,
+    IVerifyOtpResponse,
+    IVerify2faResponse,
     ITotpSetupResponse,
     IVerifyTotpSetupRequest,
     IMfaStatusResponse,
@@ -31,6 +28,8 @@ import {
     ISwitchTenantRequest,
     INestAuthUserAccess,
     IPasswordlessSendRequest,
+    ISessionUserData,
+    ILoginRequest
 } from '@ackplus/nest-auth-contracts';
 import {
     AuthClientConfig,
@@ -81,7 +80,8 @@ export class AuthClient {
     private refreshQueue: RefreshQueue;
     private retryTracker: RetryTracker;
 
-    private user: AuthUser | null = null;
+    private user: ISessionUserData | null = null;
+    private sessionUserData: ISessionUserData | null = null;
     private session: ClientSession | null = null;
 
     private userAccesses: INestAuthUserAccess[] | undefined;
@@ -142,6 +142,7 @@ export class AuthClient {
             const userJson = await Promise.resolve(this.config.storage!.get(STORAGE_KEYS.USER));
             if (userJson) {
                 this.user = JSON.parse(userJson);
+                this.sessionUserData = JSON.parse(userJson);
                 this.userAccesses = this.user?.userAccesses ?? undefined;
             }
 
@@ -400,7 +401,7 @@ export class AuthClient {
         }
     }
 
-    private async handleAuthResponse(response: AuthResponse): Promise<void> {
+    private async handleAuthResponse(response: IAuthResponse): Promise<void> {
         this.log('debug', 'handleAuthResponse: Processing auth response', {
             hasAccessToken: !!response.accessToken,
             hasRefreshToken: !!response.refreshToken,
@@ -480,9 +481,9 @@ export class AuthClient {
     /**
      * Login with credentials
      */
-    async login(dto: LoginDto, options?: RequestOptions): Promise<AuthResponse> {
+    async login(dto: ILoginRequest, options?: RequestOptions): Promise<IAuthResponse> {
         const endpoint = this.getEndpoint('login');
-        const response = await this.request<AuthResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+        const response = await this.request<IAuthResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
 
         if (!response.ok) {
             throw this.handleError(response);
@@ -509,9 +510,9 @@ export class AuthClient {
     /**
      * Sign up a new user
      */
-    async signup(dto: SignupDto, options?: RequestOptions): Promise<AuthResponse> {
+    async signup(dto: ISignupRequest, options?: RequestOptions): Promise<IAuthResponse> {
         const endpoint = this.getEndpoint('signup');
-        const response = await this.request<AuthResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+        const response = await this.request<IAuthResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
 
         if (!response.ok) {
             throw this.handleError(response);
@@ -524,9 +525,9 @@ export class AuthClient {
     /**
      * Passwordless — request a login code via email or SMS (`channel`).
      */
-    async passwordlessSend(dto: IPasswordlessSendRequest, options?: RequestOptions): Promise<MessageResponse> {
+    async passwordlessSend(dto: IPasswordlessSendRequest, options?: RequestOptions): Promise<IMessageResponse> {
         const endpoint = this.getEndpoint('passwordlessSend');
-        const response = await this.request<MessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+        const response = await this.request<IMessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
         if (!response.ok) {
             throw this.handleError(response);
         }
@@ -564,7 +565,7 @@ export class AuthClient {
         const endpoint = this.getEndpoint('logout');
 
         try {
-            await this.request<MessageResponse>('POST', endpoint, undefined, { ...options, skipRefresh: true });
+            await this.request<IMessageResponse>('POST', endpoint, undefined, { ...options, skipRefresh: true });
         } catch (error) {
             // Ignore logout errors - we'll clear local state anyway
             this.log('debug', 'Logout API call failed (state will be cleared anyway)', error);
@@ -577,9 +578,9 @@ export class AuthClient {
      * Logout from all devices
      * This revokes all sessions for the current user
      */
-    async logoutAll(options?: RequestOptions): Promise<MessageResponse> {
+    async logoutAll(options?: RequestOptions): Promise<IMessageResponse> {
         const endpoint = this.getEndpoint('logoutAll');
-        const response = await this.request<MessageResponse>('POST', endpoint, undefined, options);
+        const response = await this.request<IMessageResponse>('POST', endpoint, undefined, options);
 
         if (!response.ok) {
             throw this.handleError(response);
@@ -592,12 +593,12 @@ export class AuthClient {
     /**
      * Refresh tokens
      */
-    async refresh(dto?: RefreshDto, options?: RequestOptions): Promise<TokenPair> {
+    async refresh(dto?: IRefreshRequest, options?: RequestOptions): Promise<ITokenPair> {
         // Use refresh queue to prevent parallel refresh calls
         console.log('refresh called');
         return this.refreshQueue.refresh(async () => {
             const endpoint = this.getEndpoint('refresh');
-            let body: RefreshDto | undefined = dto;
+            let body: IRefreshRequest | undefined = dto;
 
             // In header mode, include refresh token in body if not provided
             if (this.tokenManager.isHeaderMode() && !dto?.refreshToken) {
@@ -607,7 +608,7 @@ export class AuthClient {
                 }
             }
 
-            const response = await this.request<AuthResponse>('POST', endpoint, body, { ...options, skipAuthHeader: true, skipRefresh: true });
+            const response = await this.request<IAuthResponse>('POST', endpoint, body, { ...options, skipAuthHeader: true, skipRefresh: true });
 
             if (!response.ok) {
                 // Refresh failed - logout
@@ -627,7 +628,7 @@ export class AuthClient {
                 };
             }
 
-            const tokens: TokenPair = {
+            const tokens: ITokenPair = {
                 accessToken: response.data.accessToken,
                 refreshToken: response.data.refreshToken,
             };
@@ -691,9 +692,9 @@ export class AuthClient {
     /**
      * Switch active tenant (multi-tenant mode)
      */
-    async switchTenant(dto: ISwitchTenantRequest, options?: RequestOptions): Promise<AuthResponse> {
+    async switchTenant(dto: ISwitchTenantRequest, options?: RequestOptions): Promise<IAuthResponse> {
         const endpoint = this.getEndpoint('switchTenant');
-        const response = await this.request<AuthResponse>('POST', endpoint, dto, options);
+        const response = await this.request<IAuthResponse>('POST', endpoint, dto, options);
 
         if (!response.ok) {
             throw this.handleError(response);
@@ -711,9 +712,9 @@ export class AuthClient {
     /**
      * Request password reset
      */
-    async forgotPassword(dto: ForgotPasswordDto, options?: RequestOptions): Promise<MessageResponse> {
+    async forgotPassword(dto: IForgotPasswordRequest, options?: RequestOptions): Promise<IMessageResponse> {
         const endpoint = this.getEndpoint('forgotPassword');
-        const response = await this.request<MessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+        const response = await this.request<IMessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
 
         if (!response.ok) {
             throw this.handleError(response);
@@ -725,9 +726,9 @@ export class AuthClient {
     /**
      * Verify forgot-password flow using the emailed/SMS `code` (not the MFA `otp` field).
      */
-    async verifyForgotPasswordOtp(dto: VerifyForgotPasswordOtpDto, options?: RequestOptions): Promise<VerifyOtpResponse> {
+    async verifyForgotPasswordOtp(dto: IVerifyForgotPasswordOtpRequest, options?: RequestOptions): Promise<IVerifyOtpResponse> {
         const endpoint = this.getEndpoint('verifyForgotPasswordOtp');
-        const response = await this.request<VerifyOtpResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+        const response = await this.request<IVerifyOtpResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
 
         if (!response.ok) {
             throw this.handleError(response);
@@ -739,9 +740,9 @@ export class AuthClient {
     /**
      * Reset password with token (from verifyForgotPasswordOtp)
      */
-    async resetPassword(dto: ResetPasswordDto, options?: RequestOptions): Promise<MessageResponse> {
+    async resetPassword(dto: IResetPasswordWithTokenRequest, options?: RequestOptions): Promise<IMessageResponse> {
         const endpoint = this.getEndpoint('resetPassword');
-        const response = await this.request<MessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+        const response = await this.request<IMessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
 
         if (!response.ok) {
             throw this.handleError(response);
@@ -753,9 +754,9 @@ export class AuthClient {
     /**
      * Change password (authenticated)
      */
-    async changePassword(dto: ChangePasswordDto, options?: RequestOptions): Promise<MessageResponse> {
+    async changePassword(dto: IChangePasswordRequest, options?: RequestOptions): Promise<IMessageResponse> {
         const endpoint = this.getEndpoint('changePassword');
-        const response = await this.request<MessageResponse>('POST', endpoint, dto, options);
+        const response = await this.request<IMessageResponse>('POST', endpoint, dto, options);
 
         if (!response.ok) {
             throw this.handleError(response);
@@ -772,9 +773,9 @@ export class AuthClient {
     /**
      * Request a new email verification code (authenticated). Body matches {@link ISendEmailVerificationRequest}.
      */
-    async sendEmailVerification(dto: SendEmailVerificationDto = {}, options?: RequestOptions): Promise<MessageResponse> {
+    async sendEmailVerification(dto: ISendEmailVerificationRequest = {}, options?: RequestOptions): Promise<IMessageResponse> {
         const endpoint = this.getEndpoint('sendEmailVerification');
-        const response = await this.request<MessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+        const response = await this.request<IMessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
 
         if (!response.ok) {
             throw this.handleError(response);
@@ -786,9 +787,9 @@ export class AuthClient {
     /**
      * Request a phone verification SMS (authenticated).
      */
-    async sendPhoneVerification(dto: SendPhoneVerificationDto = {}, options?: RequestOptions): Promise<MessageResponse> {
+    async sendPhoneVerification(dto: ISendPhoneVerificationRequest = {}, options?: RequestOptions): Promise<IMessageResponse> {
         const endpoint = this.getEndpoint('sendPhoneVerification');
-        const response = await this.request<MessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+        const response = await this.request<IMessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
 
         if (!response.ok) {
             throw this.handleError(response);
@@ -800,9 +801,9 @@ export class AuthClient {
     /**
      * Verify email address
      */
-    async verifyEmail(dto: VerifyEmailDto, options?: RequestOptions): Promise<MessageResponse> {
+    async verifyEmail(dto: IVerifyEmailRequest, options?: RequestOptions): Promise<IMessageResponse> {
         const endpoint = this.getEndpoint('verifyEmail');
-        const response = await this.request<MessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+        const response = await this.request<IMessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
 
         if (!response.ok) {
             throw this.handleError(response);
@@ -810,7 +811,7 @@ export class AuthClient {
 
         // Update user verification status
         if (this.user) {
-            this.user.isVerified = true;
+            this.user.emailVerifiedAt = new Date();
             await this.persistState();
         }
 
@@ -820,9 +821,9 @@ export class AuthClient {
     /**
      * Verify phone number with the SMS `code` (not the MFA `otp` field).
      */
-    async verifyPhone(dto: VerifyPhoneDto, options?: RequestOptions): Promise<MessageResponse> {
+    async verifyPhone(dto: IVerifyPhoneRequest, options?: RequestOptions): Promise<IMessageResponse> {
         const endpoint = this.getEndpoint('verifyPhone');
-        const response = await this.request<MessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+        const response = await this.request<IMessageResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
 
         if (!response.ok) {
             throw this.handleError(response);
@@ -838,9 +839,9 @@ export class AuthClient {
     /**
      * Send 2FA code
      */
-    async send2fa(method: 'email' | 'phone' = 'email', options?: RequestOptions): Promise<MessageResponse> {
+    async send2fa(method: 'email' | 'phone' = 'email', options?: RequestOptions): Promise<IMessageResponse> {
         const endpoint = this.getEndpoint('send2fa');
-        const response = await this.request<MessageResponse>('POST', endpoint, { method }, { ...options, skipRefresh: true });
+        const response = await this.request<IMessageResponse>('POST', endpoint, { method }, { ...options, skipRefresh: true });
 
         if (!response.ok) {
             throw this.handleError(response);
@@ -852,15 +853,15 @@ export class AuthClient {
     /**
      * Verify 2FA code
      */
-    async verify2fa(dto: Verify2faDto, options?: RequestOptions): Promise<Verify2faResponse> {
+    async verify2fa(dto: IVerify2faRequest, options?: RequestOptions): Promise<IVerify2faResponse> {
         const endpoint = this.getEndpoint('verify2fa');
-        const response = await this.request<Verify2faResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+        const response = await this.request<IVerify2faResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
 
         if (!response.ok) {
             throw this.handleError(response);
         }
-        // Cast to AuthResponse to handle user data properly
-        await this.handleAuthResponse(response.data as AuthResponse);
+        // Cast to IAuthResponse to handle user data properly
+        await this.handleAuthResponse(response.data as IAuthResponse);
 
         this.log('debug', 'verify2fa: State updated', {
             userSet: !!this.user,
@@ -887,9 +888,9 @@ export class AuthClient {
     /**
      * Verify TOTP setup - verifies the OTP code and marks device as verified
      */
-    async verifyTotpSetup(dto: IVerifyTotpSetupRequest, options?: RequestOptions): Promise<MessageResponse> {
+    async verifyTotpSetup(dto: IVerifyTotpSetupRequest, options?: RequestOptions): Promise<IMessageResponse> {
         const endpoint = this.getEndpoint('verifyTotpSetup');
-        const response = await this.request<MessageResponse>('POST', endpoint, dto, options);
+        const response = await this.request<IMessageResponse>('POST', endpoint, dto, options);
 
         if (!response.ok) {
             throw this.handleError(response);
@@ -929,9 +930,9 @@ export class AuthClient {
     /**
      * Remove a TOTP device
      */
-    async removeTotpDevice(deviceId: string, options?: RequestOptions): Promise<MessageResponse> {
+    async removeTotpDevice(deviceId: string, options?: RequestOptions): Promise<IMessageResponse> {
         const endpoint = `${this.getEndpoint('removeTotpDevice')}/${deviceId}`;
-        const response = await this.request<MessageResponse>('DELETE', endpoint, undefined, options);
+        const response = await this.request<IMessageResponse>('DELETE', endpoint, undefined, options);
 
         if (!response.ok) {
             throw this.handleError(response);
@@ -943,9 +944,9 @@ export class AuthClient {
     /**
      * Toggle MFA on/off for current user
      */
-    async toggleMfa(dto: IToggleMfaRequest, options?: RequestOptions): Promise<MessageResponse> {
+    async toggleMfa(dto: IToggleMfaRequest, options?: RequestOptions): Promise<IMessageResponse> {
         const endpoint = this.getEndpoint('toggleMfa');
-        const response = await this.request<MessageResponse>('POST', endpoint, dto, options);
+        const response = await this.request<IMessageResponse>('POST', endpoint, dto, options);
 
         if (!response.ok) {
             throw this.handleError(response);
@@ -972,9 +973,9 @@ export class AuthClient {
      * Reset MFA using recovery code
      * This will delete all MFA secrets and the recovery code after verification
      */
-    async resetMfa(code: string, options?: RequestOptions): Promise<MessageResponse> {
+    async resetMfa(code: string, options?: RequestOptions): Promise<IMessageResponse> {
         const endpoint = this.getEndpoint('resetMfa');
-        const response = await this.request<MessageResponse>('POST', endpoint, { code }, options);
+        const response = await this.request<IMessageResponse>('POST', endpoint, { code }, options);
 
         if (!response.ok) {
             throw this.handleError(response);
@@ -1034,7 +1035,7 @@ export class AuthClient {
     /**
      * Get the current authenticated user
      */
-    getUser(): AuthUser | null {
+    getUser(): ISessionUserData | null {
         return this.user;
     }
 
@@ -1080,14 +1081,14 @@ export class AuthClient {
     /**
      * Subscribe to auth state changes
      */
-    onAuthStateChange(callback: (user: AuthUser | null) => void): () => void {
+    onAuthStateChange(callback: (user: ISessionUserData | null) => void): () => void {
         return this.events.on('authStateChange', ({ user }) => callback(user));
     }
 
     /**
      * Subscribe to token refresh events
      */
-    onTokenRefreshed(callback: (tokens: TokenPair) => void): () => void {
+    onTokenRefreshed(callback: (tokens: ITokenPair) => void): () => void {
         return this.events.on('tokenRefreshed', callback);
     }
 
@@ -1109,7 +1110,7 @@ export class AuthClient {
      * Subscribe to token set events (fires when tokens are stored)
      * Callback can be async and will be awaited
      */
-    onTokensSet(callback: (tokens: TokenPair & { trustToken?: string }) => void | Promise<void>): () => void {
+    onTokensSet(callback: (tokens: ITokenPair & { trustToken?: string }) => void | Promise<void>): () => void {
         return this.events.on('tokensSet', callback);
     }
 

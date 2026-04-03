@@ -782,7 +782,6 @@ export class OrganizationService {
     const admin = await this.userService.createUser({
       email: data.adminEmail,
       tenantId: tenant.id,
-      isVerified: true
     });
 
     await admin.setPassword(data.adminPassword);

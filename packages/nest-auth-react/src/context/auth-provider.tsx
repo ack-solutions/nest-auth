@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     AuthClient,
-    IAuthUser,
+    ISessionUserData,
     IMessageResponse,
     ClientSession,
     AuthError,
@@ -34,7 +34,7 @@ import { AuthContext, AuthContextValue } from './auth-context';
  * Initial auth state for SSR hydration
  */
 export interface InitialAuthState {
-    user?: IAuthUser | null;
+    user?: ISessionUserData | null;
     session?: ClientSession | null;
     status?: AuthStatus;
 }
@@ -97,7 +97,7 @@ export function AuthProvider({
         return 'loading';
     });
 
-    const [user, setUser] = useState<IAuthUser | null>(() => {
+    const [user, setUser] = useState<ISessionUserData | null>(() => {
         return initialState?.user ?? client.getUser();
     });
 
@@ -160,8 +160,8 @@ export function AuthProvider({
 
         const loadUser = async () => {
             try {
-                const verfyResponce = await client.verifySession();
-                if (verfyResponce?.valid) {
+                const verifyResponse = await client.verifySession();
+                if (verifyResponse?.valid) {
                     setUser(client.getUser());
                     setSession(client.getSession());
                     setStatus('authenticated');
@@ -354,7 +354,7 @@ export function AuthProvider({
             const response = await client.verifyEmail(dto);
             // Update local user state to reflect verified status
             if (user) {
-                setUser({ ...user, isVerified: true });
+                setUser({ ...user, emailVerifiedAt: new Date() });
             }
             return response;
         } catch (err) {

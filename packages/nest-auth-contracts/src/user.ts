@@ -13,7 +13,6 @@ export interface INestAuthUser {
     phone?: string;
     phoneVerifiedAt?: Date;
     passwordHash?: string;
-    isVerified: boolean;
     isActive: boolean;
     metadata?: Record<string, any>;
     isMfaEnabled: boolean;

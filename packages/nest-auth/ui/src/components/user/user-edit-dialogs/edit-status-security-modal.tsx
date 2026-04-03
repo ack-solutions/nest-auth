@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Mail, Shield, CheckCircle } from 'lucide-react';
+import { Mail, Shield, CheckCircle, Phone } from 'lucide-react';
 import Icon from '@mui/material/Icon';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
@@ -10,7 +10,8 @@ import { ToggleSwitchRow } from './toggle-switch-row';
 export function EditStatusSecurityModal({ open, onClose, onSave, user, loading }: EditModalProps) {
     const [formData, setFormData] = useState({
         isActive: user.isActive,
-        isVerified: user.isVerified,
+        emailVerifiedAt: user.emailVerifiedAt,
+        phoneVerifiedAt: user.phoneVerifiedAt,
         isMfaEnabled: user.isMfaEnabled,
     });
 
@@ -18,7 +19,8 @@ export function EditStatusSecurityModal({ open, onClose, onSave, user, loading }
         if (open) {
             setFormData({
                 isActive: user.isActive,
-                isVerified: user.isVerified,
+                emailVerifiedAt: user.emailVerifiedAt,
+                phoneVerifiedAt: user.phoneVerifiedAt,
                 isMfaEnabled: user.isMfaEnabled,
             });
         }
@@ -50,11 +52,18 @@ export function EditStatusSecurityModal({ open, onClose, onSave, user, loading }
                     icon={<Icon component={CheckCircle} />}
                 />
                 <ToggleSwitchRow
-                    checked={formData.isVerified}
-                    onChange={(checked) => setFormData({ ...formData, isVerified: checked })}
+                    checked={!!formData.emailVerifiedAt}
+                    onChange={(checked) => setFormData({ ...formData, emailVerifiedAt: checked ? new Date().toISOString() : null })}
                     label="Email Verified"
                     description="Mark email as verified"
                     icon={<Icon component={Mail} />}
+                />
+                <ToggleSwitchRow
+                    checked={!!formData.phoneVerifiedAt}
+                    onChange={(checked) => setFormData({ ...formData, phoneVerifiedAt: checked ? new Date().toISOString() : null })}
+                    label="Phone Verified"
+                    description="Mark phone as verified"
+                    icon={<Icon component={Phone} />}
                 />
                 <ToggleSwitchRow
                     checked={formData.isMfaEnabled}

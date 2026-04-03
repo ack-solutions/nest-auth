@@ -39,7 +39,7 @@ import {
     Logout as LogoutIcon,
     Settings as SettingsIcon,
 } from '@mui/icons-material';
-import type { IAuthUser } from '@ackplus/nest-auth-client';
+import type { ISessionUserData } from '@ackplus/nest-auth-contracts';
 
 /** Drawer width constant */
 const DRAWER_WIDTH = 240;
@@ -110,7 +110,7 @@ export default function Layout() {
      */
     const getUserInitials = () => {
         if (!user) return '?';
-        const metadata = (user as IAuthUser).metadata || {};
+        const metadata = (user as ISessionUserData).metadata || {};
         const firstName = metadata.firstName || '';
         const lastName = metadata.lastName || '';
         if (firstName || lastName) {

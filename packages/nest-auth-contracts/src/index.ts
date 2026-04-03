@@ -17,7 +17,7 @@ export {
     ISwitchTenantRequest,
     ITokenPair,
     IAuthResponse,
-    IAuthUser,
+    ISessionUserData,
     IAuthSession,
     IMessageResponse,
     IAuthCookieResponse,

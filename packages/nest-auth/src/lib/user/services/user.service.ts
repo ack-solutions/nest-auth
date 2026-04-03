@@ -412,8 +412,6 @@ export class UserService {
             user.phoneVerifiedAt = new Date();
         }
 
-        user.isVerified = true;
-
         return this.userRepository.save(user);
     }
 
@@ -432,12 +430,6 @@ export class UserService {
         } else if (verificationType === 'phone') {
             user.phoneVerifiedAt = null;
         }
-
-        user.isVerified = false;
-
-        // Update isVerified flag based on remaining verification status
-        user.isVerified = Boolean(user.emailVerifiedAt || user.phoneVerifiedAt);
-
         return this.userRepository.save(user);
     }
 

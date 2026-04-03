@@ -2,7 +2,7 @@
  * Configuration types for AuthClient
  */
 
-import { IAuthUser as AuthUser, ITokenPair as TokenPair } from '@ackplus/nest-auth-contracts';
+import { ISessionUserData , ITokenPair } from '@ackplus/nest-auth-contracts';
 import { AuthError } from './auth.types';
 
 /**
@@ -97,7 +97,6 @@ export const DEFAULT_ENDPOINTS = {
     logout: '/auth/logout',
     logoutAll: '/auth/logout-all',
     refresh: '/auth/refresh-token',
-    me: '/auth/user',
     forgotPassword: '/auth/forgot-password',
     verifyForgotPasswordOtp: '/auth/verify-forgot-password-otp',
     resetPassword: '/auth/reset-password',
@@ -110,6 +109,7 @@ export const DEFAULT_ENDPOINTS = {
     send2fa: '/auth/mfa/challenge',
     verify2fa: '/auth/mfa/verify',
     verifySession: '/auth/verify-session',
+    sessionUserData: '/auth/session-user-data',
     switchTenant: '/auth/switch-tenant',
     setupTotp: '/auth/mfa/setup-totp',
     verifyTotpSetup: '/auth/mfa/verify-totp-setup',
@@ -198,12 +198,12 @@ export interface AuthClientConfig {
     /**
      * Called when authentication state changes
      */
-    onAuthStateChange?: (user: AuthUser | null) => void;
+    onAuthStateChange?: (user: ISessionUserData | null) => void;
 
     /**
      * Called when tokens are refreshed
      */
-    onTokenRefreshed?: (tokens: TokenPair) => void;
+    onTokenRefreshed?: (tokens: ITokenPair) => void;
 
     /**
      * Called when user logs out

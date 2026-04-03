@@ -34,13 +34,9 @@ export default function DashboardPage() {
             </div>
             <div className="flex justify-between py-2 border-b dark:border-zinc-800">
               <span className="text-gray-500">Email Verified</span>
-              <span className={user?.isVerified ? 'text-green-600' : 'text-yellow-600'}>
-                {user?.isVerified ? 'Yes' : 'No'}
+              <span className={user?.emailVerifiedAt ? 'text-green-600' : 'text-yellow-600'}>
+                {user?.emailVerifiedAt ? 'Yes' : 'No'}
               </span>
-            </div>
-            <div className="flex justify-between py-2 border-b dark:border-zinc-800">
-              <span className="text-gray-500">Role</span>
-              <span className="capitalize">{user?.roles?.[0] || 'User'}</span>
             </div>
             <div className="flex justify-between py-2">
               <span className="text-gray-500">Auth Status</span>

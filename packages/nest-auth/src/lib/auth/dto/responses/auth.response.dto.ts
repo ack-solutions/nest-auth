@@ -52,7 +52,13 @@ export class UserResponseDto implements IUserResponse {
         description: 'Email verification status',
         example: true,
     })
-    isVerified: boolean;
+    emailVerifiedAt: Date;
+
+    @ApiProperty({
+        description: 'Phone verification status',
+        example: true,
+    })
+    phoneVerifiedAt: Date;
 
     @ApiPropertyOptional({
         description: 'Whether MFA is enabled for this user',
@@ -85,18 +91,6 @@ export class UserResponseDto implements IUserResponse {
         example: 'tenant-123',
     })
     tenantId?: string;
-
-    @ApiPropertyOptional({
-        description: 'Tenants the user belongs to',
-        type: [Object],
-    })
-    tenants?: INestAuthTenant[];
-
-    @ApiPropertyOptional({
-        description: 'User access per tenant (includes roles)',
-        type: [Object],
-    })
-    userAccesses?: INestAuthUserAccess[];
 }
 
 /**
@@ -132,12 +126,6 @@ export class AuthWithTokensResponseDto extends AuthTokensResponseDto implements 
         enum: NestAuthMFAMethodEnum,
     })
     defaultMfaMethod?: NestAuthMFAMethodEnum;
-
-    @ApiPropertyOptional({
-        description: 'User information',
-        type: UserResponseDto,
-    })
-    user?: UserResponseDto;
 
     @ApiPropertyOptional({
         description: 'Trust token for trusted device verification',

@@ -7,7 +7,7 @@
 import { createContext } from 'react';
 import {
     AuthClient,
-    IAuthUser,
+    ISessionUserData,
     ClientSession,
     AuthError,
     AuthStatus,
@@ -43,7 +43,7 @@ export interface AuthContextValue {
     /** Current authentication status */
     status: AuthStatus;
     /** Authenticated user or null */
-    user: IAuthUser | null;
+    user: ISessionUserData | null;
     /** Current session or null */
     session: ClientSession | null;
     /** Last error or null */

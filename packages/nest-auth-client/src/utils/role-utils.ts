@@ -2,9 +2,9 @@
  * Role and permission utilities
  */
 
-import { IAuthUser as AuthUser } from '@ackplus/nest-auth-contracts';
+import { ISessionUserData } from '@ackplus/nest-auth-contracts';
 
-function getUserRoleSet(user: AuthUser | null | undefined): Set<string> {
+function getUserRoleSet(user: ISessionUserData | null | undefined): Set<string> {
     return new Set(
         user?.userAccesses
             ?.flatMap(access => access.roles ?? [])
@@ -13,7 +13,7 @@ function getUserRoleSet(user: AuthUser | null | undefined): Set<string> {
     );
 }
 
-function getUserPermissionSet(user: AuthUser | null | undefined): Set<string> {
+function getUserPermissionSet(user: ISessionUserData | null | undefined): Set<string> {
     return new Set(
         user?.permissions
             ?.map(permission => permission?.trim())
@@ -43,7 +43,7 @@ function getUserPermissionSet(user: AuthUser | null | undefined): Set<string> {
  */
 
 export function hasRole(
-    user: AuthUser | null | undefined,
+    user: ISessionUserData | null | undefined,
     role: string | string[],
     matchAll = false,
 ): boolean {
@@ -84,7 +84,7 @@ export function hasRole(
  */
 
 export function hasPermission(
-    user: AuthUser | null | undefined,
+    user: ISessionUserData | null | undefined,
     permission: string | string[],
     matchAll = false,
 ): boolean {
@@ -120,7 +120,7 @@ export function hasPermission(
  * ```
  */
 export function hasAnyAccess(
-    user: AuthUser | null | undefined,
+    user: ISessionUserData | null | undefined,
     requirements?: { roles?: string | string[]; permissions?: string | string[] },
 ): boolean {
     const requiredRoles = Array.isArray(requirements?.roles) ? requirements?.roles : [requirements?.roles];
@@ -152,7 +152,7 @@ export function hasAnyAccess(
  * ```
  */
 export function hasAllAccess(
-    user: AuthUser | null | undefined,
+    user: ISessionUserData | null | undefined,
     requirements?: { roles?: string | string[]; permissions?: string | string[] },
 ): boolean {
     const requiredRoles = Array.isArray(requirements?.roles) ? requirements?.roles : [requirements?.roles];

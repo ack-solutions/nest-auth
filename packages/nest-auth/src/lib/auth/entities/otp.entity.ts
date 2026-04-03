@@ -29,7 +29,7 @@ export class NestAuthOTP extends BaseEntity {
     updatedAt: Date;
 
     @ManyToOne(() => NestAuthUser, user => user.otps, { onDelete: 'CASCADE' })
-    user: NestAuthUser;
+    user?: NestAuthUser;
 
     private getOtpSecret(): string {
         const opts = AuthConfigService.getOptions();

@@ -3,7 +3,7 @@
  */
 
 import React from 'react';
-import { IAuthUser, ClientSession } from '@ackplus/nest-auth-client';
+import { ISessionUserData, ClientSession } from '@ackplus/nest-auth-client';
 import { AuthProvider, AuthProviderProps } from '../context/auth-provider';
 
 /**
@@ -12,7 +12,7 @@ import { AuthProvider, AuthProviderProps } from '../context/auth-provider';
 export interface NextAuthProviderProps extends Omit<AuthProviderProps, 'initialState'> {
     /** Initial auth state from server */
     initialState?: {
-        user?: IAuthUser | null;
+        user?: ISessionUserData | null;
         session?: ClientSession | null;
     };
 }
@@ -36,7 +36,7 @@ export interface NextAuthProviderProps extends Omit<AuthProviderProps, 'initialS
  *   initialState 
  * }: { 
  *   children: React.ReactNode;
- *   initialState?: { user?: IAuthUser | null; session?: ClientSession | null };
+ *   initialState?: { user?: ISessionUserData | null; session?: ClientSession | null };
  * }) {
  *   return (
  *     <NextAuthProvider client={authClient} initialState={initialState}>

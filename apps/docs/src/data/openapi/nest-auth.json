@@ -273,6 +273,21 @@
         ]
       }
     },
+    "/auth/session-user-data": {
+      "post": {
+        "operationId": "AuthController_sessionUserData",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Switch Active Tenant",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
     "/auth/change-password": {
       "post": {
         "operationId": "AuthController_changePassword",
@@ -826,7 +841,7 @@
   "info": {
     "title": "@ackplus/nest-auth API",
     "description": "OpenAPI specification generated from the Nest Auth module",
-    "version": "2.0.0-beta.13",
+    "version": "2.0.0-beta.16",
     "contact": {}
   },
   "tags": [],
@@ -873,89 +888,6 @@
         },
         "required": [
           "password"
-        ]
-      },
-      "UserResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "User unique identifier",
-            "example": "123e4567-e89b-12d3-a456-426614174000"
-          },
-          "email": {
-            "type": "string",
-            "description": "User email address",
-            "example": "user@example.com"
-          },
-          "phone": {
-            "type": "string",
-            "description": "User phone number",
-            "example": "+1234567890"
-          },
-          "isVerified": {
-            "type": "boolean",
-            "description": "Email verification status",
-            "example": true
-          },
-          "isMfaEnabled": {
-            "type": "boolean",
-            "description": "Whether MFA is enabled for this user",
-            "example": false
-          },
-          "roles": {
-            "description": "User roles (role names)",
-            "example": [
-              "admin",
-              "user"
-            ],
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "permissions": {
-            "description": "User permissions (flattened from roles)",
-            "example": [
-              "read:users",
-              "write:users"
-            ],
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "metadata": {
-            "type": "object",
-            "description": "Additional user metadata",
-            "example": {
-              "firstName": "John",
-              "lastName": "Doe"
-            }
-          },
-          "tenantId": {
-            "type": "string",
-            "description": "Tenant ID for multi-tenant applications",
-            "example": "tenant-123"
-          },
-          "tenants": {
-            "description": "Tenants the user belongs to",
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          },
-          "userAccesses": {
-            "description": "User access per tenant (includes roles)",
-            "type": "array",
-            "items": {
-              "type": "object"
-            }
-          }
-        },
-        "required": [
-          "id",
-          "isVerified"
         ]
       },
       "AuthWithTokensResponseDto": {
@@ -1005,14 +937,6 @@
               "email",
               "sms",
               "totp"
-            ]
-          },
-          "user": {
-            "description": "User information",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/UserResponseDto"
-              }
             ]
           },
           "trustToken": {
@@ -1303,6 +1227,83 @@
         "required": [
           "method",
           "otp"
+        ]
+      },
+      "UserResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "User unique identifier",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "email": {
+            "type": "string",
+            "description": "User email address",
+            "example": "user@example.com"
+          },
+          "phone": {
+            "type": "string",
+            "description": "User phone number",
+            "example": "+1234567890"
+          },
+          "emailVerifiedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Email verification status",
+            "example": true
+          },
+          "phoneVerifiedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Phone verification status",
+            "example": true
+          },
+          "isMfaEnabled": {
+            "type": "boolean",
+            "description": "Whether MFA is enabled for this user",
+            "example": false
+          },
+          "roles": {
+            "description": "User roles (role names)",
+            "example": [
+              "admin",
+              "user"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "permissions": {
+            "description": "User permissions (flattened from roles)",
+            "example": [
+              "read:users",
+              "write:users"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Additional user metadata",
+            "example": {
+              "firstName": "John",
+              "lastName": "Doe"
+            }
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "tenant-123"
+          }
+        },
+        "required": [
+          "id",
+          "emailVerifiedAt",
+          "phoneVerifiedAt"
         ]
       },
       "Verify2faWithTokensResponseDto": {

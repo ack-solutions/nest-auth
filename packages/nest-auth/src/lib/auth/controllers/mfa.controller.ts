@@ -197,7 +197,7 @@ export class MfaController {
         }
         const isValid = await this.mfaService.verifyTotpSetup(user.id, input.secret, input.otp);
 
-        if (!isValid) { // Changed from !isVerified to !isValid to match the variable name
+        if (!isValid) {
             throw new UnauthorizedException({
                 message: 'Invalid OTP',
                 code: MFA_ERROR_CODES.MFA_CODE_INVALID

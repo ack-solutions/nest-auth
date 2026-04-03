@@ -48,9 +48,6 @@ export class NestAuthUser extends BaseEntity {
     @Column({ nullable: true })
     passwordHash: string;
 
-    @Column({ default: false })
-    isVerified: boolean;
-
     @Column({ default: true })
     isActive: boolean;
 

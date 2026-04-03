@@ -1146,7 +1146,7 @@ export class OnboardingService {
     const adminUser = await this.userService.createUser({
       email: data.adminEmail,
       tenantId: tenant.id,
-      isVerified: true
+      emailVerifiedAt: new Date().toISOString()
     });
 
     await adminUser.setPassword(data.adminPassword);

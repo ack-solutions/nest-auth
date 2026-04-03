@@ -135,7 +135,13 @@ export class ProfileResponseDto {
         description: 'Whether email is verified',
         example: true,
     })
-    isVerified: boolean;
+    emailVerifiedAt?: Date;
+
+    @ApiProperty({
+        description: 'Whether phone is verified',
+        example: true,
+    })
+    phoneVerifiedAt?: Date;
 
     @ApiProperty({
         description: 'Whether MFA is enabled',

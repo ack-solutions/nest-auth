@@ -29,7 +29,7 @@ import { UserService } from '../../user/services/user.service';
 import { RoleService } from '../../role/services/role.service';
 import { TenantService } from '../../tenant/services/tenant.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { MoreThanOrEqual } from 'typeorm';
 
@@ -120,12 +120,6 @@ export class AdminAuthController {
     return { message: 'Signed out' };
   }
 
-  @Get('me')
-  @UseGuards(AdminSessionGuard)
-  async me(@CurrentAdmin() admin: NestAuthAdminUser) {
-    return this.toSafeAdmin(admin);
-  }
-
   @Get('config')
   async publicConfig() {
     // Only return properties that are actually used by the UI
@@ -141,7 +135,7 @@ export class AdminAuthController {
     const [totalUsers, activeUsers, verifiedUsers] = await Promise.all([
       this.userService.countUsers(),
       this.userService.countUsers({ where: { isActive: true } }),
-      this.userService.countUsers({ where: { isVerified: true } }),
+      this.userService.countUsers({ where: { emailVerifiedAt: Not(IsNull()) } }),
     ]);
 
     // Get roles and tenants counts

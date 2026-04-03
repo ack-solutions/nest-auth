@@ -24,7 +24,7 @@ import { NestAuthSignupRequestDto } from '../dto/requests/signup.request.dto';
 import { AuthResponseDto } from '../dto/responses/auth.response.dto';
 import { NestAuthLoginRequestDto } from '../dto/requests/login.request.dto';
 import { NestAuthVerify2faRequestDto } from '../dto/requests/verify-2fa.request.dto';
-import { NestAuthMFAMethodEnum, NestAuthOTPTypeEnum, TenantModeEnum } from '@ackplus/nest-auth-contracts';
+import { INestAuthUser, ISessionUserData, NestAuthMFAMethodEnum, NestAuthOTPTypeEnum, TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { JWTTokenPayload, SessionDataPayload, SessionPayload } from '../../core/interfaces/token-payload.interface';
 import { UserRegisteredEvent } from '../events/user-registered.event';
 import { UserLoggedInEvent } from '../events/user-logged-in.event';
@@ -48,7 +48,7 @@ import { getRolePermissionNames, mapRoleToSessionSnapshot } from '../../role/uti
 import { normalizedEmail, normalizedPhone } from '../../utils';
 import { OtpFlowService } from './otp-flow.service';
 import { PasswordlessCodeRequestedEvent } from '../events/passwordless-code-requested.event';
-import { chain } from 'lodash';
+import { chain, omit, pick } from 'lodash';
 import { NestAuthRole } from '../../role/entities/role.entity';
 import { NestAuthUserAccess } from '../../user/entities/user-access.entity';
 import { NestAuthPlatformAccess } from '../../user/entities/platform-access.entity';
@@ -212,7 +212,8 @@ export class AuthService {
             const user = await this.userService.createUser({
                 email,
                 phone,
-                isVerified: false,
+                emailVerifiedAt: null,
+                phoneVerifiedAt: null,
                 password
             } as any, tenantId, input);
 
@@ -229,7 +230,7 @@ export class AuthService {
             if (this.authConfig.registrationHooks?.onSignup) {
                 this.debugLogger.debug('Applying registrationHooks.onSignup hook', 'AuthService', { userId: user.id });
                 const request = RequestContext.currentRequest();
-                await this.authConfig.registrationHooks.onSignup(user, input, {request });
+                await this.authConfig.registrationHooks.onSignup(user, input, { request });
             }
 
             const { user: authUser, userAccess } = await this.getUserWithAccess(user.id, tenantId);
@@ -481,7 +482,7 @@ export class AuthService {
                 });
             }
             return this.userService.createUser(
-                { email: emailNorm, isVerified: true },
+                { email: emailNorm },
                 tenantId ?? undefined,
                 { source: 'passwordless', channel: 'email' },
             );
@@ -516,7 +517,7 @@ export class AuthService {
                 });
             }
             return this.userService.createUser(
-                { phone: phoneNorm, isVerified: true },
+                { phone: phoneNorm },
                 tenantId ?? undefined,
                 { source: 'passwordless', channel: 'sms' },
             );
@@ -683,6 +684,42 @@ export class AuthService {
         return this.generateAuthResponse(user, updatedSession, tokens, false);
     }
 
+    async getSessionUserData(): Promise<ISessionUserData<any>> {
+        const session = RequestContext.currentSession();
+        const tenantId = RequestContext.currentTenantId();
+
+        const isPlatformAccess = await AccessRoleResolver.isPlatformAccess();
+        const { user, userAccess, platformAccess } = await this.getUserWithAccess(session.userId!, tenantId, isPlatformAccess);
+
+        let rolesWithPermissions = []
+        if(isPlatformAccess) {
+            rolesWithPermissions = platformAccess?.roles ?? [];
+        } else {
+            rolesWithPermissions = userAccess?.roles ?? [];
+        }
+        const permissions = chain(rolesWithPermissions)
+            .map((role) => getRolePermissionNames(role))
+            .flatten()
+            .uniq()
+            .value();
+
+        const userRoles = rolesWithPermissions.map((role) => pick(role, ['id', 'name', 'guard']));
+
+        const config = this.authConfigService.getConfig();
+
+        let serializedUser = {};
+        if (config.user?.getSessionUserData) {
+            serializedUser = await config.user.getSessionUserData(user);
+        } 
+        
+        return {
+            ...pick(user, ['id', 'email', 'phone', 'emailVerifiedAt', 'phoneVerifiedAt','isMfaEnabled', 'metadata']),
+            ...(serializedUser || {}),
+            roles: userRoles,
+            permissions,
+        };
+    }
+
     async send2faCode(userId: string, method: NestAuthMFAMethodEnum) {
         const user = await this.userRepository.findOne({ where: { id: userId } });
 
@@ -722,7 +759,7 @@ export class AuthService {
                 user = await this.userService.createUser(
                     {
                         [linkUserWith]: linkUserValue,
-                        isVerified: true,
+                        emailVerifiedAt: new Date(),
                         metadata: providerUser.metadata || {},
                     },
                     tenantId,
@@ -1009,7 +1046,8 @@ export class AuthService {
             sessionId: session.id,
             email: session.data?.user?.email,
             phone: session.data?.user?.phone,
-            isVerified: session.data?.user?.isVerified,
+            emailVerifiedAt: session.data?.user?.emailVerifiedAt,
+            phoneVerifiedAt: session.data?.user?.phoneVerifiedAt,
             roles: session.data?.roles || [],
             tenantId: session.data?.tenantId,
             isMfaEnabled: session.data?.user?.isMfaEnabled,
@@ -1071,27 +1109,10 @@ export class AuthService {
             }
         }
 
-        // Extract role names and permissions
-        const rolesForResponse = session?.data?.roles || [];
-        const roleNames = rolesForResponse?.map(r => r.name) || [];
-        const permissions = session?.data?.permissions || [];
-
         let response: AuthResponseDto = {
             accessToken: tokens.accessToken,
             refreshToken: tokens.refreshToken,
             isRequiresMfa: isRequiresMfa,
-            // Include user data in response (not in token) for client-side permission checks
-            user: {
-                id: serializedUser.id,
-                email: serializedUser.email,
-                phone: serializedUser.phone,
-                isVerified: serializedUser.isVerified,
-                isMfaEnabled: serializedUser.isMfaEnabled,
-                roles: roleNames,
-                permissions,
-                metadata: serializedUser.metadata,
-                tenantId: activeTenantId,
-            },
         };
 
         if (isRequiresMfa) {

@@ -81,7 +81,8 @@ export interface IUserHooks {
      * })
      * ```
      */
-    serialize?: (user: NestAuthUser) => Partial<NestAuthUser>;
+    serialize?: (user: NestAuthUser) => Promise<any> | any;
+    getSessionUserData?: (user: NestAuthUser) => Promise<any> | any;
 
     /** Fields to always exclude from responses */
     sensitiveFields?: string[];

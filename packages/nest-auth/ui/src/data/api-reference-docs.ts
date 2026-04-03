@@ -559,7 +559,8 @@ curl -X POST http://localhost:3000/auth/reset-password-with-token \\
   id: string;
   email?: string;
   phone?: string;
-  isVerified: boolean;
+  emailVerifiedAt?: string;
+  phoneVerifiedAt?: string;
   isMfaEnabled: boolean;
   tenantId?: string;
   roles: string[];

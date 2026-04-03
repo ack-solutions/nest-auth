@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react';
-import type { IAuthUser } from '@ackplus/nest-auth-client';
+import type { ISessionUserData } from '@ackplus/nest-auth-client';
 import {
     AuthProvider as NestAuthProvider,
     type AuthProviderProps,
@@ -18,7 +18,7 @@ export interface AppAuthContextValue extends NestAuth {
     /** False while the Nest auth client is still resolving the initial session. */
     isUserResolved: boolean;
     /** Re-fetch the current user from the API (`verifySession`). */
-    refetchUser: () => Promise<IAuthUser | null>;
+    refetchUser: () => Promise<ISessionUserData | null>;
 }
 
 const AppAuthContext = createContext<AppAuthContextValue | null>(null);
@@ -28,7 +28,7 @@ function AppAuthBridgeProvider({ children }: { children: ReactNode }) {
 
     const authService = useMemo(() => createAuthService(auth.client), [auth.client]);
 
-    const refetchUser = useCallback(async (): Promise<IAuthUser | null> => {
+    const refetchUser = useCallback(async (): Promise<ISessionUserData | null> => {
         await authService.getCurrentUser();
         return auth.client.getUser();
     }, [auth.client, authService]);

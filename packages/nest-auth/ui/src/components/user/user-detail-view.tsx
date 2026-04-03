@@ -402,7 +402,7 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                             >
                                 <Stack spacing={0.25}>
                                     <InfoRow label="Account" value={<StatusBadge status={currentUser.isActive} activeLabel="Active" inactiveLabel="Inactive" />} />
-                                    <InfoRow label="Email" value={<StatusBadge status={currentUser.isVerified} activeLabel="Verified" inactiveLabel="Unverified" variant="success-warning" />} />
+                                    <InfoRow label="Email" value={<StatusBadge status={!!currentUser.emailVerifiedAt} activeLabel="Verified" inactiveLabel="Unverified" variant="success-warning" />} />
                                     <InfoRow label="MFA" value={<StatusBadge status={currentUser.isMfaEnabled} activeLabel="Enabled" inactiveLabel="Disabled" variant="success-secondary" />} />
                                     <InfoRow label="Created" value={new Date(currentUser.createdAt).toLocaleDateString()} icon={<Icon component={Calendar} sx={{ fontSize: 14 }} />} />
                                     <InfoRow label="Updated" value={new Date(currentUser.updatedAt).toLocaleDateString()} icon={<Icon component={Calendar} sx={{ fontSize: 14 }} />} />

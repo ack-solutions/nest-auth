@@ -178,7 +178,7 @@ export default function ProfilePage() {
                             </Typography>
 
                             <Box sx={{ mt: 2, display: 'flex', gap: 1, justifyContent: 'center' }}>
-                                {profile?.isVerified ? (
+                                {profile?.emailVerifiedAt ? (
                                     <Chip
                                         icon={<VerifiedIcon />}
                                         label="Verified"
@@ -258,7 +258,7 @@ export default function ProfilePage() {
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
                                 <EmailIcon color="action" />
                                 <Typography>{user?.email}</Typography>
-                                {profile?.isVerified && (
+                                {profile?.emailVerifiedAt && (
                                     <VerifiedIcon color="success" fontSize="small" />
                                 )}
                             </Box>

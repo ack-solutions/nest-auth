@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
 import { AdminCreateUserDto, AdminUpdateUserDto } from '../dto/admin-user.dto';
 import { UserService } from '../../user/services/user.service';
@@ -78,9 +78,9 @@ export class AdminUsersController {
       case 'inactive':
         return { isActive: false };
       case 'verified':
-        return { isVerified: true };
+        return { emailVerifiedAt: Not(IsNull()) };
       case 'unverified':
-        return { isVerified: false };
+        return { emailVerifiedAt: IsNull() };
       default:
         return {};
     }
@@ -221,7 +221,8 @@ export class AdminUsersController {
         phone: dto.phone,
         metadata: dto.metadata ?? {},
         isActive: dto.isActive ?? true,
-        isVerified: dto.isVerified ?? false,
+        emailVerifiedAt: dto.emailVerifiedAt ?? null,
+        phoneVerifiedAt: dto.phoneVerifiedAt ?? null,
       },
       tenantId
     );
@@ -367,11 +368,12 @@ export class AdminUsersController {
     const oldPhone = user.phone;
 
     // Apply basic field updates if provided (including email and phone)
-    if (dto.isActive !== undefined || dto.isVerified !== undefined || dto.metadata !== undefined ||
+    if (dto.isActive !== undefined || dto.emailVerifiedAt !== undefined || dto.phoneVerifiedAt !== undefined || dto.metadata !== undefined ||
       dto.isMfaEnabled !== undefined || dto.email !== undefined || dto.phone !== undefined) {
       const updates: Partial<NestAuthUser> = {};
       if (dto.isActive !== undefined) updates.isActive = dto.isActive;
-      if (dto.isVerified !== undefined) updates.isVerified = dto.isVerified;
+      if (dto.emailVerifiedAt !== undefined) updates.emailVerifiedAt = dto.emailVerifiedAt;
+      if (dto.phoneVerifiedAt !== undefined) updates.phoneVerifiedAt = dto.phoneVerifiedAt;
       if (dto.metadata !== undefined) updates.metadata = dto.metadata;
       if (dto.isMfaEnabled !== undefined) updates.isMfaEnabled = dto.isMfaEnabled;
       if (dto.email !== undefined) updates.email = dto.email;
@@ -597,12 +599,11 @@ export class AdminUsersController {
       phone: user.phone,
       userAccesses: activeAccesses,
       isActive: user.isActive,
-      isVerified: user.isVerified,
+      emailVerifiedAt: user.emailVerifiedAt,
+      phoneVerifiedAt: user.phoneVerifiedAt,
       metadata: user.metadata ?? {},
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
-      emailVerifiedAt: user.emailVerifiedAt,
-      phoneVerifiedAt: user.phoneVerifiedAt,
       isMfaEnabled: user.isMfaEnabled,
     };
   }

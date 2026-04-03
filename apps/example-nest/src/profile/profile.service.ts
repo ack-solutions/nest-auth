@@ -138,7 +138,6 @@ export class ProfileService {
             phone: user.phone,
             gender,
             dob,
-            isVerified: user.isVerified,
             isMfaEnabled: user.isMfaEnabled,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,

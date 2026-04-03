@@ -11,7 +11,8 @@ export type ProfileResponse = {
     phone?: string;
     gender?: string;
     dob?: string | null;
-    isVerified: boolean;
+    emailVerifiedAt?: string | Date;
+    phoneVerifiedAt?: string | Date;
     isMfaEnabled: boolean;
     createdAt: string | Date;
     updatedAt?: string | Date;

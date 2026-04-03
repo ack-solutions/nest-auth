@@ -5,7 +5,7 @@
  */
 
 import { useContext } from 'react';
-import { IAuthUser } from '@ackplus/nest-auth-client';
+import { ISessionUserData } from '@ackplus/nest-auth-client';
 import { AuthContext } from '../context/auth-context';
 
 /**
@@ -25,13 +25,13 @@ import { AuthContext } from '../context/auth-context';
  *   return (
  *     <div>
  *       <h1>Welcome, {user.email}</h1>
- *       <p>Verified: {user.isVerified ? 'Yes' : 'No'}</p>
+ *       <p>Verified: {user.emailVerifiedAt ? 'Yes' : 'No'}</p>
  *     </div>
  *   );
  * }
  * ```
  */
-export function useUser(): IAuthUser | null {
+export function useUser(): ISessionUserData | null {
     const context = useContext(AuthContext);
     return context.user;
 }

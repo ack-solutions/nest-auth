@@ -190,7 +190,7 @@ export const UsersPage: React.FC = () => {
     const stats = {
         total: pagination.total,
         active: users.filter((u) => u.isActive).length,
-        verified: users.filter((u) => u.isVerified).length,
+        verified: users.filter((u) => u.emailVerifiedAt || u.phoneVerifiedAt).length,
         inactive: users.filter((u) => !u.isActive).length,
     };
 
@@ -223,7 +223,8 @@ export const UsersPage: React.FC = () => {
             render: (user) => (
                 <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
                     <Chip size="small" label={user.isActive ? 'Active' : 'Inactive'} color={user.isActive ? 'success' : 'error'} sx={{ height: 22 }} />
-                    {user.isVerified && <Chip size="small" label="Verified" color="info" sx={{ height: 22 }} />}
+                    {user.emailVerifiedAt && <Chip size="small" label="Email Verified" color="info" sx={{ height: 22 }} />}
+                    {user.phoneVerifiedAt && <Chip size="small" label="Phone Verified" color="info" sx={{ height: 22 }} />}
                 </Stack>
             ),
         },

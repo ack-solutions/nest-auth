@@ -15,12 +15,11 @@ export interface User {
     phone?: string;
     userAccesses?: UserAccess[];
     isActive: boolean;
-    isVerified: boolean;
+    emailVerifiedAt?: string;
+    phoneVerifiedAt?: string;
     metadata: Record<string, any>;
     createdAt: string;
     updatedAt: string;
-    emailVerifiedAt?: string;
-    phoneVerifiedAt?: string;
     isMfaEnabled?: boolean;
 }
 

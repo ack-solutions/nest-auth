@@ -142,7 +142,6 @@ export class VerificationService {
             });
 
             fullUser.emailVerifiedAt = new Date();
-            fullUser.isVerified = true;
             await this.userRepository.save(fullUser);
 
             await this.eventEmitter.emitAsync(NestAuthEvents.EMAIL_VERIFIED, {
@@ -231,9 +230,6 @@ export class VerificationService {
             });
 
             fullUser.phoneVerifiedAt = new Date();
-            if (!fullUser.isVerified) {
-                fullUser.isVerified = true;
-            }
             await this.userRepository.save(fullUser);
 
             await this.eventEmitter.emitAsync(NestAuthEvents.PHONE_VERIFIED, {

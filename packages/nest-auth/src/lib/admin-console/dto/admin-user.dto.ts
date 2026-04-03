@@ -10,6 +10,7 @@ import {
   MinLength,
   ValidateNested,
   ValidateIf,
+  IsDate,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -52,8 +53,10 @@ export class AdminCreateUserDto {
   isActive?: boolean;
 
   @IsOptional()
-  @IsBoolean()
-  isVerified?: boolean;
+  emailVerifiedAt?: Date;
+
+  @IsOptional()
+  phoneVerifiedAt?: Date;
 
   @IsOptional()
   @IsObject()
@@ -74,8 +77,10 @@ export class AdminUpdateUserDto {
   isActive?: boolean;
 
   @IsOptional()
-  @IsBoolean()
-  isVerified?: boolean;
+  emailVerifiedAt?: Date;
+
+  @IsOptional()
+  phoneVerifiedAt?: Date;
 
   @IsOptional()
   @IsString()

@@ -3,6 +3,8 @@
  * Client-specific types only
  */
 
+import { ISessionUserData } from "@ackplus/nest-auth-contracts";
+
 /**
  * Authentication status
  */
@@ -26,7 +28,7 @@ export interface ClientSession {
  */
 export interface AuthState {
     status: AuthStatus;
-    user: import('@ackplus/nest-auth-contracts').IAuthUser | null;
+    user: ISessionUserData | null;
     session: ClientSession | null;
     error: AuthError | null;
 }

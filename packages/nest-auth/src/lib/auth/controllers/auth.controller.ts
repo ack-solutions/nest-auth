@@ -22,7 +22,7 @@ import {
 import { NestAuthLoginRequestDto } from '../dto/requests/login.request.dto';
 import { RequestContext } from '../../request-context/request-context';
 import { MessageResponseDto, SkipMfa } from '../../core';
-import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
+import { ISessionUserData, NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
 import { NestAuthForgotPasswordRequestDto } from '../dto/requests/forgot-password.request.dto';
 import { NestAuthAuthGuard } from '../guards/auth.guard';
 import { NestAuthVerifyForgotPasswordOtpRequestDto } from '../dto/requests/verify-forgot-password-otp-request-dto';
@@ -237,6 +237,17 @@ export class AuthController {
             ...response,
             message: 'Tenant switched successfully',
         };
+    }
+
+    @ApiOperation({ summary: 'Switch Active Tenant' })
+    @ApiResponse({ status: 200})
+    @HttpCode(200)
+    @Post('session-user-data')
+    @SkipMfa()
+    @UseGuards(NestAuthAuthGuard)
+    @UseInterceptors(TokenResponseInterceptor)
+    async sessionUserData() {
+        const response = await this.authService.getSessionUserData();
     }
 
     @ApiOperation({ summary: 'Change Password' })
