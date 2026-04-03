@@ -15,7 +15,7 @@ import { ThemeProvider, CssBaseline } from '@mui/material';
 import { SnackbarProvider } from 'notistack';
 import { AuthClient, createAxiosAdapter, LocalStorageAdapter, SessionStorageAdapter } from '@ackplus/nest-auth-client';
 
-import { AppAuthProvider } from './context/auth-context';
+import { AppAuthProvider } from './context/auth-provider';
 import App from './app';
 import theme from './theme';
 import './index.css';
@@ -53,11 +53,11 @@ const authConfig = {
    * - SessionStorageAdapter: sessionStorage (cleared on tab close)
    * - MemoryStorage: In-memory (cleared on page refresh)
    */
-  storage: storageType === 'local' 
-    ? new LocalStorageAdapter() 
-    : storageType === 'session' 
-    ? new SessionStorageAdapter() 
-    : undefined, // Will use default MemoryStorage
+  storage: storageType === 'local'
+    ? new LocalStorageAdapter()
+    : storageType === 'session'
+      ? new SessionStorageAdapter()
+      : undefined, // Will use default MemoryStorage
 
   /**
    * Enable debug logging in development
@@ -87,7 +87,7 @@ const handleTokenRemoved = () => {
 };
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+  <>
     {/* Material UI Theme */}
     <ThemeProvider theme={theme}>
       {/* CSS Reset and baseline styles */}
@@ -112,5 +112,5 @@ createRoot(document.getElementById('root')!).render(
         </AppAuthProvider>
       </SnackbarProvider>
     </ThemeProvider>
-  </StrictMode>,
+  </>,
 );

@@ -33,7 +33,7 @@ export interface UserLoginCapabilitiesDisplayProps {
 type LoginMethod = {
     key: string;
     label: string;
-    icon: React.ReactNode;
+    icon: React.ReactElement;
     helper?: string;
 };
 

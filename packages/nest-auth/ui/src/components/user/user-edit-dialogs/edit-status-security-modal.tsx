@@ -53,14 +53,14 @@ export function EditStatusSecurityModal({ open, onClose, onSave, user, loading }
                 />
                 <ToggleSwitchRow
                     checked={!!formData.emailVerifiedAt}
-                    onChange={(checked) => setFormData({ ...formData, emailVerifiedAt: checked ? new Date().toISOString() : null })}
+                    onChange={(checked) => setFormData({ ...formData, emailVerifiedAt: checked ? new Date() : undefined })}
                     label="Email Verified"
                     description="Mark email as verified"
                     icon={<Icon component={Mail} />}
                 />
                 <ToggleSwitchRow
                     checked={!!formData.phoneVerifiedAt}
-                    onChange={(checked) => setFormData({ ...formData, phoneVerifiedAt: checked ? new Date().toISOString() : null })}
+                    onChange={(checked) => setFormData({ ...formData, phoneVerifiedAt: checked ? new Date() : undefined })}
                     label="Phone Verified"
                     description="Mark phone as verified"
                     icon={<Icon component={Phone} />}

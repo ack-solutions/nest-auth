@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { IVerify2faRequest } from '@ackplus/nest-auth-client';
-import { useAuth } from '../context/auth-context';
+import { useAuth } from '../context/use-auth';
 
 /** Aligns with `IPasswordlessSendRequest` / server passwordless send. */
 export type PasswordlessChannel = 'email' | 'sms';

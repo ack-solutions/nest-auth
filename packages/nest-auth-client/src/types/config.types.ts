@@ -109,7 +109,7 @@ export const DEFAULT_ENDPOINTS = {
     send2fa: '/auth/mfa/challenge',
     verify2fa: '/auth/mfa/verify',
     verifySession: '/auth/verify-session',
-    sessionUserData: '/auth/session-user-data',
+    me: '/auth/me',
     switchTenant: '/auth/switch-tenant',
     setupTotp: '/auth/mfa/setup-totp',
     verifyTotpSetup: '/auth/mfa/verify-totp-setup',
@@ -194,11 +194,6 @@ export interface AuthClientConfig {
     // ============================================================================
     // Event callbacks
     // ============================================================================
-
-    /**
-     * Called when authentication state changes
-     */
-    onAuthStateChange?: (user: ISessionUserData | null) => void;
 
     /**
      * Called when tokens are refreshed

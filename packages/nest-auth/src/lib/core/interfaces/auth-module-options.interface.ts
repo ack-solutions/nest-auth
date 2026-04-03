@@ -74,14 +74,13 @@ export interface IUserHooks {
      *
      * @example
      * ```typescript
-     * serialize: (user) => ({
+     * getSessionUserData: (user) => ({
      *     id: user.id,
      *     email: user.email,
      *     roles: user.userAccesses?.map(access => access.roles).flat()
      * })
      * ```
      */
-    serialize?: (user: NestAuthUser) => Promise<any> | any;
     getSessionUserData?: (user: NestAuthUser) => Promise<any> | any;
 
     /** Fields to always exclude from responses */

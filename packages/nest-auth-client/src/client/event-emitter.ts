@@ -2,6 +2,8 @@
  * Simple event emitter for auth events
  */
 
+import { ISessionUserData } from "@ackplus/nest-auth-contracts";
+
 type EventCallback<T = any> = (data: T) => void;
 
 /**
@@ -96,8 +98,6 @@ export class EventEmitter<Events extends Record<string, any> = Record<string, an
  * Auth event types
  */
 export interface AuthEvents {
-    /** User authentication state changed */
-    authStateChange: { user: any | null };
     /** Tokens were refreshed */
     tokenRefreshed: { accessToken: string; refreshToken: string };
     /** Tokens were set (login, signup, refresh, etc.) */
@@ -108,6 +108,10 @@ export interface AuthEvents {
     logout: void;
     /** An error occurred */
     error: { message: string; code?: string; statusCode?: number };
+
+    /** Session data was refreshed */
+    sessionVerified: void;
+    refreshSessionData: void;
 }
 
 /**

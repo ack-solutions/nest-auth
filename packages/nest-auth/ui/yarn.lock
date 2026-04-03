@@ -2,6 +2,9 @@
 # yarn lockfile v1
 
 
+"@ackplus/nest-auth-contracts@file:../../../nest-auth-contracts":
+  resolved "file:../../../nest-auth-contracts"
+
 "@alloc/quick-lru@^5.2.0":
   version "5.2.0"
   resolved "https://registry.npmjs.org/@alloc/quick-lru/-/quick-lru-5.2.0.tgz"

@@ -44,8 +44,8 @@ export function useAuthStatus(): AuthStatusResult {
 
     return {
         status: context.status,
-        isLoading: context.status === 'loading',
-        isAuthenticated: context.status === 'authenticated' && context.user !== null,
+        isLoading: context.status === 'loading' || context.isLoadingSessionData,
+        isAuthenticated: context.status === 'authenticated',
         isUnauthenticated: context.status === 'unauthenticated',
     };
 }

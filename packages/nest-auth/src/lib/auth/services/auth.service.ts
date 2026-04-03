@@ -791,34 +791,6 @@ export class AuthService {
         return user;
     }
 
-    private async buildSessionDataFromUser(params: {
-        user: NestAuthUser;
-        tenantId?: string | null;
-        isMfaVerified?: boolean;
-    }): Promise<SessionDataPayload> {
-        const { user, tenantId = null, isMfaVerified = false } = params;
-        const { roles, permissions } = await AccessRoleResolver.resolveRolesAndPermissionsForTenantContext({
-            userId: user.id,
-            tenantId: tenantId ?? null,
-        });
-
-        let sessionData: SessionDataPayload = {
-            user,
-            isMfaVerified,
-            roles: roles.map((role) => mapRoleToSessionSnapshot(role)),
-            permissions,
-            tenantId,
-        };
-
-        // Keep behavior aligned with SessionManagerService.createSessionFromUser
-        const customize = AuthConfigService.getOptions().session?.customizeSessionData;
-        if (customize) {
-            sessionData = await customize(sessionData, user);
-        }
-
-        return sessionData;
-    }
-
     async refreshToken(refreshToken: string) {
         this.debugLogger.logFunctionEntry('refreshToken', 'AuthService', { hasRefreshToken: !!refreshToken });
 
@@ -1094,11 +1066,6 @@ export class AuthService {
     ): Promise<AuthResponseDto> {
         // Serialize user for response
         const config = this.authConfigService.getConfig();
-
-        let serializedUser: Partial<NestAuthUser> = user;
-        if (config.user?.serialize) {
-            serializedUser = await config.user.serialize(user);
-        }
 
         const activeTenantId = session?.data?.tenantId;
         let tenants = await this.userService.getUserTenants(user.id);

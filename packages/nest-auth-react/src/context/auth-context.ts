@@ -43,18 +43,21 @@ export interface AuthContextValue {
     /** Current authentication status */
     status: AuthStatus;
     /** Authenticated user or null */
-    user: ISessionUserData | null;
+    sessionData: ISessionUserData | null;
     /** Current session or null */
     session: ClientSession | null;
     /** Last error or null */
     error: AuthError | null;
     /** Whether the auth state is currently loading */
     isLoading: boolean;
+    /** Whether the session data is currently loading */
+    isLoadingSessionData: boolean;
     /** Whether the user is authenticated */
     isAuthenticated: boolean;
     /** The underlying AuthClient instance */
     client: AuthClient;
-
+    /** Get session data */
+    getSessionData: () => Promise<ISessionUserData | null>;
     // Actions - Core Authentication
     /** Login with credentials */
     login: (dto: ILoginRequest) => Promise<IAuthResponse>;
@@ -134,12 +137,14 @@ export interface AuthContextValue {
  */
 const defaultContextValue: AuthContextValue = {
     status: 'loading',
-    user: null,
+    sessionData: null,
+    isLoadingSessionData: false,
     session: null,
     error: null,
     isLoading: true,
     isAuthenticated: false,
     client: null as any,
+    getSessionData: () => Promise.reject(new Error('AuthProvider not found')),
     // Core auth
     login: () => Promise.reject(new Error('AuthProvider not found')),
     signup: () => Promise.reject(new Error('AuthProvider not found')),

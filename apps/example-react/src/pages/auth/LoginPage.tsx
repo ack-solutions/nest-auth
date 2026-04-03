@@ -8,7 +8,7 @@ import { useSnackbar } from 'notistack';
 import { Box, Link } from '@mui/material';
 
 import AuthCard from '../../components/AuthCard';
-import { useAuth } from '../../context/auth-context';
+import { useAuth } from '../../context/use-auth';
 import {
     useLoginFlow,
     type PasswordlessChannel,

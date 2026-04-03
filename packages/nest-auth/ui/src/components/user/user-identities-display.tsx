@@ -12,12 +12,12 @@ import Typography from '@mui/material/Typography';
 import { Icon } from '@mui/material';
 import type { UserIdentityInfo } from '../../types';
 
-function formatDateTime(value?: string): string {
-    if (!value) return '—';
+function formatDateTime(value?: string | Date): string {
+    if (value == null || value === '') return '—';
     try {
-        return new Date(value).toLocaleString();
+        return new Date(value as string | number | Date).toLocaleString();
     } catch {
-        return value;
+        return String(value);
     }
 }
 

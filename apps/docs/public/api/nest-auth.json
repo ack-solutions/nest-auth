@@ -273,16 +273,16 @@
         ]
       }
     },
-    "/auth/session-user-data": {
-      "post": {
+    "/auth/me": {
+      "get": {
         "operationId": "AuthController_sessionUserData",
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Current user data"
           }
         },
-        "summary": "Switch Active Tenant",
+        "summary": "Get Session User Data and menage extra user data from config",
         "tags": [
           "Auth"
         ]

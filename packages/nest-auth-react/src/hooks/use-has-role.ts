@@ -32,8 +32,8 @@ export function useHasRole(role: string | string[], matchAll: boolean = false): 
     const context = useContext(AuthContext);
 
     return useMemo(() => {
-        return hasRole(context.user, role, matchAll);
-    }, [context.user, role, matchAll]);
+        return hasRole(context.sessionData, role, matchAll);
+    }, [context.sessionData, role, matchAll]);
 }
 
 /**
@@ -66,6 +66,6 @@ export function useHasPermission(permission: string | string[], matchAll: boolea
     const context = useContext(AuthContext);
 
     return useMemo(() => {
-        return hasPermission(context.user, permission, matchAll);
-    }, [context.user, permission, matchAll]);
+        return hasPermission(context.sessionData, permission, matchAll);
+    }, [context.sessionData, permission, matchAll]);
 }

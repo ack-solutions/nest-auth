@@ -1,102 +1,69 @@
-export interface Permission {
-    id: string;
-    name: string;
-    guard: string;
-    description?: string;
-    category?: string;
-    metadata?: Record<string, any>;
-    createdAt: string;
-    updatedAt: string;
-}
+/**
+ * Domain types come from `@ackplus/nest-auth-contracts`. This file re-exports them under
+ * convenient aliases and defines only admin-dashboard shapes (aggregates, forms, config).
+ */
+import type {
+    IAdminUser,
+    ICreateRoleInput,
+    IEmailCredentials,
+    IMfaDevice,
+    INestAuthIdentity,
+    INestAuthPermission,
+    INestAuthRole,
+    INestAuthSession,
+    INestAuthTenant,
+    INestAuthTrustedDevice,
+    INestAuthUser,
+    INestAuthUserAccess,
+} from '@ackplus/nest-auth-contracts';
 
-export interface User {
-    id: string;
-    email: string;
-    phone?: string;
-    userAccesses?: UserAccess[];
-    isActive: boolean;
-    emailVerifiedAt?: string;
-    phoneVerifiedAt?: string;
-    metadata: Record<string, any>;
-    createdAt: string;
-    updatedAt: string;
-    isMfaEnabled?: boolean;
-}
+/** Permission entity (API JSON may use ISO strings for dates). */
+export type Permission = INestAuthPermission;
+
+export type Role = INestAuthRole;
+
+export type Tenant = INestAuthTenant;
 
 /**
- * User's access within a tenant (membership + roles).
- * Use roleIds for lightweight/write operations; use roles when relations are loaded.
+ * Membership row for a user in a tenant. `roleIds` may appear on admin API payloads
+ * when roles are not fully hydrated.
  */
-export interface UserAccess {
-    id: string;
-    tenantId: string | null;
-    tenant?: Tenant;
-    /**
-     * Full Role objects. Populated when the access is loaded with role relations (read/display).
-     * Prefer this when you need role names, guards, or permissions for UI.
-     */
-    roles?: Role[];
-    /**
-     * Role IDs only. Use for lightweight payloads and write operations (e.g. PATCH/PUT).
-     * Authoritative for serialization and persistence when saving access; keep in sync with roles when editing.
-     */
-    roleIds?: string[];
-    isActive: boolean;
-    isDefault?: boolean;
-    status?: string;
-    createdAt: string;
-    updatedAt: string;
-}
+export type UserAccess = INestAuthUserAccess & { roleIds?: string[] };
+
+/** Admin dashboard user model; `userAccesses` includes optional `roleIds` from the API. */
+export type User = Omit<INestAuthUser, 'userAccesses'> & {
+    userAccesses?: UserAccess[];
+};
 
 /** @deprecated Use UserAccess instead */
 export type TenantMembership = UserAccess;
 
-export interface TotpDevice {
-    id: string;
-    deviceName: string;
-    verified: boolean;
-    lastUsedAt?: string;
-    createdAt: string;
-}
+/** Admin user as returned to the dashboard (never includes password hash). */
+export type Admin = Omit<IAdminUser, 'passwordHash'>;
 
-export interface UserSessionInfo {
-    id: string;
-    userId?: string;
-    deviceName?: string;
-    userAgent?: string;
-    ipAddress?: string;
-    createdAt?: string;
-    lastActive?: string;
-    expiresAt?: string;
-}
+export type LoginForm = IEmailCredentials;
 
+/** Mirrors {@link ICreateRoleInput}; use for create-role forms aligned with the API. */
+export type CreateRoleForm = ICreateRoleInput;
+
+export type UserSessionInfo = INestAuthSession;
+
+export type UserIdentityInfo = INestAuthIdentity;
+
+/** Trusted device as shown in admin UI (token hash is never exposed). */
+export type TrustedDeviceInfo = Omit<INestAuthTrustedDevice, 'tokenHash'>;
+
+/**
+ * MFA summary for the user detail endpoint (admin API). Differs from {@link IMfaStatusResponse}
+ * (field names and optional flags) so it stays explicit here.
+ */
 export interface UserMfaDetails {
     isEnabled: boolean;
     allowUserToggle: boolean;
     availableMethods: string[];
     enabledMethods: string[];
     hasRecoveryCode: boolean;
-    totpDevices: TotpDevice[];
-}
-
-export interface UserIdentityInfo {
-    id: string;
-    provider: string;
-    providerId?: string;
-    metadata?: Record<string, any>;
-    createdAt: string;
-    updatedAt: string;
-}
-
-export interface TrustedDeviceInfo {
-    id: string;
-    userId: string;
-    userAgent?: string;
-    ipAddress?: string;
-    expiresAt: string;
-    revokedAt?: string | null;
-    lastUsedAt?: string;
-    createdAt: string;
+    totpDevices: IMfaDevice[];
 }
 
 export interface UserDetails {
@@ -140,53 +107,6 @@ export interface UserDetails {
     trustedDevices?: TrustedDeviceInfo[];
 }
 
-export interface Role {
-    id: string;
-    name: string;
-    guard: string;
-    isSystem: boolean;
-    isActive: boolean;
-    tenantId?: string;
-    tenant?: { id: string; name: string; slug: string };
-    permissions: string[];
-    createdAt: string;
-    updatedAt: string;
-}
-
-
-
-export interface Tenant {
-    id: string;
-    name: string;
-    slug: string;
-    description?: string;
-    metadata: Record<string, any>;
-    createdAt: string;
-    updatedAt: string;
-}
-
-export interface Admin {
-    id: string;
-    email: string;
-    name?: string;
-    metadata: Record<string, any>;
-    lastLoginAt?: string;
-    createdAt: string;
-    updatedAt: string;
-}
-
-export interface LoginForm {
-    email: string;
-    password: string;
-}
-
-export interface CreateRoleForm {
-    name: string;
-    guard: string;
-    tenantId: string | null;
-    permissions: string[];
-}
-
 export interface CreateTenantForm {
     name: string;
     slug: string;
@@ -195,7 +115,7 @@ export interface CreateTenantForm {
 
 export interface CreateAdminForm {
     email: string;
-    name: string;
+    name?: string;
     password: string;
 }
 

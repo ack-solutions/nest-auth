@@ -18,19 +18,19 @@ import type { UserSessionInfo } from '../../types';
 
 const tooltipSlotProps = { popper: { sx: { '& .MuiTooltip-tooltip': { typography: 'caption' } } } };
 
-function formatDateTime(value?: string): string {
-    if (!value) return '—';
+function formatDateTime(value?: string | Date): string {
+    if (value == null || value === '') return '—';
     try {
-        return new Date(value).toLocaleString();
+        return new Date(value as string | number | Date).toLocaleString();
     } catch {
-        return value;
+        return String(value);
     }
 }
 
-function sessionExpiryStatus(expiresAt?: string): 'expired' | 'ok' | 'unknown' {
-    if (!expiresAt) return 'unknown';
+function sessionExpiryStatus(expiresAt?: string | Date): 'expired' | 'ok' | 'unknown' {
+    if (expiresAt == null || expiresAt === '') return 'unknown';
     try {
-        return new Date(expiresAt).getTime() <= Date.now() ? 'expired' : 'ok';
+        return new Date(expiresAt as string | number | Date).getTime() <= Date.now() ? 'expired' : 'ok';
     } catch {
         return 'unknown';
     }

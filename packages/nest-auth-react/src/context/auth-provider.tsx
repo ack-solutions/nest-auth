@@ -34,7 +34,6 @@ import { AuthContext, AuthContextValue } from './auth-context';
  * Initial auth state for SSR hydration
  */
 export interface InitialAuthState {
-    user?: ISessionUserData | null;
     session?: ClientSession | null;
     status?: AuthStatus;
 }
@@ -47,8 +46,6 @@ export interface AuthProviderProps {
     client: AuthClient;
     /** Initial state for SSR hydration */
     initialState?: InitialAuthState;
-    /** Whether to automatically load user on mount (default: true) */
-    autoLoadMe?: boolean;
     /** Callback when user becomes unauthenticated */
     onUnauthenticated?: () => void;
     /** Callback when tokens are set (can be async) - use to set tokens in API headers/storage */
@@ -83,7 +80,6 @@ export interface AuthProviderProps {
 export function AuthProvider({
     client,
     initialState,
-    autoLoadMe = true,
     onUnauthenticated,
     onTokensSet,
     onTokensRemoved,
@@ -92,14 +88,10 @@ export function AuthProvider({
     // Initialize state from client or initial state
     const [status, setStatus] = useState<AuthStatus>(() => {
         if (initialState?.status) return initialState.status;
-        if (initialState?.user) return 'authenticated';
-        if (client.getUser()) return 'authenticated';
         return 'loading';
     });
-
-    const [user, setUser] = useState<ISessionUserData | null>(() => {
-        return initialState?.user ?? client.getUser();
-    });
+    const [sessionDataLoading, setSessionDataLoading] = useState<boolean>(false);
+    const [sessionData, setSessionData] = useState<ISessionUserData | null>(null);
 
     const [session, setSession] = useState<ClientSession | null>(() => {
         return initialState?.session ?? client.getSession();
@@ -112,15 +104,30 @@ export function AuthProvider({
     const onUnauthenticatedRef = useRef(onUnauthenticated);
     onUnauthenticatedRef.current = onUnauthenticated;
 
+    const getSessionData = useCallback(async () => {
+        setSessionDataLoading(true);
+        try {
+            const nextSessionData = await client.getSessionUserData();
+            setSessionData(nextSessionData);
+            setSession(client.getSession());
+            setStatus('authenticated');
+            return nextSessionData;
+        } catch (err) {
+            setSessionData(null);
+            setSession(client.getSession());
+            if (!client.getIsAuthenticated()) {
+                setStatus('unauthenticated');
+            }
+            throw err;
+        } finally {
+            setSessionDataLoading(false);
+        }
+    }, [client]);
+
     // Subscribe to client events
     useEffect(() => {
-        const unsubscribeAuthState = client.onAuthStateChange((newUser) => {
-            setUser(newUser);
-            setStatus(newUser ? 'authenticated' : 'unauthenticated');
-
-            if (!newUser && initialLoadRef.current) {
-                onUnauthenticatedRef.current?.();
-            }
+        const unsubscribeRefreshSessionData = client.onRefreshSessionData(async () => {
+            await getSessionData();
         });
 
         const unsubscribeError = client.onError((err) => {
@@ -132,6 +139,9 @@ export function AuthProvider({
                 await Promise.resolve(onTokensSet(tokens));
             }
         });
+        const unsubscribeTokenRefreshed = client.onTokenRefreshed(async () => {
+            await getSessionData();
+        });
 
         const unsubscribeTokensRemoved = client.onTokensRemoved(async () => {
             if (onTokensRemoved) {
@@ -140,89 +150,61 @@ export function AuthProvider({
         });
 
         return () => {
-            unsubscribeAuthState();
             unsubscribeError();
             unsubscribeTokensSet();
+            unsubscribeTokenRefreshed();
             unsubscribeTokensRemoved();
+            unsubscribeRefreshSessionData();
         };
-    }, [client, onTokensSet, onTokensRemoved]);
+    }, [client, onTokensSet, onTokensRemoved, getSessionData]);
 
     // Auto load user on mount
     useEffect(() => {
-        if (!autoLoadMe || initialLoadRef.current) return;
-        if (initialState?.user !== undefined) {
-            initialLoadRef.current = true;
-            if (!initialState.user) {
-                setStatus('unauthenticated');
-            }
-            return;
-        }
+        console.log('verifySession', client);
+        verifySession();
+    }, [client]);
 
-        const loadUser = async () => {
-            try {
-                const verifyResponse = await client.verifySession();
-                if (verifyResponse?.valid) {
-                    setUser(client.getUser());
-                    setSession(client.getSession());
-                    setStatus('authenticated');
-                } else {
-                    setUser(null);
-                    setSession(null);
-                    setStatus('unauthenticated');
-                }
-            } catch {
-                setUser(null);
-                setSession(null);
-                setStatus('unauthenticated');
-            } finally {
-                initialLoadRef.current = true;
-            }
-        };
-
-        loadUser();
-    }, [client, autoLoadMe, initialState]);
-
-    const updatedSession = useCallback(async () => {
-        setUser(client.getUser());
-        setSession(client.getSession());
-        setStatus('authenticated');
-    }, []);
 
     // Actions
     const login = useCallback(async (dto: ILoginRequest) => {
         setError(null);
         try {
             const response = await client.login(dto);
-            updatedSession();
+
+            if (!response.isRequiresMfa) {
+                await getSessionData();
+            }
+
             return response;
         } catch (err) {
             setError(err as AuthError);
             throw err;
         }
-    }, [client, updatedSession]);
+    }, [client, getSessionData]);
+
 
     const signup = useCallback(async (dto: ISignupRequest) => {
         setError(null);
         try {
             const response = await client.signup(dto);
-            updatedSession();
+            await getSessionData();
             return response;
         } catch (err) {
             setError(err as AuthError);
             throw err;
         }
-    }, [client, updatedSession]);
+    }, [client, getSessionData]);
 
     const logout = useCallback(async () => {
         setError(null);
         try {
             await client.logout();
-            setUser(null);
+            setSessionData(null);
             setSession(null);
             setStatus('unauthenticated');
         } catch (err) {
             // Still clear local state even if server logout fails
-            setUser(null);
+            setSessionData(null);
             setSession(null);
             setStatus('unauthenticated');
         }
@@ -232,13 +214,13 @@ export function AuthProvider({
         setError(null);
         try {
             const response = await client.logoutAll();
-            setUser(null);
+            setSessionData(null);
             setSession(null);
             setStatus('unauthenticated');
             return response;
         } catch (err) {
             // Still clear local state even if server logout fails
-            setUser(null);
+            setSessionData(null);
             setSession(null);
             setStatus('unauthenticated');
             setError(err as AuthError);
@@ -263,38 +245,48 @@ export function AuthProvider({
         try {
             const verifyResponse = await client.verifySession();
             if (verifyResponse?.valid) {
-                updatedSession();
+                await getSessionData();
+                return true;
             }
-            return verifyResponse?.valid;
+
+            setSessionData(null);
+            setSession(null);
+            setStatus('unauthenticated');
+            onUnauthenticatedRef.current?.();
+            return false;
         } catch (err) {
+            setSessionData(null);
+            setSession(null);
+            setStatus('unauthenticated');
             setError(err as AuthError);
+            onUnauthenticatedRef.current?.();
             throw err;
         }
-    }, [client, updatedSession]);
+    }, [client, getSessionData]);
 
     const verify2fa = useCallback(async (dto: IVerify2faRequest) => {
         setError(null);
         try {
             const response = await client.verify2fa(dto);
-            updatedSession();
+            await getSessionData();
             return response;
         } catch (err) {
             setError(err as AuthError);
             throw err;
         }
-    }, [client, updatedSession]);
+    }, [client, getSessionData]);
 
     const switchTenant = useCallback(async (dto: ISwitchTenantRequest) => {
         setError(null);
         try {
             const response = await client.switchTenant(dto);
-            updatedSession();
+            await getSessionData();
             return response;
         } catch (err) {
             setError(err as AuthError);
             throw err;
         }
-    }, [client, updatedSession]);
+    }, [client, getSessionData]);
 
     const passwordlessSend = useCallback(async (dto: IPasswordlessSendRequest) => {
         setError(null);
@@ -352,16 +344,13 @@ export function AuthProvider({
         setError(null);
         try {
             const response = await client.verifyEmail(dto);
-            // Update local user state to reflect verified status
-            if (user) {
-                setUser({ ...user, emailVerifiedAt: new Date() });
-            }
             return response;
         } catch (err) {
             setError(err as AuthError);
             throw err;
         }
-    }, [client, user]);
+    }, [client]);
+
 
     const sendEmailVerification = useCallback(async (dto?: ISendEmailVerificationRequest) => {
         setError(null);
@@ -386,7 +375,8 @@ export function AuthProvider({
     const verifyPhone = useCallback(async (dto: IVerifyPhoneRequest) => {
         setError(null);
         try {
-            return await client.verifyPhone(dto);
+            const response = await client.verifyPhone(dto);
+            return response;
         } catch (err) {
             setError(err as AuthError);
             throw err;
@@ -496,6 +486,7 @@ export function AuthProvider({
 
     const setTenantId = useCallback((id: string) => {
         client.setTenantId(id);
+        setSession(prev => prev ? { ...prev, tenantId: id } : prev);
     }, [client]);
 
     const getTenantId = useCallback(() => {
@@ -505,14 +496,15 @@ export function AuthProvider({
     // Memoize context value
     const contextValue: AuthContextValue = useMemo(() => ({
         status,
-        user,
+        sessionData,
         session,
         error,
-        isLoading: status === 'loading',
-        isAuthenticated: status === 'authenticated' && user !== null,
+        isLoading: status === 'loading' || sessionDataLoading,
+        isLoadingSessionData: sessionDataLoading,
+        isAuthenticated: status === 'authenticated',
         client,
         // Core auth
-        updatedSession,
+        getSessionData,
         login,
         signup,
         logout,
@@ -550,11 +542,12 @@ export function AuthProvider({
         getTenantId,
     }), [
         status,
-        user,
+        sessionData,
         session,
         error,
         client,
-        updatedSession,
+        sessionDataLoading,
+        getSessionData,
         login,
         signup,
         logout,

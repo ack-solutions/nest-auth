@@ -8,42 +8,29 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Alert, Box, Button, CircularProgress, FormControl, InputLabel, MenuItem, Select, Typography } from '@mui/material';
 import AuthCard from '../../components/AuthCard';
-import { useAuth } from '../../context/auth-context';
-import { needsTenantSelectionFromUserAccesses } from '../../utils/tenant-access';
+import { useAuth } from '../../context/use-auth';
 
 export default function SelectTenantPage() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const { user, switchTenant, isLoading, status } = useAuth();
+    const {  switchTenant, isLoading, status } = useAuth();
 
-    const fromPath = (location.state as any)?.from?.pathname ?? '/dashboard';
+    const fromPath = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/dashboard';
 
     const tenantOptions = useMemo(() => {
-        const accesses = user?.userAccesses ?? [];
-        const unique = new Map<string, { id: string; name: string; isDefault: boolean }>();
-        for (const access of accesses) {
-            const t = access?.tenant;
-            if (!t?.id) continue;
-            const prev = unique.get(t.id);
-            unique.set(t.id, {
-                id: t.id,
-                name: t.name ?? t.slug ?? t.id,
-                isDefault: prev ? prev.isDefault || !!access?.isDefault : !!access?.isDefault,
-            });
-        }
-        return Array.from(unique.values());
-    }, [user?.userAccesses]);
+        return []
+    }, []);
 
     const defaultTenantId = useMemo(() => {
-        return tenantOptions.find((t) => t.isDefault)?.id ?? tenantOptions[0]?.id;
-    }, [tenantOptions]);
+        return '';
+    }, []);
 
     const [selectedTenantId, setSelectedTenantId] = useState<string>(defaultTenantId ?? '');
     const [error, setError] = useState<string | null>(null);
     const [switching, setSwitching] = useState(false);
 
-    const needsTenantSelection = needsTenantSelectionFromUserAccesses(user?.userAccesses);
+    const needsTenantSelection = false;
 
     useEffect(() => {
         if (status === 'loading') return;

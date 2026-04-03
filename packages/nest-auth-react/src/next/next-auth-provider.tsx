@@ -59,7 +59,6 @@ export function NextAuthProvider({
     return React.createElement(AuthProvider, {
         client,
         initialState: initialState ? {
-            user: initialState.user ?? null,
             session: initialState.session ?? null,
             status: initialState.user ? 'authenticated' : 'unauthenticated',
         } : undefined,

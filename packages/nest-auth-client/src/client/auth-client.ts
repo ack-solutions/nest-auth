@@ -48,7 +48,6 @@ import { RefreshQueue, RetryTracker } from './refresh-queue';
 
 /** Storage keys */
 const STORAGE_KEYS = {
-    USER: 'user',
     SESSION: 'session',
 };
 
@@ -79,12 +78,9 @@ export class AuthClient {
     private events: EventEmitter<AuthEvents>;
     private refreshQueue: RefreshQueue;
     private retryTracker: RetryTracker;
+    private isAuthenticated: boolean = false;
 
-    private user: ISessionUserData | null = null;
-    private sessionUserData: ISessionUserData | null = null;
     private session: ClientSession | null = null;
-
-    private userAccesses: INestAuthUserAccess[] | undefined;
 
     private tenantId: string | undefined;
 
@@ -139,13 +135,6 @@ export class AuthClient {
 
     private async loadPersistedState(): Promise<void> {
         try {
-            const userJson = await Promise.resolve(this.config.storage!.get(STORAGE_KEYS.USER));
-            if (userJson) {
-                this.user = JSON.parse(userJson);
-                this.sessionUserData = JSON.parse(userJson);
-                this.userAccesses = this.user?.userAccesses ?? undefined;
-            }
-
             const sessionJson = await Promise.resolve(this.config.storage!.get(STORAGE_KEYS.SESSION));
             if (sessionJson) {
                 this.session = JSON.parse(sessionJson);
@@ -197,12 +186,6 @@ export class AuthClient {
 
     private async persistState(): Promise<void> {
         try {
-            if (this.user) {
-                await Promise.resolve(this.config.storage!.set(STORAGE_KEYS.USER, JSON.stringify(this.user)));
-            } else {
-                await Promise.resolve(this.config.storage!.remove(STORAGE_KEYS.USER));
-            }
-
             if (this.session) {
                 await Promise.resolve(this.config.storage!.set(STORAGE_KEYS.SESSION, JSON.stringify(this.session)));
             } else {
@@ -402,18 +385,10 @@ export class AuthClient {
     }
 
     private async handleAuthResponse(response: IAuthResponse): Promise<void> {
-        this.log('debug', 'handleAuthResponse: Processing auth response', {
-            hasAccessToken: !!response.accessToken,
-            hasRefreshToken: !!response.refreshToken,
-            hasUser: !!response.user,
-            hasTrustToken: !!(response as any).trustToken,
-            mode: this.tokenManager.getMode(),
-        });
 
         // Store tokens if in header mode and tokens are present
         const trustToken = (response as any).trustToken;
         if (response.accessToken && response.refreshToken) {
-            this.log('debug', 'handleAuthResponse: Storing tokens');
             await this.tokenManager.setTokens({
                 accessToken: response.accessToken,
                 refreshToken: response.refreshToken,
@@ -423,7 +398,6 @@ export class AuthClient {
             // In cookie mode, backend sets it as cookie, but we also store it for reference
             // In header mode, we need to send it in headers
             if (trustToken) {
-                this.log('debug', 'handleAuthResponse: Storing trust token');
                 await this.tokenManager.setTrustToken(trustToken);
             }
 
@@ -433,20 +407,7 @@ export class AuthClient {
                 refreshToken: response.refreshToken,
                 trustToken: trustToken || undefined,
             });
-        } else {
-            this.log('debug', 'handleAuthResponse: No tokens to store', {
-                hasAccessToken: !!response.accessToken,
-                hasRefreshToken: !!response.refreshToken,
-            });
-        }
-
-        // Update user if present
-        if (response.user) {
-            this.user = response.user;
-            this.userAccesses = response.user.userAccesses ?? undefined;
-        } else {
-            this.userAccesses = undefined;
-        }
+        } 
 
         // Create session and set active tenant from token, then user, then first membership, then config default
         const decoded = response.accessToken ? decodeJwt(response.accessToken) : null;
@@ -457,7 +418,7 @@ export class AuthClient {
 
         this.session = {
             id: decoded?.sessionId || '',
-            userId: response.user?.id || getUserIdFromToken(response.accessToken) || '',
+            userId: getUserIdFromToken(response.accessToken) || '',
             tenantId: activeTenantId,
             accessToken: this.tokenManager.isHeaderMode() ? response.accessToken : undefined,
             refreshToken: this.tokenManager.isHeaderMode() ? response.refreshToken : undefined,
@@ -467,11 +428,7 @@ export class AuthClient {
         // Persist state
         await this.persistState();
 
-        // Emit events
-        this.events.emit('authStateChange', { user: this.user });
-        this.config.onAuthStateChange?.(this.user);
-
-        this.log('debug', 'handleAuthResponse: Auth response processed successfully');
+        this.isAuthenticated = true;
     }
 
     // ============================================================================
@@ -543,19 +500,16 @@ export class AuthClient {
         await this.tokenManager.clearTokens();
         await this.events.emitAsync('tokensRemoved', undefined);
 
-        this.user = null;
         this.session = null;
         this.tenantId = undefined;
-        this.userAccesses = undefined;
+        this.isAuthenticated = false;
 
         await this.persistState();
         this.refreshQueue.cancel();
         this.retryTracker.clear();
 
         this.events.emit('logout', undefined);
-        this.events.emit('authStateChange', { user: null });
         this.config.onLogout?.();
-        this.config.onAuthStateChange?.(null);
     }
 
     /**
@@ -593,9 +547,8 @@ export class AuthClient {
     /**
      * Refresh tokens
      */
-    async refresh(dto?: IRefreshRequest, options?: RequestOptions): Promise<ITokenPair> {
+    async refresh(dto?: IRefreshRequest, options?: RequestOptions): Promise<ITokenPair | null> {
         // Use refresh queue to prevent parallel refresh calls
-        console.log('refresh called');
         return this.refreshQueue.refresh(async () => {
             const endpoint = this.getEndpoint('refresh');
             let body: IRefreshRequest | undefined = dto;
@@ -659,6 +612,8 @@ export class AuthClient {
             // Persist state
             await this.persistState();
 
+            this.isAuthenticated = true;
+
             // Emit events
             this.events.emit('tokenRefreshed', tokens);
             this.config.onTokenRefreshed?.(tokens);
@@ -677,15 +632,24 @@ export class AuthClient {
         if (!response.ok) {
             if (response.status === 401) {
                 // Unauthenticated - clear state
-                this.user = null;
                 this.session = null;
                 await this.persistState();
-                this.events.emit('authStateChange', { user: null });
-                this.config.onAuthStateChange?.(null);
             }
             return { valid: false };
         }
 
+        this.isAuthenticated = true;
+        this.events.emit('sessionVerified', undefined);
+
+        return response.data;
+    }
+
+     async getSessionUserData(): Promise<ISessionUserData> {
+        const endpoint = this.getEndpoint('me');
+        const response = await this.request<ISessionUserData>('GET', endpoint, undefined);
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
         return response.data;
     }
 
@@ -810,10 +774,7 @@ export class AuthClient {
         }
 
         // Update user verification status
-        if (this.user) {
-            this.user.emailVerifiedAt = new Date();
-            await this.persistState();
-        }
+        this.events.emit('refreshSessionData', undefined);
 
         return response.data;
     }
@@ -828,7 +789,7 @@ export class AuthClient {
         if (!response.ok) {
             throw this.handleError(response);
         }
-
+        this.events.emit('refreshSessionData', undefined);
         return response.data;
     }
 
@@ -862,11 +823,6 @@ export class AuthClient {
         }
         // Cast to IAuthResponse to handle user data properly
         await this.handleAuthResponse(response.data as IAuthResponse);
-
-        this.log('debug', 'verify2fa: State updated', {
-            userSet: !!this.user,
-            sessionSet: !!this.session,
-        });
 
         return response.data;
     }
@@ -1032,12 +988,6 @@ export class AuthClient {
     // Public API - State
     // ============================================================================
 
-    /**
-     * Get the current authenticated user
-     */
-    getUser(): ISessionUserData | null {
-        return this.user;
-    }
 
     /**
      * Get the current session
@@ -1047,24 +997,10 @@ export class AuthClient {
     }
 
     /**
-     * Get the current user's accesses per tenant (when available from auth response).
-     */
-    getUserAccesses(): INestAuthUserAccess[] | undefined {
-        return this.userAccesses;
-    }
-
-    /**
-     * @deprecated Use getUserAccesses() instead.
-     */
-    getTenantMemberships(): INestAuthUserAccess[] | undefined {
-        return this.userAccesses;
-    }
-
-    /**
      * Check if user is authenticated
      */
-    isAuthenticated(): boolean {
-        return this.user !== null;
+    getIsAuthenticated(): boolean {
+        return this.isAuthenticated;
     }
 
     /**
@@ -1079,19 +1015,11 @@ export class AuthClient {
     // ============================================================================
 
     /**
-     * Subscribe to auth state changes
-     */
-    onAuthStateChange(callback: (user: ISessionUserData | null) => void): () => void {
-        return this.events.on('authStateChange', ({ user }) => callback(user));
-    }
-
-    /**
      * Subscribe to token refresh events
      */
-    onTokenRefreshed(callback: (tokens: ITokenPair) => void): () => void {
+    onTokenRefreshed(callback: (tokens: ITokenPair | null) => void): () => void {
         return this.events.on('tokenRefreshed', callback);
     }
-
     /**
      * Subscribe to logout events
      */
@@ -1120,5 +1048,19 @@ export class AuthClient {
      */
     onTokensRemoved(callback: () => void | Promise<void>): () => void {
         return this.events.on('tokensRemoved', callback);
+    }
+
+    /**
+     * Subscribe to session verified events (fires when session is verified)
+     */
+    onSessionVerified(callback: () => void): () => void {
+        return this.events.on('sessionVerified', callback);
+    }
+
+    /**
+     * Subscribe to refresh session data events (fires when session data is refreshed)
+     */
+    onRefreshSessionData(callback: () => void): () => void {
+        return this.events.on('refreshSessionData', callback);
     }
 }

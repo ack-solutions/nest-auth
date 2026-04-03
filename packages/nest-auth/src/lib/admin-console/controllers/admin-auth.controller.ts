@@ -102,6 +102,12 @@ export class AdminAuthController {
     };
   }
 
+  @Get('me')
+  @UseGuards(AdminSessionGuard)
+  async me(@CurrentAdmin() admin: NestAuthAdminUser) {
+    return this.toSafeAdmin(admin);
+  }
+
   @Post('logout')
   @UseGuards(AdminSessionGuard)
   async logout(@CurrentAdmin() admin: NestAuthAdminUser, @Res({ passthrough: true }) res: Response) {

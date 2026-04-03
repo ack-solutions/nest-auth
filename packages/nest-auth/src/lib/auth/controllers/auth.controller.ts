@@ -128,7 +128,7 @@ export class AuthController {
         const accessTokenType = AuthConfigService.getOptions().session?.accessTokenType ?? null;
         const isCookieMode = accessTokenType === 'cookie' || (!accessTokenType && headerTokenType === 'cookie');
 
-       
+
         const refreshToken = input.refreshToken || (isCookieMode ? CookieHelper.get(req, REFRESH_TOKEN_COOKIE_NAME) : undefined);
 
         if (!refreshToken) {
@@ -239,15 +239,15 @@ export class AuthController {
         };
     }
 
-    @ApiOperation({ summary: 'Switch Active Tenant' })
-    @ApiResponse({ status: 200})
+    @ApiOperation({ summary: 'Get Session User Data and menage extra user data from config' })
+    @ApiResponse({ status: 200, description: 'Current user data' })
     @HttpCode(200)
-    @Post('session-user-data')
+    @Get('me')
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     @UseInterceptors(TokenResponseInterceptor)
-    async sessionUserData() {
-        const response = await this.authService.getSessionUserData();
+    sessionUserData(): Promise<ISessionUserData> {
+        return this.authService.getSessionUserData();
     }
 
     @ApiOperation({ summary: 'Change Password' })
@@ -358,6 +358,7 @@ export class AuthController {
         }
     })
     @UseGuards(NestAuthAuthGuard)
+    @SkipMfa()
     @Get('verify-session')
     async verifySession() {
         const userId = await RequestContext.currentUserId();

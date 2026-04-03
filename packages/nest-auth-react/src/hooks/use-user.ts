@@ -33,5 +33,5 @@ import { AuthContext } from '../context/auth-context';
  */
 export function useUser(): ISessionUserData | null {
     const context = useContext(AuthContext);
-    return context.user;
+    return context.sessionData;
 }

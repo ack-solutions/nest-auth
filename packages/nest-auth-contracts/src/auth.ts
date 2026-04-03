@@ -150,7 +150,6 @@ export interface IAuthResponse extends ITokenPair {
     isRequiresMfa?: boolean;
     mfaMethods?: NestAuthMFAMethodEnum[];
     defaultMfaMethod?: NestAuthMFAMethodEnum;
-    user?: ISessionUserData;
 }
 
 export interface IAuthSession {

@@ -12,10 +12,10 @@ import Typography from '@mui/material/Typography';
 import { Icon } from '@mui/material';
 import type { TrustedDeviceInfo } from '../../types';
 
-function formatDateTime(value?: string | null): string {
-    if (!value) return '—';
+function formatDateTime(value?: string | Date | null): string {
+    if (value == null || value === '') return '—';
     try {
-        return new Date(value).toLocaleString();
+        return new Date(value as string | number | Date).toLocaleString();
     } catch {
         return String(value);
     }
@@ -24,7 +24,7 @@ function formatDateTime(value?: string | null): string {
 function statusForDevice(device: TrustedDeviceInfo): 'revoked' | 'expired' | 'active' {
     if (device.revokedAt) return 'revoked';
     try {
-        return new Date(device.expiresAt).getTime() <= Date.now() ? 'expired' : 'active';
+        return new Date(device.expiresAt as string | number | Date).getTime() <= Date.now() ? 'expired' : 'active';
     } catch {
         return 'active';
     }
