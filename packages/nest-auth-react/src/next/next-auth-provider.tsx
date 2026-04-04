@@ -49,20 +49,15 @@ export interface NextAuthProviderProps extends Omit<AuthProviderProps, 'initialS
 export function NextAuthProvider({
     client,
     initialState,
-    autoLoadMe = true,
     onUnauthenticated,
     children,
 }: NextAuthProviderProps) {
-    // If we have initial state from server, don't auto-load
-    const shouldAutoLoad = autoLoadMe && !initialState?.user;
-
     return React.createElement(AuthProvider, {
         client,
         initialState: initialState ? {
             session: initialState.session ?? null,
             status: initialState.user ? 'authenticated' : 'unauthenticated',
         } : undefined,
-        autoLoadMe: shouldAutoLoad,
         onUnauthenticated,
         children,
     });

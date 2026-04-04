@@ -96,7 +96,6 @@ export class SessionManagerService {
      * Get session by ID and optionally refresh it
      */
     async getSession(sessionId: string): Promise<NestAuthSession> {
-        console.log('getSession called', sessionId);
         const session = await this.store.findById(sessionId);
 
         if (!session) {
