@@ -27,7 +27,7 @@ export class NestAuthPlatformAccess extends BaseEntity {
     @RelationId((access: NestAuthPlatformAccess) => access.user)
     userId: string;
 
-    @OneToOne(() => NestAuthUser, { onDelete: 'CASCADE' })
+    @OneToOne(() => NestAuthUser, (user) => user.platformAccess, { onDelete: 'CASCADE' })
     user: NestAuthUser;
 
     /** Multiple roles for this user access (tenant-specific). */
