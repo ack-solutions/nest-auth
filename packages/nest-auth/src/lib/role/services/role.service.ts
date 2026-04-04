@@ -95,6 +95,10 @@ export class RoleService {
         }
     }
 
+    /**
+     * Resolves permission entities by name for the given guard only.
+     * Throws if any name does not exist under that guard (no cross-guard lookup).
+     */
     private async resolvePermissionsByNames(
         manager: EntityManager,
         permissionNames: string | string[] | undefined,
@@ -112,53 +116,23 @@ export class RoleService {
             .andWhere('permission.name IN (:...names)', { names: normalizedNames })
             .getMany();
 
-        const matchingPermissionsByName = new Map(
-            matchingPermissions.map((permission) => [permission.name, permission]),
-        );
-        const missingNames = normalizedNames.filter((name) => !matchingPermissionsByName.has(name));
+        const byName = new Map(matchingPermissions.map((p) => [p.name, p]));
+        const missingNames = normalizedNames.filter((name) => !byName.has(name));
 
-        if (!missingNames.length) {
-            return normalizedNames
-                .map((name) => matchingPermissionsByName.get(name))
-                .filter(Boolean);
+        if (missingNames.length) {
+            const list = missingNames.join(', ');
+            throw new BadRequestException({
+                message:
+                    missingNames.length === 1
+                        ? `Permission '${missingNames[0]}' was not found for guard '${roleGuard}'.`
+                        : `Permissions were not found for guard '${roleGuard}': ${list}.`,
+                code: 'ROLE_PERMISSION_VALIDATION_FAILED',
+                guard: roleGuard,
+                missingPermissions: missingNames,
+            });
         }
 
-        const permissionsWithOtherGuards = await permissionRepo
-            .createQueryBuilder('permission')
-            .where('permission.name IN (:...names)', { names: missingNames })
-            .getMany();
-
-        const guardMismatchMap = new Map<string, Set<string>>();
-        for (const permission of permissionsWithOtherGuards) {
-            const guards = guardMismatchMap.get(permission.name) ?? new Set<string>();
-            guards.add(permission.guard);
-            guardMismatchMap.set(permission.name, guards);
-        }
-
-        const guardMismatchNames = missingNames.filter((name) => guardMismatchMap.has(name));
-        const invalidNames = missingNames.filter((name) => !guardMismatchMap.has(name));
-        const errors: string[] = [];
-
-        if (guardMismatchNames.length) {
-            const details = guardMismatchNames
-                .map((name) => `${name} [${Array.from(guardMismatchMap.get(name) ?? []).sort().join(', ')}]`)
-                .join(', ');
-            errors.push(`Guard mismatch for permissions: ${details}. Expected guard '${roleGuard}'`);
-        }
-
-        if (invalidNames.length) {
-            errors.push(`Unknown permissions: ${invalidNames.join(', ')}`);
-        }
-
-        throw new BadRequestException({
-            message: errors.join('. '),
-            code: 'ROLE_PERMISSION_VALIDATION_FAILED',
-            invalidPermissions: invalidNames,
-            guardMismatches: guardMismatchNames.map((name) => ({
-                name,
-                guards: Array.from(guardMismatchMap.get(name) ?? []).sort(),
-            })),
-        });
+        return normalizedNames.map((name) => byName.get(name)!);
     }
 
     private async replaceRolePermissions(

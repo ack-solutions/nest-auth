@@ -6,8 +6,7 @@ import { ISessionUserData } from '@ackplus/nest-auth-contracts';
 
 function getUserRoleSet(user: ISessionUserData | null | undefined): Set<string> {
     return new Set(
-        user?.userAccesses
-            ?.flatMap(access => access.roles ?? [])
+        user?.roles
             .map(role => role?.name?.trim())
             .filter(Boolean) ?? [],
     );
@@ -134,7 +133,7 @@ export function hasAnyAccess(
         return false;
     }
 
-    return ( hasRole(user, requiredRoles, false) || hasPermission(user, requiredPermissions, false) );
+    return (hasRole(user, requiredRoles, false) || hasPermission(user, requiredPermissions, false));
 }
 
 /**

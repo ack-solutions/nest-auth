@@ -160,7 +160,6 @@ export function AuthProvider({
 
     // Auto load user on mount
     useEffect(() => {
-        console.log('verifySession', client);
         verifySession();
     }, [client]);
 
