@@ -67,10 +67,6 @@ export function RequirePermission({
     const hasRequiredPermission = useHasPermission(permission, matchAll);
     const accessDenied =!hasRequiredPermission;
 
-    console.log('hasRequiredPermission', hasRequiredPermission);
-    console.log('isLoading', isLoading);
-    console.log('permission', permission);
-
     useEffect(() => {
         if (!isLoading && accessDenied && onAccessDenied) {
             onAccessDenied();

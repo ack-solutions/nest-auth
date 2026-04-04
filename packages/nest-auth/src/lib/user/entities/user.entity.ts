@@ -210,7 +210,14 @@ export class NestAuthUser extends BaseEntity {
     }
 
     async validatePassword(password: string): Promise<boolean> {
-        if (!this.passwordHash) return false;
+        let passwordHash = this.passwordHash;
+        if (!this.passwordHash) {
+            const user = await NestAuthUser.createQueryBuilder('user').select('user.passwordHash').where('user.id = :id', { id: this.id }).getOne();
+            if (!user?.passwordHash) {
+                return false;
+            }
+            passwordHash = user.passwordHash;
+        };
 
         // Apply password.verify hook if configured
         const options = AuthConfigService.getOptions();
@@ -222,11 +229,11 @@ export class NestAuthUser extends BaseEntity {
         }
 
         if (hasCustomVerify) {
-            return await options.password.verify(password, this.passwordHash);
+            return await options.password.verify(password, passwordHash);
         }
 
         try {
-            return await verify(this.passwordHash, password);
+            return await verify(passwordHash, password);
         } catch (error) {
             // Invalid hash format or verification error
             return false;
