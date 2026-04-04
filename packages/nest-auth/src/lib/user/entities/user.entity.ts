@@ -45,7 +45,7 @@ export class NestAuthUser extends BaseEntity {
     @Index()
     phoneVerifiedAt: Date;
 
-    @Column({ nullable: true })
+    @Column({ nullable: true , select: false})
     passwordHash: string;
 
     @Column({ default: true })
