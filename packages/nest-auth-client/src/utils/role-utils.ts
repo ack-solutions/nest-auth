@@ -11,15 +11,6 @@ function getUserRoleSet(user: ISessionUserData | null | undefined): Set<string> 
             .filter(Boolean) ?? [],
     );
 }
-
-function getUserPermissionSet(user: ISessionUserData | null | undefined): Set<string> {
-    return new Set(
-        user?.permissions
-            ?.map(permission => permission?.trim())
-            .filter(Boolean) ?? [],
-    );
-}
-
 /**
  * Check if user has a specific role
  * 
@@ -93,7 +84,7 @@ export function hasPermission(
         return true;
     }
 
-    const userPermissions = getUserPermissionSet(user);
+    const userPermissions = new Set(user?.permissions ?? []);
 
     if (userPermissions.size === 0) {
         return false;

@@ -4,9 +4,10 @@
  * RequirePermission component - Requires specific permission(s)
  */
 
-import React, { useEffect } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { useAuthStatus } from '../hooks/use-auth-status';
 import { useHasPermission } from '../hooks/use-has-role';
+import { AuthContext } from '../context/auth-context';
 
 /**
  * Props for RequirePermission component
@@ -62,9 +63,13 @@ export function RequirePermission({
     fallback = null,
     onAccessDenied,
 }: RequirePermissionProps): React.ReactElement | null {
-    const { isLoading, isAuthenticated } = useAuthStatus();
+    const {isLoading} = useContext(AuthContext);
     const hasRequiredPermission = useHasPermission(permission, matchAll);
-    const accessDenied = !isAuthenticated || !hasRequiredPermission;
+    const accessDenied =!hasRequiredPermission;
+
+    console.log('hasRequiredPermission', hasRequiredPermission);
+    console.log('isLoading', isLoading);
+    console.log('permission', permission);
 
     useEffect(() => {
         if (!isLoading && accessDenied && onAccessDenied) {
