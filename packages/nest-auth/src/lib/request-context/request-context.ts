@@ -82,11 +82,11 @@ export class RequestContext {
 
     public static getJwtTokenPayload(): JWTTokenPayload | null {
         const request = RequestContext.currentRequest();
-        if (!request['user']) {
+        if (!request?.['user']) {
             return null;
         }
         return {
-            id: request['user'].sub,
+            id: request['user']?.sub,
             ...request['user']
         } as JWTTokenPayload;
     }
