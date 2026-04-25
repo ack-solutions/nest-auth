@@ -11,6 +11,7 @@ import {
     BaseEntity,
     OneToOne,
     In,
+    JoinColumn,
 } from 'typeorm';
 import { NestAuthUser } from './user.entity';
 import { NestAuthRole } from '../../role/entities/role.entity';
@@ -22,12 +23,12 @@ export class NestAuthPlatformAccess extends BaseEntity {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @Column({ nullable: false })
+    @Column({ nullable: false, unique: true })
     @Index()
-    @RelationId((access: NestAuthPlatformAccess) => access.user)
     userId: string;
 
-    @OneToOne(() => NestAuthUser, (user) => user.platformAccess, { onDelete: 'CASCADE' })
+    @OneToOne(() => NestAuthUser, user => user.platformAccess, { onDelete: 'CASCADE' })
+    @JoinColumn({ name: 'userId' })
     user: NestAuthUser;
 
     /** Multiple roles for this user access (tenant-specific). */
