@@ -1,0 +1,16 @@
+---
+title: Core Concepts
+description: The mental models you need to use Nest Auth effectively.
+---
+
+These pages explain the building blocks. Read them before diving into a specific auth method or reference.
+
+- [Sessions & Tokens](/docs/concepts/sessions-and-tokens) — JWT access + refresh, header vs cookie mode, auto-refresh, sliding expiration, password-hash-prefix invalidation.
+- [Session Storage](/docs/concepts/session-storage) — DB / Redis / Memory backends and when to pick each.
+- [User Model](/docs/concepts/user-model) — **important.** Why `NestAuthUser` only stores auth fields, and how to link your `AppUser` to it.
+- [Multi-Tenancy](/docs/concepts/multi-tenancy) — `disabled` / `shared` / `isolated` modes.
+- [RBAC](/docs/concepts/rbac) — roles, permissions, multiple guards (web/api/mobile).
+- [MFA](/docs/concepts/mfa) — TOTP, Email OTP, SMS OTP, recovery codes, trusted devices.
+- [Request Context](/docs/concepts/request-context) — AsyncLocalStorage-based per-request user/tenant/session.
+- [Events & Hooks](/docs/concepts/events-and-hooks) — **the primary extension surface.** Read this if you want to react to signup, login, password reset, etc.
+- [Audit Logging](/docs/concepts/audit-logging) — how to capture every auth event for compliance.

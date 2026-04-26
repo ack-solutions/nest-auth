@@ -1,0 +1,89 @@
+---
+title: Entities
+description: 'Every TypeORM entity in `@ackplus/nest-auth`.'
+---
+
+The library ships fourteen entities, exported as a bundle:
+
+```ts
+import { NestAuthEntities } from '@ackplus/nest-auth';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature(NestAuthEntities),
+  ],
+})
+```
+
+See [Database Setup](/docs/getting-started/database-setup) for migration and schema generation.
+
+## The bundle
+
+| Entity | Table | Purpose |
+|---|---|---|
+| `NestAuthUser` | `nest_auth_users` | Auth-only user fields (email, phone, password hash, MFA flag) |
+| `NestAuthIdentity` | `nest_auth_identities` | OAuth provider linkage (`provider` + `providerId`) |
+| `NestAuthSession` | `nest_auth_sessions` | Active sessions with refresh token + user-data snapshot |
+| `NestAuthAccessKey` | `nest_auth_access_keys` | API key pairs |
+| `NestAuthRole` | `nest_auth_roles` | Roles, scoped per `guard` and per tenant |
+| `NestAuthPermission` | `nest_auth_permissions` | Permissions, scoped per `guard` |
+| `NestAuthRolePermission` | `nest_auth_role_permissions` | Role↔permission many-to-many |
+| `NestAuthTenant` | `nest_auth_tenants` | Tenant rows |
+| `NestAuthUserAccess` | `nest_auth_user_accesses` | Per-tenant user membership + roles |
+| `NestAuthPlatformAccess` | `nest_auth_platform_accesses` | Cross-tenant roles for staff |
+| `NestAuthMFASecret` | `nest_auth_mfa_secrets` | TOTP secrets, per device |
+| `NestAuthOTP` | `nest_auth_otps` | One-time codes (email/phone verify, password reset, MFA) |
+| `NestAuthTrustedDevice` | `nest_auth_trusted_devices` | Trust tokens for MFA bypass |
+| `NestAuthAdminUser` | `nest_auth_admin_users` | Admin console users |
+
+## High-level relationships
+
+```
+                ┌────────────────┐
+                │ NestAuthUser   │
+                └──┬──────────┬──┘
+       ┌──────────┘  │  │  │  │  │
+       │             │  │  │  │  └────────────┐
+   ┌───▼───┐  ┌──────▼──┐ │  │ ┌──────────┐ ┌─▼────────┐
+   │ Iden- │  │ Session │ │  │ │ MFASecret│ │ OTP      │
+   │ tity  │  └─────────┘ │  │ └──────────┘ └──────────┘
+   └───────┘               │  │
+                  ┌────────▼──▼─────┐
+                  │ UserAccess      │
+                  │  (tenantId,     │
+                  │   roles[])      │
+                  └────────┬────────┘
+                           │
+                  ┌────────▼────────┐
+                  │ NestAuthTenant  │
+                  └─────────────────┘
+```
+
+`NestAuthUser → NestAuthSession`, `→ NestAuthIdentity`, `→ NestAuthOTP`, `→ NestAuthMFASecret`, `→ NestAuthAccessKey`, `→ NestAuthTrustedDevice` — all `ON DELETE CASCADE`. Removing a user removes everything attached to them.
+
+## Entity field tables
+
+The complete field listing for each entity is auto-generated from the source — see [API Reference: Types](/docs/api-reference/types) and search for `INestAuthUser`, `INestAuthSession`, etc. The interfaces in `@ackplus/nest-auth-contracts` mirror the entity columns exactly.
+
+## Indexes you'll want
+
+These ship with the entities, but if you're hand-rolling SQL ([Database Setup option 3](/docs/getting-started/database-setup)), make sure you add:
+
+| Table | Index |
+|---|---|
+| `nest_auth_users` | `email` (unique), `phone` (unique) |
+| `nest_auth_sessions` | `userId`, `refreshToken` |
+| `nest_auth_identities` | `(provider, providerId)` (unique), `userId` |
+| `nest_auth_otps` | `(userId, type)`, `expiresAt` |
+| `nest_auth_user_accesses` | `(userId, tenantId)` (unique), `tenantId` |
+| `nest_auth_access_keys` | `publicKey` (unique), `userId` |
+
+## Extending vs replacing
+
+Don't subclass `NestAuthUser` to add business fields. Create your own `AppUser` table with an `authUserId` foreign key — see [User Model](/docs/concepts/user-model). The library's entities are stable; everything else is yours.
+
+## Related
+
+- [Database Setup](/docs/getting-started/database-setup) — three ways to create the tables.
+- [User Model](/docs/concepts/user-model) — the `AppUser` extension pattern.
+- [Multi-Tenancy](/docs/concepts/multi-tenancy) — `UserAccess` and `PlatformAccess`.

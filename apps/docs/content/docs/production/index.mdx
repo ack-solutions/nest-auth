@@ -1,0 +1,16 @@
+---
+title: Production
+description: Turning a working dev setup into something safe to ship.
+---
+
+A working signup form is not a production auth system. These pages cover what's left.
+
+- [Sending Emails](/docs/production/sending-emails) — wire `EmailVerificationRequestedEvent`, `PasswordResetRequestedEvent`, `PasswordlessCodeRequestedEvent`, etc., into Resend / SendGrid / SES / Postmark.
+- [Sending SMS](/docs/production/sending-sms) — same pattern for Twilio / MessageBird.
+- [Customizing the JWT](/docs/production/customizing-jwt) — add custom claims (`subscriptionTier`, `appUserId`) without bloating the token.
+- [Production Checklist](/docs/production/production-checklist) — HTTPS, cookie flags, secret rotation, refresh-token rotation, CSRF.
+- [Rate Limiting](/docs/production/rate-limiting) — `@nestjs/throttler` thresholds for `/auth/login`, `/auth/passwordless/send`, `/auth/forgot-password`.
+- [Logging & Debugging](/docs/production/logging-and-debugging) — `DebugLoggerService`, the `debug` config, common log shapes.
+- [Testing Your Auth](/docs/production/testing-your-auth) — mocking guards, seeding test users, E2E flows.
+- [Scaling](/docs/production/scaling) — Redis sessions, multi-instance, sliding expiration trade-offs, N+1 patterns.
+- [CORS & Security](/docs/production/cors-and-security) — required headers, CSRF posture, Helmet config.

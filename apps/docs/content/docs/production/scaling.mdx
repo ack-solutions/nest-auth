@@ -1,0 +1,129 @@
+---
+title: Scaling
+description: Redis sessions, multi-instance, sliding expiration trade-offs, performance.
+---
+
+Most apps scale fine with the default DB-backed sessions. If yours doesn't, here's the plan.
+
+## Redis sessions
+
+The first thing to switch when login/refresh becomes a hot spot.
+
+```ts
+session: {
+  storageType: SessionStorageType.REDIS,
+  redis: {
+    host: process.env.REDIS_HOST,
+    port: 6379,
+    db: 0,
+    keyPrefix: 'auth:',
+    password: process.env.REDIS_PASSWORD,
+
+    // ioredis options pass through:
+    retryStrategy: (times) => Math.min(times * 50, 2000),
+    enableOfflineQueue: false,    // fail fast instead of queueing
+    maxRetriesPerRequest: 3,
+  },
+},
+```
+
+### Sentinel / Cluster
+
+For HA Redis:
+
+```ts
+redis: {
+  sentinels: [
+    { host: 'sentinel-1', port: 26379 },
+    { host: 'sentinel-2', port: 26379 },
+  ],
+  name: 'mymaster',
+  password: process.env.REDIS_PASSWORD,
+},
+```
+
+Cluster mode (7+ nodes) works the same way — the underlying `ioredis` figures out routing.
+
+### Failover plan
+
+When Redis goes down, every authenticated user loses their session simultaneously. Mitigations:
+
+- HA setup (sentinel/cluster), so a single node loss doesn't take down auth.
+- Short-circuit: in disaster mode, pre-authorize known good JWTs without checking the session. Risky — only do this for a defined recovery window.
+- Per-region Redis with cross-region replication if your app is global.
+
+## Multi-instance considerations
+
+When you run more than one app process:
+
+- **Memory sessions are out.** Use DATABASE or REDIS.
+- **Sticky sessions are not required** for either DATABASE or REDIS — both are shared state.
+- **Event listeners run on every instance.** If your listener does something user-visible (like sending an email), make sure it's idempotent or run only one instance as the "leader" for side effects.
+
+## Sliding expiration trade-off
+
+`session.slidingExpiration: true` is convenient — active users never get logged out. But every refresh writes the session row.
+
+| Backend | Cost of sliding refresh |
+|---|---|
+| Redis | Cheap (~1ms) |
+| Postgres | One UPDATE per refresh — measurable at scale |
+| MySQL | Same |
+
+For a million daily-active users with auto-refresh every 14 minutes, that's ~100M writes/day on the session table. Switch to Redis or accept fixed-window expiry (the default) if your DB feels the pressure.
+
+## JWT payload size
+
+Big JWTs make every authenticated request more expensive. The default payload is ~400 bytes; it grows with every claim you add via `customizeTokenPayload`.
+
+Targets:
+
+- Under 1 KB total: fine.
+- 1–4 KB: noticeable but workable. Watch for header size limits in middleware (some proxies cap at 8 KB).
+- 4 KB+: rethink. Move data to the session row and fetch server-side.
+
+See [Customizing the JWT](/docs/production/customizing-jwt).
+
+## N+1 patterns
+
+Common pitfall: loading users with all relations. Don't do this:
+
+```ts
+this.userRepo.find({ relations: ['identities', 'sessions', 'mfaSecrets', 'userAccesses'] });
+```
+
+That's 5 queries per user. Load only what you need; for `userAccesses`, prefer a join with `tenantId` filter:
+
+```ts
+this.userRepo.find({
+  where: { id: In(userIds) },
+  relations: { userAccesses: { tenant: true } },
+});
+```
+
+For high-traffic admin dashboards, write raw queries — TypeORM relation-loading hits the limit.
+
+## Connection pool
+
+If you switch to Redis but keep DB-backed everything else, the DB pool no longer absorbs auth traffic — but it still serves user lookups (`UserService.findById` runs on every authenticated request that hits user fields).
+
+Cache the user record per session if you're hitting that limit. The session row already snapshots user fields via `customizeSessionData` — read from there instead of round-tripping to the DB.
+
+## Benchmarking
+
+Numbers from `apps/example-nest` on a Macbook M3 (laptop, single instance):
+
+| Endpoint | p50 | p95 | p99 |
+|---|---|---|---|
+| `POST /auth/login` (email+password, DB session) | 38 ms | 75 ms | 120 ms |
+| `POST /auth/refresh-token` (DB session, sliding off) | 4 ms | 9 ms | 18 ms |
+| `POST /auth/refresh-token` (Redis session) | 1.5 ms | 3.2 ms | 6 ms |
+| Authenticated `GET /me` (header mode) | 2 ms | 5 ms | 11 ms |
+
+These are illustrative — measure on your own infra.
+
+## Related
+
+- [Sessions & Tokens](/docs/concepts/sessions-and-tokens).
+- [Session Storage](/docs/concepts/session-storage).
+- [Customizing the JWT](/docs/production/customizing-jwt).

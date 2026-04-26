@@ -1,0 +1,96 @@
+---
+title: Installation
+description: What to install for backend, client, and React.
+---
+
+Pick the layer(s) you need.
+
+## Backend
+
+```bash
+pnpm add @ackplus/nest-auth @ackplus/nest-auth-contracts
+```
+
+Plus the peer deps:
+
+```bash
+pnpm add @nestjs/common @nestjs/core @nestjs/typeorm @nestjs/swagger \
+  @nestjs/event-emitter @nestjs/platform-express \
+  typeorm class-validator class-transformer reflect-metadata rxjs
+```
+
+Database driver — pick one:
+
+```bash
+pnpm add pg            # Postgres
+pnpm add mysql2        # MySQL
+pnpm add better-sqlite3   # SQLite (dev / tests)
+```
+
+Optional, only needed if you enable the matching feature:
+
+```bash
+pnpm add cookie-parser            # cookie-mode sessions
+pnpm add ioredis                  # Redis sessions
+pnpm add google-auth-library      # Google OAuth
+pnpm add fb                       # Facebook OAuth
+pnpm add apple-auth               # Apple OAuth
+pnpm add @nestjs/throttler        # rate limiting
+pnpm add helmet                   # security headers
+```
+
+## React (SPA / Next.js)
+
+```bash
+pnpm add @ackplus/nest-auth-react @ackplus/nest-auth-client @ackplus/nest-auth-contracts
+```
+
+Peer dep:
+
+```bash
+pnpm add react react-dom    # ^18 or ^19
+```
+
+The React package re-exports from the client and contracts, so a single import gets you all three:
+
+```tsx
+import { AuthProvider, useNestAuth } from '@ackplus/nest-auth-react';
+import { AuthClient } from '@ackplus/nest-auth-client';
+```
+
+## Vanilla JS / Vue / Angular
+
+```bash
+pnpm add @ackplus/nest-auth-client @ackplus/nest-auth-contracts
+```
+
+No peer dependencies. Works in Node 18+, modern browsers, React Native, Cloudflare Workers, Deno, Bun.
+
+## TypeScript config
+
+The library ships full type definitions. No extra types packages needed.
+
+If you're on `module: "nodenext"` (Node 20+ ESM), nothing to do. If you're on classic CommonJS, the contracts package supports both.
+
+## Versioning
+
+All four packages release together — same version number on the same day. Pin them all to the same version:
+
+```json
+{
+  "dependencies": {
+    "@ackplus/nest-auth":           "2.0.0-beta.26",
+    "@ackplus/nest-auth-client":    "2.0.0-beta.26",
+    "@ackplus/nest-auth-react":     "2.0.0-beta.26",
+    "@ackplus/nest-auth-contracts": "2.0.0-beta.26"
+  }
+}
+```
+
+Mixing versions across the four packages is **not** supported.
+
+## Next
+
+- [Setup Checklist](/docs/getting-started/setup-checklist) — wiring up `main.ts`.
+- [Database Setup](/docs/getting-started/database-setup) — three ways to create the tables.
+- [Environment & Secrets](/docs/getting-started/environment-and-secrets).

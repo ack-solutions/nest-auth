@@ -1,0 +1,73 @@
+---
+title: Audit Logging
+description: Capture every auth event for compliance and security review.
+---
+
+Compliance teams want a record of who logged in, when, from where, and what they changed. Nest Auth ships an opt-in audit hook that funnels every relevant lifecycle event into a single callback you can route to your audit store.
+
+## Enabling
+
+```ts
+NestAuthModule.forRoot({
+  // …
+  audit: {
+    enabled: true,
+    onEvent: async (event) => {
+      await auditTable.insert(event);
+    },
+  },
+});
+```
+
+## What gets audited
+
+Every `IAuthAuditEvent` carries a structured payload:
+
+| Field | Meaning |
+|---|---|
+| `kind` | `'login' \| 'logout' \| 'signup' \| 'password_reset' \| 'mfa_enabled' \| …` |
+| `userId` | The acting user (if known) |
+| `sessionId` | The session involved (if any) |
+| `tenantId` | Tenant context |
+| `ipAddress`, `userAgent` | From the request |
+| `metadata` | Event-specific extras |
+| `timestamp` | ISO time |
+
+The full set of `kind` values is enumerated by `AuditEventKind`.
+
+## Picking a sink
+
+The `onEvent` callback is async and can do whatever:
+
+```ts
+audit: {
+  enabled: true,
+  async onEvent(event) {
+    // Option 1: write to your own audit table
+    await this.audit.create(event);
+
+    // Option 2: ship to Datadog / Splunk / Honeycomb
+    await this.logger.emit('auth.audit', event);
+
+    // Option 3: drop into a queue for downstream processing
+    await this.queue.add('audit-events', event);
+  },
+}
+```
+
+If `audit.enabled` is `false` (the default), the hook is never called — there's zero overhead.
+
+## Audit vs events
+
+The audit hook is a **filtered** view of the [event emitter](/docs/concepts/events-and-hooks). It only fires for events that matter for compliance: login, logout, signup, password change, MFA toggle, role assignment, and so on. Use the regular event emitter for anything broader — analytics, business logic, side effects.
+
+## Practical patterns
+
+- **Tamper-evident logs:** insert each event into an append-only table, hash-chain the rows. Pulling the chain proves nothing was deleted.
+- **Async forwarding:** use the queue option so a slow audit sink never blocks the auth response.
+- **PII filtering:** strip emails or IPs from the event before persisting if your compliance regime forbids them.
+
+## Related
+
+- [Events & Hooks](/docs/concepts/events-and-hooks) — the broader event system.
+- [Logging & Debugging](/docs/production/logging-and-debugging) — operational logs (different from audit).

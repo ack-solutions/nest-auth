@@ -1,0 +1,93 @@
+---
+title: Session Storage
+description: Pick between database, Redis, and memory session stores.
+---
+
+Sessions are persisted server-side. You pick the backend on `session.storageType`.
+
+## The three built-in stores
+
+| Store | `SessionStorageType` | Best for |
+|---|---|---|
+| **Database** | `DATABASE` (default) | Single-instance apps, small/medium scale, transactional consistency with the rest of your data |
+| **Redis** | `REDIS` | Multi-instance apps, horizontal scale, sub-ms read latency |
+| **Memory** | `MEMORY` | Local development, tests, single-instance prototypes |
+
+```ts
+import { NestAuthModule, SessionStorageType } from '@ackplus/nest-auth';
+
+NestAuthModule.forRoot({
+  appName: 'my-app',
+  session: {
+    storageType: SessionStorageType.REDIS,
+    redis: {
+      host: process.env.REDIS_HOST,
+      port: 6379,
+      keyPrefix: 'auth:',
+      // Standard ioredis options pass through.
+    },
+  },
+});
+```
+
+## Database
+
+The default. Sessions live in the `nest_auth_sessions` table. Every refresh, revoke, and lookup is one SQL query.
+
+**Pros:** zero extra infrastructure, joins with the rest of your data, transactional with user updates, easy to inspect during debugging.
+
+**Cons:** writes scale with login/refresh traffic. On high-traffic tenants with `slidingExpiration: true`, the table can become a write hot-spot — switch to Redis.
+
+## Redis
+
+Sessions live as Redis keys under your configured prefix. Refresh tokens are looked up by key — sub-millisecond on a warm cluster.
+
+Set up:
+
+```ts
+session: {
+  storageType: SessionStorageType.REDIS,
+  redis: {
+    host: 'redis.internal',
+    port: 6379,
+    db: 0,
+    keyPrefix: 'auth:',
+    password: process.env.REDIS_PASSWORD,
+    // ioredis options:
+    // - sentinels / cluster / TLS, retryStrategy, offlineQueue, …
+  },
+}
+```
+
+**Pros:** horizontal scale, fast, automatic key expiry, no DB write pressure.
+
+**Cons:** another service to operate. If Redis goes down, every authenticated user loses their session simultaneously — plan for failover.
+
+See [Scaling](/docs/production/scaling) for the full `RedisSessionOptions` reference and recommended settings (sentinel / cluster / retry strategy / offline queue).
+
+## Memory
+
+Sessions live in a `Map` inside the Node process. Lost on restart. Lost when you scale to a second instance.
+
+Use it for tests and local dev. **Never in production**, even single-instance — a deploy or crash logs every user out.
+
+## Custom store
+
+Implement a class that satisfies the session-store contract and pass it via the module config. The interface is small (create / find / refresh / revoke / list). See [`SessionManagerService`](/docs/backend/services).
+
+## When sessions get cleaned up
+
+| Trigger | What happens |
+|---|---|
+| User logs out | Their session row/key is deleted |
+| User logs out of all devices | All their session rows/keys are deleted |
+| Refresh token expires | Next refresh attempt errors; client logs out |
+| `maxSessionsPerUser` exceeded | Oldest session evicted on next login |
+| Password reset / change | All sessions for the user are revoked |
+
+For DB-backed sessions on long retention, run a periodic cleanup of expired rows — Redis handles this automatically via key TTL.
+
+## Related
+
+- [Sessions & Tokens](/docs/concepts/sessions-and-tokens) — the token pair and auto-refresh.
+- [Scaling](/docs/production/scaling) — Redis production setup.

@@ -1,0 +1,125 @@
+---
+title: Quickstart — React
+description: A minimal React SPA with login, signup, and a protected route.
+---
+
+A working React frontend on top of the [backend quickstart](/docs/getting-started/quickstart-backend).
+
+## 1. Set up the client
+
+```ts
+// src/lib/auth.ts
+import { AuthClient, LocalStorageAdapter } from '@ackplus/nest-auth-client';
+
+export const auth = new AuthClient({
+  baseUrl: import.meta.env.VITE_API_URL,
+  storage: new LocalStorageAdapter('myapp_'),
+});
+```
+
+## 2. Wrap your app
+
+```tsx
+// src/main.tsx
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider } from '@ackplus/nest-auth-react';
+
+import { auth } from './lib/auth';
+import App from './App';
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <BrowserRouter>
+      <AuthProvider client={auth}>
+        <App />
+      </AuthProvider>
+    </BrowserRouter>
+  </StrictMode>,
+);
+```
+
+## 3. A login form
+
+```tsx
+// src/pages/Login.tsx
+import { useState } from 'react';
+import { useNestAuth } from '@ackplus/nest-auth-react';
+import { useNavigate } from 'react-router-dom';
+
+export function LoginPage() {
+  const { login, error, isLoading } = useNestAuth();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  return (
+    <form
+      onSubmit={async (e) => {
+        e.preventDefault();
+        await login({ credentials: { email, password } });
+        navigate('/');
+      }}
+    >
+      <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email" />
+      <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="password" />
+      <button disabled={isLoading}>Sign in</button>
+      {error && <p style={{ color: 'red' }}>{error.message}</p>}
+    </form>
+  );
+}
+```
+
+## 4. A protected page
+
+```tsx
+// src/pages/Dashboard.tsx
+import { AuthGuard, useUser } from '@ackplus/nest-auth-react';
+
+function DashboardInner() {
+  const user = useUser();
+  return <h1>Hello {user?.email}</h1>;
+}
+
+export function DashboardPage() {
+  return (
+    <AuthGuard fallback={<a href="/login">Please log in</a>}>
+      <DashboardInner />
+    </AuthGuard>
+  );
+}
+```
+
+## 5. Wire up routing
+
+```tsx
+// src/App.tsx
+import { Routes, Route } from 'react-router-dom';
+import { LoginPage } from './pages/Login';
+import { DashboardPage } from './pages/Dashboard';
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/" element={<DashboardPage />} />
+    </Routes>
+  );
+}
+```
+
+## 6. Run it
+
+```bash
+pnpm dev
+```
+
+Visit `http://localhost:5173`. You should be redirected to `/login`. Sign up via the backend curl from the [backend quickstart](/docs/getting-started/quickstart-backend), then log in via the form.
+
+## What's next
+
+- [Provider](/docs/react/provider) — full props reference.
+- [Hooks](/docs/react/hooks) — narrower hooks for less re-rendering.
+- [Guards](/docs/react/guards) — `<AuthGuard>`, `<RequireRole>`, `<RequirePermission>`.
+- [React auth forms recipe](/docs/recipes/react-auth-forms) — copy-paste login / signup / MFA / forgot-password forms.

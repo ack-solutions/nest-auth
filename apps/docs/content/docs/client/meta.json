@@ -1,0 +1,12 @@
+{
+  "title": "JS Client (`@ackplus/nest-auth-client`)",
+  "pages": [
+    "index",
+    "client",
+    "config",
+    "storage-adapters",
+    "http-adapters",
+    "events",
+    "utilities"
+  ]
+}

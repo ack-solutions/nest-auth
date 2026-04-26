@@ -1,0 +1,138 @@
+---
+title: Quickstart — Backend
+description: A minimal NestJS app with working signup and login.
+---
+
+End-to-end signup → login in ten minutes.
+
+## Prereqs
+
+- Node 22+, pnpm 10+.
+- A Postgres database (or SQLite for the simplest path).
+- Already done [Installation](/docs/getting-started/installation), [Setup Checklist](/docs/getting-started/setup-checklist), [Database Setup](/docs/getting-started/database-setup), [Environment & Secrets](/docs/getting-started/environment-and-secrets).
+
+## 1. The module
+
+```ts
+// src/app.module.ts
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { NestAuthModule, NestAuthEntities } from '@ackplus/nest-auth';
+
+@Module({
+  imports: [
+    EventEmitterModule.forRoot(),
+    TypeOrmModule.forRoot({
+      type: 'sqlite',
+      database: 'dev.sqlite',
+      entities: [...NestAuthEntities],
+      synchronize: true,
+    }),
+    TypeOrmModule.forFeature([...NestAuthEntities]),
+    NestAuthModule.forRoot({
+      isGlobal: true,
+      appName: 'Quickstart',
+      session: { jwt: { secret: process.env.JWT_SECRET! } },
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+## 2. Bootstrap
+
+```ts
+// src/main.ts
+import './load-env';
+import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
+import cookieParser from 'cookie-parser';
+import { AuthExceptionFilter } from '@ackplus/nest-auth';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.use(cookieParser());
+  app.enableCors({
+    origin: true,
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token-type', 'nest_auth_device_trust'],
+  });
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  app.useGlobalFilters(new AuthExceptionFilter());
+  await app.listen(3000);
+}
+bootstrap();
+```
+
+## 3. Run it
+
+```bash
+echo "JWT_SECRET=$(openssl rand -base64 32)" >> .env
+pnpm start:dev
+```
+
+The library auto-creates the SQLite file and the auth tables.
+
+## 4. Try it
+
+```bash
+# Signup
+curl -i -X POST http://localhost:3000/auth/signup \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "email": "alice@example.com",
+    "password": "correct horse battery staple",
+    "firstName": "Alice"
+  }'
+```
+
+You should get back `accessToken` and `refreshToken`.
+
+```bash
+# Save the access token from the response, then:
+TOKEN=...
+
+# Login again
+curl -X POST http://localhost:3000/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "credentials": { "email": "alice@example.com", "password": "correct horse battery staple" }
+  }'
+
+# Hit /auth/me
+curl http://localhost:3000/auth/me \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+If `/auth/me` returns Alice's profile, the loop is closed.
+
+## 5. Add a protected route
+
+```ts
+// src/orders/orders.controller.ts
+import { Controller, Get } from '@nestjs/common';
+import { Auth, CurrentUser, NestAuthUser } from '@ackplus/nest-auth';
+
+@Auth()
+@Controller('orders')
+export class OrdersController {
+  @Get()
+  list(@CurrentUser() user: NestAuthUser) {
+    return [{ id: 1, ownerEmail: user.email }];
+  }
+}
+```
+
+Register it in `AppModule.controllers`. Hitting `GET /orders` without a token returns 401; with a valid token, it returns the orders.
+
+## 6. Add an `AppUser`
+
+For anything beyond email/password, you want your own `AppUser` table linked to `NestAuthUser`. See the [User Model](/docs/concepts/user-model) page for the canonical setup, including a `UserRegisteredEvent` listener that creates the `AppUser` automatically.
+
+## What's next
+
+- [Quickstart — React](/docs/getting-started/quickstart-react) — the frontend half.
+- [User Model](/docs/concepts/user-model) — extending users.
+- [Authentication Methods](/docs/authentication) — adding OAuth, MFA, passwordless.

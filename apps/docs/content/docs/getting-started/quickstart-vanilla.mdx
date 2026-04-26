@@ -1,0 +1,141 @@
+---
+title: Quickstart — Vanilla JS
+description: 'Plain `new AuthClient(...)` for non-React frontends.'
+---
+
+For Vue, Angular, Svelte, plain HTML, React Native, or anywhere else.
+
+## 1. Install
+
+```bash
+pnpm add @ackplus/nest-auth-client
+```
+
+No React, no NestJS dependencies. Works in browsers, Node, React Native, Cloudflare Workers, Deno, Bun.
+
+## 2. Construct the client
+
+```ts
+// lib/auth.ts
+import { AuthClient, LocalStorageAdapter } from '@ackplus/nest-auth-client';
+
+export const auth = new AuthClient({
+  baseUrl: 'http://localhost:3000',
+  storage: new LocalStorageAdapter('myapp_'),
+});
+```
+
+## 3. Sign up / log in
+
+```ts
+// On a sign-up button click:
+await auth.signup({
+  email: emailInput.value,
+  password: passwordInput.value,
+  firstName: 'Alice',
+});
+
+// On a sign-in form submit:
+await auth.login({
+  credentials: { email: emailInput.value, password: passwordInput.value },
+});
+```
+
+The client persists tokens to local storage (per the adapter you picked) and starts the auto-refresh loop.
+
+## 4. Make authenticated requests
+
+For your own backend calls, just attach the access token:
+
+```ts
+const token = await auth.getAccessToken();
+
+const response = await fetch('http://localhost:3000/orders', {
+  headers: { Authorization: `Bearer ${token}` },
+});
+```
+
+Or share the same `httpAdapter` across the auth client and your app:
+
+```ts
+import axios from 'axios';
+import { createAxiosAdapter } from '@ackplus/nest-auth-client';
+
+const api = axios.create({ baseURL: 'http://localhost:3000' });
+
+api.interceptors.request.use(async (config) => {
+  const token = await auth.getAccessToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+export const auth = new AuthClient({
+  baseUrl: 'http://localhost:3000',
+  httpAdapter: createAxiosAdapter(api),
+});
+```
+
+## 5. Subscribe to events
+
+```ts
+auth.onLogout(() => {
+  window.location.href = '/login';
+});
+
+auth.onTokenRefreshed((tokens) => {
+  console.log('Tokens refreshed; expires soon-ish');
+});
+```
+
+## 6. Vue example
+
+```vue
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import { auth } from './lib/auth';
+
+const user = ref<any>(null);
+
+onMounted(async () => {
+  if (auth.getIsAuthenticated()) {
+    user.value = await auth.getSessionUserData();
+  }
+});
+
+const logout = () => auth.logout().then(() => (user.value = null));
+</script>
+
+<template>
+  <div v-if="user">Hello {{ user.email }} <button @click="logout">Sign out</button></div>
+  <div v-else>Please <a href="/login">sign in</a></div>
+</template>
+```
+
+## 7. React Native
+
+Replace the storage adapter with one wrapping AsyncStorage:
+
+```ts
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AuthClient, type StorageAdapter } from '@ackplus/nest-auth-client';
+
+const RNStorage: StorageAdapter = {
+  get:    (k) => AsyncStorage.getItem(k),
+  set:    (k, v) => AsyncStorage.setItem(k, v),
+  remove: (k) => AsyncStorage.removeItem(k),
+  clear:  () => AsyncStorage.clear(),
+};
+
+export const auth = new AuthClient({
+  baseUrl: 'https://api.example.com',
+  storage: RNStorage,
+});
+```
+
+Everything else (login, refresh, MFA flows) is identical.
+
+## What's next
+
+- [`AuthClient`](/docs/client/client) — every method.
+- [Storage adapters](/docs/client/storage-adapters).
+- [HTTP adapters](/docs/client/http-adapters).

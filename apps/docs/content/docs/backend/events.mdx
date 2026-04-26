@@ -1,0 +1,119 @@
+---
+title: Events
+description: Every emitted event class with its payload.
+---
+
+This is the complete reference for events. For when to listen to an event vs override a hook, see [Events & Hooks](/docs/concepts/events-and-hooks).
+
+## Setup
+
+```ts
+import { EventEmitterModule } from '@nestjs/event-emitter';
+
+@Module({
+  imports: [
+    EventEmitterModule.forRoot(),     // <-- required, before NestAuthModule
+    NestAuthModule.forRoot({ … }),
+  ],
+})
+```
+
+Without this import, every event silently no-ops.
+
+## Listening
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import {
+  NestAuthEvents,
+  UserRegisteredEvent,
+} from '@ackplus/nest-auth';
+
+@Injectable()
+export class AuthEventsListener {
+  @OnEvent(NestAuthEvents.REGISTERED)
+  async onRegistered(event: UserRegisteredEvent) {
+    // …
+  }
+}
+```
+
+## Auth lifecycle
+
+| Event | Constant | Payload fields |
+|---|---|---|
+| `UserRegisteredEvent` | `NestAuthEvents.REGISTERED` | `user`, `payload` (the original signup body — open-ended), `request` |
+| `UserLoggedInEvent` | `NestAuthEvents.LOGGED_IN` | `user`, `session`, `provider`, `request` |
+| `UserRefreshTokenEvent` | `NestAuthEvents.REFRESH_TOKEN` | `user`, `oldSession`, `newSession` |
+| `LoggedOutEvent` | `NestAuthEvents.LOGGED_OUT` | `user`, `session`, `reason` |
+| `LoggedOutAllEvent` | `NestAuthEvents.LOGGED_OUT_ALL` | `user`, `reason` |
+
+## MFA
+
+| Event | Constant | Payload |
+|---|---|---|
+| `User2faVerifiedEvent` | `NestAuthEvents.TWO_FACTOR_VERIFIED` | `user`, `method`, `trustDevice` |
+| `TwoFactorCodeSentEvent` | `NestAuthEvents.TWO_FACTOR_CODE_SENT` | `user`, `method`, `code` |
+| `User2faEnabledEvent` | `NestAuthEvents.TWO_FACTOR_ENABLED` | `user` |
+| `User2faDisabledEvent` | `NestAuthEvents.TWO_FACTOR_DISABLED` | `user` |
+
+## Password
+
+| Event | Constant | Payload |
+|---|---|---|
+| `PasswordResetRequestedEvent` | `NestAuthEvents.PASSWORD_RESET_REQUESTED` | `user`, `code`, `channel` |
+| `PasswordResetEvent` | `NestAuthEvents.PASSWORD_RESET` | `user` |
+| `UserPasswordChangedEvent` | `NestAuthEvents.PASSWORD_CHANGED` | `user` |
+
+## Verification
+
+| Event | Constant | Payload |
+|---|---|---|
+| `EmailVerificationRequestedEvent` | `NestAuthEvents.EMAIL_VERIFICATION_REQUESTED` | `user`, `code` |
+| `EmailVerifiedEvent` | `NestAuthEvents.EMAIL_VERIFIED` | `user` |
+| `PhoneVerificationRequestedEvent` | `NestAuthEvents.PHONE_VERIFICATION_REQUESTED` | `user`, `code` |
+| `PhoneVerifiedEvent` | `NestAuthEvents.PHONE_VERIFIED` | `user` |
+
+## Passwordless
+
+| Event | Constant | Payload |
+|---|---|---|
+| `PasswordlessCodeRequestedEvent` | `NestAuthEvents.PASSWORDLESS_CODE_REQUESTED` | `identifier`, `channel` (`'email' \| 'sms'`), `code`, `user` (if existing) |
+
+## User management
+
+| Event | Constant | Payload |
+|---|---|---|
+| `UserCreatedEvent` | `NestAuthEvents.USER_CREATED` | `user` |
+| `UserUpdatedEvent` | `NestAuthEvents.USER_UPDATED` | `user`, `previous` |
+| `UserDeletedEvent` | `NestAuthEvents.USER_DELETED` | `user` |
+
+## Tenants
+
+| Event | Constant | Payload |
+|---|---|---|
+| `TenantCreatedEvent` | `NestAuthEvents.TENANT_CREATED` | `tenant` |
+| `TenantUpdatedEvent` | `NestAuthEvents.TENANT_UPDATED` | `tenant`, `previous` |
+| `TenantDeletedEvent` | `NestAuthEvents.TENANT_DELETED` | `tenant` |
+
+## API keys
+
+| Event | Constant | Payload |
+|---|---|---|
+| `AccessKeyCreatedEvent` | `NestAuthEvents.ACCESS_KEY_CREATED` | `key`, `userId` |
+| `AccessKeyUpdatedEvent` | `NestAuthEvents.ACCESS_KEY_UPDATED` | `key` |
+| `AccessKeyDeactivatedEvent` | `NestAuthEvents.ACCESS_KEY_DEACTIVATED` | `key` |
+| `AccessKeyDeletedEvent` | `NestAuthEvents.ACCESS_KEY_DELETED` | `key`, `userId` |
+
+## Practical patterns
+
+- **Idempotent listeners** — make every listener safe to run twice. Events are fire-and-forget; if your queue retries, listeners run again.
+- **Don't throw** — a thrown error in a listener is logged and swallowed. If a side effect must succeed before the auth flow returns, use a hook instead.
+- **Listen to the request** — `@OnEvent` listeners can access `event.request` (where present) for IP, user-agent, headers.
+
+## Related
+
+- [Events & Hooks](/docs/concepts/events-and-hooks).
+- [Hook reference](/docs/backend/hooks-reference).
+- [user-registered listener recipe](/docs/recipes/user-registered-listener).

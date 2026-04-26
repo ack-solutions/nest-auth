@@ -1,0 +1,158 @@
+---
+title: Pre-built React auth forms
+description: Copy-paste login, signup, MFA challenge, and forgot-password forms.
+---
+
+The library is headless — no UI ships with it. These are starting points; restyle as you see fit.
+
+## Login
+
+```tsx
+import { FormEvent, useState } from 'react';
+import { useNestAuth } from '@ackplus/nest-auth-react';
+
+export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
+  const { login, error, isLoading } = useNestAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [otp, setOtp] = useState('');
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    const resp = await login({ credentials: { email, password } });
+    if (resp.isRequiresMfa) setMfaRequired(true);
+    else onSuccess();
+  }
+
+  if (mfaRequired) return <MfaChallenge onSuccess={onSuccess} />;
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email" />
+      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="password" />
+      <button disabled={isLoading}>Sign in</button>
+      {error && <p style={{ color: 'red' }}>{error.message}</p>}
+    </form>
+  );
+}
+```
+
+## Signup
+
+```tsx
+export function SignupForm({ onSuccess }) {
+  const { signup, error, isLoading } = useNestAuth();
+  const [values, setValues] = useState({ email: '', password: '', firstName: '' });
+
+  return (
+    <form
+      onSubmit={async (e) => {
+        e.preventDefault();
+        await signup(values);
+        onSuccess();
+      }}
+    >
+      <input placeholder="first name" value={values.firstName}
+             onChange={(e) => setValues({ ...values, firstName: e.target.value })} />
+      <input placeholder="email" value={values.email}
+             onChange={(e) => setValues({ ...values, email: e.target.value })} />
+      <input type="password" placeholder="password" value={values.password}
+             onChange={(e) => setValues({ ...values, password: e.target.value })} />
+      <button disabled={isLoading}>Sign up</button>
+      {error && <p style={{ color: 'red' }}>{error.message}</p>}
+    </form>
+  );
+}
+```
+
+## MFA challenge
+
+```tsx
+export function MfaChallenge({ onSuccess }: { onSuccess: () => void }) {
+  const { send2fa, verify2fa, error } = useNestAuth();
+  const [otp, setOtp] = useState('');
+  const [trustDevice, setTrustDevice] = useState(false);
+
+  // Auto-send the email/SMS code on mount
+  useState(() => { send2fa('email'); });
+
+  return (
+    <form
+      onSubmit={async (e) => {
+        e.preventDefault();
+        await verify2fa({ otp, method: 'email', trustDevice });
+        onSuccess();
+      }}
+    >
+      <input value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="6-digit code" />
+      <label>
+        <input type="checkbox" checked={trustDevice} onChange={(e) => setTrustDevice(e.target.checked)} />
+        Trust this device for 14 days
+      </label>
+      <button>Verify</button>
+      {error && <p style={{ color: 'red' }}>{error.message}</p>}
+    </form>
+  );
+}
+```
+
+## Forgot password
+
+```tsx
+export function ForgotPasswordFlow() {
+  const { forgotPassword, verifyForgotPasswordOtp, resetPassword } = useNestAuth();
+  const [step, setStep] = useState<'email' | 'code' | 'reset' | 'done'>('email');
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [token, setToken] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+
+  if (step === 'email') {
+    return (
+      <form onSubmit={async (e) => {
+        e.preventDefault();
+        await forgotPassword({ email });
+        setStep('code');
+      }}>
+        <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email" />
+        <button>Send code</button>
+      </form>
+    );
+  }
+
+  if (step === 'code') {
+    return (
+      <form onSubmit={async (e) => {
+        e.preventDefault();
+        const res = await verifyForgotPasswordOtp({ email, code });
+        setToken(res.resetToken!);
+        setStep('reset');
+      }}>
+        <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="code from email" />
+        <button>Verify</button>
+      </form>
+    );
+  }
+
+  if (step === 'reset') {
+    return (
+      <form onSubmit={async (e) => {
+        e.preventDefault();
+        await resetPassword({ token, newPassword });
+        setStep('done');
+      }}>
+        <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="new password" />
+        <button>Reset</button>
+      </form>
+    );
+  }
+
+  return <p>Done — please log in.</p>;
+}
+```
+
+## Related
+
+- [Hooks](/docs/react/hooks).
+- [MFA](/docs/concepts/mfa).

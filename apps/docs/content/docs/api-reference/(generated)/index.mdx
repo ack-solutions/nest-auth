@@ -1,0 +1,43 @@
+---
+title: All Endpoints
+description: Generated reference for every operation in the OpenAPI spec.
+---
+
+The library exposes 30 endpoints, grouped below by tag. Each page documents the request body, query / path parameters, every response status code, and a copy-pasteable curl example.
+
+## Auth
+
+- [`GET /auth/callback/{provider}`](/docs/api-reference/auth/get-auth-callback-provider) — SSO Callback
+- [`GET /auth/client-config`](/docs/api-reference/auth/get-auth-client-config) — Client config
+- [`GET /auth/me`](/docs/api-reference/auth/get-auth-me) — Get Session User Data and menage extra user data from config
+- [`GET /auth/user`](/docs/api-reference/auth/get-auth-user) — Get Logged In User
+- [`GET /auth/verify-session`](/docs/api-reference/auth/get-auth-verify-session) — Verify Session
+- [`POST /auth/change-password`](/docs/api-reference/auth/post-auth-change-password) — Change Password
+- [`POST /auth/forgot-password`](/docs/api-reference/auth/post-auth-forgot-password) — Forgot password
+- [`POST /auth/login`](/docs/api-reference/auth/post-auth-login) — Login
+- [`POST /auth/logout`](/docs/api-reference/auth/post-auth-logout) — Logout
+- [`POST /auth/logout-all`](/docs/api-reference/auth/post-auth-logout-all) — Logout All
+- [`POST /auth/mfa/verify`](/docs/api-reference/auth/post-auth-mfa-verify) — Verify MFA
+- [`POST /auth/passwordless/send`](/docs/api-reference/auth/post-auth-passwordless-send) — Passwordless — send login code (email or SMS)
+- [`POST /auth/refresh-token`](/docs/api-reference/auth/post-auth-refresh-token) — Refresh Token
+- [`POST /auth/reset-password`](/docs/api-reference/auth/post-auth-reset-password) — Reset password
+- [`POST /auth/send-email-verification`](/docs/api-reference/auth/post-auth-send-email-verification) — Send email verification
+- [`POST /auth/send-phone-verification`](/docs/api-reference/auth/post-auth-send-phone-verification) — Send phone verification (SMS OTP)
+- [`POST /auth/signup`](/docs/api-reference/auth/post-auth-signup) — Signup
+- [`POST /auth/switch-tenant`](/docs/api-reference/auth/post-auth-switch-tenant) — Switch Active Tenant
+- [`POST /auth/verify-email`](/docs/api-reference/auth/post-auth-verify-email) — Verify Email
+- [`POST /auth/verify-forgot-password-otp`](/docs/api-reference/auth/post-auth-verify-forgot-password-otp) — Verify Forgot Password OTP and get reset token
+- [`POST /auth/verify-phone`](/docs/api-reference/auth/post-auth-verify-phone) — Verify phone number with OTP
+
+## Mfa
+
+- [`GET /auth/mfa/devices`](/docs/api-reference/mfa/get-auth-mfa-devices) — List registered MFA devices
+- [`GET /auth/mfa/status`](/docs/api-reference/mfa/get-auth-mfa-status) — Get MFA status for the current user
+- [`POST /auth/mfa/challenge`](/docs/api-reference/mfa/post-auth-mfa-challenge) — Send MFA code for setup/verification
+- [`POST /auth/mfa/generate-recovery-code`](/docs/api-reference/mfa/post-auth-mfa-generate-recovery-code) — Generate Recovery Codes
+- [`POST /auth/mfa/reset-totp`](/docs/api-reference/mfa/post-auth-mfa-reset-totp) — Reset TOTP Device
+- [`POST /auth/mfa/setup-totp`](/docs/api-reference/mfa/post-auth-mfa-setup-totp) — Setup TOTP Device
+- [`POST /auth/mfa/toggle`](/docs/api-reference/mfa/post-auth-mfa-toggle) — Enable or disable MFA for the current user
+- [`POST /auth/mfa/verify-totp-setup`](/docs/api-reference/mfa/post-auth-mfa-verify-totp-setup) — Verify TOTP Setup
+- [`DELETE /auth/mfa/devices/{deviceId}`](/docs/api-reference/mfa/delete-auth-mfa-devices-deviceid) — Remove a registered MFA device
+

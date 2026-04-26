@@ -1,0 +1,26 @@
+{
+  "title": "Auth",
+  "pages": [
+    "get-auth-callback-provider",
+    "get-auth-client-config",
+    "get-auth-me",
+    "get-auth-user",
+    "get-auth-verify-session",
+    "post-auth-change-password",
+    "post-auth-forgot-password",
+    "post-auth-login",
+    "post-auth-logout",
+    "post-auth-logout-all",
+    "post-auth-mfa-verify",
+    "post-auth-passwordless-send",
+    "post-auth-refresh-token",
+    "post-auth-reset-password",
+    "post-auth-send-email-verification",
+    "post-auth-send-phone-verification",
+    "post-auth-signup",
+    "post-auth-switch-tenant",
+    "post-auth-verify-email",
+    "post-auth-verify-forgot-password-otp",
+    "post-auth-verify-phone"
+  ]
+}

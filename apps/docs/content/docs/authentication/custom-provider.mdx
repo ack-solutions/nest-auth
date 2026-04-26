@@ -1,0 +1,96 @@
+---
+title: Custom OAuth Provider
+description: Plug in any OAuth or SSO not in the built-in list.
+---
+
+Need Microsoft, Discord, Slack, Okta, an internal SSO? Extend `BaseAuthProvider` and pass it to the module.
+
+## The contract
+
+```ts
+import { BaseAuthProvider, AuthProviderUser } from '@ackplus/nest-auth';
+
+export class DiscordAuthProvider extends BaseAuthProvider {
+  readonly name = 'discord';
+
+  async validate(credentials: { token: string }): Promise<AuthProviderUser> {
+    const userInfo = await fetch('https://discord.com/api/users/@me', {
+      headers: { Authorization: `Bearer ${credentials.token}` },
+    }).then(r => r.json());
+
+    if (!userInfo?.id) {
+      throw new UnauthorizedException('Invalid Discord token');
+    }
+
+    return {
+      providerId: userInfo.id,
+      email: userInfo.email,
+      metadata: {
+        username: userInfo.username,
+        avatar: userInfo.avatar,
+      },
+    };
+  }
+}
+```
+
+The `validate` method's job: take whatever credentials the client sent, prove they're authentic to the provider, and return a normalized `AuthProviderUser` with at least a `providerId` and (when possible) an `email`.
+
+## Registering the provider
+
+```ts
+NestAuthModule.forRoot({
+  // …
+  customAuthProviders: [new DiscordAuthProvider()],
+});
+```
+
+The library now accepts `POST /auth/login` with `{ providerName: 'discord', credentials: { token } }`.
+
+## What you get for free
+
+Once `validate` returns successfully, the library handles:
+
+- Identity lookup (`nest_auth_identities` row for `provider='discord'` + `providerId=<id>`).
+- User creation if the identity is new and `registration.enabled !== false`.
+- Account linking if the email matches an existing user.
+- Session creation, JWT minting, and event emission (`UserRegisteredEvent` / `UserLoggedInEvent`).
+
+You only write the part that's specific to the provider — verifying the credential.
+
+## When the client sends a code instead of a token
+
+If your provider gives the frontend an authorization code (not an access token), do the code-exchange inside `validate`:
+
+```ts
+async validate(credentials: { code: string }) {
+  const tokenResp = await fetch('https://discord.com/api/oauth2/token', {
+    method: 'POST',
+    body: new URLSearchParams({
+      client_id: this.clientId,
+      client_secret: this.clientSecret,
+      code: credentials.code,
+      grant_type: 'authorization_code',
+      redirect_uri: this.redirectUri,
+    }),
+  }).then(r => r.json());
+
+  // …then fetch the user with tokenResp.access_token
+}
+```
+
+Wire `clientId`, `clientSecret`, etc., as constructor args so they come from your config:
+
+```ts
+new DiscordAuthProvider({
+  clientId: process.env.DISCORD_CLIENT_ID,
+  clientSecret: process.env.DISCORD_CLIENT_SECRET,
+  redirectUri: process.env.DISCORD_REDIRECT_URI,
+}),
+```
+
+## Related
+
+- [Google OAuth](/docs/authentication/oauth-google) — implementation-by-example for a built-in.
+- [Account linking recipe](/docs/recipes/link-multiple-providers).
+- [Backend services reference](/docs/backend/services) for `AuthProviderRegistryService`.

@@ -1,0 +1,100 @@
+---
+title: Error Codes
+description: Every error code the library can return.
+---
+
+When `AuthExceptionFilter` is registered, the library's exceptions become structured responses:
+
+```json
+{
+  "statusCode": 401,
+  "errorCode": "INVALID_CREDENTIALS",
+  "message": "Email or password is incorrect"
+}
+```
+
+The `errorCode` field is what your frontend should branch on — never the human-readable `message`.
+
+## Auth
+
+| Code | Status | Meaning |
+|---|---|---|
+| `EMAIL_ALREADY_EXISTS` | 409 | Signup with an email that's already registered |
+| `PHONE_ALREADY_EXISTS` | 409 | Signup with a phone that's already registered |
+| `INVALID_CREDENTIALS` | 401 | Wrong email/password |
+| `ACCOUNT_INACTIVE` | 403 | `isActive: false` (admin-disabled or self-deactivated) |
+| `ACCOUNT_SUSPENDED` | 403 | Suspended via metadata flag (compliance / fraud) |
+| `EMAIL_NOT_VERIFIED` | 403 | Login policy requires email verification |
+| `PHONE_NOT_VERIFIED` | 403 | Login policy requires phone verification |
+| `INVALID_REFRESH_TOKEN` | 401 | Refresh token expired or revoked |
+| `TENANT_REQUIRED` | 400 | Multi-tenant mode requires `tenantId` and the request didn't carry one |
+
+## MFA
+
+| Code | Status | Meaning |
+|---|---|---|
+| `MFA_REQUIRED` | 401 | Login succeeded but MFA must be completed before access tokens are issued |
+| `MFA_INVALID_CODE` | 401 | Wrong code |
+| `MFA_CODE_EXPIRED` | 401 | Code is past its expiry |
+| `MFA_NOT_ENABLED` | 400 | User tried to verify MFA they don't have configured |
+| `MFA_ALREADY_ENABLED` | 400 | Toggle-on against an already-enabled account |
+| `MFA_RECOVERY_INVALID` | 401 | Recovery code rejected |
+| `TOTP_INVALID_SETUP` | 400 | Setup code didn't match the secret |
+
+## Sessions
+
+| Code | Status | Meaning |
+|---|---|---|
+| `SESSION_NOT_FOUND` | 401 | Session row missing — usually means revoked |
+| `SESSION_EXPIRED` | 401 | Session past its expiry |
+| `MAX_SESSIONS_REACHED` | 400 | Login would exceed `maxSessionsPerUser` (only fires if eviction is disabled) |
+
+## Guards / authorization
+
+| Code | Status | Meaning |
+|---|---|---|
+| `INVALID_AUTH_HEADER` | 401 | Missing or malformed `Authorization` header |
+| `INSUFFICIENT_ROLES` | 403 | `@NestAuthRoles` constraint not satisfied |
+| `INSUFFICIENT_PERMISSIONS` | 403 | `@NestAuthPermissions` constraint not satisfied |
+| `IP_BLOCKED` | 403 | `guards.beforeAuth` rejected with this reason |
+
+## API keys
+
+| Code | Status | Meaning |
+|---|---|---|
+| `INVALID_API_KEY` | 401 | Key not found, expired, or deactivated |
+| `API_KEY_FORMAT_INVALID` | 401 | Header format isn't `<public>:<private>` |
+
+## Validation
+
+| Code | Status | Meaning |
+|---|---|---|
+| `EMAIL_FORMAT_INVALID` | 400 | Doesn't match the email regex |
+| `PHONE_FORMAT_INVALID` | 400 | Not E.164 |
+| `WEAK_PASSWORD` | 400 | Fired only when a `beforeSignup` hook throws this |
+| `MISSING_REQUIRED_FIELD` | 400 | DTO validation fail (`class-validator`) |
+
+## OTP
+
+| Code | Status | Meaning |
+|---|---|---|
+| `OTP_INVALID` | 401 | Code rejected |
+| `OTP_EXPIRED` | 401 | Code past `codeExpiresIn` |
+| `OTP_ALREADY_USED` | 401 | Code is one-shot and was already redeemed |
+
+## Tenants
+
+| Code | Status | Meaning |
+|---|---|---|
+| `TENANT_NOT_FOUND` | 404 | Tenant id/slug doesn't exist |
+| `TENANT_ALREADY_EXISTS` | 409 | Slug collision on create |
+| `TENANT_INVALID` | 400 | Slug failed validation |
+
+## Customizing
+
+Use the `errorHandler(error, context)` hook to transform errors per flow — see the [per-flow error transform recipe](/docs/recipes/per-flow-error-transform).
+
+## Related
+
+- [Setup Checklist](/docs/getting-started/setup-checklist) — registering `AuthExceptionFilter`.
+- [Troubleshooting](/docs/faq/troubleshooting) — error code → likely cause table.

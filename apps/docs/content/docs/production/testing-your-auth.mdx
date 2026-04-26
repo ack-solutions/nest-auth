@@ -1,0 +1,144 @@
+---
+title: Testing Your Auth
+description: Mocking guards, seeding test users, writing E2E flows.
+---
+
+Auth is annoying to test because it touches everything. Three patterns make it manageable.
+
+## 1. Override `NestAuthAuthGuard` for unit tests
+
+In a NestJS unit test, you usually don't want to wire up the entire auth stack just to test a controller. Override the guard with a stub:
+
+```ts
+import { Test } from '@nestjs/testing';
+import { NestAuthAuthGuard } from '@ackplus/nest-auth';
+
+const moduleRef = await Test.createTestingModule({
+  controllers: [OrdersController],
+  providers: [OrdersService],
+})
+  .overrideGuard(NestAuthAuthGuard)
+  .useValue({
+    canActivate: (ctx) => {
+      const req = ctx.switchToHttp().getRequest();
+      req.user = { id: 'u_test', email: 'test@example.com' };
+      req.userAccess = { roles: [{ name: 'admin', guard: 'web' }], permissions: [] };
+      req.tenantId = 't_default';
+      return true;
+    },
+  })
+  .compile();
+```
+
+Now every test treats requests as if they came from `u_test`. Tweak the stub per `describe` block to test role-gated paths.
+
+## 2. Use `MEMORY` session store + a real `NestAuthModule` for integration tests
+
+For end-to-end tests that *do* exercise the full auth flow:
+
+```ts
+const moduleRef = await Test.createTestingModule({
+  imports: [
+    EventEmitterModule.forRoot(),
+    TypeOrmModule.forRoot({
+      type: 'sqlite',
+      database: ':memory:',
+      entities: [...NestAuthEntities, AppUser],
+      synchronize: true,
+    }),
+    NestAuthModule.forRoot({
+      appName: 'test',
+      session: {
+        storageType: SessionStorageType.MEMORY,
+        jwt: { secret: 'test-secret' },
+      },
+    }),
+  ],
+}).compile();
+
+const app = moduleRef.createNestApplication();
+await app.init();
+```
+
+You get a real auth stack on a throwaway SQLite — sign up, log in, hit `/auth/me`, assert.
+
+## 3. Seed a test user with deterministic credentials
+
+```ts
+import { AuthService } from '@ackplus/nest-auth';
+
+const auth = app.get(AuthService);
+
+await auth.signup({ email: 'alice@test.com', password: 'pass1234' });
+
+const { accessToken } = await auth.login({
+  credentials: { email: 'alice@test.com', password: 'pass1234' },
+});
+
+// Use accessToken to authenticate subsequent requests
+await request(app.getHttpServer())
+  .get('/orders')
+  .set('Authorization', `Bearer ${accessToken}`)
+  .expect(200);
+```
+
+Wrap this in a fixture helper so every test gets a fresh logged-in user.
+
+## Testing MFA flows
+
+For MFA-protected endpoints, the simplest path is to disable MFA in the test config. If you need to exercise MFA itself, capture the code from the event:
+
+```ts
+import { OnEvent } from '@nestjs/event-emitter';
+
+class TestCodeCollector {
+  lastCode?: string;
+  @OnEvent('twoFactorCodeSent')
+  capture(event) { this.lastCode = event.code; }
+}
+
+// Provide TestCodeCollector in the test module, then:
+await auth.send2fa(userId, 'email');
+await auth.verify2fa({ otp: collector.lastCode!, method: 'email' });
+```
+
+Same pattern works for `EmailVerificationRequestedEvent`, `PasswordResetRequestedEvent`, and `PasswordlessCodeRequestedEvent`.
+
+## Testing OAuth flows
+
+Don't hit the real provider in tests. Stub `validate` on the relevant `BaseAuthProvider` subclass:
+
+```ts
+moduleRef.overrideProvider(GoogleAuthProvider).useValue({
+  name: 'google',
+  validate: async () => ({
+    providerId: 'g_123',
+    email: 'oauth-test@example.com',
+  }),
+});
+```
+
+Now `client.login({ providerName: 'google', credentials: { token: 'fake' } })` "works" deterministically.
+
+## Testing role / permission gating
+
+Combination of patterns 1 and 2 — for unit tests, override the guard to inject roles. For integration tests, seed the user with the relevant `userAccess` and let the real guard run.
+
+```ts
+await dataSource.getRepository(NestAuthUserAccess).save({
+  userId: alice.id,
+  tenantId: 'default',
+  roles: [{ name: 'admin', guard: 'web' }],
+});
+```
+
+## CI hygiene
+
+- Run tests against `MEMORY` sessions and SQLite in-memory — no external services.
+- Use `JWT_SECRET=test-secret` in CI so signed tokens are deterministic across runs.
+- Don't commit fixtures with real-looking secrets, even fake ones — secret scanners will trigger.
+
+## Related
+
+- [Setup Checklist](/docs/getting-started/setup-checklist).
+- [Backend services reference](/docs/backend/services).

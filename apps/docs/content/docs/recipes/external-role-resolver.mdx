@@ -1,0 +1,83 @@
+---
+title: External role resolver (Okta / Auth0 / custom IDP)
+description: Roles live in your IDP, not your DB.
+---
+
+Your roles already live in Okta groups (or Auth0, or your own internal IDP). Don't duplicate them in the `nest_auth_roles` table — resolve them on every login from the IDP.
+
+```ts
+NestAuthModule.forRoot({
+  // …
+  authorization: {
+    async resolveRoles(user) {
+      // 1. Map our user back to Okta. Stash the Okta ID in metadata at signup.
+      const oktaId = user.metadata?.oktaId;
+      if (!oktaId) return [];
+
+      // 2. Fetch the user's groups from Okta
+      const groups = await this.okta.listUserGroups(oktaId);
+
+      // 3. Map Okta group names to our role names
+      return groups.map((g) => g.profile.name);
+    },
+
+    async resolvePermissions(user, roles) {
+      // Either expand from a static map, or fetch from Okta too:
+      const all: string[] = [];
+      for (const role of roles) {
+        all.push(...(STATIC_ROLE_PERMISSIONS[role] ?? []));
+      }
+      return [...new Set(all)];
+    },
+  },
+});
+```
+
+## When this runs
+
+`resolveRoles` runs on **every login and every refresh**. Cache aggressively:
+
+```ts
+async resolveRoles(user) {
+  return this.cache.wrap(
+    `roles:${user.id}`,
+    () => this.okta.listUserGroups(user.metadata.oktaId).then((g) => g.map((x) => x.profile.name)),
+    { ttl: 5 * 60_000 },          // 5 minutes
+  );
+}
+```
+
+A 5-minute TTL means a role change in Okta propagates within five minutes — usually acceptable; tune to your policy.
+
+## Hard fail vs soft fail
+
+If Okta is down and `resolveRoles` throws, login fails. Sometimes that's right; sometimes you want to fall back to last-known-good:
+
+```ts
+async resolveRoles(user) {
+  try {
+    return await this.okta.listUserGroups(user.metadata.oktaId);
+  } catch (err) {
+    this.log.warn('okta unreachable, using cached roles', err);
+    return this.cache.get(`roles:${user.id}`) ?? [];
+  }
+}
+```
+
+## Pairing with `loginHooks.onLogin`
+
+If you want to *write* roles to the local DB too (so the admin console shows them), do that in the login hook — but treat the IDP as source of truth:
+
+```ts
+loginHooks: {
+  async onLogin(user, ctx) {
+    const roles = await this.okta.listUserGroups(user.metadata.oktaId);
+    await this.userAccess.replaceRoles(user.id, ctx.tenantId, roles.map((g) => g.profile.name));
+  },
+},
+```
+
+## Related
+
+- [RBAC](/docs/concepts/rbac).
+- [Hooks Reference](/docs/backend/hooks-reference).

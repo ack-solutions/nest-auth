@@ -1,0 +1,145 @@
+---
+title: Migrate existing users
+description: 'Adopt Nest Auth in an existing app that already has a `users` table.'
+---
+
+You've been running for years; you have a `users` table with email, password hash, name, billing info, the works. You want to adopt Nest Auth without forcing every user to reset their password.
+
+## The end state
+
+```
+existing_users (renamed → app_users)
+  ├─ id              (kept)
+  ├─ name            (kept)
+  ├─ avatar_url      (kept)
+  ├─ stripe_customer (kept)
+  ├─ auth_user_id    (NEW — FK → nest_auth_users.id)
+  └─ … your other business fields …
+
+nest_auth_users (NEW)
+  ├─ id              (UUID, generated)
+  ├─ email
+  ├─ phone
+  ├─ password_hash   (copied from existing_users.password)
+  ├─ email_verified_at
+  └─ … library fields …
+```
+
+## Migration steps
+
+### Step 1 — install the auth tables
+
+Use either [migration-generate or copy-paste SQL](/docs/getting-started/database-setup) to create all 14 `nest_auth_*` tables. Don't drop or modify your existing `users` table yet.
+
+### Step 2 — copy users into `nest_auth_users`
+
+```sql
+INSERT INTO nest_auth_users (
+  id, email, phone, password_hash, email_verified_at, is_active, metadata,
+  is_mfa_enabled, created_at, updated_at
+)
+SELECT
+  gen_random_uuid(),
+  LOWER(email),                   -- normalize
+  phone,
+  password,                       -- hopefully argon2 already; otherwise see below
+  CASE WHEN email_verified THEN NOW() ELSE NULL END,
+  is_active,
+  '{}'::jsonb,
+  false,                          -- MFA off; users opt in later
+  created_at,
+  updated_at
+FROM users;
+```
+
+If your existing password hashes are bcrypt or scrypt, you have two options:
+
+- **Re-hash on next login.** Add a `password.verify` hook that detects the legacy format, verifies against the legacy algorithm, then re-hashes with argon2 and updates the row.
+- **Force a password reset.** Mark every imported user with a metadata flag like `metadata.requires_reset: true` and refuse login until they reset.
+
+The first option is friendlier; the second is safer.
+
+### Step 3 — add the FK column to your existing table
+
+```sql
+ALTER TABLE users ADD COLUMN auth_user_id UUID;
+ALTER TABLE users RENAME TO app_users;
+
+UPDATE app_users SET auth_user_id = (
+  SELECT id FROM nest_auth_users
+  WHERE LOWER(nest_auth_users.email) = LOWER(app_users.email)
+);
+
+ALTER TABLE app_users
+  ALTER COLUMN auth_user_id SET NOT NULL,
+  ADD CONSTRAINT app_users_auth_user_id_fk
+    FOREIGN KEY (auth_user_id) REFERENCES nest_auth_users(id) ON DELETE CASCADE;
+```
+
+### Step 4 — drop auth columns from `app_users`
+
+```sql
+ALTER TABLE app_users
+  DROP COLUMN password,
+  DROP COLUMN email_verified;
+```
+
+`email` and `phone` should already be on `nest_auth_users` — drop them from `app_users` too, unless you specifically want them duplicated for read convenience.
+
+### Step 5 — update your TypeORM entity
+
+```ts
+@Entity('app_users')
+export class AppUser {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ name: 'auth_user_id' })
+  authUserId: string;
+
+  @OneToOne(() => NestAuthUser, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'auth_user_id' })
+  authUser: NestAuthUser;
+
+  @Column() name: string;
+  @Column({ name: 'stripe_customer' }) stripeCustomer: string;
+  // …
+}
+```
+
+### Step 6 — update your application code
+
+Anywhere you currently read `user.email`:
+
+```diff
+- await this.users.findOne({ where: { id: userId } });    // returns the legacy mixed row
++ await this.appUsers.findOne({
++   where: { id: userId },
++   relations: { authUser: true },
++ });
++ // appUser.authUser.email
+```
+
+Or — better — change your queries to use the auth user's id directly:
+
+```ts
+const appUser = await this.appUsers.findOne({ where: { authUserId: ctx.user.id } });
+```
+
+### Step 7 — register the listener
+
+For users created **going forward**, the [user-registered listener](/docs/recipes/user-registered-listener) creates the `app_users` row. The migration was a one-time backfill.
+
+## Ordering and downtime
+
+Run these steps in a single deploy where possible. If you can't:
+
+- Step 1–2 can be done while the app is running on the old code (the new tables are inert).
+- Step 3 is fast — even on millions of rows the `UPDATE` is quick if `users.email` is indexed.
+- Step 4 is what the live app must already tolerate. Deploy the new app code (Step 5–6) **before** dropping the old columns, so there's never a moment when running code expects a column that's gone.
+
+## Related
+
+- [User Model](/docs/concepts/user-model).
+- [Database Setup](/docs/getting-started/database-setup).
+- [Hooks Reference](/docs/backend/hooks-reference) — `password.hash` / `password.verify` for legacy hash support.

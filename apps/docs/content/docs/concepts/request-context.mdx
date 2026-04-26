@@ -1,0 +1,65 @@
+---
+title: Request Context
+description: AsyncLocalStorage-backed per-request user, tenant, and session.
+---
+
+Inside a guarded request handler, you usually want to know who the user is, which tenant they're acting on, and which session they're using. Threading those through every function call is tedious — Nest Auth puts them in an `AsyncLocalStorage`-backed context so anywhere in the call tree can read them.
+
+## How it gets populated
+
+The library registers a middleware that runs before every request. After `NestAuthAuthGuard` validates credentials, the middleware writes the resolved `user`, `session`, and `tenantId` into the context. Anything async that's awaited inside that handler — services, repositories, event handlers — sees the same context.
+
+## Reading from a controller (the easy way)
+
+In a controller you should use the decorators — they're cleaner:
+
+```ts
+@Auth()
+@Get()
+list(
+  @CurrentUser() user: NestAuthUser,
+  @CurrentTenantId() tenantId: string,
+  @CurrentUserAccess() access: NestAuthUserAccess,
+) { … }
+```
+
+## Reading from a service (the AsyncLocalStorage way)
+
+In a service that doesn't have access to decorators, inject and read the context directly:
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { RequestContext } from '@ackplus/nest-auth';
+
+@Injectable()
+export class OrderService {
+  list() {
+    const ctx = RequestContext.get();
+    if (!ctx?.user) throw new UnauthorizedException();
+
+    return this.orders.find({
+      where: { tenantId: ctx.tenantId, ownerId: ctx.user.id },
+    });
+  }
+}
+```
+
+## What's on the context
+
+| Property | Type | Notes |
+|---|---|---|
+| `user` | `NestAuthUser` | The authenticated user, if any |
+| `session` | `NestAuthSession` | The active session row |
+| `tenantId` | `string \| undefined` | Active tenant if multi-tenancy is enabled |
+| `userAccess` | `NestAuthUserAccess` | Per-tenant role/membership row |
+
+## Things to know
+
+- The context is **request-scoped**. A long-running background job started inside a request keeps access to the context until it finishes — but jobs scheduled outside (cron, queues) get an empty context.
+- If you `setTimeout` past the response, the context is *still* there — the underlying `AsyncLocalStorage` survives the response close. Don't write to the response from there.
+- Public routes still get a context — `user` is just `undefined`.
+
+## Related
+
+- [Sessions & Tokens](/docs/concepts/sessions-and-tokens).
+- [Decorators reference](/docs/backend/decorators) for `@CurrentUser`, `@CurrentTenant`, etc.

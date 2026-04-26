@@ -1,0 +1,82 @@
+---
+title: Magic Link
+description: Email-only sign-in via a one-click link.
+---
+
+Like passwordless OTP, but instead of a typed code the user clicks a link that contains the code as a query param.
+
+## Server config
+
+```ts
+NestAuthModule.forRoot({
+  passwordless: { enabled: true, allowSignUp: true },
+});
+```
+
+Same `passwordless` config as the OTP flow — magic link is just a different delivery mechanism on the server side.
+
+## How it works
+
+1. Client calls `POST /auth/passwordless/send` with `{ identifier, channel: 'email' }`.
+2. The library emits `PasswordlessCodeRequestedEvent` with `code` and `identifier`.
+3. **Your listener constructs the magic link URL**, embedding the code, and emails it. The library doesn't generate the URL because it doesn't know your frontend's domain or routing.
+4. User clicks the link, frontend reads the code from the URL, and calls `POST /auth/login` with the passwordless credentials.
+
+## Listener (server)
+
+```ts
+@OnEvent(NestAuthEvents.PASSWORDLESS_CODE_REQUESTED)
+async sendMagicLink(event: PasswordlessCodeRequestedEvent) {
+  if (event.channel !== 'email') return;
+
+  const url = new URL('/auth/magic-link', this.config.appBaseUrl);
+  url.searchParams.set('identifier', event.identifier);
+  url.searchParams.set('code', event.code);
+
+  await this.resend.emails.send({
+    to: event.identifier,
+    subject: 'Sign in to My App',
+    html: `<a href="${url}">Click here to sign in</a> — this link expires in 10 minutes.`,
+  });
+}
+```
+
+## Frontend route
+
+In your React app, add a `/auth/magic-link` route that reads the query params and calls `login`:
+
+```tsx
+import { useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useNestAuth } from '@ackplus/nest-auth-react';
+
+export function MagicLinkPage() {
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const { login } = useNestAuth();
+
+  useEffect(() => {
+    const identifier = params.get('identifier');
+    const code = params.get('code');
+    if (!identifier || !code) return;
+
+    login({
+      providerName: 'passwordless',
+      credentials: { identifier, code, channels: ['email'] },
+    }).then(() => navigate('/'));
+  }, [params]);
+
+  return <p>Signing you in…</p>;
+}
+```
+
+## Security notes
+
+- Magic links are bearer tokens. Anyone with the URL can sign in. Use short expiry (`otp.codeExpiresIn: '10m'`) and `httpOnly` cookies.
+- Don't log the URL or include it in error reports.
+- The code can only be redeemed once — the next call to `/auth/login` with the same code fails.
+
+## Related
+
+- [Passwordless OTP](/docs/authentication/passwordless-otp) — typed-code variant.
+- [Sending Emails](/docs/production/sending-emails).

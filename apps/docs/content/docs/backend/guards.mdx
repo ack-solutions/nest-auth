@@ -1,0 +1,75 @@
+---
+title: Guards
+description: NestAuthAuthGuard and AdminSessionGuard.
+---
+
+## `NestAuthAuthGuard`
+
+The main guard. Apply it once globally and let decorators (`@Auth`, `@Public`, `@NestAuthRoles`, `@NestAuthPermissions`, `@SkipMfa`) opt routes in and out.
+
+```ts
+import { APP_GUARD } from '@nestjs/core';
+import { NestAuthAuthGuard } from '@ackplus/nest-auth';
+
+@Module({
+  providers: [
+    { provide: APP_GUARD, useClass: NestAuthAuthGuard },
+  ],
+})
+export class AppModule {}
+```
+
+What it does, in order, on every request:
+
+1. Checks for `@Public()` — if present, skip everything below.
+2. Calls `guards.beforeAuth(request)` — your hook can `{ reject: true, reason: '...' }` to short-circuit (used for IP allowlists, device fingerprinting, etc.).
+3. Reads the `Authorization` header (or cookie) and decides whether it's a JWT or an API key.
+4. Validates the token / key.
+5. Resolves the active tenant.
+6. Loads `userAccess` for the user + tenant.
+7. Resolves roles via `authorization.resolveRoles` (default: read from DB).
+8. Resolves permissions via `authorization.resolvePermissions` (default: expand from roles).
+9. Checks any `@NestAuthRoles` and `@NestAuthPermissions` constraints.
+10. Checks MFA enforcement (skipped if `@SkipMfa()` is on the route).
+11. Calls `guards.afterAuth(request, user)` — last chance to reject.
+12. Populates the request context (decorators above will see this).
+
+If anything fails, the guard throws — your `AuthExceptionFilter` (registered in `main.ts`) turns that into a structured response with an error code from [`AUTH_ERROR_CODES`](/docs/backend/error-codes).
+
+## `AdminSessionGuard`
+
+Protects the embedded admin console. Applied automatically to every route under `adminConsole.basePath`. Validates the admin session cookie and (optionally) the admin's MFA status.
+
+You don't usually apply this guard yourself — `AdminConsoleModule` registers it on its own controllers. See [Admin Console](/docs/backend/admin-console).
+
+## Custom guards on top
+
+You can chain your own guards after `NestAuthAuthGuard` runs. By the time your guard executes, `request.user`, `request.session`, `request.tenantId` are all set.
+
+```ts
+@Injectable()
+export class TeamMemberGuard implements CanActivate {
+  canActivate(ctx: ExecutionContext): boolean {
+    const req = ctx.switchToHttp().getRequest();
+    return req.userAccess?.metadata?.team === req.params.teamSlug;
+  }
+}
+
+// On a route:
+@Auth()
+@UseGuards(TeamMemberGuard)
+@Get(':teamSlug')
+list() { … }
+```
+
+## Practical patterns
+
+- **Optional auth** — `@Auth(true)` makes context available when present without enforcing it.
+- **Test stubs** — in tests, override `NestAuthAuthGuard` with a stub that injects whatever user you want. See [Testing Your Auth](/docs/production/testing-your-auth).
+- **IP allowlist** — add the policy to `guards.beforeAuth` so it runs on every authenticated route. See the [IP allowlist recipe](/docs/recipes/ip-allowlist-guard).
+
+## Related
+
+- [Decorators](/docs/backend/decorators) — what to put on routes.
+- [Hooks Reference](/docs/backend/hooks-reference) — `guards.beforeAuth`, `guards.afterAuth`.
+- [Error codes](/docs/backend/error-codes).

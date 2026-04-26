@@ -1,0 +1,78 @@
+---
+title: Apple OAuth
+description: Sign in with Apple.
+---
+
+Required by Apple's App Store guidelines if you offer any other social sign-in. The configuration is more involved than Google or Facebook because Apple uses a private-key-signed JWT for client authentication.
+
+## Server config
+
+```ts
+NestAuthModule.forRoot({
+  apple: {
+    clientId: process.env.APPLE_CLIENT_ID,         // Service ID
+    teamId: process.env.APPLE_TEAM_ID,
+    keyId: process.env.APPLE_KEY_ID,
+    privateKey: process.env.APPLE_PRIVATE_KEY,     // PEM-encoded p8
+    redirectUri: process.env.APPLE_REDIRECT_URI,
+  },
+});
+```
+
+Add the optional peer dep:
+
+```bash
+pnpm add apple-auth
+```
+
+## Generating credentials
+
+1. In Apple Developer, create a Service ID — this is your `clientId`.
+2. Enable "Sign In with Apple" on it. Add your redirect URI.
+3. Create a Key, enabling "Sign In with Apple". Download the `.p8` file. The Key ID is `keyId`; the Team ID is `teamId`.
+4. Convert the `.p8` to a single-line env var (replace newlines with `\n`).
+
+## Endpoint
+
+| Method | Path | Body |
+|---|---|---|
+| `POST` | `/auth/login` | `{ providerName: 'apple', credentials: { token } }` |
+
+`token` is the Apple `identityToken` returned by their JS SDK or native frameworks.
+
+## Client call (web)
+
+```tsx
+import AppleSignin from 'react-apple-signin-auth';
+import { useNestAuth } from '@ackplus/nest-auth-react';
+
+function AppleSignIn() {
+  const { login } = useNestAuth();
+
+  return (
+    <AppleSignin
+      authOptions={{
+        clientId: 'com.example.web',
+        scope: 'email name',
+        redirectURI: window.location.origin + '/auth/apple/callback',
+        usePopup: true,
+      }}
+      onSuccess={(response) =>
+        login({
+          providerName: 'apple',
+          credentials: { token: response.authorization.id_token },
+        })
+      }
+    />
+  );
+}
+```
+
+## Email-relay quirk
+
+Apple lets users hide their real email behind a relay address (`abc123@privaterelay.appleid.com`). The library stores whatever Apple returns. If you need the real email, you have to ask the user separately — Apple won't give it to the library.
+
+## Related
+
+- [Google OAuth](/docs/authentication/oauth-google).
+- [GitHub OAuth](/docs/authentication/oauth-github).

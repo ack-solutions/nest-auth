@@ -1,0 +1,84 @@
+---
+title: Admin Console
+description: The embedded admin dashboard.
+---
+
+Nest Auth ships with a React-based admin console you can mount alongside your API. It gives non-engineers a UI for managing users, roles, permissions, tenants, and API keys without writing custom screens.
+
+## Enabling
+
+```ts
+NestAuthModule.forRoot({
+  // …
+  adminConsole: {
+    enabled: true,
+    basePath: '/auth/admin',                     // default
+    secretKey: process.env.ADMIN_CONSOLE_SECRET,
+    sessionDuration: '8h',
+    sessionCookieName: 'nest_auth_admin',
+    cookie: { secure: true, sameSite: 'lax' },
+    allowAdminManagement: true,                  // can admins create more admins?
+  },
+});
+```
+
+The console mounts at `/auth/admin/*` (configurable). UI assets are served from the library — you don't need to build or deploy anything separately.
+
+## The dual-purpose `secretKey`
+
+`adminConsole.secretKey` gates **two** things:
+
+1. **The admin signup endpoint** — only requests carrying this secret in the right header can create the *first* admin user. Once you've bootstrapped, hide or rotate this secret.
+2. **The dashboard cookie session** — used as part of the signing material so an admin session can't be forged from a leaked DB row alone.
+
+Treat it like a JWT secret: keep it out of source, rotate when an operator leaves.
+
+## Bootstrapping the first admin
+
+```http
+POST /auth/admin/signup
+Content-Type: application/json
+x-nest-auth-admin-secret: <your secret>
+
+{
+  "email": "ops@example.com",
+  "password": "…",
+  "tenantId": "default"
+}
+```
+
+After the first admin exists, future admins are created from inside the dashboard (or via the same endpoint while `allowAdminManagement: true`).
+
+## What the console does
+
+| Section | Capabilities |
+|---|---|
+| Users | List, search, edit, suspend, reactivate, view sessions, force logout-all, reset MFA |
+| Roles | CRUD, mark `isSystem`, assign permissions |
+| Permissions | CRUD, group by category |
+| Tenants | CRUD, view membership, edit metadata |
+| API Keys | List, create, revoke, view last-used |
+| Settings | Inspect resolved config (read-only — config still lives in your code) |
+
+## Auth flow inside the console
+
+The console uses `AdminSessionGuard`, a separate session table (`nest_auth_admin_users`), and a separate cookie. Admin sessions don't grant access to your app's regular API — they're scoped to the console only.
+
+This is deliberate: an ops person should not gain a logged-in user session just by being an admin.
+
+## Customizing the UI
+
+Out of scope for the library — the console UI is fixed. If you need a custom admin experience, use the public services (`UserService`, `RoleService`, `TenantService`, `AccessKeyService`) and build your own screens.
+
+## Disabling
+
+```ts
+adminConsole: { enabled: false },
+```
+
+Or omit the section entirely. None of the routes get registered, none of the assets get served.
+
+## Related
+
+- [Backend services reference](/docs/backend/services) — the same services the console uses.
+- [API Keys](/docs/authentication/api-keys).

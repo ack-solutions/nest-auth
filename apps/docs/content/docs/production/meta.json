@@ -1,0 +1,15 @@
+{
+  "title": "Production",
+  "pages": [
+    "index",
+    "sending-emails",
+    "sending-sms",
+    "customizing-jwt",
+    "production-checklist",
+    "rate-limiting",
+    "logging-and-debugging",
+    "testing-your-auth",
+    "scaling",
+    "cors-and-security"
+  ]
+}

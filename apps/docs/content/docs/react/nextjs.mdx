@@ -1,0 +1,119 @@
+---
+title: Next.js
+description: createNextAuthHelpers, server-side auth, and App Router SSR.
+---
+
+Next.js gets first-class support: read auth from cookies in Server Components, render an authenticated page on the first byte, and protect API routes with one wrapper.
+
+## Setup
+
+Create a `lib/auth.ts` that you import from both client and server code:
+
+```ts
+// lib/auth.ts
+import { AuthClient } from '@ackplus/nest-auth-client';
+import { createNextAuthHelpers } from '@ackplus/nest-auth-react';
+
+export const client = new AuthClient({
+  baseUrl: process.env.NEXT_PUBLIC_API_URL!,
+  accessTokenType: 'cookie',
+});
+
+export const authHelpers = createNextAuthHelpers({
+  baseUrl: process.env.NEXT_PUBLIC_API_URL!,
+});
+```
+
+## Server-side auth in a layout
+
+```tsx
+// app/layout.tsx (Server Component)
+import { cookies } from 'next/headers';
+import { NextAuthProvider } from '@ackplus/nest-auth-react';
+import { client, authHelpers } from '@/lib/auth';
+
+export default async function RootLayout({ children }) {
+  const initialState = await authHelpers.getServerAuth(await cookies());
+
+  return (
+    <html>
+      <body>
+        <NextAuthProvider client={client} initialState={initialState}>
+          {children}
+        </NextAuthProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+`getServerAuth` reads the auth cookies, calls `/auth/verify-session` on the backend, and returns an `InitialAuthState` ready to feed `<NextAuthProvider>`. The first render is fully authenticated — no client-side `useEffect` round-trip.
+
+## Reading the user from a Server Component
+
+```tsx
+// app/dashboard/page.tsx
+import { cookies, redirect } from 'next/headers';
+import { authHelpers } from '@/lib/auth';
+
+export default async function DashboardPage() {
+  const auth = await authHelpers.getServerAuth(await cookies());
+  if (!auth.isAuthenticated) redirect('/login');
+
+  return <h1>Welcome {auth.user?.email}</h1>;
+}
+```
+
+## Protecting an API route
+
+```ts
+// app/api/private/route.ts
+import { authHelpers } from '@/lib/auth';
+
+export const GET = authHelpers.withAuth(async (req) => {
+  // req.auth is populated; if not authenticated, the wrapper already returned 401
+  return Response.json({ user: req.auth.user });
+});
+```
+
+`withAuth` is a higher-order function. You give it your handler; it wraps it with a check that verifies the cookies and short-circuits to `401` if the session is bad.
+
+## Middleware redirects
+
+For coarse-grained gating across whole route trees, use a Next.js `middleware.ts`:
+
+```ts
+// middleware.ts
+import { NextResponse, type NextRequest } from 'next/server';
+
+const PROTECTED = ['/dashboard', '/account', '/admin'];
+
+export function middleware(req: NextRequest) {
+  const path = req.nextUrl.pathname;
+  if (!PROTECTED.some(p => path.startsWith(p))) return NextResponse.next();
+
+  const accessToken = req.cookies.get('accessToken');
+  if (!accessToken) {
+    const url = req.nextUrl.clone();
+    url.pathname = '/login';
+    url.searchParams.set('next', path);
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
+}
+```
+
+Middleware runs on every request — keep it cheap. It can't reach the database; for fine-grained role checks, use `withAuth` in the API/route handler instead.
+
+## Hydration & double fetches
+
+When `initialState` is supplied, `<NextAuthProvider>` skips the client-side fetch. If you don't supply it, the provider falls back to its normal client-side bootstrap — works, but slower.
+
+The `getServerAuth` call is cached per request by Next.js, so calling it from both `layout.tsx` and a page is fine.
+
+## Related
+
+- [Provider](/docs/react/provider) — `<NextAuthProvider>` props.
+- [Cross-tab sync](/docs/react/cross-tab-sync).
+- [Next.js protected dashboard recipe](/docs/recipes/nextjs-protected-dashboard).

@@ -1,0 +1,128 @@
+---
+title: Quickstart — Next.js
+description: A minimal Next.js (App Router) app with SSR auth.
+---
+
+Authenticated server components and route handlers, on top of the [backend quickstart](/docs/getting-started/quickstart-backend).
+
+## 1. Set up
+
+```bash
+pnpm create next-app@latest --typescript --app --no-tailwind myapp
+cd myapp
+pnpm add @ackplus/nest-auth-react @ackplus/nest-auth-client
+```
+
+## 2. The auth helpers
+
+```ts
+// lib/auth.ts
+import { AuthClient } from '@ackplus/nest-auth-client';
+import { createNextAuthHelpers } from '@ackplus/nest-auth-react';
+
+export const client = new AuthClient({
+  baseUrl: process.env.NEXT_PUBLIC_API_URL!,
+  accessTokenType: 'cookie',
+});
+
+export const authHelpers = createNextAuthHelpers({
+  baseUrl: process.env.NEXT_PUBLIC_API_URL!,
+});
+```
+
+`accessTokenType: 'cookie'` means the backend sets HttpOnly cookies that Next.js can read server-side.
+
+## 3. The root layout
+
+```tsx
+// app/layout.tsx
+import { cookies } from 'next/headers';
+import { NextAuthProvider } from '@ackplus/nest-auth-react';
+import { client, authHelpers } from '@/lib/auth';
+
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const initialState = await authHelpers.getServerAuth(await cookies());
+
+  return (
+    <html lang="en">
+      <body>
+        <NextAuthProvider client={client} initialState={initialState}>
+          {children}
+        </NextAuthProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+`getServerAuth` reads cookies, calls `/auth/verify-session`, and gives you a hydration-ready snapshot. The first render is fully authenticated.
+
+## 4. A protected server component
+
+```tsx
+// app/dashboard/page.tsx
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { authHelpers } from '@/lib/auth';
+
+export default async function DashboardPage() {
+  const auth = await authHelpers.getServerAuth(await cookies());
+  if (!auth.isAuthenticated) redirect('/login');
+
+  return <h1>Welcome {auth.user?.email}</h1>;
+}
+```
+
+## 5. A protected API route
+
+```ts
+// app/api/private/route.ts
+import { authHelpers } from '@/lib/auth';
+
+export const GET = authHelpers.withAuth(async (req) => {
+  return Response.json({ user: req.auth.user });
+});
+```
+
+## 6. Middleware redirects
+
+```ts
+// middleware.ts
+import { NextResponse, type NextRequest } from 'next/server';
+
+const PROTECTED = ['/dashboard', '/account'];
+
+export function middleware(req: NextRequest) {
+  if (!PROTECTED.some((p) => req.nextUrl.pathname.startsWith(p))) {
+    return NextResponse.next();
+  }
+  if (!req.cookies.get('accessToken')) {
+    const url = req.nextUrl.clone();
+    url.pathname = '/login';
+    return NextResponse.redirect(url);
+  }
+  return NextResponse.next();
+}
+```
+
+## 7. Login page
+
+Same `<LoginPage>` from the [React quickstart](/docs/getting-started/quickstart-react) — `useNestAuth().login(...)` works identically.
+
+## 8. Run it
+
+```bash
+pnpm dev
+```
+
+Open `http://localhost:3000/dashboard`, get redirected, sign in, get redirected back.
+
+## What's next
+
+- [Next.js helpers](/docs/react/nextjs) — full `createNextAuthHelpers` reference.
+- [Cross-tab sync](/docs/react/cross-tab-sync).
+- [Next.js protected dashboard recipe](/docs/recipes/nextjs-protected-dashboard).

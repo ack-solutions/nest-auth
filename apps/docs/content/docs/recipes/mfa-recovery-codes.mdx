@@ -1,0 +1,101 @@
+---
+title: MFA recovery codes — generate, show, store
+description: One-time codes the user needs to reach if they lose their authenticator.
+---
+
+Recovery codes are returned exactly **once** — at generation time. After that, only their hash is stored. The UX is to show the code prominently and tell the user to save it somewhere safe.
+
+## Server-side: generation
+
+The library's `MfaService.generateRecoveryCode(userId)` returns:
+
+```ts
+{ code: 'a1b2c3d4-e5f6-7890-…' }
+```
+
+Expose an endpoint:
+
+```ts
+@Auth()
+@Post('me/mfa/recovery-codes')
+generate(@CurrentUser() user: NestAuthUser) {
+  return this.mfa.generateRecoveryCode(user.id);
+}
+```
+
+## Client-side: show once
+
+```tsx
+function GenerateRecoveryCode() {
+  const { generateRecoveryCode } = useNestAuth();
+  const [code, setCode] = useState<string | null>(null);
+  const [acknowledged, setAcknowledged] = useState(false);
+
+  if (!code) {
+    return (
+      <button onClick={async () => {
+        const res = await generateRecoveryCode();
+        setCode(res.code);
+      }}>
+        Generate recovery code
+      </button>
+    );
+  }
+
+  if (!acknowledged) {
+    return (
+      <div>
+        <h3>Save this code somewhere safe</h3>
+        <p>This is the only time you'll see it. Lose it, and you may lose access if your authenticator is unavailable.</p>
+        <pre>{code}</pre>
+        <button onClick={() => navigator.clipboard.writeText(code)}>Copy to clipboard</button>
+        <button onClick={() => setAcknowledged(true)}>I've saved it</button>
+      </div>
+    );
+  }
+
+  return <p>Recovery code generated.</p>;
+}
+```
+
+## Using the recovery code
+
+When the user lost their TOTP device, they call `client.resetMfa(code)`:
+
+```tsx
+function ResetMfa() {
+  const { resetMfa } = useNestAuth();
+  const [code, setCode] = useState('');
+
+  return (
+    <form onSubmit={async (e) => {
+      e.preventDefault();
+      await resetMfa(code);
+      // MFA is now disabled; user can log in with email/password and re-enroll
+    }}>
+      <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="recovery code" />
+      <button>Reset MFA</button>
+    </form>
+  );
+}
+```
+
+## How many to give
+
+The library generates one at a time. Some apps prefer a stack of 10 — call `generateRecoveryCode` ten times in a loop, store all ten on the client side, and let the user use them one at a time.
+
+```ts
+const codes = await Promise.all(
+  Array.from({ length: 10 }, () => generateRecoveryCode())
+).then(arr => arr.map(r => r.code));
+```
+
+(Note: each call returns one code; the user holds the list. Re-running this invalidates the previous batch — only the most recent set is valid server-side.)
+
+## Don't email recovery codes
+
+Tempting, but it defeats the purpose — if their MFA is compromised, their email might be too. Show, copy, done. Optionally print to PDF.
+
+## Related
+
+- [MFA](/docs/concepts/mfa).

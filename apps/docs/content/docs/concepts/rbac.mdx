@@ -1,0 +1,122 @@
+---
+title: RBAC — Roles & Permissions
+description: Role-based access control with multiple guards (web, api, mobile).
+---
+
+Nest Auth ships a full role-and-permission system. You can run multiple parallel role hierarchies — for example, "web roles" for browser users and "api roles" for service accounts — and check them per route.
+
+## Concepts
+
+| Thing | What it is |
+|---|---|
+| **Role** | Named bucket — `admin`, `editor`, `member`. Lives in `nest_auth_roles`. |
+| **Permission** | Fine-grained capability — `orders.read`, `orders.write`. Lives in `nest_auth_permissions`. |
+| **Role-permission** | Many-to-many between the two. |
+| **Guard** | A namespace for roles. `'web'`, `'api'`, `'mobile'` — you decide. |
+| **User-tenant access** | A user's role(s) within a tenant, on a specific guard. |
+
+## Configuring guards
+
+Tell the module which guard namespaces exist:
+
+```ts
+NestAuthModule.forRoot({
+  // …
+  roleGuards: ['web', 'api', 'mobile'],     // default: ['web']
+});
+```
+
+A role row carries its guard, so an `admin` web role and an `admin` api role are independent records that don't conflict.
+
+## Decorators
+
+```ts
+import {
+  Auth,
+  Public,
+  NestAuthRoles,
+  NestAuthPermissions,
+} from '@ackplus/nest-auth';
+
+@Auth()                                          // requires authentication
+@NestAuthRoles(['admin', 'editor'])              // ANY of these roles (default)
+@NestAuthRoles(['admin', 'finance'], 'api')      // explicitly target the 'api' guard
+@NestAuthPermissions(['orders.read'])            // requires the permission
+@NestAuthPermissions(['orders.read', 'orders.write'], true)  // ALL of these (matchAll)
+@Public()                                        // bypass auth entirely
+```
+
+`@Auth(true)` makes auth optional — if the user is logged in, the guard populates the request context; if not, the route still runs.
+
+`@SkipMfa()` lets a route bypass MFA enforcement (useful for the `/auth/mfa/verify` endpoint itself).
+
+## Checking from the client
+
+The client and React layer ship matching utilities:
+
+```ts
+// Vanilla JS
+import { hasRole, hasPermission } from '@ackplus/nest-auth-client';
+
+if (hasRole(user, 'admin')) { … }
+if (hasPermission(user, ['orders.read', 'orders.write'], true)) { … }
+```
+
+```tsx
+// React
+import { useHasRole, useHasPermission } from '@ackplus/nest-auth-react';
+
+const isAdmin = useHasRole('admin');
+const canEdit = useHasPermission(['orders.read', 'orders.write'], true);
+```
+
+Or use guard components:
+
+```tsx
+import { RequireRole, RequirePermission } from '@ackplus/nest-auth-react';
+
+<RequireRole role="admin">
+  <AdminPanel />
+</RequireRole>
+
+<RequirePermission permission={['orders.read', 'orders.write']} matchAll>
+  <OrderEditor />
+</RequirePermission>
+```
+
+## Where roles & permissions are evaluated
+
+The default flow:
+
+1. User logs in. Server reads their `nest_auth_user_accesses` row for the active tenant.
+2. Server resolves their roles, then expands roles → permissions via `nest_auth_role_permissions`.
+3. The full `roles[]` and `permissions[]` arrays are baked into the session payload (and thus into `useUser()`).
+4. Guards on protected routes check against those arrays — no per-request DB hit.
+
+## External role systems (Okta / Auth0 / custom IDP)
+
+Don't want to store roles in your database? Replace the resolution step with a hook:
+
+```ts
+authorization: {
+  async resolveRoles(user) {
+    const groups = await okta.getGroups(user.metadata.oktaId);
+    return groups.map(g => g.name);
+  },
+  async resolvePermissions(user, roles) {
+    return rolesToPermissions(roles);
+  },
+},
+```
+
+Both hooks run on every login and refresh. See the [external role resolver recipe](/docs/recipes/external-role-resolver) for a full example.
+
+## System vs custom roles
+
+Roles can be marked `isSystem: true`. Those are protected — the admin console won't let users delete or rename them. Use this for the handful of roles your code references by name (`admin`, `member`).
+
+## Related
+
+- [Multi-tenancy](/docs/concepts/multi-tenancy) — roles are per-tenant by default.
+- [Hooks reference](/docs/backend/hooks-reference) — `authorization.resolveRoles` / `resolvePermissions`.
+- [External role resolver recipe](/docs/recipes/external-role-resolver).

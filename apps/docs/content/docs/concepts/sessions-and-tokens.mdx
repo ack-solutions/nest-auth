@@ -1,0 +1,69 @@
+---
+title: Sessions & Tokens
+description: How Nest Auth issues, refreshes, and validates JWT access and refresh tokens.
+---
+
+Every authenticated request in Nest Auth is backed by two things: a **session** (a row in your session store) and a **token pair** (an access token and a refresh token). Understanding how they interact saves a lot of debugging.
+
+## The token pair
+
+| Token | Lifetime | Purpose |
+|---|---|---|
+| **Access token** | Short (default `15m`) | Sent on every request to prove identity. Stateless JWT — the server validates it without a DB hit. |
+| **Refresh token** | Long (default `7d`) | Sent only to `/auth/refresh-token` to mint a new access token. Bound to a session row. |
+
+Both are signed JWTs. Both lifetimes are configurable on `session.accessTokenValidity` and `session.refreshTokenValidity` (any [`ms`](https://github.com/vercel/ms) string works: `'15m'`, `'2h'`, `'30d'`).
+
+## Header mode vs cookie mode
+
+Set `session.accessTokenType` to one of:
+
+- `'header'` — server returns tokens in the JSON body. Client stores them and sends `Authorization: Bearer <token>` on every request.
+- `'cookie'` — server sets HttpOnly, Secure, SameSite cookies. Client doesn't see the tokens. Required for full XSS protection.
+- `null` (default) — **auto-detect.** The server reads the `x-access-token-type` header from the client and decides per request. The JS client sends this header automatically based on its own config. This lets one backend serve both a web app (cookies) and a mobile app (Bearer) without separate endpoints.
+
+**CORS gotcha:** in the auto-detect path you must include `x-access-token-type` in your CORS `allowedHeaders`, or the browser preflight fails. See [CORS & Security](/docs/production/cors-and-security).
+
+## Auto-refresh
+
+When the JS client gets a `401` from any endpoint, it transparently:
+
+1. Calls `/auth/refresh-token` once.
+2. Updates its in-memory tokens.
+3. Retries the original request with the new access token.
+
+This is gated by two safeties so it can't go wrong:
+
+- **`RefreshQueue`** — if a hundred parallel requests all 401 at once, only **one** refresh fires. The other 99 await the same promise.
+- **`RetryTracker`** — every original request is retried at most **once**. If the retry also fails, the user is logged out and the original 401 surfaces to the caller.
+
+Both are exported from `@ackplus/nest-auth-client` if you need to instrument or replace them.
+
+## Sliding expiration
+
+Set `session.slidingExpiration: true` and a session's expiry rolls forward on every successful refresh. A user who is active daily never gets logged out; a user who walks away for `refreshTokenValidity` loses their session.
+
+The trade-off is write amplification — every refresh is a session-row update. For Redis-backed sessions this is negligible; for SQL it's worth measuring on high-traffic tenants. See [Scaling](/docs/production/scaling).
+
+## Password-hash prefix in the JWT
+
+Every access token Nest Auth issues includes a short prefix of the user's password hash as a claim. On every authenticated request the guard compares that prefix against the current user record. If the user resets their password (or an admin does it on their behalf), every outstanding access token across every device becomes invalid **the next time it hits a guarded endpoint** — without any explicit revocation step or session sweep.
+
+This is how "log out all devices on password change" works without scanning the session store.
+
+## `maxSessionsPerUser`
+
+Caps how many concurrent sessions one user can hold (default `10`). When a new login pushes the count over the limit, the **oldest** session is evicted. Set to a low number like `3` for high-security flows; set to `0` to disable the cap entirely.
+
+## Where to look in the code
+
+- `JwtService` — signs / verifies tokens. Customize signing via `session.jwt.secret`.
+- `SessionManagerService` — creates, refreshes, revokes session rows.
+- `TokenManager` (in `@ackplus/nest-auth-client`) — abstracts header vs cookie mode on the client.
+- `RefreshQueue`, `RetryTracker` — exported from `@ackplus/nest-auth-client`.
+
+## Related
+
+- [Session Storage](/docs/concepts/session-storage) — DB / Redis / Memory.
+- [Customizing the JWT](/docs/production/customizing-jwt) — adding `subscriptionTier`, `appUserId`, etc.
+- [`session.onCreated` / `onRefreshed` / `onRevoked`](/docs/backend/hooks-reference) hooks.

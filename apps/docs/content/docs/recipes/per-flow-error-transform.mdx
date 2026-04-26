@@ -1,0 +1,58 @@
+---
+title: Custom error transformation per flow
+description: 'Reshape errors per auth flow with `errorHandler(error, context)`.'
+---
+
+Sometimes you want different error envelopes for different auth flows — maybe login errors include a hint, signup errors include a list of validation issues, etc.
+
+```ts
+NestAuthModule.forRoot({
+  // …
+  errorHandler(error, context) {
+    // context: 'login' | 'signup' | 'password_reset' | 'mfa_verify' | …
+
+    if (context === 'login') {
+      // Hide whether the email exists
+      if (
+        error.code === 'EMAIL_NOT_FOUND' ||
+        error.code === 'INVALID_CREDENTIALS'
+      ) {
+        return {
+          statusCode: 401,
+          errorCode: 'INVALID_CREDENTIALS',
+          message: 'Email or password is incorrect',
+        };
+      }
+    }
+
+    if (context === 'signup') {
+      if (error.code === 'WEAK_PASSWORD') {
+        return {
+          statusCode: 400,
+          errorCode: 'WEAK_PASSWORD',
+          message: error.message,
+          requirements: {
+            minLength: 8,
+            mustContainNumber: true,
+            mustContainSymbol: true,
+          },
+        };
+      }
+    }
+
+    // Default: re-throw / pass through
+    return null;
+  },
+});
+```
+
+Returning a non-null object replaces the error response. Returning `null` (or undefined) keeps the library's default.
+
+## Don't accidentally hide bugs
+
+The temptation is to wrap every error in a generic "Something went wrong." Don't. The default error codes are precise; your frontend depends on them. Override only where you have a deliberate reason.
+
+## Related
+
+- [Error codes](/docs/backend/error-codes).
+- [Hooks Reference](/docs/backend/hooks-reference).

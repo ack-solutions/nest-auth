@@ -1,0 +1,38 @@
+---
+title: What is Nest Auth?
+description: A full-featured, type-safe authentication suite for NestJS, JS, and React.
+---
+
+Nest Auth is an opinionated, batteries-included authentication library for NestJS backends — with companion client libraries for vanilla JavaScript and React. It's a single, modular library you install in your own NestJS app, backed by your own database, native to the NestJS module system.
+
+## Why use it?
+
+Modern auth has a long checklist: email + password, OAuth, passwordless, MFA, refresh-token rotation, RBAC, multi-tenancy, audit logs, admin console. Most teams either glue together five libraries (and own the integration risk) or buy a hosted vendor (and lose data ownership). Nest Auth picks a third path: a single, modular library you install in your own NestJS app, backed by your own database.
+
+## Feature matrix
+
+| Feature | `@ackplus/nest-auth` |
+|---|---|
+| Email + password login | ✅ |
+| Phone + password login | ✅ |
+| Passwordless OTP (email + SMS) | ✅ |
+| Magic link | ✅ |
+| OAuth — Google, Facebook, Apple, GitHub | ✅ |
+| Custom OAuth providers | ✅ |
+| API keys | ✅ |
+| MFA — TOTP, Email OTP, SMS OTP | ✅ |
+| MFA recovery codes & trusted devices | ✅ |
+| Sessions — DB / Redis / Memory | ✅ |
+| JWT access + refresh tokens (header or cookie) | ✅ |
+| RBAC with multiple guards (web / api / mobile) | ✅ |
+| Multi-tenancy (isolated + shared modes) | ✅ |
+| Hooks for every lifecycle moment | ✅ |
+| Event emitter for async side effects | ✅ |
+| Audit logging | ✅ |
+| Embedded admin console | ✅ |
+
+## Where to next
+
+- [Philosophy](/docs/introduction/philosophy) — the design principles.
+- [Architecture](/docs/introduction/architecture) — how the four packages fit together.
+- [Getting Started](/docs/getting-started/installation) — install and get a working signup flow.

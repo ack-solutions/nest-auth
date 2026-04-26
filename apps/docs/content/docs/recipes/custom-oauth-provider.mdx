@@ -1,0 +1,81 @@
+---
+title: Custom OAuth Provider
+description: Add Discord, Microsoft, Slack — anything not in the built-in list.
+---
+
+```ts
+// app/auth/discord.provider.ts
+import { BaseAuthProvider, AuthProviderUser } from '@ackplus/nest-auth';
+import { UnauthorizedException } from '@nestjs/common';
+
+interface DiscordOptions {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+}
+
+export class DiscordAuthProvider extends BaseAuthProvider {
+  readonly name = 'discord';
+
+  constructor(private readonly opts: DiscordOptions) {
+    super();
+  }
+
+  async validate(credentials: { code?: string; token?: string }): Promise<AuthProviderUser> {
+    let accessToken = credentials.token;
+
+    // If the client sent a code instead, exchange it
+    if (!accessToken && credentials.code) {
+      const tokenResp = await fetch('https://discord.com/api/oauth2/token', {
+        method: 'POST',
+        body: new URLSearchParams({
+          client_id: this.opts.clientId,
+          client_secret: this.opts.clientSecret,
+          code: credentials.code,
+          grant_type: 'authorization_code',
+          redirect_uri: this.opts.redirectUri,
+        }),
+      }).then((r) => r.json());
+      accessToken = tokenResp.access_token;
+    }
+
+    if (!accessToken) throw new UnauthorizedException('Missing Discord credential');
+
+    const me = await fetch('https://discord.com/api/users/@me', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }).then((r) => r.json());
+
+    if (!me?.id) throw new UnauthorizedException('Discord token rejected');
+
+    return {
+      providerId: me.id,
+      email: me.email,
+      metadata: {
+        username: me.username,
+        avatar: me.avatar,
+      },
+    };
+  }
+}
+```
+
+Register it:
+
+```ts
+NestAuthModule.forRoot({
+  customAuthProviders: [
+    new DiscordAuthProvider({
+      clientId: process.env.DISCORD_CLIENT_ID!,
+      clientSecret: process.env.DISCORD_CLIENT_SECRET!,
+      redirectUri: process.env.DISCORD_REDIRECT_URI!,
+    }),
+  ],
+});
+```
+
+Now `POST /auth/login` with `{ providerName: 'discord', credentials: { code } }` works.
+
+## Related
+
+- [Custom provider docs](/docs/authentication/custom-provider) — the conceptual overview.
+- [Google OAuth](/docs/authentication/oauth-google) — reference implementation.

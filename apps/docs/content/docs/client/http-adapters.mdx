@@ -1,0 +1,100 @@
+---
+title: HTTP Adapters
+description: Swap fetch for axios — or any HTTP transport.
+---
+
+The client's HTTP layer is pluggable. Default is `fetch`; `axios` ships as an option.
+
+## The contract
+
+```ts
+interface HttpAdapter {
+  request<T>(options: HttpRequestOptions): Promise<HttpResponse<T>>;
+}
+
+interface HttpRequestOptions {
+  url: string;
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  headers?: Record<string, string>;
+  body?: any;                                 // auto-serialized to JSON
+  credentials?: 'include' | 'omit' | 'same-origin';
+  timeout?: number;                           // ms
+  signal?: AbortSignal;
+}
+
+interface HttpResponse<T> {
+  status: number;
+  ok: boolean;
+  data: T;
+  headers: Record<string, string>;
+}
+```
+
+## `FetchAdapter` (default)
+
+```ts
+import { FetchAdapter } from '@ackplus/nest-auth-client';
+
+new AuthClient({ baseUrl, httpAdapter: new FetchAdapter() });
+```
+
+Uses the global `fetch` — works in all modern browsers, Node 18+, React Native, Cloudflare Workers, Deno, Bun.
+
+JSON request bodies are automatically `JSON.stringify`-ed; JSON responses are automatically parsed when `Content-Type: application/json`.
+
+## `createAxiosAdapter(axiosInstance)`
+
+Wraps an axios instance so you keep the rest of your app's HTTP setup (interceptors, retries, baseURL) while letting the auth client share the transport.
+
+```ts
+import axios from 'axios';
+import { createAxiosAdapter } from '@ackplus/nest-auth-client';
+
+const api = axios.create({
+  baseURL: 'https://api.example.com',
+  withCredentials: true,
+});
+
+api.interceptors.request.use((config) => {
+  // Your existing request interceptor — Authorization header, tracing, etc.
+  return config;
+});
+
+new AuthClient({
+  baseUrl: 'https://api.example.com',
+  httpAdapter: createAxiosAdapter(api),
+});
+```
+
+## Custom adapter
+
+Wrap whatever client you like. As long as you satisfy the contract, the library doesn't care.
+
+```ts
+class GotAdapter implements HttpAdapter {
+  async request<T>(opts) {
+    const response = await got(opts.url, {
+      method: opts.method,
+      headers: opts.headers,
+      json: opts.body,
+      timeout: { request: opts.timeout },
+      signal: opts.signal,
+    });
+    return {
+      status: response.statusCode,
+      ok: response.statusCode < 400,
+      data: response.body as T,
+      headers: response.headers,
+    };
+  }
+}
+```
+
+## Cookie mode and `credentials`
+
+When the client is in cookie mode, every request goes out with `credentials: 'include'`. Make sure your CORS config has `Access-Control-Allow-Credentials: true` and an explicit origin allowlist (`*` is forbidden with credentials).
+
+## Related
+
+- [Config](/docs/client/config).
+- [CORS & Security](/docs/production/cors-and-security).

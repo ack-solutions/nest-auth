@@ -1,0 +1,82 @@
+---
+title: 'React to login with `UserLoggedInEvent`'
+description: Last-login tracking, role sync, audit writes.
+---
+
+```ts
+// app/users/listeners/user-logged-in.listener.ts
+import { Injectable } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+
+import { NestAuthEvents, UserLoggedInEvent } from '@ackplus/nest-auth';
+import { AppUser } from '../entities/app-user.entity';
+import { ExternalRoleSyncService } from '../external-role-sync.service';
+import { AuditService } from '../../audit/audit.service';
+
+@Injectable()
+export class UserLoggedInListener {
+  constructor(
+    @InjectRepository(AppUser) private readonly appUsers: Repository<AppUser>,
+    private readonly roleSync: ExternalRoleSyncService,
+    private readonly audit: AuditService,
+  ) {}
+
+  @OnEvent(NestAuthEvents.LOGGED_IN)
+  async handle({ user, session, provider, request }: UserLoggedInEvent) {
+    // 1. Last login
+    await this.appUsers.update(
+      { authUserId: user.id },
+      { lastLoginAt: new Date(), lastLoginIp: request?.ip },
+    );
+
+    // 2. Pull fresh roles from external IDP (run in background)
+    this.roleSync.refresh(user.id).catch((err) =>
+      console.error(`role sync failed for ${user.id}`, err),
+    );
+
+    // 3. Audit
+    await this.audit.write({
+      kind: 'login',
+      userId: user.id,
+      sessionId: session.id,
+      tenantId: session.tenantId,
+      provider,
+      ip: request?.ip,
+      userAgent: request?.headers['user-agent'],
+    });
+  }
+}
+```
+
+## Why three independent operations
+
+The audit write is the only one whose failure should be surfaced — it's a compliance signal. The other two are best-effort:
+
+- Last-login is a UX nicety; if it fails, the next login will get it right.
+- Role sync from an external IDP should never block login. If Okta is down, your users still log in with cached roles.
+
+The `.catch(...)` on role sync is the easiest way to fire-and-forget without `unhandledRejection` warnings.
+
+## Reading on login: gating an account
+
+If the listener should be able to **block** the login, this is the wrong tool — listeners are post-hoc. Use the `loginHooks.onLogin` hook instead:
+
+```ts
+loginHooks: {
+  async onLogin(user, ctx) {
+    if (await this.fraud.isFlagged(user.id)) {
+      throw new ForbiddenException('account_under_review');
+    }
+  },
+},
+```
+
+Hooks run synchronously and can throw to abort. See [Hooks Reference](/docs/backend/hooks-reference).
+
+## Related
+
+- [User Model](/docs/concepts/user-model).
+- [Audit Logging](/docs/concepts/audit-logging).
+- [External role resolver recipe](/docs/recipes/external-role-resolver).

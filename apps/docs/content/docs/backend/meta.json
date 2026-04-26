@@ -1,0 +1,15 @@
+{
+  "title": "Backend (`@ackplus/nest-auth`)",
+  "pages": [
+    "index",
+    "module",
+    "entities",
+    "decorators",
+    "guards",
+    "services",
+    "hooks-reference",
+    "events",
+    "error-codes",
+    "admin-console"
+  ]
+}

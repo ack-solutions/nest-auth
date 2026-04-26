@@ -1,0 +1,52 @@
+---
+title: '`normalizedEmail` / `normalizedPhone` for consistent identity'
+description: Avoid duplicate users from inconsistent input.
+---
+
+`Alice@Example.com` and `alice@example.com` should resolve to the same user. The library exports two helpers and uses them internally; you should call them from your own code paths too — anywhere a user submits an email or phone.
+
+## Email
+
+```ts
+import { normalizedEmail } from '@ackplus/nest-auth';
+
+const email = normalizedEmail('  Alice@Example.COM  ');
+// → 'alice@example.com'
+```
+
+The function trims and lowercases. (It does **not** normalize Gmail-style `+` aliases — by design; those are user choices, not system noise.)
+
+## Phone
+
+```ts
+import { normalizedPhone } from '@ackplus/nest-auth';
+
+normalizedPhone('(555) 123-4567');     // → '+15551234567'  (with default country)
+normalizedPhone('+1 555 123 4567');    // → '+15551234567'
+```
+
+The phone normalizer strips formatting and ensures E.164. If your default country isn't US, set it on `phoneAuth.defaultCountry`.
+
+## Where to call them
+
+- **Forms** — normalize on blur so the user sees the canonical form before submit.
+- **API boundaries** — normalize again server-side, never trust the client's normalization.
+- **DB lookups** — when you query `nest_auth_users` from custom code, normalize first.
+- **Imports** — when migrating users from another system, normalize on the way in.
+
+## Indexing
+
+Postgres lets you put the normalization in a generated column:
+
+```sql
+ALTER TABLE app_users ADD COLUMN email_normalized TEXT
+  GENERATED ALWAYS AS (LOWER(TRIM(email))) STORED;
+CREATE UNIQUE INDEX app_users_email_norm_idx ON app_users (email_normalized);
+```
+
+Then your queries lowercase before comparing automatically. The library already does this on `nest_auth_users.email`.
+
+## Related
+
+- [Email + Password](/docs/authentication/email-password).
+- [Phone + Password](/docs/authentication/phone-password).

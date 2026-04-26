@@ -1,0 +1,228 @@
+---
+title: NestAuthModule
+description: 'Full reference for `NestAuthModule.forRoot()` and `forRootAsync()`.'
+---
+
+`NestAuthModule` is the entry point for the entire library. You import it once in your `AppModule` and pass an `IAuthModuleOptions` config object.
+
+## Synchronous form
+
+```ts
+import { Module } from '@nestjs/common';
+import { NestAuthModule } from '@ackplus/nest-auth';
+
+@Module({
+  imports: [
+    NestAuthModule.forRoot({
+      appName: 'My App',
+      isGlobal: true,
+      // …
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+## Async form
+
+For when your config depends on something injectable (e.g. a `ConfigService`):
+
+```ts
+NestAuthModule.forRootAsync({
+  isGlobal: true,
+  imports: [ConfigModule],
+  inject: [ConfigService],
+  useFactory: (config: ConfigService) => ({
+    appName: config.get('APP_NAME'),
+    session: { jwt: { secret: config.get('JWT_SECRET') } },
+    // …
+  }),
+});
+```
+
+You can also use `useClass` or `useExisting` patterns — see [`IAuthModuleAsyncOptions`](/docs/api-reference/types).
+
+## Top-level options
+
+### Required
+
+| Option | Type | Notes |
+|---|---|---|
+| `appName` | `string` | Used in TOTP issuer, audit events, and error messages |
+
+### Core
+
+| Option | Type | Default | Notes |
+|---|---|---|---|
+| `isGlobal` | `boolean` | `false` | Marks the module as global so you don't need to re-import it in every feature module |
+| `enableAutoRefresh` | `boolean` | `true` | Server-side support for auto-refresh on 401 |
+
+### Authentication methods
+
+```ts
+emailAuth?: { enabled: boolean };
+phoneAuth?: { enabled: boolean };
+passwordless?: { enabled: boolean; allowSignUp?: boolean };
+
+google?:   { clientId; clientSecret; redirectUri? };
+facebook?: { appId; appSecret; redirectUri? };
+apple?:    { clientId; teamId; keyId; privateKey; redirectUri? };
+github?:   { clientId; clientSecret; redirectUri? };
+
+customAuthProviders?: BaseAuthProvider[];
+```
+
+### Registration
+
+```ts
+registration?: {
+  enabled?: boolean;                    // default: true
+  requireInvitation?: boolean;          // default: false
+  autoLoginAfterSignup?: boolean;       // default: true
+  collectProfileFields?: IRegistrationCollectProfileField[];
+};
+```
+
+`collectProfileFields` is metadata for the public `/auth/client-config` endpoint — your signup form can render itself dynamically based on the server's policy.
+
+### Sessions & tokens
+
+See [Sessions & Tokens](/docs/concepts/sessions-and-tokens) for the conceptual overview. Full options:
+
+```ts
+session?: {
+  storageType?: SessionStorageType;
+  redis?: RedisSessionOptions;
+  accessTokenValidity?: number | string;       // default: '15m'
+  refreshTokenValidity?: number | string;      // default: '7d'
+  accessTokenType?: 'header' | 'cookie' | null;
+  cookieOptions?: CookieOptions;
+  jwt?: { secret: string; validateToken?: (payload, session) => boolean };
+  maxSessionsPerUser?: number;                 // default: 10
+  slidingExpiration?: boolean;                 // default: false
+  customizeSessionData?: (defaultData, user) => SessionDataPayload;
+  customizeTokenPayload?: (defaultPayload, session) => JWTTokenPayload;
+  onCreated?:  (session, user)        => void;
+  onRefreshed?: (oldSession, newSession) => void;
+  onRevoked?:  (session, reason)      => void;
+};
+```
+
+### MFA
+
+See [MFA](/docs/concepts/mfa).
+
+```ts
+mfa?: {
+  enabled?: boolean;
+  required?: boolean;
+  methods?: NestAuthMFAMethodEnum[];
+  defaultMethod?: NestAuthMFAMethodEnum;
+  totp?:  { issuer; period };
+  email?: { template };
+  sms?:   { provider; template };
+  allowUserToggle?: boolean;
+  allowMethodSelection?: boolean;
+  trustedDeviceDuration?: string | number;     // default: '7d'
+  trustDeviceStorageName?: string;             // default: 'nest_auth_device_trust'
+};
+```
+
+### Multi-tenancy
+
+See [Multi-Tenancy](/docs/concepts/multi-tenancy).
+
+```ts
+tenant?: {
+  enabled?: boolean;
+  mode?: TenantModeEnum;
+};
+defaultTenantOptions?: IDefaultTenantOptions;
+platformAccess?: {
+  enabled?: boolean;
+  validate?: (request) => boolean | Promise<boolean>;
+};
+```
+
+### Authorization
+
+```ts
+roleGuards?: string[];                              // default: ['web']
+authorization?: {
+  resolveRoles?:       (user) => Promise<string[]>;
+  resolvePermissions?: (user, roles) => Promise<string[]>;
+};
+```
+
+### Password & OTP
+
+```ts
+password?: {
+  passwordResetTokenExpiresIn?: number | string;
+  hash?:   (password) => Promise<string>;
+  verify?: (password, hash) => Promise<boolean>;
+  argon2?: { memoryCost; timeCost; parallelism };
+};
+
+otp?: {
+  secret?: string;
+  generate?: (length?, format?) => string | Promise<string>;
+  length?: number;                                  // default: 6
+  format?: 'numeric' | 'alphanumeric';              // default: 'numeric'
+  codeExpiresIn?: number | string;                  // default: '30m'
+};
+```
+
+### Hooks
+
+Every config-time hook is on the [Hooks Reference page](/docs/backend/hooks-reference). The high-level groupings:
+
+```ts
+user?:               IUserHooks;
+auth?:               IAuthHooks;
+registrationHooks?:  IRegistrationHooks;
+loginHooks?:         ILoginHooks;
+guards?:             IGuardHooks;
+errorHandler?:       (error, context) => any;
+resolveConfig?:      (context) => Partial<IAuthModuleOptions> | Promise<…>;
+clientConfig?:       { factory?: (defaultConfig, context) => any };
+```
+
+### Audit
+
+```ts
+audit?: {
+  enabled?: boolean;
+  onEvent?: (event: IAuthAuditEvent) => void | Promise<void>;
+};
+```
+
+### Admin console
+
+See [Admin Console](/docs/backend/admin-console).
+
+```ts
+adminConsole?: {
+  enabled?: boolean;
+  basePath?: string;                                // default: '/auth/admin'
+  secretKey?: string;                               // gates dashboard AND admin signup
+  sessionCookieName?: string;
+  sessionDuration?: string | number;
+  cookie?: CookieOptions;
+  allowAdminManagement?: boolean;
+};
+```
+
+### Debug
+
+```ts
+debug?: DebugLogOptions;
+```
+
+See [Logging & Debugging](/docs/production/logging-and-debugging).
+
+## Related
+
+- [Setup Checklist](/docs/getting-started/setup-checklist) — boot-time wiring around the module.
+- [Hooks Reference](/docs/backend/hooks-reference) — every hook with execution-order timeline.
+- [API Reference: Types](/docs/api-reference/types) — auto-generated `IAuthModuleOptions` definition.

@@ -1,0 +1,131 @@
+---
+title: Troubleshooting
+description: Error code → likely cause → fix.
+---
+
+When the library throws, the response carries a structured `errorCode`. Look it up here.
+
+## `INVALID_CREDENTIALS` (401)
+
+- **Wrong password.** Standard case.
+- **Email lookup case mismatch.** If you stopped using `normalizedEmail` somewhere, two records can exist. See [normalize-email-phone](/docs/recipes/normalize-email-phone).
+- **Legacy hash algorithm.** If you imported users with bcrypt hashes, did you wire up the `password.verify` hook? See [Hooks Reference](/docs/backend/hooks-reference).
+
+## `EMAIL_ALREADY_EXISTS` / `PHONE_ALREADY_EXISTS` (409)
+
+The signup attempt collides with an existing user. If users complain "I never signed up here," they likely did via OAuth — check `nest_auth_identities` for an entry under that email. See the [link multiple providers recipe](/docs/recipes/link-multiple-providers).
+
+## `ACCOUNT_INACTIVE` (403)
+
+`isActive: false` on the user row. Reactivate via admin console or your own admin endpoint. See the [account suspension recipe](/docs/recipes/account-suspension).
+
+## `ACCOUNT_SUSPENDED` (403)
+
+`metadata.suspended` is set. Same fix as above; use the metadata field rather than `isActive` so you can record `reason` / `by`.
+
+## `EMAIL_NOT_VERIFIED` / `PHONE_NOT_VERIFIED` (403)
+
+You set `mfa.required: true` or a similar policy that gates login on a verified contact. Either flip the policy or send the verification:
+
+```ts
+await client.sendEmailVerification();
+await client.verifyEmail({ code });
+```
+
+See [Email + Password](/docs/authentication/email-password).
+
+## `INVALID_REFRESH_TOKEN` (401) — and auto-refresh fails
+
+The most common reason: the refresh request reached the backend without the cookie or refresh token attached. Check:
+
+- **Cookie mode + CORS** — `credentials: true` server-side, `credentials: 'include'` client-side, no `*` origin.
+- **`x-access-token-type` header** in the CORS allowlist.
+- **`cookieParser()`** registered before routes.
+
+If the refresh token in storage was actually invalid (logged out from another device, password changed elsewhere), the response is correct — log out gracefully.
+
+## `TENANT_REQUIRED` (400)
+
+Multi-tenant mode is on but the request didn't carry a tenant ID. Either:
+
+- Pass `tenantId` in the login DTO so the session is bound to it.
+- Set a default tenant via `defaultTenantOptions`.
+- See [Multi-tenancy](/docs/concepts/multi-tenancy).
+
+## `MFA_REQUIRED` (401) — but the client treats it as an error
+
+This isn't really an error — it's the library telling the client "you logged in, but now do MFA." Your login flow should branch on `response.isRequiresMfa`:
+
+```tsx
+const res = await login({ credentials });
+if (res.isRequiresMfa) {
+  // show the MFA challenge UI
+}
+```
+
+## `MFA_INVALID_CODE` / `MFA_CODE_EXPIRED` (401)
+
+User typed wrong, or waited too long. Email/SMS codes expire per `otp.codeExpiresIn` (default `30m`). TOTP codes have a 30-second window plus a one-step grace.
+
+## `INSUFFICIENT_ROLES` / `INSUFFICIENT_PERMISSIONS` (403)
+
+The route has a `@NestAuthRoles` or `@NestAuthPermissions` decorator the user doesn't satisfy. Turn on the `guard` debug area (see [Logging & Debugging](/docs/production/logging-and-debugging)) — the rejection logs include the user's resolved roles and the route's required set.
+
+## `INVALID_API_KEY` (401)
+
+Either the key is unknown, deactivated, or expired. Check `nest_auth_access_keys`:
+
+```sql
+SELECT public_key, is_active, expires_at, last_used_at
+FROM nest_auth_access_keys
+WHERE public_key = '...';
+```
+
+## "Events aren't firing"
+
+`EventEmitterModule.forRoot()` is missing from `AppModule` imports, and **must** be imported before `NestAuthModule`. Without it, every `@OnEvent` listener is silently no-op'd. See [Setup Checklist](/docs/getting-started/setup-checklist).
+
+## "Auto-refresh works in dev, breaks in prod"
+
+CORS in production is stricter — most likely you're missing `x-access-token-type` (and possibly `nest_auth_device_trust`) in `allowedHeaders`. See [CORS & Security](/docs/production/cors-and-security).
+
+## "Sessions don't persist across browser tabs"
+
+You're using `MemoryStorage` (the default) or `SessionStorageAdapter`. Switch to `LocalStorageAdapter` for cross-tab persistence, or use cookie mode:
+
+```ts
+new AuthClient({
+  baseUrl,
+  storage: new LocalStorageAdapter('myapp_'),
+});
+```
+
+See [Storage Adapters](/docs/client/storage-adapters).
+
+## "Tokens get refreshed too often"
+
+`refreshThreshold` (default `60` seconds before expiry) is too aggressive for your `accessTokenValidity`. If your access tokens last 30 minutes, refresh-at-60s-before is fine. If they last 5 minutes, drop the threshold to `15` or disable pre-emptive refresh entirely (`refreshThreshold: 0`) and rely on the reactive 401 path.
+
+## "JWT decode fails on the client"
+
+Make sure the access token is the JWT — not the refresh token. `client.getAccessToken()` returns the access. The refresh token is internal-only and not exposed via the public client API.
+
+## "TypeORM `synchronize: true` keeps adding columns"
+
+Don't use `synchronize` against a database that's not exclusively yours, or one with custom indexes the library doesn't know about. Switch to migrations: see [Database Setup](/docs/getting-started/database-setup).
+
+## "Recovery code disappeared"
+
+It was returned exactly once at generation time. If the user didn't save it, generate a new one — the new one invalidates the old. See the [MFA recovery codes recipe](/docs/recipes/mfa-recovery-codes).
+
+## Still stuck?
+
+- Turn on debug: `debug: { enabled: true, areas: ['*'] }` and re-run.
+- Search [GitHub Issues](https://github.com/ack-solutions/nest-auth/issues).
+- Open a new issue with: library version, the code config, the request that failed, the error response.
+
+## Related
+
+- [FAQ](/docs/faq).
+- [Error Codes](/docs/backend/error-codes).
+- [Setup Checklist](/docs/getting-started/setup-checklist).

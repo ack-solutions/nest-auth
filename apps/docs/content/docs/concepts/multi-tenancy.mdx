@@ -1,0 +1,110 @@
+---
+title: Multi-Tenancy
+description: Single-tenant, shared multi-tenant, or fully isolated — Nest Auth supports all three.
+---
+
+Multi-tenancy is built into the core. The same APIs work whether you're single-tenant, supporting many tenants in one database, or running each tenant in its own database.
+
+## Three modes
+
+```ts
+import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
+
+NestAuthModule.forRoot({
+  // …
+  tenant: {
+    enabled: true,
+    mode: TenantModeEnum.SHARED,    // or ISOLATED
+  },
+});
+```
+
+| `tenant.enabled` | `tenant.mode` | Behavior |
+|---|---|---|
+| `false` (default) | — | Single-tenant. No tenant context. Simplest setup. |
+| `true` | `SHARED` | Many tenants in one database. Every tenant-scoped query is filtered by `tenantId`. Best for SaaS where tenants are cheap to spin up. |
+| `true` | `ISOLATED` | Each tenant has its own database/schema. Best for compliance-heavy or enterprise customers. |
+
+## How tenant context flows
+
+When tenancy is enabled, every authenticated request carries a `tenantId` — extracted from the JWT, the URL, or a header (configurable). The library puts it into an `AsyncLocalStorage`-backed [request context](/docs/concepts/request-context), and your code reads it via decorators:
+
+```ts
+import { Controller, Get } from '@nestjs/common';
+import {
+  Auth,
+  CurrentTenantId,
+  CurrentTenant,
+  CurrentUserAccess,
+} from '@ackplus/nest-auth';
+
+@Auth()
+@Controller('orders')
+export class OrdersController {
+  @Get()
+  list(
+    @CurrentTenantId() tenantId: string,
+    @CurrentTenant() tenant: NestAuthTenant,
+    @CurrentUserAccess() access: NestAuthUserAccess,
+  ) {
+    // tenantId is guaranteed here
+  }
+}
+```
+
+In `SHARED` mode, your queries should filter by `tenantId` directly. In `ISOLATED` mode, the library wires you to the right per-tenant data source automatically.
+
+## Default tenant
+
+For apps that are "really single-tenant but might add tenants later," set `defaultTenantOptions`:
+
+```ts
+defaultTenantOptions: {
+  name: 'My App',
+  slug: 'default',
+  isActive: true,
+}
+```
+
+The library auto-creates this tenant on first boot and assigns new signups to it. You can flip `tenant.enabled` to `false` later if you decide tenancy was overkill.
+
+## Switching tenants
+
+A user can belong to multiple tenants — the `nest_auth_user_accesses` table stores the membership. Switching is one call:
+
+```ts
+await client.switchTenant({ tenantId: 'tenant-acme' });
+```
+
+The server issues a fresh session bound to the new tenant. The client persists the new `tenantId`. The `useUser()` hook re-renders with the new context.
+
+The [tenant-switcher recipe](/docs/recipes/tenant-switcher) shows a complete dropdown UI.
+
+## Roles per tenant
+
+A user's roles are tenant-scoped by default. Alice can be `admin` in tenant A and `member` in tenant B. The `NestAuthUserAccess` row holds the per-tenant role assignment.
+
+For roles that span all tenants — global admins, support staff — use [Platform Access](/docs/backend/services) instead.
+
+## Where tenant lives in the schema
+
+| Table | Holds |
+|---|---|
+| `nest_auth_tenants` | Tenant rows (`name`, `slug`, `isActive`, `metadata`) |
+| `nest_auth_user_accesses` | Many-to-many between `NestAuthUser` and `NestAuthTenant`, with per-tenant roles |
+| `nest_auth_platform_accesses` | Cross-tenant roles for support / admin staff |
+
+## Decorators
+
+| Decorator | Returns |
+|---|---|
+| `@CurrentTenantId()` | The active `tenantId` (string) |
+| `@CurrentTenant()` | The full `NestAuthTenant` entity |
+| `@CurrentUserAccess()` | The current user's `NestAuthUserAccess` row for this tenant |
+| `@CurrentMembership()` | Alias for `@CurrentUserAccess()` |
+
+## Related
+
+- [RBAC](/docs/concepts/rbac) — role guards (web/api/mobile) and per-tenant assignments.
+- [Tenant switcher recipe](/docs/recipes/tenant-switcher).
+- [Backend services reference](/docs/backend/services) for `TenantService` and `PlatformAccessService`.

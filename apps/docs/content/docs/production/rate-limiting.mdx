@@ -1,0 +1,104 @@
+---
+title: Rate Limiting
+description: Throttling auth endpoints against credential stuffing and abuse.
+---
+
+Nest Auth doesn't ship rate limiting itself — you bring `@nestjs/throttler` (or equivalent) and apply it. The recommended thresholds are below.
+
+## Install
+
+```bash
+pnpm add @nestjs/throttler
+```
+
+## Apply
+
+```ts
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+
+@Module({
+  imports: [
+    ThrottlerModule.forRoot([{
+      ttl: 60_000,        // 1 minute window
+      limit: 100,         // 100 requests/min default
+    }]),
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
+})
+export class AppModule {}
+```
+
+The throttler guard runs ahead of `NestAuthAuthGuard`, so unauthenticated bots are rejected before any auth work happens.
+
+## Per-endpoint thresholds
+
+Override the default for high-risk endpoints with `@Throttle()`:
+
+```ts
+import { Throttle } from '@nestjs/throttler';
+
+// On a custom controller that wraps auth endpoints:
+@Throttle({ default: { ttl: 60_000, limit: 5 } })
+@Post('auth/login')
+async login(@Body() dto) { … }
+```
+
+Recommended starting points:
+
+| Endpoint | Window | Limit |
+|---|---|---|
+| `/auth/login` | 60s | 5 per IP |
+| `/auth/signup` | 60s | 3 per IP |
+| `/auth/passwordless/send` | 60s | 3 per identifier |
+| `/auth/forgot-password` | 60s | 3 per identifier |
+| `/auth/mfa/challenge` | 60s | 5 per session |
+| `/auth/refresh-token` | 60s | 60 per session — high, since auto-refresh happens often |
+| `/auth/reset-password` | 60s | 5 per IP |
+
+Tune from there using your own auth-failure dashboard.
+
+## Per-identifier vs per-IP
+
+Per-IP alone is insufficient — an attacker behind a CDN looks like one IP. Per-identifier (email/phone) protects the targeted user. The strongest setup limits both:
+
+- Per-IP: blocks distributed brute force from one source.
+- Per-identifier: blocks credential stuffing against one account.
+
+`@nestjs/throttler` v6+ supports custom trackers. Use a key that combines both:
+
+```ts
+import { ThrottlerGuard } from '@nestjs/throttler';
+
+@Injectable()
+export class AuthThrottlerGuard extends ThrottlerGuard {
+  protected async getTracker(req: Request): Promise<string> {
+    return `${req.ip}:${req.body?.credentials?.email ?? ''}`;
+  }
+}
+```
+
+## Soft vs hard limits
+
+For login specifically:
+
+- **Hard limit** — return 429 after N attempts. Protects the system.
+- **Soft limit** — silently delay the response after N attempts. Slows attackers without revealing the threshold.
+
+A common combination: instant lockout after 5 failures within 15 minutes, with a captcha challenge on the 4th attempt.
+
+## Storing counters
+
+In-memory works for a single instance. For multi-instance, use the Redis storage adapter for `@nestjs/throttler` so the counters are shared.
+
+## Audit + telemetry
+
+Wire your throttler's "limit exceeded" event into your audit hook so you have a record of every block. Spikes are a leading indicator of an in-progress attack.
+
+## Related
+
+- [Production Checklist](/docs/production/production-checklist).
+- [CORS & Security](/docs/production/cors-and-security).
+- [Audit Logging](/docs/concepts/audit-logging).

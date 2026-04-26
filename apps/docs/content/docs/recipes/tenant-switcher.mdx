@@ -1,0 +1,68 @@
+---
+title: Tenant-picker dropdown
+description: Let multi-tenant users switch between their workspaces.
+---
+
+```tsx
+import { useNestAuth, useUser } from '@ackplus/nest-auth-react';
+
+export function TenantSwitcher() {
+  const { switchTenant, getTenantId } = useNestAuth();
+  const user = useUser();
+  const current = getTenantId();
+
+  if (!user?.tenants?.length || user.tenants.length < 2) return null;
+
+  return (
+    <select
+      value={current ?? ''}
+      onChange={async (e) => {
+        await switchTenant({ tenantId: e.target.value });
+        window.location.reload();    // simplest way to reset cached data
+      }}
+    >
+      {user.tenants.map((t) => (
+        <option key={t.id} value={t.id}>{t.name}</option>
+      ))}
+    </select>
+  );
+}
+```
+
+## Why reload
+
+Most apps cache data per tenant — orders, settings, dashboards. The simplest correct approach after a tenant switch is to dump the cache by reloading. If you're using TanStack Query, you can instead invalidate:
+
+```tsx
+import { useQueryClient } from '@tanstack/react-query';
+
+const qc = useQueryClient();
+
+await switchTenant({ tenantId: nextTenantId });
+await qc.invalidateQueries();
+```
+
+## Server side
+
+Make sure the `useUser()` hook surfaces a `tenants[]` field. The server's `user.getSessionUserData` hook is the place:
+
+```ts
+user: {
+  async getSessionUserData(authUser, helpers) {
+    const tenants = await helpers.dataSource
+      .getRepository(NestAuthUserAccess)
+      .find({
+        where: { userId: authUser.id, isActive: true },
+        relations: { tenant: true },
+      });
+    return {
+      tenants: tenants.map((t) => ({ id: t.tenant.id, name: t.tenant.name, slug: t.tenant.slug })),
+    };
+  },
+},
+```
+
+## Related
+
+- [Multi-tenancy](/docs/concepts/multi-tenancy).
+- [Hooks Reference](/docs/backend/hooks-reference).

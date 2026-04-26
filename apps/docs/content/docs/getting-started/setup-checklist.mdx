@@ -1,0 +1,158 @@
+---
+title: Setup Checklist
+description: The boot-time wiring that catches every team the first time.
+---
+
+Read this once, get it right once. The list of things every NestJS app needs to wire up before `NestAuthModule` works.
+
+## A complete `main.ts`
+
+```ts
+import './load-env';                          // 1. dotenv first
+
+import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
+
+import { AuthExceptionFilter } from '@ackplus/nest-auth';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  // 2. Cookie parser — required for cookie-mode sessions
+  app.use(cookieParser());
+
+  // 3. Security headers
+  app.use(helmet());
+
+  // 4. CORS — must include the auth custom headers
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN!.split(','),
+    credentials: true,
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'x-access-token-type',
+      'nest_auth_device_trust',
+    ],
+  });
+
+  // 5. Validation pipe
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  }));
+
+  // 6. Auth exception filter — turns library exceptions into structured errors
+  app.useGlobalFilters(new AuthExceptionFilter());
+
+  // 7. Swagger — register both auth schemes when accessTokenType is auto-detect
+  const config = new DocumentBuilder()
+    .setTitle('My API')
+    .addBearerAuth()
+    .addCookieAuth('accessToken')
+    .build();
+  SwaggerModule.setup('api', app, SwaggerModule.createDocument(app, config));
+
+  await app.listen(process.env.PORT ?? 3000);
+}
+bootstrap();
+```
+
+And your `AppModule`:
+
+```ts
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+
+import { NestAuthModule, NestAuthEntities } from '@ackplus/nest-auth';
+import { AppUser } from './users/entities/app-user.entity';
+
+@Module({
+  imports: [
+    // 8. EventEmitter — events silently no-op without this
+    EventEmitterModule.forRoot(),
+
+    // 9. TypeORM — register NestAuthEntities + your AppUser
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      url: process.env.DATABASE_URL,
+      entities: [...NestAuthEntities, AppUser],
+      synchronize: process.env.NODE_ENV === 'development',
+    }),
+    TypeOrmModule.forFeature([...NestAuthEntities, AppUser]),
+
+    // 10. The auth module itself
+    NestAuthModule.forRoot({
+      isGlobal: true,
+      appName: 'My App',
+      session: {
+        jwt: { secret: process.env.JWT_SECRET! },
+        accessTokenValidity: '15m',
+        refreshTokenValidity: '7d',
+      },
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+## The eleven boot-time gotchas
+
+1. **`./load-env` must import before `NestFactory.create`.** dotenv reads `process.env` synchronously at import time. If `NestAuthModule` reads `JWT_SECRET` before dotenv runs, you'll get `undefined` and signed tokens won't validate.
+
+2. **`cookieParser()` is mandatory for cookie-mode sessions.** Without it, the library can't read the auth cookies and every request looks unauthenticated.
+
+3. **CORS `allowedHeaders` must include `x-access-token-type` and `nest_auth_device_trust`.** Browsers send a preflight `OPTIONS` for any request with custom headers; if the response doesn't allow them, the actual request never goes out. Auto-refresh appears to "not work" because it never gets a chance to fire.
+
+4. **CORS `credentials: true`** — required for cookie mode. The browser drops cookies on cross-origin requests otherwise.
+
+5. **No `origin: '*'` with `credentials: true`** — the browser rejects this combination. Use an explicit allowlist.
+
+6. **`ValidationPipe` with `forbidNonWhitelisted: true` is strict.** It rejects unknown fields. The library's signup DTO is open-ended (extra fields land on the `UserRegisteredEvent` payload), so use `whitelist: true` only on **your** DTOs, or use `whitelist: true` without `forbid` for signup-style endpoints. The setup above is the safe default; tighten per-controller.
+
+7. **Register `AuthExceptionFilter` globally.** Without it, the library's structured exceptions become generic NestJS 500-class errors with no `errorCode` field — your frontend can't branch on the failure type.
+
+8. **`EventEmitterModule.forRoot()` must be imported before any `@OnEvent` listener can fire.** This is the most common silent failure: events look like they're emitting (no errors) but no listener runs. The fix is one line in `AppModule`.
+
+9. **TypeORM needs both `forRoot` and `forFeature(NestAuthEntities)`** — `forRoot` registers the data source, `forFeature` makes the entities injectable in services. The library uses both internally.
+
+10. **`synchronize: true` is for development only.** Production should use migrations. See [Database Setup](/docs/getting-started/database-setup).
+
+11. **Helmet's `crossOriginEmbedderPolicy` blocks OAuth popups.** Disable it (or carefully whitelist the providers' origins) if you support social login.
+
+## Verification
+
+Boot the app, then:
+
+```bash
+# Health check (custom — add to your app)
+curl http://localhost:3000/health
+
+# Signup
+curl -X POST http://localhost:3000/auth/signup \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"a@example.com","password":"correct horse"}'
+
+# Login (and look for tokens in the response)
+curl -X POST http://localhost:3000/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"credentials":{"email":"a@example.com","password":"correct horse"}}'
+
+# Protected route
+curl http://localhost:3000/auth/me \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+If the protected route returns the user, you're set.
+
+## Next
+
+- [Database Setup](/docs/getting-started/database-setup) — the three install paths.
+- [Environment & Secrets](/docs/getting-started/environment-and-secrets).
+- [Quickstart — Backend](/docs/getting-started/quickstart-backend).

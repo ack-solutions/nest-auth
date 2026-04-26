@@ -1,0 +1,174 @@
+---
+title: User Model
+description: Why NestAuthUser only stores auth fields, and how to link your AppUser to it.
+---
+
+This is the most important page in the docs. Read it once and the rest falls into place.
+
+## The split
+
+Nest Auth deliberately keeps two user concepts separate:
+
+| Table | Owned by | Holds |
+|---|---|---|
+| `NestAuthUser` (`nest_auth_users`) | The library | `email`, `phone`, `passwordHash`, `isMfaEnabled`, `metadata`, timestamps |
+| `AppUser` (your name, your table) | **You** | Anything else: `firstName`, `lastName`, `gender`, `avatarUrl`, `dob`, `referredById`, `subscriptionTier`, billing IDs… |
+
+The two are linked by a single column on `AppUser`:
+
+```ts
+@Column()
+authUserId: string;            // foreign key to nest_auth_users.id
+
+@OneToOne(() => NestAuthUser)
+@JoinColumn({ name: 'authUserId' })
+authUser: NestAuthUser;
+```
+
+## Why split them at all
+
+1. **Library upgrades stay safe.** When `@ackplus/nest-auth` adds a column to its user table, your business columns are untouched.
+2. **Security blast radius is small.** Your domain code reads from `AppUser` for almost everything; the auth columns (password hash, MFA secret) live in a table most of your code never queries.
+3. **Multi-tenancy is cleaner.** A single `NestAuthUser` can have one `AppUser` per tenant, with different roles and profile data per tenant.
+4. **The library doesn't care about your domain.** It doesn't need to know what a `subscriptionTier` is.
+
+## When you don't need `AppUser`
+
+If your "extra" data is genuinely auth-shaped — a couple of flags, a preference, a feature toggle — use the `metadata: Record<string, any>` JSON column on `NestAuthUser` directly:
+
+```ts
+{
+  metadata: {
+    locale: 'en-US',
+    onboardingCompleted: true,
+  }
+}
+```
+
+Reach for an `AppUser` table when you start having relations (orders, posts, referrals), or when querying user data turns into a JSON traversal.
+
+## Creating the `AppUser` automatically on signup
+
+The canonical pattern is an event listener. The library emits `UserRegisteredEvent` after a `NestAuthUser` is created — your listener reads any extra signup fields off the payload and writes the matching `AppUser`.
+
+```ts
+// app/user/listeners/user-registered.listener.ts
+import { Injectable } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { NestAuthEvents, UserRegisteredEvent } from '@ackplus/nest-auth';
+import { AppUser } from '../entities/app-user.entity';
+
+@Injectable()
+export class UserRegisteredListener {
+  constructor(
+    @InjectRepository(AppUser)
+    private readonly appUsers: Repository<AppUser>,
+  ) {}
+
+  @OnEvent(NestAuthEvents.REGISTERED)
+  async handle(event: UserRegisteredEvent) {
+    const { user, payload } = event; // payload is the original signup body
+
+    await this.appUsers.save(
+      this.appUsers.create({
+        authUserId: user.id,
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        // anything else the frontend sent
+      }),
+    );
+  }
+}
+```
+
+The signup payload is open-ended (`[key: string]: any` on `ISignupRequest`), so anything the frontend sends — `firstName`, `marketingSource`, `inviteToken` — lands on the event.
+
+## Worked example: referral codes
+
+Frontend sends a `referralCode` along with the signup. The listener looks up the referrer and sets a `referredBy` relation on the new `AppUser`, then credits the referrer.
+
+```ts
+@OnEvent(NestAuthEvents.REGISTERED)
+async handle(event: UserRegisteredEvent) {
+  const { user, payload } = event;
+
+  const newUser = this.appUsers.create({
+    authUserId: user.id,
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+  });
+
+  if (payload.referralCode) {
+    const referrer = await this.appUsers.findOne({
+      where: { referralCode: payload.referralCode },
+    });
+    if (referrer) {
+      newUser.referredById = referrer.id;
+      // Bump the referrer's credit, queue an email, whatever.
+      await this.referrals.creditReferrer(referrer.id, user.id);
+    }
+  }
+
+  await this.appUsers.save(newUser);
+}
+```
+
+A full runnable version of this lives in the [user-registered listener recipe](/docs/recipes/user-registered-listener).
+
+## Putting `AppUser` fields into the session payload
+
+If your frontend wants `firstName` available on `useUser()` without a separate fetch, use the `user.getSessionUserData` hook. It runs once when a session is created and its return value is stored on the session row.
+
+```ts
+NestAuthModule.forRoot({
+  // …
+  user: {
+    async getSessionUserData(authUser, helpers) {
+      const appUser = await helpers.dataSource
+        .getRepository(AppUser)
+        .findOne({ where: { authUserId: authUser.id } });
+
+      return {
+        firstName: appUser?.firstName,
+        lastName: appUser?.lastName,
+        avatarUrl: appUser?.avatarUrl,
+      };
+    },
+  },
+});
+```
+
+Now `useUser()` on the client returns those fields without an extra round trip.
+
+## Cleaning up on user deletion
+
+Set the foreign key on `AppUser` to cascade so deleting a `NestAuthUser` deletes the matching `AppUser`:
+
+```ts
+@OneToOne(() => NestAuthUser, { onDelete: 'CASCADE' })
+@JoinColumn({ name: 'authUserId' })
+authUser: NestAuthUser;
+```
+
+If you'd rather soft-delete `AppUser` and keep its row for audit purposes, listen for the `USER_DELETED` event instead and run your own cleanup logic.
+
+## Migrating from a single user table
+
+If you already have a project user table that mixes auth and business fields, the migration plan is:
+
+1. Add the `nest_auth_users` table (and the rest of [`NestAuthEntities`](/docs/getting-started/database-setup)).
+2. For each existing user, insert a row into `nest_auth_users` carrying just `email`, `phone`, `passwordHash`, etc. Capture the new `id`.
+3. Add an `authUserId` column on your existing user table; backfill it with the new IDs.
+4. Drop the auth columns from your user table — they now live in `nest_auth_users`.
+5. Rename the table to `AppUser` (or whatever you call it) for clarity.
+
+The [migration recipe](/docs/recipes/migrate-existing-users) walks through it with SQL.
+
+## Related
+
+- [Events & Hooks](/docs/concepts/events-and-hooks) — the full extension surface.
+- [Hooks Reference](/docs/backend/hooks-reference) — `user.beforeCreate`, `user.afterCreate`, `user.getSessionUserData`.
+- [user-registered listener recipe](/docs/recipes/user-registered-listener).
+- [Migrate existing users recipe](/docs/recipes/migrate-existing-users).

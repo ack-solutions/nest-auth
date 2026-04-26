@@ -1,0 +1,59 @@
+---
+title: Architecture
+description: How the four Nest Auth packages fit together.
+---
+
+Nest Auth ships as four packages. Two are runtime (you'll deploy them), one is a frontend integration layer, and one is types-only.
+
+```
+                        ┌──────────────────────────┐
+                        │  @ackplus/nest-auth-     │
+                        │       contracts          │
+                        │   (types & enums only)   │
+                        └────┬───────────┬─────────┘
+                             │           │
+              ┌──────────────┘           └──────────────┐
+              │                                         │
+   ┌──────────▼──────────┐               ┌──────────────▼─────────────┐
+   │  @ackplus/nest-auth │ ◀── HTTP ───▶ │  @ackplus/nest-auth-client │
+   │  (NestJS backend)   │               │  (framework-agnostic JS)   │
+   └─────────────────────┘               └──────────────┬─────────────┘
+                                                        │
+                                            ┌───────────▼────────────┐
+                                            │ @ackplus/nest-auth-    │
+                                            │        react           │
+                                            │ (hooks + guards + SSR) │
+                                            └────────────────────────┘
+```
+
+## `@ackplus/nest-auth-contracts`
+
+Pure TypeScript — no runtime code. Defines every request DTO, response DTO, enum, and domain interface. Both the backend and the clients import their types from here, which is what makes the whole stack type-safe.
+
+## `@ackplus/nest-auth` (backend)
+
+A NestJS module you register once with `NestAuthModule.forRoot({ ... })`. It provides:
+
+- HTTP controllers — `/auth/signup`, `/auth/login`, `/auth/refresh`, the MFA endpoints, password-reset, etc.
+- Injectable services — `AuthService`, `MfaService`, `UserService`, `RoleService`, `TenantService`, …
+- Guards & decorators — `NestAuthAuthGuard`, `@Auth()`, `@NestAuthRoles()`, `@CurrentTenantId()`, …
+- TypeORM entities — registered via `NestAuthEntities`.
+
+## `@ackplus/nest-auth-client`
+
+A vanilla JS class — `new AuthClient({ baseUrl })` — that wraps the backend's HTTP API. Works in browsers, Node, React Native, Cloudflare Workers, Deno, Bun. Handles token storage, auto-refresh, request retry, and event subscriptions. No framework dependency.
+
+## `@ackplus/nest-auth-react`
+
+A thin React layer on top of `nest-auth-client`. Adds an `<AuthProvider>`, hooks (`useNestAuth`, `useUser`, `useSession`, …), guard components (`<AuthGuard>`, `<RequireRole>`), and Next.js helpers (`createNextAuthHelpers` for App Router SSR). If you're not using React, skip this package and use `nest-auth-client` directly.
+
+## What you import where
+
+| You're building… | You'll install |
+|---|---|
+| A NestJS backend | `@ackplus/nest-auth` |
+| A React SPA | `@ackplus/nest-auth-react` (pulls in the client + contracts) |
+| A Next.js app | `@ackplus/nest-auth-react` (App Router helpers included) |
+| A Vue / Angular / Svelte app | `@ackplus/nest-auth-client` |
+| A React Native app | `@ackplus/nest-auth-client` with a custom storage adapter |
+| A CLI / server-to-server | `@ackplus/nest-auth-client` |

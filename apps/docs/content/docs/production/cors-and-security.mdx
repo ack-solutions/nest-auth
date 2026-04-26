@@ -1,0 +1,103 @@
+---
+title: CORS & Security
+description: Headers, CSRF, Helmet, and CSP for auth-mode browsers.
+---
+
+The auth flow uses two custom request headers and (in cookie mode) browser cookies. CORS misconfigurations are the #1 cause of "auto-refresh isn't working" tickets.
+
+## Required CORS headers
+
+Whatever CORS solution you use (`@nestjs/common`'s `enableCors`, `cors` middleware, a reverse proxy), your `allowedHeaders` must include:
+
+| Header | Why |
+|---|---|
+| `Content-Type` | Standard JSON request bodies |
+| `Authorization` | Bearer tokens in header mode |
+| `x-access-token-type` | Auto-detect signal between header and cookie mode |
+| `nest_auth_device_trust` (or your `trustDeviceHeaderName`) | Trusted-device tokens for MFA |
+
+Plus any custom headers you've added (tracing, app-version).
+
+```ts
+app.enableCors({
+  origin: ['https://app.example.com'],
+  credentials: true,
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'x-access-token-type',
+    'nest_auth_device_trust',
+    'x-tenant-id',
+  ],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  maxAge: 86_400,    // cache preflight for a day
+});
+```
+
+## Cookie mode + CORS
+
+If `accessTokenType: 'cookie'`:
+
+- `credentials: true` is mandatory (server side).
+- `origin: '*'` is forbidden — pick explicit origins.
+- The frontend's HTTP layer must send `credentials: 'include'`. The library's `FetchAdapter` does this automatically when in cookie mode.
+
+If any of these are wrong, the browser silently strips the cookie and you'll see auth fail with no useful console message.
+
+## CSRF posture
+
+In **header mode** (Bearer), CSRF is not an issue — no cookie is auto-attached, so cross-site requests can't piggyback your auth.
+
+In **cookie mode**, the auth cookies are HttpOnly (the default `cookieOptions`) and `sameSite: 'lax'` (default). This prevents CSRF for top-level navigations, but POST forms from another origin can still attach the cookie if `sameSite: 'lax'`. Two layers of defense:
+
+1. **Stick with `sameSite: 'lax'` or `strict`** — never `none` unless you genuinely need cross-site auth.
+2. **Add a CSRF token** for state-changing endpoints if your threat model warrants. The library doesn't ship one — use [`csurf`](https://github.com/expressjs/csurf) or roll your own.
+
+## Helmet
+
+Recommended headers via Helmet:
+
+```ts
+import helmet from 'helmet';
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: ["'self'", 'https://api.example.com'],
+      // Add provider domains if doing client-side OAuth:
+      scriptSrc: ["'self'", "https://accounts.google.com"],
+      frameSrc: ["'self'", "https://accounts.google.com"],
+    },
+  },
+  hsts: { maxAge: 31_536_000, includeSubDomains: true, preload: true },
+  crossOriginEmbedderPolicy: false,    // OAuth popups need this off
+}));
+```
+
+## Why both Bearer and cookie auth in Swagger
+
+When `accessTokenType: null` (auto-detect), the `/auth/*` endpoints accept either. Register both security schemes in Swagger so the docs let you "Try it out" with either:
+
+```ts
+const config = new DocumentBuilder()
+  .addBearerAuth()
+  .addCookieAuth('accessToken')
+  .build();
+```
+
+## Trusted-device header collisions
+
+`trustDeviceHeaderName` defaults to `nest_auth_device_trust`. If that name conflicts with another header in your stack, change it via `mfa.trustDeviceStorageName` and update your CORS allowlist accordingly. See the [custom-trusted-device-header recipe](/docs/recipes/custom-trusted-device-header).
+
+## TLS
+
+- Enforce HTTPS at the load balancer.
+- Set `cookieOptions.secure: true` — never serve auth cookies over HTTP.
+- HSTS preload list submission for production hosts.
+
+## Related
+
+- [Production Checklist](/docs/production/production-checklist).
+- [Setup Checklist](/docs/getting-started/setup-checklist).
+- [Sessions & Tokens](/docs/concepts/sessions-and-tokens).

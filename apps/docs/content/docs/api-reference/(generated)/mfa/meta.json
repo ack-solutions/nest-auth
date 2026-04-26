@@ -1,0 +1,14 @@
+{
+  "title": "Mfa",
+  "pages": [
+    "get-auth-mfa-devices",
+    "get-auth-mfa-status",
+    "post-auth-mfa-challenge",
+    "post-auth-mfa-generate-recovery-code",
+    "post-auth-mfa-reset-totp",
+    "post-auth-mfa-setup-totp",
+    "post-auth-mfa-toggle",
+    "post-auth-mfa-verify-totp-setup",
+    "delete-auth-mfa-devices-deviceid"
+  ]
+}

@@ -1,0 +1,54 @@
+---
+title: Types Reference
+description: Auto-generated from the source.
+---
+
+Every public TypeScript symbol exported from the four packages is captured in a TypeDoc snapshot at [`/typedoc.json`](/typedoc.json). It's regenerated on every docs build from the actual source files, so the type declarations match the version of the library you'll install from npm.
+
+## How to use it
+
+If you use VS Code or any TS-aware editor, you don't need this page — hover any imported symbol from `@ackplus/nest-auth*` and you'll see the same definitions.
+
+If you want to browse without an editor:
+
+1. Pull the JSON: `curl <docs-site>/typedoc.json -o typedoc.json`.
+2. Drop into [TypeDoc Explorer](https://typedoc.org/) or any custom renderer.
+
+## Most-asked symbols
+
+| Symbol | What it is |
+|---|---|
+| `IAuthModuleOptions` | Top-level config for `NestAuthModule.forRoot()` |
+| `IAuthModuleAsyncOptions` | Async variant |
+| `IUserHooks`, `IRegistrationHooks`, `ILoginHooks`, `IGuardHooks` | Hook contracts |
+| `ISignupRequest`, `ILoginRequest`, `IRefreshRequest` | Request DTOs |
+| `IAuthResponse`, `ITokenPair`, `ISessionUserData` | Response DTOs |
+| `INestAuthUser`, `INestAuthSession`, `INestAuthRole`, etc. | Domain interfaces (mirror the entities) |
+| `NestAuthMFAMethodEnum`, `NestAuthOTPTypeEnum`, `TenantModeEnum`, `SessionStorageType` | Enums |
+| `AuthClientConfig`, `RequestOptions` | Client config |
+| `StorageAdapter`, `HttpAdapter` | Pluggable adapter contracts |
+| `AuthContextValue` | What `useNestAuth()` returns |
+
+## Source of truth
+
+The type declarations live in `packages/nest-auth-contracts/src/*.ts`. If you want to read them directly without the TypeDoc round trip, the file naming is consistent:
+
+```
+packages/nest-auth-contracts/src/
+  auth.ts              ← login, signup, sessions, OTP types
+  mfa.ts               ← MFA, TOTP, trusted devices
+  password.ts          ← password reset / change
+  verification.ts      ← email/phone verification
+  passwordless.ts      ← passwordless OTP / magic link
+  user.ts              ← INestAuthUser
+  role.ts              ← roles, permissions, RBAC
+  tenant.ts            ← multi-tenancy
+  config.ts            ← public client config types
+  admin.ts             ← admin console
+```
+
+## Related
+
+- [Module reference](/docs/backend/module).
+- [`AuthClient`](/docs/client/client).
+- [GitHub source](https://github.com/ack-solutions/nest-auth/tree/main/packages/nest-auth-contracts/src).

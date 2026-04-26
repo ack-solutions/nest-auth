@@ -1,0 +1,74 @@
+---
+title: GitHub OAuth
+description: Sign in with GitHub.
+---
+
+Most useful for developer-focused apps.
+
+## Server config
+
+```ts
+NestAuthModule.forRoot({
+  github: {
+    clientId: process.env.GITHUB_CLIENT_ID,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    redirectUri: process.env.GITHUB_REDIRECT_URI,
+  },
+});
+```
+
+GitHub OAuth uses the standard OAuth 2.0 authorization-code flow. The library exchanges the code server-side using the client secret — your client never sees the secret.
+
+## Endpoint
+
+| Method | Path | Body |
+|---|---|---|
+| `POST` | `/auth/login` | `{ providerName: 'github', credentials: { token } }` |
+
+Where `token` is either:
+- The OAuth access token (if you completed the OAuth dance on the frontend), or
+- The authorization code (the library will exchange it).
+
+## Client call
+
+The simplest path is to do the redirect yourself, then send the resulting code/token to the backend:
+
+```tsx
+function GitHubSignIn() {
+  const handleClick = () => {
+    const params = new URLSearchParams({
+      client_id: import.meta.env.VITE_GITHUB_CLIENT_ID,
+      redirect_uri: window.location.origin + '/auth/github/callback',
+      scope: 'read:user user:email',
+    });
+    window.location.href = `https://github.com/login/oauth/authorize?${params}`;
+  };
+
+  return <button onClick={handleClick}>Sign in with GitHub</button>;
+}
+
+// /auth/github/callback page:
+function GitHubCallbackPage() {
+  const { login } = useNestAuth();
+  const [params] = useSearchParams();
+
+  useEffect(() => {
+    const code = params.get('code');
+    if (!code) return;
+    login({ providerName: 'github', credentials: { token: code } })
+      .then(() => navigate('/'));
+  }, [params]);
+}
+```
+
+## What the library does
+
+1. Calls GitHub's `/login/oauth/access_token` endpoint with the code (if you sent a code).
+2. Calls `https://api.github.com/user` and `https://api.github.com/user/emails` with the access token.
+3. Picks the primary verified email.
+4. Looks up or creates the user, same as Google.
+
+## Related
+
+- [Google OAuth](/docs/authentication/oauth-google).
+- [Custom OAuth provider](/docs/authentication/custom-provider).

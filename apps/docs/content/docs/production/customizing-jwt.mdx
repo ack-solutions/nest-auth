@@ -1,0 +1,99 @@
+---
+title: Customizing the JWT
+description: Add custom claims to the access token without bloating it.
+---
+
+You'll often want extra fields on the JWT — `subscriptionTier`, `appUserId`, a feature-flag bundle. Two hooks give you control.
+
+## `session.customizeSessionData(default, user)`
+
+Reshapes the **session row** (server-side state). Stored once at session creation, available on every refresh. Cheap to extend.
+
+```ts
+session: {
+  async customizeSessionData(defaultData, user) {
+    const appUser = await this.dataSource
+      .getRepository(AppUser)
+      .findOne({ where: { authUserId: user.id } });
+
+    return {
+      ...defaultData,
+      appUserId: appUser?.id,
+      subscriptionTier: appUser?.subscriptionTier,
+    };
+  },
+},
+```
+
+These fields don't go into the JWT unless you also write `customizeTokenPayload`.
+
+## `session.customizeTokenPayload(default, session)`
+
+Reshapes the **JWT claims** (what the client sees on the access token). Be mindful — every byte here is on every authenticated request.
+
+```ts
+session: {
+  customizeTokenPayload(defaultPayload, session) {
+    return {
+      ...defaultPayload,
+      tier: session.data.subscriptionTier,
+      // appUserId not added — kept on session row, retrieved server-side via ctx
+    };
+  },
+},
+```
+
+## Reading from the client
+
+```ts
+import { decodeJwt } from '@ackplus/nest-auth-client';
+
+const payload = decodeJwt(await client.getAccessToken());
+console.log(payload?.tier);
+```
+
+In React, just use `useUser()` — anything you put in `customizeSessionData` (and surfaced via `getSessionUserData`) shows up there.
+
+## Don't put secrets in the JWT
+
+The JWT is only signed, not encrypted. Anyone with the token can read every claim. Don't put PII you wouldn't want logged.
+
+## Don't put large arrays
+
+If you need to ship 50 permissions, keep them on the session row, retrieved server-side via the request context. Frontend role checks should read from `useUser()` (which pulls them from `getSessionUserData`), not from the JWT directly.
+
+## What `defaultPayload` already contains
+
+```ts
+{
+  userId: string;
+  sub: string;
+  sessionId: string;
+  tenantId?: string;
+  roles?: string[];        // included by default if RBAC is enabled
+  exp: number;
+  iat: number;
+}
+```
+
+Don't remove these — guards depend on them. Add fields, don't replace.
+
+## Per-tenant claims
+
+```ts
+async customizeTokenPayload(defaultPayload, session) {
+  return {
+    ...defaultPayload,
+    tenantSlug: await this.tenants.getSlug(session.tenantId),
+  };
+}
+```
+
+The `customizeTokenPayload` hook fires on **every** session create + refresh, so this re-resolves on tenant switch automatically.
+
+## Related
+
+- [Sessions & Tokens](/docs/concepts/sessions-and-tokens).
+- [Hooks Reference](/docs/backend/hooks-reference) — full hook surface.
+- [User Model](/docs/concepts/user-model) — the `getSessionUserData` companion hook.
+- [Custom JWT claims recipe](/docs/recipes/custom-jwt-claims).

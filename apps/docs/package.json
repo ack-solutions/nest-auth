@@ -1,0 +1,36 @@
+{
+  "name": "@ackplus/nest-auth-docs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "pnpm run build:generate && next build",
+    "build:generate": "pnpm run generate:typedoc && pnpm run generate:sql && pnpm run generate:openapi-pages",
+    "generate:typedoc": "tsx scripts/build-typedoc.ts",
+    "generate:openapi": "tsx scripts/build-openapi.ts",
+    "generate:openapi-pages": "tsx scripts/build-openapi-pages.ts",
+    "generate:sql": "tsx scripts/build-sql-snapshots.ts",
+    "start": "next start",
+    "export": "next build",
+    "postinstall": "fumadocs-mdx"
+  },
+  "dependencies": {
+    "fumadocs-core": "^14.5.0",
+    "fumadocs-mdx": "^11.1.0",
+    "fumadocs-openapi": "^5.5.0",
+    "fumadocs-ui": "^14.5.0",
+    "next": "^15.0.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/mdx": "^2.0.13",
+    "@types/node": "^22.9.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "tsx": "^4.19.0",
+    "typedoc": "^0.27.0",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,90 @@
+---
+title: Suspend and reactivate accounts
+description: '`ACCOUNT_INACTIVE` vs `ACCOUNT_SUSPENDED` — which to use when.'
+---
+
+The library ships two flags. They look similar but mean different things.
+
+| Flag | Mechanism | Returns | Use for |
+|---|---|---|---|
+| **Inactive** | `nest_auth_users.is_active = false` | `ACCOUNT_INACTIVE` (403) | Self-deactivated accounts, soft-deleted users, expired trials |
+| **Suspended** | `metadata.suspended = { at, reason, by }` | `ACCOUNT_SUSPENDED` (403) | Compliance / fraud / abuse — administrative action |
+
+Both block login. Different error codes let your frontend show different UX (e.g., "Your account has been suspended — contact support" vs "Your account is closed — sign up again").
+
+## Suspending
+
+```ts
+@Auth()
+@NestAuthRoles('admin')
+@Post('users/:id/suspend')
+async suspend(
+  @Param('id') id: string,
+  @Body('reason') reason: string,
+  @CurrentUser() admin: NestAuthUser,
+  @InjectRepository(NestAuthUser) users: Repository<NestAuthUser>,
+) {
+  const user = await users.findOneOrFail({ where: { id } });
+  user.metadata = {
+    ...(user.metadata ?? {}),
+    suspended: {
+      at: new Date().toISOString(),
+      reason,
+      by: admin.id,
+    },
+  };
+  await users.save(user);
+
+  // Force logout-all so existing tokens are invalidated
+  await this.auth.logoutAll(id);
+
+  return { ok: true };
+}
+```
+
+The library reads `metadata.suspended` in the auth flow and rejects login with `ACCOUNT_SUSPENDED`. Existing access tokens get rejected on the next request via the password-hash-prefix check (use `auth.logoutAll(id)` to invalidate refresh tokens).
+
+## Reactivating
+
+```ts
+@Auth()
+@NestAuthRoles('admin')
+@Post('users/:id/reactivate')
+async reactivate(@Param('id') id: string, @InjectRepository(NestAuthUser) users: Repository<NestAuthUser>) {
+  const user = await users.findOneOrFail({ where: { id } });
+  if (user.metadata?.suspended) {
+    delete user.metadata.suspended;
+    await users.save(user);
+  }
+  user.isActive = true;
+  await users.save(user);
+}
+```
+
+## Self-deactivation
+
+For "delete my account" flows where you want a soft delete:
+
+```ts
+@Auth()
+@Post('me/deactivate')
+async deactivate(@CurrentUser() user: NestAuthUser, @InjectRepository(NestAuthUser) users: Repository<NestAuthUser>) {
+  user.isActive = false;
+  await users.save(user);
+  await this.auth.logoutAll(user.id);
+}
+```
+
+## Showing the right error in the UI
+
+```tsx
+const { error } = useNestAuth();
+
+if (error?.code === 'ACCOUNT_SUSPENDED') return <p>Your account has been suspended. Contact support.</p>;
+if (error?.code === 'ACCOUNT_INACTIVE')  return <p>This account is no longer active.</p>;
+```
+
+## Related
+
+- [Error codes](/docs/backend/error-codes).
+- [Audit Logging](/docs/concepts/audit-logging).

@@ -1,0 +1,38 @@
+---
+title: FAQ
+description: Top developer questions, with deep links into the rest of the docs.
+---
+
+If your question isn't here, check [Troubleshooting](/docs/faq/troubleshooting) for an error-code-indexed list of fixes.
+
+### Why do I get `NestAuthEntities is not registered`?
+
+You need to register the entity bundle in your `TypeOrmModule`. See [Database Setup](/docs/getting-started/database-setup).
+
+### How do I store extra user fields like `name`?
+
+Don't add them to `NestAuthUser`. Create your own `AppUser` table and link it via `authUserId`. See [User Model](/docs/concepts/user-model).
+
+### How do I send the verification email — the lib doesn't seem to send anything?
+
+The library emits events; you wire those events to your email provider. See [Sending Emails](/docs/production/sending-emails).
+
+### Auto-refresh isn't working in cookie mode
+
+Make sure `app.use(cookieParser())` runs before your routes and that CORS allows the `x-access-token-type` header. See [Setup Checklist](/docs/getting-started/setup-checklist) and [CORS & Security](/docs/production/cors-and-security).
+
+### How do I use this without TypeORM `synchronize`?
+
+Use the migration-generate path or copy the SQL snapshots. See [Database Setup](/docs/getting-started/database-setup).
+
+### How do I disable email auth and only allow Google?
+
+Set `emailAuth.enabled: false` in `NestAuthModule.forRoot({ ... })` and keep `google: { ... }` configured. See [Module reference](/docs/backend/module).
+
+### Where do I put the JWT secret?
+
+In an env var (`JWT_SECRET`), loaded before `NestFactory.create`. See [Environment & Secrets](/docs/getting-started/environment-and-secrets).
+
+### How do I add a referral code on signup?
+
+Read it off the open-ended signup payload inside a `UserRegisteredEvent` listener. See the [user-registered listener recipe](/docs/recipes/user-registered-listener).

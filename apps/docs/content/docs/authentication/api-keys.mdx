@@ -1,0 +1,75 @@
+---
+title: API Keys
+description: Server-to-server and programmatic access via public/private key pairs.
+---
+
+For machine-to-machine auth — CLIs, integrations, internal tooling — Nest Auth ships an API key system. Each key is a pair: a non-secret public ID and a secret private value. The pair is bound to a user; calls authenticated with the key act as that user.
+
+## How calls authenticate
+
+```http
+GET /api/orders HTTP/1.1
+Authorization: Bearer <publicKey>:<privateKey>
+```
+
+The `NestAuthAuthGuard` accepts API keys on the same `Authorization` header it accepts JWTs — which key style is in use is detected from the value's shape.
+
+## Generating a key
+
+Through the admin console, or programmatically:
+
+```ts
+import { AccessKeyService } from '@ackplus/nest-auth';
+
+@Injectable()
+export class IntegrationsService {
+  constructor(private readonly keys: AccessKeyService) {}
+
+  async issueKey(userId: string) {
+    const key = await this.keys.create({
+      userId,
+      name: 'Slack integration',
+      description: 'Used by the Slack bot to post updates',
+      expiresAt: new Date(Date.now() + 90 * 86400_000),     // 90 days
+    });
+
+    // Show key.privateKey to the user ONCE. We only store the hash.
+    return key;
+  }
+}
+```
+
+`privateKey` is returned **only once** at creation time. After that, the library has only a hash and cannot reveal the original.
+
+## Lifecycle
+
+| Operation | Method |
+|---|---|
+| Create | `keys.create({ userId, name, description?, expiresAt? })` |
+| List for user | `keys.findByUser(userId)` |
+| Update metadata | `keys.update(id, { name, description })` |
+| Deactivate | `keys.deactivate(id)` (key still exists, but rejects auth) |
+| Delete | `keys.delete(id)` |
+
+Each operation emits a corresponding event: `AccessKeyCreatedEvent`, `AccessKeyUpdatedEvent`, `AccessKeyDeactivatedEvent`, `AccessKeyDeletedEvent` — wire them to your audit log.
+
+## Key validation flow
+
+1. Guard parses `Authorization: Bearer <publicKey>:<privateKey>`.
+2. Service looks up `nest_auth_access_keys` by `publicKey`.
+3. Compares the hash of the supplied `privateKey` against the stored hash.
+4. Checks `isActive`, `expiresAt`.
+5. Updates `lastUsedAt`.
+6. Loads the owning user; the request proceeds as that user.
+
+If any step fails, the guard returns `401 INVALID_API_KEY`.
+
+## Scoping with roles & permissions
+
+API keys inherit the owning user's roles and permissions. If you want a key to have *fewer* privileges than its owner, store an explicit scope on the key's `metadata` and read it in your handlers (or in a `guards.beforeAuth` hook).
+
+## Related
+
+- [Backend services reference](/docs/backend/services) — full `AccessKeyService` API.
+- [Backend events reference](/docs/backend/events) — `AccessKey*` events.
+- [Admin console](/docs/backend/admin-console) — UI for managing keys.

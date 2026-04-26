@@ -1,0 +1,10 @@
+---
+title: 'GET /auth/callback/{provider}'
+description: 'OAuth callback endpoint for SSO providers. Exchanges authorization code for access token and returns raw SSO user info. Returns HTML page that posts SSO data to parent window and auto-closes.'
+---
+
+import { EndpointDocs } from '@/components/endpoint-docs';
+
+# SSO Callback
+
+<EndpointDocs method="get" path="/auth/callback/{provider}" />

@@ -1,0 +1,75 @@
+---
+title: Per-request config — mobile vs web
+description: Mobile sends Bearer, web sends cookie — one backend, both clients.
+---
+
+Use `resolveConfig` to override module options per request based on a header or origin.
+
+```ts
+NestAuthModule.forRoot({
+  // …
+  session: {
+    accessTokenType: null,        // start in auto-detect mode
+  },
+
+  resolveConfig(ctx) {
+    const platform = ctx.request.headers['x-platform'] as string | undefined;
+
+    if (platform === 'mobile' || platform === 'react-native') {
+      return {
+        session: {
+          accessTokenType: 'header',
+          accessTokenValidity: '30m',     // longer for mobile
+          refreshTokenValidity: '30d',
+        },
+      };
+    }
+
+    return {
+      session: {
+        accessTokenType: 'cookie',
+        accessTokenValidity: '15m',
+      },
+    };
+  },
+});
+```
+
+## How the client signals platform
+
+```ts
+// mobile app
+new AuthClient({
+  baseUrl: 'https://api.example.com',
+  accessTokenType: 'header',
+});
+
+// global request header — set on every request
+client.onTokensSet(() => {
+  /* mobile-specific */
+});
+```
+
+Or pass the header directly via `httpAdapter`:
+
+```ts
+const adapter = new FetchAdapter();
+const original = adapter.request.bind(adapter);
+adapter.request = (opts) => original({
+  ...opts,
+  headers: { ...opts.headers, 'x-platform': 'mobile' },
+});
+
+new AuthClient({ baseUrl, httpAdapter: adapter });
+```
+
+## Why not just two backends
+
+You could deploy `api-mobile.example.com` and `api-web.example.com` with different configs. That's clean but operationally heavier — two deploys, two monitoring stacks. `resolveConfig` is the lighter option for "minor differences only."
+
+If the differences grow large (different auth methods, different MFA policies), splitting into two configs at module load is cleaner than one giant `resolveConfig`.
+
+## Related
+
+- [Hooks Reference](/docs/backend/hooks-reference) — `resolveConfig`.
+- [Sessions & Tokens](/docs/concepts/sessions-and-tokens) — header vs cookie modes.

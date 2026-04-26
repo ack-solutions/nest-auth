@@ -1,0 +1,163 @@
+---
+title: AuthClient
+description: 'Every method on `new AuthClient(config)`.'
+---
+
+`AuthClient` is the framework-agnostic JS/TS client. Construct it once per app — typically as a module-level singleton.
+
+```ts
+import { AuthClient } from '@ackplus/nest-auth-client';
+
+export const auth = new AuthClient({
+  baseUrl: 'https://api.example.com',
+});
+```
+
+For the constructor options, see [Config](/docs/client/config).
+
+## Auth flows
+
+### `login(dto, options?) => Promise<IAuthResponse>`
+
+Logs the user in. Sets tokens (header or cookie mode) and persists the session locally.
+
+```ts
+await auth.login({
+  credentials: { email, password },
+});
+
+// Or with explicit provider:
+await auth.login({
+  providerName: 'google',
+  credentials: { token: googleIdToken },
+});
+```
+
+If MFA is required, the response carries `isRequiresMfa: true` and the client holds a one-shot challenge token. Call `send2fa` and `verify2fa` to complete.
+
+### `signup(dto, options?) => Promise<IAuthResponse>`
+
+```ts
+await auth.signup({
+  email: 'alice@example.com',
+  password: '…',
+  // any extra fields land on UserRegisteredEvent
+  firstName: 'Alice',
+});
+```
+
+By default users are auto-logged-in after signup. Set `registration.autoLoginAfterSignup: false` server-side to disable.
+
+### `passwordlessSend(dto, options?) => Promise<IMessageResponse>`
+
+Sends a passwordless login code:
+
+```ts
+await auth.passwordlessSend({ identifier: email, channel: 'email' });
+```
+
+### `logout(options?) => Promise<void>`
+
+Revokes the current session and clears local tokens. Fires the `logout` event.
+
+### `logoutAll(options?) => Promise<IMessageResponse>`
+
+Revokes every session for the user across all devices.
+
+### `refresh(dto?, options?) => Promise<ITokenPair | null>`
+
+Manually refresh tokens. In cookie mode, returns `null` (the new cookie is set automatically).
+
+You usually don't need to call this — the auto-refresh path handles it.
+
+## Sessions & user
+
+### `verifySession(options?) => Promise<{ valid; userId?; expiresAt? }>`
+
+Lightweight session check — useful in `<AuthGuard>`-style components or middleware.
+
+### `getSessionUserData() => Promise<ISessionUserData>`
+
+Returns the full user data (the same payload `useUser()` exposes in React).
+
+### `switchTenant(dto, options?) => Promise<IAuthResponse>`
+
+Swap the active tenant. Returns a fresh session bound to the new tenant.
+
+```ts
+await auth.switchTenant({ tenantId: 'tenant-acme' });
+```
+
+## Password management
+
+| Method | Purpose |
+|---|---|
+| `forgotPassword(dto)` | Initiate reset (server emits event with code) |
+| `verifyForgotPasswordOtp(dto)` | Trade the code for a `resetToken` |
+| `resetPassword(dto)` | Final reset using the token |
+| `changePassword(dto)` | Authenticated change with old password |
+
+## Email & phone verification
+
+| Method | Purpose |
+|---|---|
+| `sendEmailVerification(dto?)` | Send an email-verify code |
+| `verifyEmail(dto)` | Verify with the code |
+| `sendPhoneVerification(dto?)` | Send an SMS code |
+| `verifyPhone(dto)` | Verify with the code |
+
+## MFA
+
+| Method | Purpose |
+|---|---|
+| `send2fa(method?)` | Send the email/SMS challenge |
+| `verify2fa(dto)` | Complete the MFA step |
+| `setupTotp()` | Get TOTP secret + QR code data URL |
+| `verifyTotpSetup(dto)` | Finalize TOTP enrollment |
+| `getMfaStatus()` | Status — configured/verified methods, devices, recovery code |
+| `listTotpDevices()` / `removeTotpDevice(deviceId)` | TOTP device management |
+| `toggleMfa(dto)` | Enable/disable MFA |
+| `generateRecoveryCode()` | Issue a recovery code (returned **once**) |
+| `resetMfa(code)` | Reset all MFA using a recovery code |
+
+## Token & mode helpers
+
+| Method | Purpose |
+|---|---|
+| `setMode('header' \| 'cookie')` | Override the token mode at runtime |
+| `getMode()` | Read the current mode |
+| `getAccessToken()` | Read the current access token (header mode only) |
+
+## Tenant helpers
+
+| Method | Purpose |
+|---|---|
+| `setTenantId(id)` | Persist the active tenant locally |
+| `getTenantId()` | Read the active tenant |
+
+## State queries
+
+| Method | Purpose |
+|---|---|
+| `getSession()` | The current `ClientSession` (id, userId, tenantId, …) or `null` |
+| `getIsAuthenticated()` | Boolean |
+
+## Events
+
+Every method below returns an unsubscribe function:
+
+| Method | Fires when |
+|---|---|
+| `onTokenRefreshed(cb)` | Auto-refresh succeeds |
+| `onTokensSet(cb)` | Tokens are stored (login/signup/refresh) |
+| `onTokensRemoved(cb)` | Tokens are cleared (logout) |
+| `onLogout(cb)` | Logout completes |
+| `onError(cb)` | Any auth error |
+| `onSessionVerified(cb)` | A `verifySession` call succeeded |
+| `onRefreshSessionData(cb)` | The session data should be refetched |
+
+## Related
+
+- [Config](/docs/client/config).
+- [Storage adapters](/docs/client/storage-adapters) — header-mode token persistence.
+- [HTTP adapters](/docs/client/http-adapters) — `fetch` (default) vs axios.

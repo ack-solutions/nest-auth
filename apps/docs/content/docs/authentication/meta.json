@@ -1,0 +1,16 @@
+{
+  "title": "Authentication Methods",
+  "pages": [
+    "index",
+    "email-password",
+    "phone-password",
+    "passwordless-otp",
+    "magic-link",
+    "oauth-google",
+    "oauth-facebook",
+    "oauth-apple",
+    "oauth-github",
+    "custom-provider",
+    "api-keys"
+  ]
+}

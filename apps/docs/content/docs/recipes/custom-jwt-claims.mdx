@@ -1,0 +1,72 @@
+---
+title: Custom JWT claims
+description: 'Add `subscriptionTier`, `appUserId`, or feature flags to the access token.'
+---
+
+Two hooks: `customizeSessionData` (server-side state, available on refresh) and `customizeTokenPayload` (what's in the JWT itself).
+
+```ts
+NestAuthModule.forRoot({
+  session: {
+    async customizeSessionData(defaultData, user) {
+      const appUser = await this.appUsers.findOne({ where: { authUserId: user.id } });
+      return {
+        ...defaultData,
+        appUserId: appUser?.id,
+        subscriptionTier: appUser?.subscriptionTier ?? 'free',
+        featureFlags: await this.flags.forUser(user.id),
+      };
+    },
+
+    customizeTokenPayload(defaultPayload, session) {
+      return {
+        ...defaultPayload,
+        tier: session.data.subscriptionTier,
+        // appUserId NOT added — kept on session, retrieved server-side via context
+        // featureFlags NOT added — too large for a JWT
+      };
+    },
+  },
+});
+```
+
+## Read on the client
+
+```ts
+import { decodeJwt } from '@ackplus/nest-auth-client';
+
+const token = await client.getAccessToken();
+const payload = decodeJwt(token);
+console.log(payload?.tier);    // 'free' | 'pro' | 'team'
+```
+
+In React, the same value lands on `useUser()` if you also surface it via `getSessionUserData`:
+
+```ts
+user: {
+  async getSessionUserData(authUser, helpers) {
+    return { subscriptionTier: /* … */ };
+  },
+},
+```
+
+## Don't do
+
+- Don't put 50 permissions in the JWT — it bloats every request. Keep them on the session row, query server-side.
+- Don't put PII (emails are fine; SSNs aren't). The JWT is signed, not encrypted — anyone with the token can read it.
+- Don't put data that changes often (e.g. `lastSeenAt`). It'll be stale on the very next request.
+
+## Re-issuing on tier change
+
+When the user upgrades from `free` to `pro`, you want them to see the new tier without re-logging in. Two options:
+
+1. **Wait for refresh.** On the next refresh (within `accessTokenValidity`), `customizeTokenPayload` re-runs with the fresh data.
+2. **Force a refresh.** Server-side, revoke the session and trigger a re-login. Or trigger `client.refresh()` from the frontend after the upgrade succeeds.
+
+For a 15-minute access token validity, waiting is usually fine. For a 24-hour validity, force the refresh.
+
+## Related
+
+- [Customizing the JWT](/docs/production/customizing-jwt).
+- [Sessions & Tokens](/docs/concepts/sessions-and-tokens).
+- [User Model](/docs/concepts/user-model).

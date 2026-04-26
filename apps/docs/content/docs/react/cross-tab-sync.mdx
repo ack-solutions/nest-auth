@@ -1,0 +1,85 @@
+---
+title: Cross-Tab Sync
+description: Keep auth state consistent across browser tabs.
+---
+
+If a user is logged in across three tabs and they log out in tab A, you almost always want tabs B and C to react. Nest Auth ships a small `CrossTabSync` helper that broadcasts auth events between tabs so each `<AuthProvider>` reacts.
+
+## How it works
+
+Under the hood:
+
+1. `BroadcastChannel` if available (Chrome, Firefox, Safari ≥ 15.4, modern Edge).
+2. Falls back to `localStorage` `storage` events for older browsers.
+
+Either way, all tabs in the same origin see the same broadcast.
+
+## Setup
+
+Create a sync instance and connect it to your client:
+
+```tsx
+import { useEffect } from 'react';
+import { AuthProvider } from '@ackplus/nest-auth-react';
+import { createCrossTabSync } from '@ackplus/nest-auth-react';
+import { client } from '@/lib/auth';
+
+const sync = createCrossTabSync();
+
+function App() {
+  useEffect(() => {
+    const unsub = sync.subscribe((event) => {
+      if (event.type === 'logout')  client.logout();          // sync local state
+      if (event.type === 'refresh') client.refresh();          // re-pull tokens
+    });
+    return unsub;
+  }, []);
+
+  // Broadcast when this tab logs out
+  useEffect(() => {
+    const unsub = client.onLogout(() => sync.broadcastLogout());
+    return unsub;
+  }, []);
+
+  return (
+    <AuthProvider client={client}>
+      <Routes />
+    </AuthProvider>
+  );
+}
+```
+
+## API
+
+| Method | Purpose |
+|---|---|
+| `subscribe(handler)` | Listen for events from other tabs. Returns unsubscribe |
+| `broadcast(type)` | Generic broadcast |
+| `broadcastLogout()` | Shorthand for `broadcast('logout')` |
+| `broadcastLogin()` | Shorthand for `broadcast('login')` |
+| `broadcastRefresh()` | Shorthand for `broadcast('refresh')` |
+| `destroy()` | Tear down the channel / storage listener |
+
+## Event types
+
+```ts
+type SyncEventType = 'logout' | 'login' | 'refresh';
+type SyncEvent = { type: SyncEventType; timestamp: number };
+```
+
+`timestamp` lets you ignore stale events if you receive multiple in quick succession.
+
+## Watch out
+
+- **Don't broadcast on every refresh.** Auto-refresh fires often. Pick a less chatty signal — broadcast on login/logout only.
+- **Loop avoidance.** When tab A receives a `logout` event from tab B, don't broadcast another `logout` — just react locally. Otherwise you cause a fanout storm.
+- **Cookie mode is partly self-syncing.** When the server clears the auth cookies on logout, all tabs see them disappear on their next request. Cross-tab sync is still useful for *immediate* UI updates rather than waiting for the next request.
+
+## Test
+
+The simplest manual test: open two tabs, log in on both, log out in tab A. Tab B should redirect to `/login` within a render cycle.
+
+## Related
+
+- [Provider](/docs/react/provider).
+- [`AuthClient` events](/docs/client/events).

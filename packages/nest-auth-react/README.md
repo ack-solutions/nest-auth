@@ -1,61 +1,49 @@
 # @ackplus/nest-auth-react
 
-React SDK for `@ackplus/nest-auth`. Provides hooks and components for easy authentication integration in React applications.
+React provider, hooks, guards, and Next.js helpers for [`@ackplus/nest-auth`](https://www.npmjs.com/package/@ackplus/nest-auth).
 
-> **Note:** This package is designed to work with the `@ackplus/nest-auth` backend module. Make sure your API is set up with it.
+## Documentation
 
-## Features
+**Full reference at [ack-solutions.github.io/nest-auth/docs/react](https://ack-solutions.github.io/nest-auth/docs/react).**
 
-- 🪝 **useAuth Hook** - Easy access to user, login, logout, and token state.
-- 🔒 **Protected Routes** - Helper components for auth guarding.
-- 🔄 **Auto Refresh** - Handles token refresh automatically (coming soon).
+- [Provider](https://ack-solutions.github.io/nest-auth/docs/react/provider) — `<AuthProvider>` and `<NextAuthProvider>`
+- [Hooks](https://ack-solutions.github.io/nest-auth/docs/react/hooks) — `useNestAuth`, `useUser`, `useSession`, `useAccessToken`, `useAuthStatus`, `useHasRole`, `useHasPermission`
+- [Guards](https://ack-solutions.github.io/nest-auth/docs/react/guards) — `<AuthGuard>`, `<GuestGuard>`, `<RequireRole>`, `<RequirePermission>` + HOCs
+- [Next.js](https://ack-solutions.github.io/nest-auth/docs/react/nextjs) — App Router SSR
+- [Cross-Tab Sync](https://ack-solutions.github.io/nest-auth/docs/react/cross-tab-sync)
 
-## Installation
+## Install
 
 ```bash
-npm install @ackplus/nest-auth-react
-# or
-pnpm add @ackplus/nest-auth-react
+pnpm add @ackplus/nest-auth-react @ackplus/nest-auth-client
 ```
 
-## Quick Start
+Peer: `react` (^18 or ^19).
 
-1. Wrap your app in `AuthProvider`:
+## Minimal example
 
 ```tsx
-import { AuthProvider } from '@ackplus/nest-auth-react';
+import { AuthClient } from '@ackplus/nest-auth-client';
+import { AuthProvider, useNestAuth } from '@ackplus/nest-auth-react';
 
-function App() {
+const client = new AuthClient({ baseUrl: '/api' });
+
+export default function App() {
   return (
-    <AuthProvider config={{ apiUrl: 'http://localhost:3000' }}>
-      <YourApp />
+    <AuthProvider client={client}>
+      <Routes />
     </AuthProvider>
   );
 }
-```
 
-2. Use hooks in your components:
-
-```tsx
-import { useAuth } from '@ackplus/nest-auth-react';
-
-function UserProfile() {
-  const { user, login, logout } = useAuth();
-
-  if (!user) {
-    return <button onClick={() => login(credentials)}>Login</button>;
-  }
-
-  return (
-    <div>
-      <h1>Welcome, {{user.firstName}}</h1>
-      <button onClick={logout}>Logout</button>
-    </div>
-  );
+function LoginButton() {
+  const { login } = useNestAuth();
+  return <button onClick={() => login({ credentials: { email, password } })}>Sign in</button>;
 }
 ```
 
-## Related Packages
+See the [React quickstart](https://ack-solutions.github.io/nest-auth/docs/getting-started/quickstart-react) and the [Next.js quickstart](https://ack-solutions.github.io/nest-auth/docs/getting-started/quickstart-nextjs).
 
-- [@ackplus/nest-auth](../nest-auth) - The backend NestJS module.
-- [@ackplus/nest-auth-client](../nest-auth-client) - The underlying JS client.
+## License
+
+MIT

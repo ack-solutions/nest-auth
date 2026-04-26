@@ -1,0 +1,125 @@
+---
+title: Services
+description: 'Public injectables — what''s available via `@Inject()`.'
+---
+
+The library exposes its core services as injectables. You can use them from anywhere in your app — they're the same services the library's own controllers call.
+
+## `AuthService`
+
+The main facade for auth flows.
+
+| Method | Purpose |
+|---|---|
+| `signup(payload)` | Create a user (the same flow `/auth/signup` triggers) |
+| `login(payload)` | Validate credentials and create a session |
+| `refresh(token)` | Mint a new access token |
+| `logout(sessionId)` / `logoutAll(userId)` | Revoke sessions |
+| `forgotPassword(email)` / `resetPassword(token, newPassword)` | Password reset |
+| `changePassword(userId, current, next)` | Authenticated password change |
+
+## `MfaService`
+
+| Method | Purpose |
+|---|---|
+| `setupTotp(userId)` | Generate a TOTP secret and QR code |
+| `verifyTotpSetup(userId, secret, code)` | Confirm and persist a TOTP device |
+| `send2fa(userId, method)` | Trigger an email/SMS code |
+| `verify2fa(userId, otp, method, trustDevice?)` | Verify an MFA challenge |
+| `getStatus(userId)` | MFA-status response (configured methods, recovery codes, devices) |
+| `listDevices(userId)`, `removeDevice(userId, deviceId)` | TOTP device management |
+| `toggle(userId, enabled)` | Enable/disable MFA per user |
+| `generateRecoveryCode(userId)` / `resetMfa(userId, recoveryCode)` | Recovery |
+
+## `PasswordService`
+
+| Method | Purpose |
+|---|---|
+| `hash(password)` / `verify(password, hash)` | Argon2 hashing primitives — respect the `password.hash`/`password.verify` hooks |
+
+## `UserService`
+
+| Method | Purpose |
+|---|---|
+| `findById(id)` / `findByEmail(email)` / `findByPhone(phone)` | Lookups |
+| `create(input)` / `update(id, input)` / `delete(id)` | CRUD |
+| `setActive(id, isActive)` | Suspend/reactivate an account |
+
+## `RoleService` / `PermissionService`
+
+Standard CRUD plus assignment helpers. Use these from your admin controllers if you build a custom admin UI on top of the library.
+
+## `TenantService`
+
+Tenant CRUD. Validates slug uniqueness, emits `TenantCreatedEvent` etc.
+
+## `SessionManagerService`
+
+Direct session-store access. Useful for "list this user's active devices" UIs:
+
+```ts
+@Auth()
+@Get('me/sessions')
+async list(@CurrentUser() user: NestAuthUser) {
+  return this.sessions.findByUser(user.id);
+}
+
+@Auth()
+@Delete('me/sessions/:id')
+async revoke(@Param('id') id: string, @CurrentUser() user: NestAuthUser) {
+  return this.sessions.revoke(id, user.id);
+}
+```
+
+## `JwtService`
+
+Token sign/verify primitives. Customize signing via the `session.jwt.secret` config; you rarely need to call this service directly.
+
+## `AccessKeyService`
+
+API key CRUD — see [API Keys](/docs/authentication/api-keys).
+
+## `AuditService`
+
+Internal sink that calls `audit.onEvent`. Generally read-only from your code; if you need to write a custom audit event, call `audit.write(event)`.
+
+## `AuthProviderRegistryService`
+
+Read access to the registered auth providers. Use this to render a "sign in with…" button list dynamically:
+
+```ts
+const providers = registry.list();   // [{ name: 'google', kind: 'oauth' }, …]
+```
+
+## `AuthConfigService`
+
+Frozen snapshot of the resolved module config. Inject this anywhere you need to read the current config:
+
+```ts
+@Injectable()
+class MyService {
+  constructor(private readonly auth: AuthConfigService) {}
+
+  doStuff() {
+    if (this.auth.getOptions().mfa?.required) { … }
+  }
+}
+```
+
+`getOptions()` returns the raw `IAuthModuleOptions` you passed in. `getConfig()` returns a normalized form with defaults filled in — use whichever is more convenient.
+
+## `DebugLoggerService`
+
+Conditional logger gated by the `debug` config. Use it from your own services for log lines you only want when debug is on:
+
+```ts
+this.debugLogger.log('user', `created ${user.id}`);
+```
+
+See [Logging & Debugging](/docs/production/logging-and-debugging).
+
+## Related
+
+- [Decorators](/docs/backend/decorators).
+- [Hooks Reference](/docs/backend/hooks-reference).
+- [API Reference: Types](/docs/api-reference/types) — full method signatures.

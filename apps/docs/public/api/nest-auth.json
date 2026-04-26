@@ -840,11 +840,20 @@
   },
   "info": {
     "title": "@ackplus/nest-auth API",
-    "description": "OpenAPI specification generated from the Nest Auth module",
+    "description": "Generated from the @ackplus/nest-auth NestJS module via @nestjs/swagger.",
     "version": "2.0.0-beta.20",
     "contact": {}
   },
-  "tags": [],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Sign-up, login, sessions, password & verification flows."
+    },
+    {
+      "name": "Mfa",
+      "description": "Multi-factor authentication: TOTP, email/SMS OTP, recovery codes."
+    }
+  ],
   "servers": [],
   "components": {
     "securitySchemes": {
@@ -998,6 +1007,16 @@
             "type": "string",
             "description": "OAuth token or ID token from social provider",
             "example": "ya29.a0AfH6SMBx1234567890abcdefghijklmnop"
+          },
+          "type": {
+            "type": "string",
+            "description": "How to interpret the supplied token. Required only for Google: `idToken` (default) verifies a Google-signed ID token; `accessToken` calls Google's userinfo endpoint with a Bearer access token. Other providers ignore this field.",
+            "enum": [
+              "idToken",
+              "accessToken"
+            ],
+            "default": "idToken",
+            "example": "idToken"
           }
         },
         "required": [
@@ -1088,11 +1107,33 @@
                   }
                 }
               },
-              "socialLogin": {
-                "summary": "Social Login (Google/Facebook/etc)",
+              "googleIdToken": {
+                "summary": "Google — ID token (recommended)",
                 "value": {
-                  "token": "ya29.a0AfH6SMBx...",
-                  "type": "idToken"
+                  "providerName": "google",
+                  "credentials": {
+                    "token": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjFkY...",
+                    "type": "idToken"
+                  }
+                }
+              },
+              "googleAccessToken": {
+                "summary": "Google — access token",
+                "value": {
+                  "providerName": "google",
+                  "credentials": {
+                    "token": "ya29.a0AfH6SMBx1234567890abcdefghijklmnop",
+                    "type": "accessToken"
+                  }
+                }
+              },
+              "facebookSocial": {
+                "summary": "Facebook / Apple / GitHub",
+                "value": {
+                  "providerName": "facebook",
+                  "credentials": {
+                    "token": "EAAGm0PX4ZCpsBA..."
+                  }
                 }
               }
             },

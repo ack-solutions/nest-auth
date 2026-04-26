@@ -1,0 +1,134 @@
+---
+title: Guards
+description: Components and HOCs that protect routes and UI.
+---
+
+The React layer ships four guard components and two HOCs. They're thin — under the hood they all call `useAuthStatus`, `useHasRole`, or `useHasPermission` and decide what to render.
+
+## `<AuthGuard>`
+
+Renders children only when the user is authenticated.
+
+```tsx
+<AuthGuard
+  loadingFallback={<Spinner />}
+  fallback={<RedirectToLogin />}
+  onUnauthenticated={() => navigate('/login')}
+>
+  <Dashboard />
+</AuthGuard>
+```
+
+| Prop | Default |
+|---|---|
+| `loadingFallback` | `null` (renders nothing while auth is initializing) |
+| `fallback` | `null` (renders nothing when unauthenticated) |
+| `onUnauthenticated` | (none) |
+
+## `<GuestGuard>`
+
+The opposite of `<AuthGuard>`. Renders children only when the user is **not** authenticated. Use on `/login`, `/signup` to redirect already-logged-in users away.
+
+```tsx
+<GuestGuard onAuthenticated={() => navigate('/')}>
+  <SignInForm />
+</GuestGuard>
+```
+
+## `<RequireRole>`
+
+Render children only if the user has the required role(s).
+
+```tsx
+<RequireRole role="admin" fallback={<NotAuthorized />}>
+  <AdminPanel />
+</RequireRole>
+
+<RequireRole role={['admin', 'editor']}>           {/* ANY */}
+  <EditButton />
+</RequireRole>
+
+<RequireRole role={['admin', 'owner']} matchAll>
+  <DangerZone />
+</RequireRole>
+```
+
+| Prop | Type | Notes |
+|---|---|---|
+| `role` | `string \| string[]` | Required role(s) |
+| `matchAll` | `boolean` | Require ALL (default: ANY) |
+| `loadingFallback` | `ReactNode?` | While auth state loads |
+| `fallback` | `ReactNode?` | When the user lacks the role(s) |
+| `onAccessDenied` | `() => void?` | Called when fallback renders |
+
+## `<RequirePermission>`
+
+Same shape as `<RequireRole>` but for permissions.
+
+```tsx
+<RequirePermission permission="orders.read">
+  <OrdersTable />
+</RequirePermission>
+
+<RequirePermission permission={['orders.read', 'orders.write']} matchAll>
+  <OrderEditor />
+</RequirePermission>
+```
+
+## HOCs
+
+For class components or higher-order composition:
+
+### `withRequireRole(Component, options)`
+
+```tsx
+const AdminOnlyDashboard = withRequireRole(Dashboard, {
+  role: 'admin',
+  FallbackComponent: NotAuthorized,
+  LoadingComponent: Spinner,
+});
+```
+
+The wrapped component receives extra props: `{ hasRole, isLoading, isAuthenticated }`.
+
+### `withRequirePermission(Component, options)`
+
+Same idea, for permissions.
+
+### Factory builders
+
+If you reuse the same role/permission policy in many places, build a partially-applied HOC:
+
+```tsx
+import { createRequireRoleHOC } from '@ackplus/nest-auth-react';
+
+const requireAdmin = createRequireRoleHOC({
+  role: 'admin',
+  FallbackComponent: NotAuthorized,
+});
+
+const AdminPanel  = requireAdmin(AdminPanelImpl);
+const AdminUsers  = requireAdmin(AdminUsersImpl);
+```
+
+Same pattern for `createRequirePermissionHOC`.
+
+## Combining guards
+
+Nest them — they compose cleanly:
+
+```tsx
+<AuthGuard fallback={<RedirectToLogin />}>
+  <RequireRole role="admin" fallback={<NotAuthorized />}>
+    <AdminDashboard />
+  </RequireRole>
+</AuthGuard>
+```
+
+For very common combos (auth + role), wrap in a custom component to keep your route file tidy.
+
+## Related
+
+- [Hooks](/docs/react/hooks).
+- [RBAC](/docs/concepts/rbac).
+- [Next.js dashboard recipe](/docs/recipes/nextjs-protected-dashboard) — App-Router-style guards.

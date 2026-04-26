@@ -1,25 +1,49 @@
 # @ackplus/nest-auth-contracts
 
-Shared interfaces, types, and DTOs for `@ackplus/nest-auth` ecosystem.
+Shared TypeScript types and enums consumed by:
 
-## Usage
+- [`@ackplus/nest-auth`](https://www.npmjs.com/package/@ackplus/nest-auth)
+- [`@ackplus/nest-auth-client`](https://www.npmjs.com/package/@ackplus/nest-auth-client)
+- [`@ackplus/nest-auth-react`](https://www.npmjs.com/package/@ackplus/nest-auth-react)
 
-This package is used as a dependency in projects that need to interact with `nest-auth` APIs but don't need the full NestJS module (e.g., client SDKs, other microservices).
+This package contains no runtime code — types only. Importing it adds zero kilobytes to your bundle.
 
-### Installation
+## Documentation
+
+Browse the full type reference at [ack-solutions.github.io/nest-auth/docs/api-reference/types](https://ack-solutions.github.io/nest-auth/docs/api-reference/types).
+
+## Install
 
 ```bash
-npm install @ackplus/nest-auth-contracts
-# or
 pnpm add @ackplus/nest-auth-contracts
 ```
 
-### Importing Types
+You usually don't install this directly — it ships as a dependency of `@ackplus/nest-auth*`. Install it explicitly when you want to type-check code that consumes the auth API without pulling in the full backend or client package.
 
-```typescript
-import { 
-  IEmailCredentials, 
+## Common imports
+
+```ts
+import {
+  // Enums
+  NestAuthMFAMethodEnum,
+  NestAuthOTPTypeEnum,
+  TenantModeEnum,
+
+  // Request/response DTOs
+  ILoginRequest,
+  ISignupRequest,
+  IAuthResponse,
+  IMfaStatusResponse,
+  ISessionUserData,
+
+  // Domain interfaces
   INestAuthUser,
-  ILoginRequest 
+  INestAuthSession,
+  INestAuthRole,
+  INestAuthTenant,
 } from '@ackplus/nest-auth-contracts';
 ```
+
+## License
+
+MIT

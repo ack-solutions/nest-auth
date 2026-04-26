@@ -1,0 +1,25 @@
+---
+title: Authentication Methods
+description: Feature-by-feature guides to every supported sign-in method.
+---
+
+Nest Auth supports nine ways to authenticate users out of the box, plus a `BaseAuthProvider` for rolling your own.
+
+| Method | Use when |
+|---|---|
+| [Email + password](/docs/authentication/email-password) | Classic web app sign-up |
+| [Phone + password](/docs/authentication/phone-password) | Phone-first regions / mobile apps |
+| [Passwordless OTP](/docs/authentication/passwordless-otp) | No password — code over email or SMS |
+| [Magic link](/docs/authentication/magic-link) | One-click email sign-in |
+| [Google OAuth](/docs/authentication/oauth-google) | Social sign-in |
+| [Facebook OAuth](/docs/authentication/oauth-facebook) | Social sign-in |
+| [Apple OAuth](/docs/authentication/oauth-apple) | iOS / App Store requirement |
+| [GitHub OAuth](/docs/authentication/oauth-github) | Developer-focused apps |
+| [Custom provider](/docs/authentication/custom-provider) | Any OAuth or SSO not in the list above |
+| [API keys](/docs/authentication/api-keys) | Server-to-server / programmatic access |
+
+Every page below follows the same template:
+
+1. **Server config** — what to add to `NestAuthModule.forRoot({ ... })`.
+2. **Client call** — the `AuthClient` method or HTTP request.
+3. **React hook** — the matching hook from `@ackplus/nest-auth-react`.

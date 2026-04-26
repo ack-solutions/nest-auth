@@ -1,93 +1,45 @@
 # @ackplus/nest-auth-client
 
-The official JavaScript/TypeScript client SDK for `@ackplus/nest-auth`.
+Framework-agnostic JS/TS client for [`@ackplus/nest-auth`](https://www.npmjs.com/package/@ackplus/nest-auth). Works in browsers, Node, React Native, Cloudflare Workers, Deno, Bun.
 
-## Features
+## Documentation
 
-- 🔄 **Framework Agnostic** - Works in React, Vue, Angular, React Native, or vanilla JS.
-- 💾 **Storage Adapters** - Built-in support for `localStorage`, `sessionStorage`, `AsyncStorage`, and Cookies.
-- 🔄 **Auto Refresh** - Automatically handles JWT refresh token rotation silently.
-- 📡 **HTTP Client** - Configurable HTTP client with interceptors.
-- 🔐 **Type-Safe** - Full TypeScript support sharing types with the backend.
+**Full reference at [ack-solutions.github.io/nest-auth/docs/client](https://ack-solutions.github.io/nest-auth/docs/client).**
 
-## Installation
+- [`AuthClient`](https://ack-solutions.github.io/nest-auth/docs/client/client) — every method
+- [Config](https://ack-solutions.github.io/nest-auth/docs/client/config)
+- [Storage Adapters](https://ack-solutions.github.io/nest-auth/docs/client/storage-adapters) — Memory / LocalStorage / SessionStorage / Cookie / custom
+- [HTTP Adapters](https://ack-solutions.github.io/nest-auth/docs/client/http-adapters) — Fetch (default) / Axios / custom
+- [Events](https://ack-solutions.github.io/nest-auth/docs/client/events)
+- [Utilities](https://ack-solutions.github.io/nest-auth/docs/client/utilities) — `decodeJwt`, `hasRole`, `hasPermission`, etc.
+
+## Install
 
 ```bash
-npm install @ackplus/nest-auth-client
-# or
 pnpm add @ackplus/nest-auth-client
 ```
 
-## Quick Start
+No peer dependencies.
 
-### 1. Initialize Client
+## Minimal example
 
-```typescript
-import { createAuthClient } from '@ackplus/nest-auth-client';
+```ts
+import { AuthClient } from '@ackplus/nest-auth-client';
 
-export const authClient = createAuthClient({
-  apiUrl: 'http://localhost:3000',
-  storage: 'local', // or 'cookie', 'memory'
+const auth = new AuthClient({
+  baseUrl: 'https://api.example.com',
 });
-```
 
-### 2. Login
+await auth.signup({ email, password, firstName: 'Alice' });
+await auth.login({ credentials: { email, password } });
 
-```typescript
-try {
-  const { user, tokens } = await authClient.login({
-    email: 'user@example.com',
-    password: 'password123',
-  });
-  
-  console.log('Logged in user:', user);
-} catch (error) {
-  console.error('Login failed:', error);
+if (auth.getIsAuthenticated()) {
+  const user = await auth.getSessionUserData();
 }
 ```
 
-### 3. Make Authenticated Requests
+See the [vanilla quickstart](https://ack-solutions.github.io/nest-auth/docs/getting-started/quickstart-vanilla) for Vue / Angular / React Native examples.
 
-The client ensures the access token is attached and refreshed automatically using its internal HTTP client.
+## License
 
-```typescript
-const response = await authClient.http.get('/profile');
-```
-
-## Advanced Usage
-
-### Custom Storage (e.g., React Native)
-
-```typescript
-import { createAuthClient } from '@ackplus/nest-auth-client';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const authClient = createAuthClient({
-  apiUrl: 'https://api.myapp.com',
-  storage: {
-    msg: 'async-storage',
-    getItem: AsyncStorage.getItem,
-    setItem: AsyncStorage.setItem,
-    removeItem: AsyncStorage.removeItem,
-  },
-});
-```
-
-### Event Listening
-
-```typescript
-authClient.on('login', (user) => {
-  console.log('User just logged in', user);
-});
-
-authClient.on('logout', () => {
-  console.log('User logged out');
-  // Redirect to login page
-});
-```
-
-## Related Packages
-
-- [@ackplus/nest-auth](../nest-auth) - The backend module.
-- [@ackplus/nest-auth-react](../nest-auth-react) - React hooks for this client.
-- [@ackplus/nest-auth-contracts](../nest-auth-contracts) - Shared types.
+MIT

@@ -1,0 +1,104 @@
+---
+title: 'Extra signup fields with `collectProfileFields`'
+description: Render a dynamic signup form driven by server config.
+---
+
+`collectProfileFields` is metadata exposed via `/auth/client-config`. The frontend reads it, renders matching inputs, and the server's `UserRegisteredEvent` listener stores them.
+
+## Server config
+
+```ts
+NestAuthModule.forRoot({
+  registration: {
+    enabled: true,
+    collectProfileFields: [
+      { id: 'firstName', label: 'First name', type: 'text', required: true },
+      { id: 'lastName',  label: 'Last name',  type: 'text', required: true },
+      { id: 'company',   label: 'Company',    type: 'text', required: false },
+      {
+        id: 'plan',
+        label: 'Plan',
+        type: 'select',
+        required: true,
+        options: [
+          { label: 'Free',  value: 'free' },
+          { label: 'Pro',   value: 'pro' },
+          { label: 'Team',  value: 'team' },
+        ],
+      },
+      { id: 'tos', label: 'I accept the terms', type: 'checkbox', required: true },
+    ],
+  },
+});
+```
+
+## Frontend — render the form dynamically
+
+```tsx
+import { useEffect, useState } from 'react';
+import { useNestAuth } from '@ackplus/nest-auth-react';
+
+interface ProfileField {
+  id: string;
+  label: string;
+  type: string;
+  required?: boolean;
+  options?: { label: string; value: string }[];
+}
+
+export function DynamicSignupForm() {
+  const { client, signup } = useNestAuth();
+  const [fields, setFields] = useState<ProfileField[]>([]);
+  const [values, setValues] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_URL}/auth/client-config`)
+      .then((r) => r.json())
+      .then((c) => setFields(c.registration.collectProfileFields ?? []));
+  }, []);
+
+  return (
+    <form
+      onSubmit={async (e) => {
+        e.preventDefault();
+        await signup({ email: values.email, password: values.password, ...values });
+      }}
+    >
+      <input type="email" required placeholder="email"
+             onChange={(e) => setValues({ ...values, email: e.target.value })} />
+      <input type="password" required placeholder="password"
+             onChange={(e) => setValues({ ...values, password: e.target.value })} />
+      {fields.map((f) => (
+        <Field key={f.id} field={f}
+               onChange={(v) => setValues({ ...values, [f.id]: v })} />
+      ))}
+      <button>Sign up</button>
+    </form>
+  );
+}
+```
+
+## Listener — persist the extras
+
+```ts
+@OnEvent(NestAuthEvents.REGISTERED)
+async onRegistered({ user, payload }: UserRegisteredEvent) {
+  await this.appUsers.save({
+    authUserId: user.id,
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+    company: payload.company,
+    plan: payload.plan,
+    acceptedTosAt: new Date(),
+  });
+}
+```
+
+## Why a config-driven form?
+
+It lets non-engineers tune the signup field list without redeploying the frontend. If your signup is stable, hard-code the form — `collectProfileFields` is overkill.
+
+## Related
+
+- [User Model](/docs/concepts/user-model).
+- [user-registered listener recipe](/docs/recipes/user-registered-listener).

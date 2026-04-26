@@ -1,0 +1,91 @@
+---
+title: Link multiple OAuth providers to one account
+description: Let one user sign in with both Google and GitHub.
+---
+
+A user signs up with email/password. Later they click "Connect GitHub" — now both providers point at the same `NestAuthUser`.
+
+## Default behavior
+
+When a user is logged in and calls `POST /auth/login` with an OAuth credential whose provider isn't yet linked, the library:
+
+1. Validates the OAuth token.
+2. Checks `nest_auth_identities` for `(provider, providerId)`.
+3. If no row exists, creates one — bound to the **currently logged-in user** rather than creating a new one.
+
+So the simplest "link" flow is just calling `login` while authenticated:
+
+```tsx
+import { useNestAuth } from '@ackplus/nest-auth-react';
+
+export function ConnectGitHubButton() {
+  const { login } = useNestAuth();
+
+  return (
+    <button onClick={async () => {
+      const code = await openGithubPopup();   // your popup library
+      await login({ providerName: 'github', credentials: { token: code } });
+    }}>
+      Connect GitHub
+    </button>
+  );
+}
+```
+
+## Listing linked identities
+
+```ts
+@Auth()
+@Get('me/identities')
+listIdentities(@CurrentUser() user: NestAuthUser) {
+  return this.identities.find({
+    where: { userId: user.id },
+    select: ['provider', 'providerId', 'createdAt', 'metadata'],
+  });
+}
+```
+
+(`this.identities` here is the standard TypeORM `Repository<NestAuthIdentity>`.)
+
+## Unlinking
+
+The library doesn't ship an unlink endpoint — write your own:
+
+```ts
+@Auth()
+@Delete('me/identities/:provider')
+async unlinkIdentity(
+  @Param('provider') provider: string,
+  @CurrentUser() user: NestAuthUser,
+) {
+  // Refuse to unlink the last credential — would lock the user out
+  const remaining = await this.identities.count({ where: { userId: user.id } });
+  if (remaining <= 1 && !user.passwordHash) {
+    throw new BadRequestException('cannot_unlink_last_credential');
+  }
+
+  await this.identities.delete({ userId: user.id, provider });
+}
+```
+
+## Email-collision policy
+
+If the OAuth provider returns an email that **already belongs to a different user**, the default behavior is to link to that user (one-step account merge). If you'd rather refuse and force the user to log in to the existing account first, override it:
+
+```ts
+registrationHooks: {
+  async beforeSignup(payload, ctx) {
+    if (ctx.provider === 'google') {
+      const existing = await this.users.findByEmail(payload.email);
+      if (existing && existing.id !== ctx.user?.id) {
+        throw new ConflictException('email_belongs_to_other_account');
+      }
+    }
+  },
+},
+```
+
+## Related
+
+- [Custom OAuth provider](/docs/authentication/custom-provider).
+- [User Model](/docs/concepts/user-model).

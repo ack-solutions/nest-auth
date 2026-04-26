@@ -1,0 +1,64 @@
+---
+title: 'Next.js dashboard behind `<RequireRole>`'
+description: A Next.js App Router dashboard gated by role, with SSR auth.
+---
+
+Combines `createNextAuthHelpers` (server-side auth) with `<RequireRole>` (client-side gating).
+
+```tsx
+// app/admin/layout.tsx
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { authHelpers } from '@/lib/auth';
+
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const auth = await authHelpers.getServerAuth(await cookies());
+
+  if (!auth.isAuthenticated) redirect('/login');
+
+  // Server-side role check — fastest path; never renders the wrong content
+  const isAdmin = auth.user?.roles?.some((r) => r.name === 'admin');
+  if (!isAdmin) redirect('/');
+
+  return <div className="admin">{children}</div>;
+}
+```
+
+```tsx
+// app/admin/page.tsx — pure server component, no client-side auth flicker
+import { cookies } from 'next/headers';
+import { authHelpers } from '@/lib/auth';
+
+export default async function AdminPage() {
+  const auth = await authHelpers.getServerAuth(await cookies());
+  return <h1>Welcome, {auth.user?.email}</h1>;
+}
+```
+
+For client components inside the admin tree that need *finer*-grained gating (e.g. a permission inside a role), use `<RequirePermission>`:
+
+```tsx
+'use client';
+import { RequirePermission } from '@ackplus/nest-auth-react';
+
+export function DangerZone() {
+  return (
+    <RequirePermission permission="users.delete" fallback={<p>Forbidden.</p>}>
+      <DeleteAllUsersButton />
+    </RequirePermission>
+  );
+}
+```
+
+## Why two layers
+
+- **Server layout check** — protects the URL. Direct navigation never sees the page.
+- **Client guard** — protects sub-components. Fast feedback, no re-render flicker.
+
+The server check is the security boundary. The client guard is for UX.
+
+## Related
+
+- [Next.js helpers](/docs/react/nextjs).
+- [Guards](/docs/react/guards).
+- [RBAC](/docs/concepts/rbac).

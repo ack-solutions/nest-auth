@@ -1,0 +1,15 @@
+{
+  "title": "Core Concepts",
+  "pages": [
+    "index",
+    "sessions-and-tokens",
+    "session-storage",
+    "user-model",
+    "multi-tenancy",
+    "rbac",
+    "mfa",
+    "request-context",
+    "events-and-hooks",
+    "audit-logging"
+  ]
+}

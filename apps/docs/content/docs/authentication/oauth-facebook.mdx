@@ -1,0 +1,65 @@
+---
+title: Facebook OAuth
+description: Sign in with Facebook.
+---
+
+## Server config
+
+```ts
+NestAuthModule.forRoot({
+  facebook: {
+    appId: process.env.FACEBOOK_APP_ID,
+    appSecret: process.env.FACEBOOK_APP_SECRET,
+    redirectUri: process.env.FACEBOOK_REDIRECT_URI,
+  },
+});
+```
+
+Add the optional peer dep:
+
+```bash
+pnpm add fb
+```
+
+## Endpoint
+
+| Method | Path | Body |
+|---|---|---|
+| `POST` | `/auth/login` | `{ providerName: 'facebook', credentials: { token } }` |
+
+`token` is the Facebook `accessToken` from the JS SDK or your popup.
+
+## Client call
+
+```tsx
+import { useNestAuth } from '@ackplus/nest-auth-react';
+
+function FacebookSignIn() {
+  const { login } = useNestAuth();
+
+  const handleClick = async () => {
+    // Use Facebook's JS SDK to get an access token
+    FB.login(async (response) => {
+      if (response.authResponse) {
+        await login({
+          providerName: 'facebook',
+          credentials: { token: response.authResponse.accessToken },
+        });
+      }
+    }, { scope: 'email,public_profile' });
+  };
+
+  return <button onClick={handleClick}>Sign in with Facebook</button>;
+}
+```
+
+## What the library does
+
+1. Calls Facebook's Graph API with the access token to fetch the user's profile.
+2. Looks up `nest_auth_identities` for `provider='facebook'` + the Facebook user ID.
+3. Creates or links the user, same as Google.
+
+## Related
+
+- [Google OAuth](/docs/authentication/oauth-google).
+- [Custom OAuth provider](/docs/authentication/custom-provider).

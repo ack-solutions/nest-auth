@@ -1,0 +1,107 @@
+---
+title: Single notification service for email + SMS
+description: One listener, every transactional auth event.
+---
+
+Wire all auth notifications through one service so it's easy to swap providers, mute in tests, and audit centrally.
+
+```ts
+// app/notifications/notifications.service.ts
+import { Injectable } from '@nestjs/common';
+import { Resend } from 'resend';
+import twilio from 'twilio';
+
+@Injectable()
+export class NotificationsService {
+  private readonly resend = new Resend(process.env.RESEND_API_KEY);
+  private readonly sms = twilio(process.env.TWILIO_SID!, process.env.TWILIO_TOKEN!);
+
+  async email(to: string, subject: string, html: string) {
+    if (process.env.NODE_ENV === 'test') return;       // mute in tests
+    await this.resend.emails.send({ from: 'noreply@example.com', to, subject, html });
+  }
+
+  async sms(to: string, body: string) {
+    if (process.env.NODE_ENV === 'test') return;
+    await this.sms.messages.create({ from: process.env.TWILIO_FROM!, to, body });
+  }
+}
+```
+
+```ts
+// app/notifications/listeners/auth-notifications.listener.ts
+import { Injectable } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import {
+  NestAuthEvents,
+  EmailVerificationRequestedEvent,
+  PhoneVerificationRequestedEvent,
+  PasswordResetRequestedEvent,
+  PasswordlessCodeRequestedEvent,
+  TwoFactorCodeSentEvent,
+} from '@ackplus/nest-auth';
+
+import { NotificationsService } from '../notifications.service';
+
+@Injectable()
+export class AuthNotificationsListener {
+  constructor(private readonly n: NotificationsService) {}
+
+  @OnEvent(NestAuthEvents.EMAIL_VERIFICATION_REQUESTED)
+  emailVerify(e: EmailVerificationRequestedEvent) {
+    return this.n.email(e.user.email!, 'Verify your email',
+      `Your code: <b>${e.code}</b>`);
+  }
+
+  @OnEvent(NestAuthEvents.PHONE_VERIFICATION_REQUESTED)
+  phoneVerify(e: PhoneVerificationRequestedEvent) {
+    return this.n.sms(e.user.phone!, `Your verification code: ${e.code}`);
+  }
+
+  @OnEvent(NestAuthEvents.PASSWORD_RESET_REQUESTED)
+  passwordReset(e: PasswordResetRequestedEvent) {
+    return this.n.email(e.user.email!, 'Reset your password',
+      `Your reset code: <b>${e.code}</b>`);
+  }
+
+  @OnEvent(NestAuthEvents.PASSWORDLESS_CODE_REQUESTED)
+  passwordless(e: PasswordlessCodeRequestedEvent) {
+    return e.channel === 'email'
+      ? this.n.email(e.identifier, 'Sign in code', `Code: <b>${e.code}</b>`)
+      : this.n.sms(e.identifier, `Sign in code: ${e.code}`);
+  }
+
+  @OnEvent(NestAuthEvents.TWO_FACTOR_CODE_SENT)
+  twoFactor(e: TwoFactorCodeSentEvent) {
+    return e.method === 'email'
+      ? this.n.email(e.user.email!, 'Two-factor code', `Code: <b>${e.code}</b>`)
+      : this.n.sms(e.user.phone!, `Two-factor code: ${e.code}`);
+  }
+}
+```
+
+## With a queue
+
+Replace direct sends with `this.queue.add(...)` to make every send retryable and decoupled from the auth response.
+
+```ts
+@Injectable()
+export class NotificationsService {
+  constructor(@InjectQueue('notifications') private readonly q: Queue) {}
+
+  email(to, subject, html) {
+    return this.q.add('email', { to, subject, html });
+  }
+
+  sms(to, body) {
+    return this.q.add('sms', { to, body });
+  }
+}
+```
+
+The queue worker calls Resend / Twilio. On failure, the queue retries with backoff.
+
+## Related
+
+- [Sending Emails](/docs/production/sending-emails).
+- [Sending SMS](/docs/production/sending-sms).

@@ -1,0 +1,208 @@
+---
+title: Events & Hooks
+description: The primary extension surface — every auth lifecycle moment, exposed.
+---
+
+This is the page to read if you want to **change anything** about how Nest Auth behaves. The library is deliberately small at its core and rich in extension points: every important moment in the auth lifecycle is either an event you can listen to, or a hook you can override.
+
+## Events vs hooks — pick the right one
+
+| Use a **hook** when… | Use an **event listener** when… |
+|---|---|
+| You need to **gate** the flow (e.g. reject signup, mutate the user before insert) | You need to **react** without blocking |
+| The library can't proceed until you say so | The auth flow can complete; your work is fire-and-forget |
+| You need to throw an exception that surfaces to the caller | You need to fan out to many side effects (email, audit, cache) |
+| You're customizing the JWT payload, password hashing, role lookup | You're sending an email, writing an audit log, syncing an external system |
+
+A rule of thumb: **hooks are for shaping; events are for reacting.**
+
+## The events
+
+Every event is a class with a typed payload. Listen with NestJS's `@OnEvent(NestAuthEvents.X)`.
+
+| Event class | Constant | Fires when |
+|---|---|---|
+| `UserRegisteredEvent` | `NestAuthEvents.REGISTERED` | A new user is created via signup |
+| `UserLoggedInEvent` | `NestAuthEvents.LOGGED_IN` | Login succeeds (after MFA, if any) |
+| `User2faVerifiedEvent` | `NestAuthEvents.TWO_FACTOR_VERIFIED` | An MFA challenge passes |
+| `TwoFactorCodeSentEvent` | `NestAuthEvents.TWO_FACTOR_CODE_SENT` | An MFA email/SMS code is dispatched |
+| `User2faEnabledEvent` | `NestAuthEvents.TWO_FACTOR_ENABLED` | A user turns MFA on |
+| `User2faDisabledEvent` | `NestAuthEvents.TWO_FACTOR_DISABLED` | A user turns MFA off |
+| `UserRefreshTokenEvent` | `NestAuthEvents.REFRESH_TOKEN` | Tokens are refreshed |
+| `LoggedOutEvent` | `NestAuthEvents.LOGGED_OUT` | A session is revoked |
+| `LoggedOutAllEvent` | `NestAuthEvents.LOGGED_OUT_ALL` | All sessions for a user are revoked |
+| `PasswordResetRequestedEvent` | `NestAuthEvents.PASSWORD_RESET_REQUESTED` | "Forgot password" code/link sent |
+| `PasswordResetEvent` | `NestAuthEvents.PASSWORD_RESET` | Password is reset via token |
+| `UserPasswordChangedEvent` | `NestAuthEvents.PASSWORD_CHANGED` | Authenticated user changes password |
+| `EmailVerificationRequestedEvent` | `NestAuthEvents.EMAIL_VERIFICATION_REQUESTED` | An email verify code is sent |
+| `EmailVerifiedEvent` | `NestAuthEvents.EMAIL_VERIFIED` | An email is verified |
+| `PhoneVerificationRequestedEvent` | `NestAuthEvents.PHONE_VERIFICATION_REQUESTED` | An SMS verify code is sent |
+| `PhoneVerifiedEvent` | `NestAuthEvents.PHONE_VERIFIED` | A phone is verified |
+| `PasswordlessCodeRequestedEvent` | `NestAuthEvents.PASSWORDLESS_CODE_REQUESTED` | A passwordless OTP/magic-link is sent |
+| `UserCreatedEvent` / `UserUpdatedEvent` / `UserDeletedEvent` | `NestAuthEvents.USER_*` | User CRUD |
+| `TenantCreatedEvent` / `TenantUpdatedEvent` / `TenantDeletedEvent` | `NestAuthEvents.TENANT_*` | Tenant CRUD |
+| `AccessKeyCreatedEvent` / `AccessKeyUpdatedEvent` / `AccessKeyDeactivatedEvent` / `AccessKeyDeletedEvent` | `NestAuthEvents.ACCESS_KEY_*` | API key lifecycle |
+
+The complete payload reference (every field on every event class) is in the [Backend Events page](/docs/backend/events).
+
+## Setting up listeners
+
+```ts
+// app.module.ts
+import { EventEmitterModule } from '@nestjs/event-emitter';
+
+@Module({
+  imports: [
+    EventEmitterModule.forRoot(),     // <-- required, before NestAuthModule
+    NestAuthModule.forRoot({ … }),
+  ],
+})
+```
+
+Then create an injectable listener:
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import {
+  NestAuthEvents,
+  UserRegisteredEvent,
+  UserLoggedInEvent,
+  EmailVerificationRequestedEvent,
+} from '@ackplus/nest-auth';
+
+@Injectable()
+export class AuthEventsListener {
+  @OnEvent(NestAuthEvents.REGISTERED)
+  async onRegistered(event: UserRegisteredEvent) { … }
+
+  @OnEvent(NestAuthEvents.LOGGED_IN)
+  async onLogin(event: UserLoggedInEvent) { … }
+
+  @OnEvent(NestAuthEvents.EMAIL_VERIFICATION_REQUESTED)
+  async sendVerificationEmail(event: EmailVerificationRequestedEvent) {
+    await this.email.send(event.user.email, 'verify-email', { code: event.code });
+  }
+}
+```
+
+Without `EventEmitterModule.forRoot()` in your imports, **events silently no-op.** This is the #1 source of "why isn't my listener firing".
+
+## High-traffic event recipes
+
+### `UserRegisteredEvent` — create the AppUser, link a referral
+
+The canonical extension. The signup payload is open-ended, so any extra fields the frontend sends — `firstName`, `referralCode`, `marketingSource` — are available on the event.
+
+```ts
+@OnEvent(NestAuthEvents.REGISTERED)
+async onRegistered(event: UserRegisteredEvent) {
+  const { user, payload } = event;
+
+  const appUser = this.appUsers.create({
+    authUserId: user.id,
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+  });
+
+  if (payload.referralCode) {
+    const referrer = await this.appUsers.findOne({
+      where: { referralCode: payload.referralCode },
+    });
+    if (referrer) appUser.referredById = referrer.id;
+  }
+
+  await this.appUsers.save(appUser);
+  this.welcomeQueue.add({ userId: user.id });
+}
+```
+
+Full version: [user-registered listener recipe](/docs/recipes/user-registered-listener).
+
+### `UserLoggedInEvent` — last-login tracking, role sync, audit
+
+```ts
+@OnEvent(NestAuthEvents.LOGGED_IN)
+async onLogin({ user, session }: UserLoggedInEvent) {
+  await this.appUsers.update({ authUserId: user.id }, { lastLoginAt: new Date() });
+  await this.audit.write({ kind: 'login', userId: user.id, sessionId: session.id });
+  await this.roleSync.refresh(user.id);    // pull from external IDP
+}
+```
+
+Full version: [user-logged-in listener recipe](/docs/recipes/user-logged-in-listener).
+
+### `EmailVerificationRequestedEvent` / `PhoneVerificationRequestedEvent`
+
+The library generates the code and stores it. **It does not deliver it.** Your listener calls Resend / SendGrid / Twilio.
+
+```ts
+@OnEvent(NestAuthEvents.EMAIL_VERIFICATION_REQUESTED)
+async send(event: EmailVerificationRequestedEvent) {
+  await this.resend.emails.send({
+    to: event.user.email,
+    subject: 'Verify your email',
+    html: `Your code is <b>${event.code}</b>`,
+  });
+}
+```
+
+See [Sending Emails](/docs/production/sending-emails) and [Sending SMS](/docs/production/sending-sms) for production-grade examples.
+
+### `PasswordResetRequestedEvent`, `PasswordlessCodeRequestedEvent`, `TwoFactorCodeSentEvent`
+
+Same pattern — the library generates the code, your listener delivers it.
+
+### `LoggedOutEvent` — audit & cache invalidation
+
+```ts
+@OnEvent(NestAuthEvents.LOGGED_OUT)
+async onLogout({ user, session, reason }: LoggedOutEvent) {
+  await this.audit.write({ kind: 'logout', userId: user.id, reason });
+  await this.cache.deleteUserCaches(user.id);
+}
+```
+
+## The hooks (config-time)
+
+Hooks are passed when you call `NestAuthModule.forRoot({ ... })`. They run synchronously — the library awaits them — so they can throw to abort and they can mutate intermediate state.
+
+The full reference, including the execution-order timeline, is on the [Hooks Reference page](/docs/backend/hooks-reference). The high-level groupings:
+
+| Group | Hooks |
+|---|---|
+| **Signup** | `registrationHooks.beforeSignup`, `user.beforeCreate`, `user.afterCreate`, `registrationHooks.onSignup` |
+| **Login** | `loginHooks.onLogin` |
+| **Sessions / tokens** | `session.customizeSessionData`, `session.customizeTokenPayload`, `session.onCreated`, `session.onRefreshed`, `session.onRevoked` |
+| **Authorization** | `authorization.resolveRoles`, `authorization.resolvePermissions` |
+| **Guards** | `guards.beforeAuth`, `guards.afterAuth` |
+| **Per-user data on the session** | `user.getSessionUserData`, `user.sensitiveFields` |
+| **Errors** | `errorHandler(error, context)` |
+| **Per-request config** | `resolveConfig(context)` |
+| **Public client config** | `clientConfig.factory` |
+| **Crypto** | `password.hash`, `password.verify`, `otp.generate` |
+| **Audit** | `audit.onEvent` |
+
+## Common pitfalls
+
+### Listener succeeds but transaction rolled back
+
+If the signup transaction fails *after* `UserRegisteredEvent` fires, your listener has already created the `AppUser` row — but the parent `NestAuthUser` is gone. Two ways out:
+
+1. **Make the listener idempotent.** Use the `authUserId` as a unique key; on the next signup retry, the listener no-ops if the row already exists.
+2. **Defer the work.** Have the listener enqueue a job; let the queue consumer create the `AppUser` after the signup transaction has fully committed.
+
+### A listener throws and breaks the response
+
+`@OnEvent` is async-safe — a thrown error in a listener is caught and logged but does *not* break the response. If you want the auth flow to fail when a listener fails, do that work inside a hook (`registrationHooks.onSignup`), not a listener.
+
+### Multiple listeners for the same event
+
+That's fine. NestJS's event emitter dispatches in registration order. Listeners can run in parallel — don't depend on order between them.
+
+## Related
+
+- [Hooks Reference](/docs/backend/hooks-reference) — the full hook timeline.
+- [Backend Events](/docs/backend/events) — every event class and field.
+- [user-registered listener recipe](/docs/recipes/user-registered-listener).
+- [Sending Emails](/docs/production/sending-emails) / [Sending SMS](/docs/production/sending-sms).

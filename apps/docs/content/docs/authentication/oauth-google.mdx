@@ -1,0 +1,129 @@
+---
+title: Google OAuth
+description: Sign in with Google — supports both ID-token and access-token flows.
+---
+
+Google sign-in is delegated to the frontend (or a popup library like `@react-oauth/google`). Once you have either an **ID token** or an **access token** from Google, you send it to the backend along with which kind it is.
+
+## Server config
+
+```ts
+NestAuthModule.forRoot({
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    redirectUri: process.env.GOOGLE_REDIRECT_URI,    // optional, only for server-side OAuth code flow
+  },
+});
+```
+
+Install the optional peer:
+
+```bash
+pnpm add google-auth-library
+```
+
+## Endpoint
+
+`POST /auth/login`
+
+```jsonc
+{
+  "providerName": "google",
+  "credentials": {
+    "token": "<the token from Google>",
+    "type": "idToken"        // or "accessToken" — defaults to "idToken"
+  }
+}
+```
+
+| `type`        | What `token` should be                              | Verification path on the server |
+|---------------|------------------------------------------------------|---------------------------------|
+| `idToken` (default) | Google-signed JWT (`response.credential` from `@react-oauth/google`'s `GoogleLogin`, or `id_token` from your OAuth exchange) | `OAuth2Client.verifyIdToken({ idToken, audience: clientId })` — fully offline, signature-verified against Google's public keys |
+| `accessToken` | OAuth 2.0 bearer access token (e.g. `ya29.…` from a `googleapis` `getAccessToken()` or `@react-oauth/google`'s `useGoogleLogin({ flow: 'implicit' })`) | `OAuth2Client.getTokenInfo(token)` for validation, then a request to `https://www.googleapis.com/oauth2/v3/userinfo` for the profile |
+
+If `type` is omitted, the library defaults to `idToken`. If you pass an access token without setting `type: 'accessToken'`, validation fails with `INVALID_CREDENTIALS`.
+
+See the live schema and examples on the endpoint page: [`POST /auth/login`](/docs/api-reference/(generated)/auth/post-auth-login).
+
+## Client call — ID token (recommended)
+
+```tsx
+import { GoogleLogin } from '@react-oauth/google';
+import { useNestAuth } from '@ackplus/nest-auth-react';
+
+function GoogleSignIn() {
+  const { login } = useNestAuth();
+
+  return (
+    <GoogleLogin
+      onSuccess={async (response) => {
+        await login({
+          providerName: 'google',
+          credentials: {
+            token: response.credential!,
+            type: 'idToken',
+          },
+        });
+      }}
+    />
+  );
+}
+```
+
+`response.credential` from `<GoogleLogin>` is already an ID token — that's the simplest, lowest-latency path because the server verifies it offline.
+
+## Client call — access token
+
+Use this when you need to call other Google APIs (Drive, Calendar, …) on the user's behalf and you've already obtained an access token.
+
+```tsx
+import { useGoogleLogin } from '@react-oauth/google';
+
+const login = useGoogleLogin({
+  flow: 'implicit',
+  scope: 'openid email profile',
+  onSuccess: async (tokenResp) => {
+    await client.login({
+      providerName: 'google',
+      credentials: {
+        token: tokenResp.access_token,
+        type: 'accessToken',
+      },
+    });
+  },
+});
+```
+
+The library validates the access token with Google and pulls profile data from the userinfo endpoint.
+
+## What the library does
+
+1. Reads `credentials.type` (defaults to `idToken`).
+2. **ID token path:** `verifyIdToken` against Google's public keys, with `audience` pinned to your `clientId`. Stateless, fast.
+3. **Access token path:** `getTokenInfo` for validation, then `GET https://www.googleapis.com/oauth2/v3/userinfo` for the profile.
+4. Looks up `nest_auth_identities` for `provider='google'` + `providerId=<sub>`. If found, logs the existing user in.
+5. If not found and `registration.enabled !== false`, creates a new `NestAuthUser` plus an identity row.
+6. Emits `UserRegisteredEvent` (on first login) and `UserLoggedInEvent` (always).
+
+## MFA on Google sign-in
+
+Google accounts have their own 2FA. The library skips its own MFA challenge for Google logins — `GoogleAuthProvider` sets `skipMfa = true` because the user already proved who they are with Google. Override with a `loginHooks.onLogin` hook if your policy still requires app-level MFA after a Google sign-in.
+
+## Linking to an existing email account
+
+If a user signed up with email/password and later clicks "Sign in with Google" using the same email, the default behavior is to link the Google identity to the existing user. Override via `registrationHooks.beforeSignup` if you want a different policy.
+
+## Common errors
+
+| Error code | Likely cause |
+|---|---|
+| `INVALID_CREDENTIALS` | Wrong `type`, mismatched audience (Google clientId != configured `clientId`), expired token |
+| `Google authentication is not configured` | The `google` config block isn't set on `NestAuthModule.forRoot({ ... })` |
+| `Google Auth dependency missing: google-auth-library` | The optional peer isn't installed |
+
+## Related
+
+- [`POST /auth/login` reference](/docs/api-reference/(generated)/auth/post-auth-login).
+- [Custom OAuth provider](/docs/authentication/custom-provider).
+- [Account linking recipe](/docs/recipes/link-multiple-providers).

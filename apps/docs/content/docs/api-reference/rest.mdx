@@ -1,0 +1,49 @@
+---
+title: REST Endpoints
+description: Auto-generated from the OpenAPI spec.
+---
+
+The full REST surface is published as an OpenAPI 3 document at [`/api/nest-auth.json`](/api/nest-auth.json). The spec is regenerated on every release from the running NestJS app, so it can never disagree with what the backend actually accepts.
+
+## Browsing the spec
+
+Drop the JSON URL into any OpenAPI viewer:
+
+- [Swagger Editor](https://editor-next.swagger.io/?url=/api/nest-auth.json) — interactive, supports "Try it out".
+- [Redoc](https://redocly.github.io/redoc/?url=/api/nest-auth.json) — single-page reference.
+- VS Code extensions like "OpenAPI (Swagger) Editor".
+
+## Endpoint groups
+
+| Path prefix | Purpose |
+|---|---|
+| `/auth/signup`, `/auth/login`, `/auth/logout`, `/auth/logout-all` | Core auth flows |
+| `/auth/refresh-token` | Token refresh |
+| `/auth/me`, `/auth/verify-session` | Session inspection |
+| `/auth/forgot-password`, `/auth/verify-forgot-password-otp`, `/auth/reset-password`, `/auth/change-password` | Password management |
+| `/auth/send-email-verification`, `/auth/verify-email`, `/auth/send-phone-verification`, `/auth/verify-phone` | Verification |
+| `/auth/passwordless/send` | Passwordless / magic link |
+| `/auth/mfa/challenge`, `/auth/mfa/verify`, `/auth/mfa/setup-totp`, `/auth/mfa/verify-totp-setup`, `/auth/mfa/status`, `/auth/mfa/devices`, `/auth/mfa/toggle`, `/auth/mfa/generate-recovery-code`, `/auth/mfa/reset-totp` | MFA |
+| `/auth/switch-tenant` | Multi-tenancy |
+| `/auth/admin/*` | Admin console |
+
+Every endpoint declares its security scheme — Bearer for header mode, cookie for cookie mode, or both when the server is in auto-detect.
+
+## Generating a typed client
+
+If you want a generated client beyond the official `@ackplus/nest-auth-client`:
+
+```bash
+pnpm dlx openapi-typescript /api/nest-auth.json -o api-types.ts
+```
+
+Or use `openapi-fetch`, `orval`, `swagger-codegen`, etc. Point them at the same JSON.
+
+## Customizing the spec
+
+The library uses `@nestjs/swagger` decorators internally, so the spec includes everything. If you want to hide or rename endpoints in your published version of the spec, post-process the JSON in your build (see `apps/docs/scripts/build-openapi.ts`).
+
+## Related
+
+- [Types reference](/docs/api-reference/types) — the same data, but as TS interfaces.
+- [`AuthClient`](/docs/client/client) — the official typed wrapper.

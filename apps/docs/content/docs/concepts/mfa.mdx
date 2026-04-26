@@ -1,0 +1,108 @@
+---
+title: Multi-Factor Authentication
+description: TOTP, Email OTP, SMS OTP, recovery codes, and trusted devices.
+---
+
+Nest Auth supports four MFA factors out of the box. You can offer one, several, or all four.
+
+## The factors
+
+| Factor | Enum | How it works |
+|---|---|---|
+| **TOTP** | `NestAuthMFAMethodEnum.TOTP` | Authenticator app (Google Authenticator, Authy, 1Password, …). Shared secret, 30-second windows. |
+| **Email OTP** | `NestAuthMFAMethodEnum.EMAIL` | Numeric code emailed to the user. Best fallback when TOTP is unavailable. |
+| **SMS OTP** | `NestAuthMFAMethodEnum.SMS` | Numeric code texted to the user's verified phone. |
+| **Recovery codes** | (built-in) | Single-use codes generated when the user enables MFA. Use only when the primary factor is lost. |
+
+## Configuration
+
+```ts
+import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
+
+NestAuthModule.forRoot({
+  // …
+  mfa: {
+    enabled: true,
+    required: false,                                 // make MFA mandatory
+    methods: [
+      NestAuthMFAMethodEnum.TOTP,
+      NestAuthMFAMethodEnum.EMAIL,
+    ],
+    defaultMethod: NestAuthMFAMethodEnum.TOTP,
+    allowUserToggle: true,                           // users can turn MFA on/off
+    allowMethodSelection: true,                      // users can pick a method
+    trustedDeviceDuration: '14d',                    // how long a "trust this device" lasts
+    totp: { issuer: 'My App', period: 30 },
+    email: { template: 'mfa-code' },
+    sms: { provider: 'twilio', template: 'Your code is {code}' },
+  },
+});
+```
+
+## The MFA challenge flow
+
+1. User submits username + password to `/auth/login`.
+2. Server validates the credentials. If MFA is enabled for the user, the response carries `isRequiresMfa: true` plus a one-shot challenge token (in the access-token slot — but it can't access protected endpoints).
+3. Client calls `POST /auth/mfa/challenge` with the chosen method to send the code (or skips this step for TOTP).
+4. User enters the code. Client calls `POST /auth/mfa/verify` with `{ otp, method, trustDevice? }`.
+5. Server returns the final access + refresh tokens. If `trustDevice: true`, also a `trustToken`.
+
+The JS client wraps all of this:
+
+```ts
+const result = await client.login({ credentials: { email, password } });
+
+if (result.isRequiresMfa) {
+  await client.send2fa('email');
+  const code = await promptUserForCode();
+  await client.verify2fa({ otp: code, method: 'email', trustDevice: true });
+}
+```
+
+## Recovery codes
+
+When a user enables MFA, `POST /auth/mfa/generate-recovery-code` returns a code **once**. The library never returns it again. You must show it to the user immediately and tell them to save it somewhere safe.
+
+If they lose their TOTP device, they call `POST /auth/mfa/reset-totp` with the recovery code — this disables every MFA secret on the account, letting them log in with just their password and re-enroll.
+
+The [MFA recovery codes recipe](/docs/recipes/mfa-recovery-codes) covers the UX in detail.
+
+## Trusted devices
+
+When the user verifies MFA with `trustDevice: true`, the server returns a `trustToken`. The client persists it (default header name `nest_auth_device_trust`, configurable via `mfa.trustDeviceStorageName`). On subsequent logins, the client sends the token in the configured header — if it's valid and not expired, the MFA challenge is skipped for that session.
+
+The duration is set by `mfa.trustedDeviceDuration` (any [`ms`](https://github.com/vercel/ms) string). Each trusted device row lives in `nest_auth_trusted_devices` with `userAgent` and `ipAddress` for audit.
+
+## TOTP enrollment
+
+Users enroll TOTP independently of the login flow:
+
+```ts
+// 1. Get the secret + QR code data URL
+const setup = await client.setupTotp();
+// Render setup.qrCode (data URL) and setup.secret in the UI.
+
+// 2. User scans the QR with their authenticator app, enters the code.
+await client.verifyTotpSetup({ otp: code, secret: setup.secret });
+```
+
+The server verifies the code matches the secret, then marks the device verified. From then on, the user can log in with TOTP codes.
+
+A user can enroll multiple TOTP devices (`listTotpDevices`, `removeTotpDevice`) — useful for users who want a phone *and* a hardware token like a YubiKey.
+
+## `@SkipMfa()`
+
+Some endpoints inside the auth flow itself need to bypass MFA enforcement (e.g. the verify endpoint can't require MFA — that's circular). Annotate them with `@SkipMfa()`:
+
+```ts
+@SkipMfa()
+@Post('mfa/verify')
+verify(@Body() dto: IVerify2faRequest) { … }
+```
+
+## Related
+
+- [Recovery codes recipe](/docs/recipes/mfa-recovery-codes).
+- [Custom trusted-device header recipe](/docs/recipes/custom-trusted-device-header).
+- [Sending Emails](/docs/production/sending-emails) — wiring `TwoFactorCodeSentEvent` to your email provider.
+- [Sending SMS](/docs/production/sending-sms) — same for SMS.

@@ -1,0 +1,50 @@
+---
+title: Recipes
+description: Copy-paste solutions to common problems.
+---
+
+Each recipe is a self-contained, runnable example. Pick one, copy the code, adapt the names — done.
+
+### Extending the auth lifecycle
+
+- [React to a new signup with `UserRegisteredEvent`](/docs/recipes/user-registered-listener) — create your `AppUser`, link a referral, queue a welcome email.
+- [React to login with `UserLoggedInEvent`](/docs/recipes/user-logged-in-listener) — last-login tracking, role sync, audit writes.
+- [Custom OAuth provider](/docs/recipes/custom-oauth-provider) — extend `BaseAuthProvider`.
+- [Extra signup fields with `collectProfileFields`](/docs/recipes/extra-signup-fields).
+- [Pre-built React login / signup / MFA / forgot-password forms](/docs/recipes/react-auth-forms).
+
+### Schema & migration
+
+- [Migrate an existing user table](/docs/recipes/migrate-existing-users).
+
+### Frontend integration
+
+- [Next.js dashboard behind `<RequireRole>`](/docs/recipes/nextjs-protected-dashboard).
+- [Tenant-picker dropdown](/docs/recipes/tenant-switcher).
+- [Remember-this-device with trusted-device tokens](/docs/recipes/remember-this-device).
+
+### Tokens & sessions
+
+- [Custom JWT claims](/docs/recipes/custom-jwt-claims).
+
+### Notifications
+
+- [Single notification service for email + SMS](/docs/recipes/single-notification-service).
+
+### Identity & accounts
+
+- [Link multiple OAuth providers to one account](/docs/recipes/link-multiple-providers).
+- [External role resolver (Okta / Auth0 / custom IDP)](/docs/recipes/external-role-resolver).
+
+### Configuration
+
+- [Per-request config (mobile vs web)](/docs/recipes/per-request-config).
+- [Custom error transformation per flow](/docs/recipes/per-flow-error-transform).
+- [Custom trusted-device header name](/docs/recipes/custom-trusted-device-header).
+
+### Account management
+
+- [Account suspension and reactivation](/docs/recipes/account-suspension).
+- [IP allowlist via `guards.beforeAuth`](/docs/recipes/ip-allowlist-guard).
+- [MFA recovery codes — generate, show, and store](/docs/recipes/mfa-recovery-codes).
+- [`normalizedEmail` / `normalizedPhone` for consistent identity matching](/docs/recipes/normalize-email-phone).

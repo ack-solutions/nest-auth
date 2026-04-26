@@ -1,0 +1,142 @@
+---
+title: Database Setup
+description: Three supported paths for creating the auth tables.
+---
+
+The library ships fourteen TypeORM entities, exported as a bundle:
+
+```ts
+import { NestAuthEntities } from '@ackplus/nest-auth';
+```
+
+You have **three** ways to actually create the tables. Pick whichever matches your team's deploy story.
+
+## Path 1 — `synchronize: true` (development only)
+
+Easiest. Tables are created automatically on app boot from the entity metadata.
+
+```ts
+TypeOrmModule.forRoot({
+  type: 'postgres',
+  url: process.env.DATABASE_URL,
+  entities: [...NestAuthEntities, AppUser],
+  synchronize: process.env.NODE_ENV === 'development',
+});
+```
+
+When `synchronize: true`:
+
+- ✅ First boot creates every auth table.
+- ✅ Adding a column to an entity adds it to the DB on next boot.
+- ⚠️ Removing a column drops it. **Don't use this in production.**
+
+Use this for local dev and ephemeral test environments. Switch to one of the other paths for staging/prod.
+
+## Path 2 — TypeORM migrations
+
+The recommended production path. You let TypeORM diff your entity metadata against the live schema and generate a migration file.
+
+```ts
+// data-source.ts
+import { DataSource } from 'typeorm';
+import { NestAuthEntities } from '@ackplus/nest-auth';
+import { AppUser } from './src/users/entities/app-user.entity';
+
+export default new DataSource({
+  type: 'postgres',
+  url: process.env.DATABASE_URL,
+  entities: [...NestAuthEntities, AppUser],
+  migrations: ['./migrations/*.ts'],
+  synchronize: false,
+});
+```
+
+Generate a migration:
+
+```bash
+pnpm typeorm migration:generate ./migrations/AddNestAuth -d data-source.ts
+```
+
+The generated file contains the full set of `CREATE TABLE`, indexes, and foreign keys. Review it, commit it, and run:
+
+```bash
+pnpm typeorm migration:run -d data-source.ts
+```
+
+When the library version bumps and entities change, `migration:generate` again — TypeORM emits only the diff.
+
+## Path 3 — Copy-paste SQL
+
+For teams that don't want to wire up TypeORM CLI, or that manage migrations with Flyway / Liquibase / Sqitch / handwritten SQL. The library's docs ship a deterministic SQL snapshot per dialect, generated from the entity metadata.
+
+The snapshots live at:
+
+| Dialect | URL |
+|---|---|
+| Postgres | `/sql/postgres.sql` |
+| MySQL | `/sql/mysql.sql` |
+| SQLite | `/sql/sqlite.sql` |
+
+(These are also checked into the docs site at `apps/docs/public/sql/` and regenerated on every release by `apps/docs/scripts/build-sql-snapshots.ts`.)
+
+Paste the snapshot into your migration tool of choice. When the library bumps, diff the new snapshot against your applied schema and write the alteration.
+
+## What gets created
+
+Fourteen tables — see [Entities](/docs/backend/entities) for the full list and field tables.
+
+| Table | Purpose |
+|---|---|
+| `nest_auth_users` | Auth user fields |
+| `nest_auth_sessions` | Active sessions |
+| `nest_auth_identities` | OAuth provider linkage |
+| `nest_auth_access_keys` | API keys |
+| `nest_auth_otps` | One-time codes |
+| `nest_auth_mfa_secrets` | TOTP secrets |
+| `nest_auth_trusted_devices` | MFA bypass tokens |
+| `nest_auth_roles` | RBAC roles |
+| `nest_auth_permissions` | RBAC permissions |
+| `nest_auth_role_permissions` | Role↔permission |
+| `nest_auth_tenants` | Tenants |
+| `nest_auth_user_accesses` | Per-tenant memberships |
+| `nest_auth_platform_accesses` | Cross-tenant staff roles |
+| `nest_auth_admin_users` | Admin console users |
+
+## Recommended indexes
+
+Already shipped on the entities. If you're hand-rolling SQL, make sure these exist:
+
+```sql
+CREATE UNIQUE INDEX nest_auth_users_email_idx     ON nest_auth_users (email);
+CREATE UNIQUE INDEX nest_auth_users_phone_idx     ON nest_auth_users (phone);
+CREATE INDEX        nest_auth_sessions_user_idx   ON nest_auth_sessions (user_id);
+CREATE UNIQUE INDEX nest_auth_identities_pi_idx   ON nest_auth_identities (provider, provider_id);
+CREATE INDEX        nest_auth_otps_user_type_idx  ON nest_auth_otps (user_id, type);
+CREATE UNIQUE INDEX nest_auth_user_access_ut_idx  ON nest_auth_user_accesses (user_id, tenant_id);
+CREATE UNIQUE INDEX nest_auth_access_keys_pub_idx ON nest_auth_access_keys (public_key);
+```
+
+## Foreign keys
+
+`nest_auth_user.id` is referenced (with `ON DELETE CASCADE`) by:
+
+- `nest_auth_sessions.user_id`
+- `nest_auth_identities.user_id`
+- `nest_auth_otps.user_id`
+- `nest_auth_mfa_secrets.user_id`
+- `nest_auth_access_keys.user_id`
+- `nest_auth_trusted_devices.user_id`
+- `nest_auth_user_accesses.user_id`
+- `nest_auth_platform_accesses.user_id`
+
+Deleting a user removes everything attached to them. Match this on your `AppUser` table — see [User Model](/docs/concepts/user-model).
+
+## Seeding
+
+The example app under `apps/example-nest/seeder.config.js` shows a simple seeder for dev users. For production, seed via a one-shot migration that calls your `UserService` rather than inserting raw rows — that way password hashing and event emission run.
+
+## Next
+
+- [Environment & Secrets](/docs/getting-started/environment-and-secrets).
+- [Quickstart — Backend](/docs/getting-started/quickstart-backend).
+- [Entities](/docs/backend/entities) — column-level details.

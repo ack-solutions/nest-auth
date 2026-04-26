@@ -1,0 +1,103 @@
+---
+title: Storage Adapters
+description: Where header-mode tokens live on the client.
+---
+
+In header mode the client needs to persist tokens somewhere across page reloads. `StorageAdapter` is a tiny interface — pick one of the four built-ins or write your own.
+
+## The contract
+
+```ts
+interface StorageAdapter {
+  get(key: string):    Promise<string | null> | string | null;
+  set(key: string, v): Promise<void> | void;
+  remove(key: string): Promise<void> | void;
+  clear?():            Promise<void> | void;
+}
+```
+
+Any sync or async store works.
+
+## Built-ins
+
+### `MemoryStorage` (default)
+
+In-memory `Map`. Tokens are lost on refresh. SSR-safe (returns `null` on the server). Use this for tests and prototypes.
+
+```ts
+import { MemoryStorage } from '@ackplus/nest-auth-client';
+
+new AuthClient({ baseUrl, storage: new MemoryStorage() });
+```
+
+### `LocalStorageAdapter`
+
+Browser `localStorage`. Persists across tabs and page reloads. SSR-safe.
+
+```ts
+import { LocalStorageAdapter } from '@ackplus/nest-auth-client';
+
+new AuthClient({
+  baseUrl,
+  storage: new LocalStorageAdapter('myapp_'),    // optional key prefix
+});
+```
+
+**Security trade-off:** `localStorage` is readable by any JS in the page — if your app has an XSS hole, the tokens are leaked. Cookie mode (`accessTokenType: 'cookie'` with HttpOnly cookies) is the only fully-XSS-resistant option.
+
+### `SessionStorageAdapter`
+
+Browser `sessionStorage`. Same shape as `LocalStorageAdapter` but cleared on tab close.
+
+### `CookieStorageAdapter`
+
+Stores tokens in **non-HttpOnly** cookies. Useful when you want JS-readable cookies (e.g. server-component reads), but does *not* protect against XSS — for true HttpOnly cookies, switch to `accessTokenType: 'cookie'` mode and let the server set the cookies.
+
+```ts
+new CookieStorageAdapter({
+  path: '/',
+  domain: '.example.com',
+  secure: true,
+  sameSite: 'lax',
+  maxAge: 60 * 60 * 24 * 7,      // 7 days
+});
+```
+
+## React Native
+
+Pass an adapter that wraps `AsyncStorage`:
+
+```ts
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { StorageAdapter } from '@ackplus/nest-auth-client';
+
+const RNStorage: StorageAdapter = {
+  get: (k) => AsyncStorage.getItem(k),
+  set: (k, v) => AsyncStorage.setItem(k, v),
+  remove: (k) => AsyncStorage.removeItem(k),
+  clear: () => AsyncStorage.clear(),
+};
+
+new AuthClient({ baseUrl, storage: RNStorage });
+```
+
+## Custom adapter
+
+Anything that satisfies the four-method contract. Encrypt-at-rest, server-side, secure-element… up to you. The library doesn't care.
+
+## Storage keys
+
+The client writes these keys (prefixed with the adapter's prefix, if any):
+
+- `access_token`
+- `refresh_token`
+- `expires_at`
+- `trust_token`
+- `session`
+
+If you're sharing storage with another library, prefix your adapter to avoid collisions.
+
+## Related
+
+- [Config](/docs/client/config).
+- [Sessions & Tokens](/docs/concepts/sessions-and-tokens).

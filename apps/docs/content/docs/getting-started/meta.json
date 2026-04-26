@@ -1,0 +1,14 @@
+{
+  "title": "Getting Started",
+  "pages": [
+    "index",
+    "installation",
+    "setup-checklist",
+    "database-setup",
+    "environment-and-secrets",
+    "quickstart-backend",
+    "quickstart-react",
+    "quickstart-nextjs",
+    "quickstart-vanilla"
+  ]
+}

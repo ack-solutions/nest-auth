@@ -1,0 +1,59 @@
+---
+title: Custom trusted-device header name
+description: 'Rename `nest_auth_device_trust` to match your app''s conventions.'
+---
+
+Default header name: `nest_auth_device_trust`. If you'd rather call it `x-app-trust-token` (or anything else), change it in three places — server, client, CORS.
+
+## Server
+
+```ts
+NestAuthModule.forRoot({
+  mfa: {
+    enabled: true,
+    trustDeviceStorageName: 'x-app-trust-token',
+  },
+});
+```
+
+## Client
+
+```ts
+new AuthClient({
+  baseUrl: 'https://api.example.com',
+  trustDeviceHeaderName: 'x-app-trust-token',
+});
+```
+
+## CORS
+
+Make sure preflight allows the new name:
+
+```ts
+app.enableCors({
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'x-access-token-type',
+    'x-app-trust-token',          // <-- new name
+  ],
+});
+```
+
+If you forget the CORS step, the browser silently strips the header and trusted-device login appears to never work.
+
+## Why rename
+
+- **Brand consistency** — your other custom headers might already use `x-app-*`.
+- **Conflict avoidance** — if some upstream proxy filters by name pattern.
+- **Versioning** — bumping the name forces all clients to rotate trust tokens (everyone re-MFAs once).
+
+## Don't rename mid-deploy
+
+Existing users have the old header value persisted in their storage. If the server changes the expected name before they get a new token, they'll silently fall off the trusted-device list (one extra MFA prompt per user). Acceptable, but plan for it.
+
+## Related
+
+- [MFA](/docs/concepts/mfa).
+- [CORS & Security](/docs/production/cors-and-security).
+- [Remember-this-device recipe](/docs/recipes/remember-this-device).

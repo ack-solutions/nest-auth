@@ -1,0 +1,170 @@
+---
+title: Sending Emails
+description: Wire auth events to Resend, SendGrid, AWS SES, or Postmark.
+---
+
+Nest Auth never sends an email itself. It generates the codes and tokens, then emits an event. **Your listener delivers the message.**
+
+## Events that emit emails
+
+| Event | When | Has |
+|---|---|---|
+| `EmailVerificationRequestedEvent` | User signs up or asks to verify | `user`, `code` |
+| `PasswordResetRequestedEvent` | User clicks "forgot password" | `user`, `code` |
+| `PasswordlessCodeRequestedEvent` (channel: `'email'`) | Passwordless / magic-link send | `identifier`, `code` |
+| `TwoFactorCodeSentEvent` (method: `'email'`) | MFA email-OTP challenge | `user`, `code` |
+| `EmailVerifiedEvent` | After verification succeeds | `user` |
+| `PasswordResetEvent` | After reset succeeds | `user` |
+
+Most apps wire all six in one listener service.
+
+## With Resend
+
+```ts
+// app/notifications/listeners/auth-emails.listener.ts
+import { Injectable } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import { Resend } from 'resend';
+import {
+  NestAuthEvents,
+  EmailVerificationRequestedEvent,
+  PasswordResetRequestedEvent,
+  PasswordlessCodeRequestedEvent,
+  TwoFactorCodeSentEvent,
+} from '@ackplus/nest-auth';
+
+@Injectable()
+export class AuthEmailsListener {
+  private readonly resend = new Resend(process.env.RESEND_API_KEY);
+  private readonly from = 'My App <noreply@example.com>';
+
+  @OnEvent(NestAuthEvents.EMAIL_VERIFICATION_REQUESTED)
+  async onEmailVerification(event: EmailVerificationRequestedEvent) {
+    await this.resend.emails.send({
+      from: this.from,
+      to: event.user.email!,
+      subject: 'Verify your email',
+      html: `<p>Your verification code is <b>${event.code}</b>. It expires in 30 minutes.</p>`,
+    });
+  }
+
+  @OnEvent(NestAuthEvents.PASSWORD_RESET_REQUESTED)
+  async onPasswordReset(event: PasswordResetRequestedEvent) {
+    const url = `${process.env.APP_URL}/reset-password?token=${event.code}`;
+    await this.resend.emails.send({
+      from: this.from,
+      to: event.user.email!,
+      subject: 'Reset your password',
+      html: `<a href="${url}">Reset your password</a> — link expires in 30 minutes.`,
+    });
+  }
+
+  @OnEvent(NestAuthEvents.PASSWORDLESS_CODE_REQUESTED)
+  async onPasswordlessCode(event: PasswordlessCodeRequestedEvent) {
+    if (event.channel !== 'email') return;
+    await this.resend.emails.send({
+      from: this.from,
+      to: event.identifier,
+      subject: 'Your sign-in code',
+      html: `<p>Code: <b>${event.code}</b>. It expires in 10 minutes.</p>`,
+    });
+  }
+
+  @OnEvent(NestAuthEvents.TWO_FACTOR_CODE_SENT)
+  async on2faCode(event: TwoFactorCodeSentEvent) {
+    if (event.method !== 'email') return;
+    await this.resend.emails.send({
+      from: this.from,
+      to: event.user.email!,
+      subject: 'Your two-factor code',
+      html: `<p>Code: <b>${event.code}</b>.</p>`,
+    });
+  }
+}
+```
+
+Register the listener in your module:
+
+```ts
+@Module({
+  providers: [AuthEmailsListener],
+})
+```
+
+## With SendGrid
+
+```ts
+import sgMail from '@sendgrid/mail';
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+@OnEvent(NestAuthEvents.EMAIL_VERIFICATION_REQUESTED)
+async onEmailVerification(event: EmailVerificationRequestedEvent) {
+  await sgMail.send({
+    to: event.user.email,
+    from: 'noreply@example.com',
+    templateId: 'd-1234abcd...',
+    dynamicTemplateData: { code: event.code },
+  });
+}
+```
+
+## With AWS SES
+
+```ts
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+
+const ses = new SESClient({ region: 'us-east-1' });
+
+@OnEvent(NestAuthEvents.EMAIL_VERIFICATION_REQUESTED)
+async onEmailVerification(event) {
+  await ses.send(new SendEmailCommand({
+    Source: 'noreply@example.com',
+    Destination: { ToAddresses: [event.user.email] },
+    Message: {
+      Subject: { Data: 'Verify your email' },
+      Body: { Html: { Data: `Your code: <b>${event.code}</b>` } },
+    },
+  }));
+}
+```
+
+## Templates
+
+Hard-coded HTML works for the first version, but break out templates as soon as you have more than two emails:
+
+- React Email + Resend (compose with JSX, render on the server).
+- MJML for cross-client rendering.
+- Provider-hosted templates (SendGrid, Postmark) for marketing teams to edit without redeploying.
+
+## Don't block the response
+
+Listeners run async — the auth response returns regardless of whether your email send completes. **Don't `await` slow operations** if you want fast logins. Push the actual send into a queue:
+
+```ts
+@OnEvent(NestAuthEvents.PASSWORDLESS_CODE_REQUESTED)
+async queueEmail(event) {
+  await this.emailQueue.add('passwordless-code', event);
+  // returns immediately; the worker actually sends
+}
+```
+
+This also makes retries trivial.
+
+## Testing without sending
+
+In tests, swap your real provider for a mock:
+
+```ts
+@Module({
+  providers: [
+    { provide: AuthEmailsListener, useClass: MockAuthEmailsListener },
+  ],
+})
+```
+
+Or no-op the whole listener — your unit tests for the auth flow shouldn't depend on email delivery succeeding.
+
+## Related
+
+- [Sending SMS](/docs/production/sending-sms) — same pattern for the phone equivalents.
+- [Events reference](/docs/backend/events) — every emitted event with payload.

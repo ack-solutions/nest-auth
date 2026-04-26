@@ -1,0 +1,78 @@
+---
+title: 'IP allowlist via `guards.beforeAuth`'
+description: Lock down auth-protected endpoints to known IPs.
+---
+
+For internal admin APIs, sometimes the simplest extra layer is "only my office network can talk to this." `guards.beforeAuth` runs on every authenticated request and can short-circuit with a structured rejection.
+
+```ts
+NestAuthModule.forRoot({
+  // …
+  guards: {
+    beforeAuth(request) {
+      const path = request.path;
+
+      // Only enforce on admin routes
+      if (!path.startsWith('/admin')) return;
+
+      const ip = request.headers['x-forwarded-for']?.split(',')[0]?.trim()
+                 ?? request.ip;
+
+      if (!OFFICE_CIDRS.some((cidr) => isIpInCidr(ip, cidr))) {
+        return { reject: true, reason: 'ip_blocked' };
+      }
+    },
+  },
+});
+
+const OFFICE_CIDRS = [
+  '203.0.113.0/24',
+  '198.51.100.42/32',
+];
+```
+
+The guard turns the rejection into a `403 IP_BLOCKED` response — handle it on the frontend or just let it 403.
+
+## Why a hook, not middleware
+
+You could do the same with a plain NestJS middleware. Two reasons to put it in `guards.beforeAuth`:
+
+1. The library logs the rejection through the same path as other auth failures, so it shows up in your audit hook.
+2. The reason string surfaces in the error response, which is what the frontend reacts to.
+
+If you don't need either, plain middleware is fine.
+
+## Per-tenant or per-user allowlists
+
+```ts
+guards: {
+  async beforeAuth(request) {
+    const tenantId = await this.tenantResolver.fromRequest(request);
+    const allowlist = await this.allowlists.forTenant(tenantId);
+    if (allowlist?.length && !allowlist.includes(request.ip)) {
+      return { reject: true, reason: 'tenant_ip_restricted' };
+    }
+  },
+},
+```
+
+Watch out: this runs on every request — keep the lookup fast. Cache the allowlist with a short TTL.
+
+## `afterAuth` for user-specific checks
+
+`beforeAuth` runs **before** auth. `afterAuth` runs after, so it sees `request.user`. Use this for per-user IP locking:
+
+```ts
+guards: {
+  async afterAuth(request, user) {
+    if (user.metadata?.lockedToIp && user.metadata.lockedToIp !== request.ip) {
+      return { reject: true, reason: 'ip_lock_mismatch' };
+    }
+  },
+},
+```
+
+## Related
+
+- [Hooks Reference](/docs/backend/hooks-reference).
+- [Error codes](/docs/backend/error-codes).

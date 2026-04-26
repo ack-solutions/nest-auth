@@ -1,0 +1,62 @@
+---
+title: Events
+description: Subscribing to client-side auth events.
+---
+
+The client fires events whenever auth state changes. Subscribe with `client.onX(callback)` — every method returns an unsubscribe function.
+
+## Event reference
+
+| Method | Fires when | Callback signature |
+|---|---|---|
+| `onTokensSet` | Tokens are stored (login / signup / refresh / restore from storage) | `(tokens: { accessToken; refreshToken; trustToken? }) => void \| Promise<void>` |
+| `onTokenRefreshed` | Auto-refresh succeeds | `(tokens: { accessToken; refreshToken }) => void` |
+| `onTokensRemoved` | Tokens are cleared | `() => void \| Promise<void>` |
+| `onLogout` | Logout completes | `() => void` |
+| `onError` | Any auth error surfaces | `(err: AuthError) => void` |
+| `onSessionVerified` | A `verifySession` call returns valid | `() => void` |
+| `onRefreshSessionData` | Caller asks for a fresh `getSessionUserData` | `() => void` |
+
+## Using them
+
+```ts
+const unsubscribe = client.onTokenRefreshed((tokens) => {
+  // Sync your global axios instance, websocket, etc.
+  myWebsocket.updateAuth(tokens.accessToken);
+});
+
+// Later:
+unsubscribe();
+```
+
+## Async callbacks
+
+`onTokensSet` and `onTokensRemoved` accept `Promise`-returning callbacks and the client will `await` them before resolving the originating action. Use this if you need to update other infrastructure (a global HTTP client, a service worker) before signaling success.
+
+```ts
+client.onTokensSet(async (tokens) => {
+  await broadcastToWorkers(tokens.accessToken);
+});
+```
+
+## Direct emitter access
+
+If you need more control — `once()`, multiple events at once, custom event names — the lower-level `EventEmitter` class is exported:
+
+```ts
+import { createAuthEventEmitter } from '@ackplus/nest-auth-client';
+
+const emitter = createAuthEventEmitter();
+emitter.once('logout', () => console.log('first logout!'));
+```
+
+You won't typically need this — `client.onX()` is the public API.
+
+## Server events vs client events
+
+Server-side, the [event emitter](/docs/concepts/events-and-hooks) covers auth lifecycle on the backend. Client events are a much smaller surface — they're about local token state, not user lifecycle. If you want to react to "user signed up", listen to the server event in your backend; the client will simply receive the response.
+
+## Related
+
+- [`AuthClient`](/docs/client/client) — every method that fires these events.
+- [Server events](/docs/backend/events).

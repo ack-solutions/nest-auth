@@ -1,0 +1,106 @@
+---
+title: Sending SMS
+description: Wire phone-related events to Twilio or MessageBird.
+---
+
+Same model as [Sending Emails](/docs/production/sending-emails) — the library generates the code, your listener delivers it. SMS is just a different transport.
+
+## Events that emit SMS
+
+| Event | When | Has |
+|---|---|---|
+| `PhoneVerificationRequestedEvent` | User verifies phone | `user`, `code` |
+| `PasswordlessCodeRequestedEvent` (channel: `'sms'`) | Passwordless via SMS | `identifier`, `code` |
+| `TwoFactorCodeSentEvent` (method: `'sms'`) | MFA SMS challenge | `user`, `code` |
+
+## With Twilio
+
+```ts
+// app/notifications/listeners/auth-sms.listener.ts
+import { Injectable } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import twilio from 'twilio';
+import {
+  NestAuthEvents,
+  PhoneVerificationRequestedEvent,
+  PasswordlessCodeRequestedEvent,
+  TwoFactorCodeSentEvent,
+} from '@ackplus/nest-auth';
+
+@Injectable()
+export class AuthSmsListener {
+  private readonly client = twilio(
+    process.env.TWILIO_ACCOUNT_SID!,
+    process.env.TWILIO_AUTH_TOKEN!,
+  );
+  private readonly from = process.env.TWILIO_FROM_NUMBER!;
+
+  @OnEvent(NestAuthEvents.PHONE_VERIFICATION_REQUESTED)
+  async onPhoneVerification(event: PhoneVerificationRequestedEvent) {
+    await this.client.messages.create({
+      from: this.from,
+      to: event.user.phone!,
+      body: `Your verification code is ${event.code}.`,
+    });
+  }
+
+  @OnEvent(NestAuthEvents.PASSWORDLESS_CODE_REQUESTED)
+  async onPasswordlessCode(event: PasswordlessCodeRequestedEvent) {
+    if (event.channel !== 'sms') return;
+    await this.client.messages.create({
+      from: this.from,
+      to: event.identifier,
+      body: `Sign in code: ${event.code}`,
+    });
+  }
+
+  @OnEvent(NestAuthEvents.TWO_FACTOR_CODE_SENT)
+  async on2faCode(event: TwoFactorCodeSentEvent) {
+    if (event.method !== 'sms') return;
+    await this.client.messages.create({
+      from: this.from,
+      to: event.user.phone!,
+      body: `Your two-factor code: ${event.code}`,
+    });
+  }
+}
+```
+
+## With MessageBird
+
+```ts
+import { initClient } from 'messagebird';
+const mb = initClient(process.env.MESSAGEBIRD_API_KEY);
+
+mb.messages.create({
+  originator: process.env.MESSAGEBIRD_ORIGINATOR,
+  recipients: [event.user.phone],
+  body: `Your code: ${event.code}`,
+});
+```
+
+## Phone number format
+
+Use E.164 (`+15551234567`). The library exports `normalizedPhone(phone)` — call it on user input before storing or sending. See the [normalize-email-phone recipe](/docs/recipes/normalize-email-phone).
+
+## Carrier filtering / international rules
+
+Twilio (and other providers) require advance registration for sending to certain countries. SMS-deliverability is more fragile than email — if your user base is global:
+
+- Use a different sender ID per region.
+- Allow users to switch to email OTP if SMS fails.
+- Surface delivery failures back through the audit hook.
+
+## Don't store messages
+
+Logs of plaintext OTP codes are a breach waiting to happen. Don't `console.log(event.code)` in production, don't include it in error reports, and confirm your provider isn't archiving the body text long-term.
+
+## Testing without sending
+
+Swap the listener for a mock in tests, exactly like the email pattern.
+
+## Related
+
+- [Sending Emails](/docs/production/sending-emails).
+- [MFA](/docs/concepts/mfa) — how the SMS challenge fits into login.
+- [normalize-email-phone recipe](/docs/recipes/normalize-email-phone).

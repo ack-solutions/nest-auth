@@ -1,0 +1,127 @@
+---
+title: Decorators
+description: 'Every decorator exported from `@ackplus/nest-auth`.'
+---
+
+## Auth decorators
+
+### `@Auth(optional?: boolean)`
+
+Marks a route as requiring authentication. Pass `true` to make auth optional — if the user is logged in, request context is populated; if not, the route still runs.
+
+```ts
+@Auth()                      // required — 401 if unauthenticated
+@Auth(true)                  // optional
+```
+
+Pairs with `NestAuthAuthGuard` — apply that guard once globally, and use `@Auth()` and `@Public()` to opt routes in or out.
+
+### `@Public()`
+
+Bypass auth on a specific route. Useful when the global guard is `NestAuthAuthGuard` and you have a handful of unauthenticated endpoints (`/health`, `/auth/login`).
+
+```ts
+@Public()
+@Get('/health')
+health() { return 'ok'; }
+```
+
+### `@SkipMfa()`
+
+Bypass MFA enforcement on a specific route. Used on `/auth/mfa/verify` itself (the verify endpoint can't require MFA — that's circular).
+
+## Authorization decorators
+
+### `@NestAuthRoles(roles, guard?)`
+
+Require one of the listed roles.
+
+```ts
+@NestAuthRoles(['admin', 'editor'])              // ANY of these (default)
+@NestAuthRoles(['admin', 'editor'], 'api')       // explicitly target the 'api' guard
+@NestAuthRoles('admin')                          // single role, shorthand
+```
+
+When `roleGuards: ['web', 'api']` is configured, omitting the second arg targets the first (the "default") guard.
+
+### `@NestAuthPermissions(permissions, requireAll?)`
+
+Require one or all of the listed permissions.
+
+```ts
+@NestAuthPermissions(['orders.read'])
+@NestAuthPermissions(['orders.read', 'orders.write'])           // ANY (default)
+@NestAuthPermissions(['orders.read', 'orders.write'], true)     // ALL
+```
+
+## Tenant context decorators
+
+For use in controller method signatures.
+
+| Decorator | Returns |
+|---|---|
+| `@CurrentTenantId()` | `string` — active tenant ID |
+| `@CurrentTenant()` | `NestAuthTenant` — full tenant entity |
+| `@CurrentUserAccess()` | `NestAuthUserAccess` — current user's per-tenant membership row |
+| `@CurrentMembership()` | Alias for `@CurrentUserAccess()` |
+
+```ts
+@Auth()
+@Get()
+list(
+  @CurrentTenantId() tenantId: string,
+  @CurrentUserAccess() access: NestAuthUserAccess,
+) {
+  return this.orders.find({ where: { tenantId } });
+}
+```
+
+## User decorators
+
+### `@CurrentUser()`
+
+Inject the authenticated user. Throws if `@Auth()` isn't applied (or if `@Auth(true)` matched no user).
+
+```ts
+@Auth()
+@Get('/me')
+me(@CurrentUser() user: NestAuthUser) { return user; }
+```
+
+## Admin console decorators
+
+### `@CurrentAdmin()`
+
+Inside admin-console controllers, returns the authenticated admin user.
+
+## Practical patterns
+
+### Apply the guard globally, opt out for public routes
+
+```ts
+// app.module.ts
+providers: [
+  { provide: APP_GUARD, useClass: NestAuthAuthGuard },
+],
+
+// public route somewhere
+@Public()
+@Get('/health')
+```
+
+### Multi-guard role checks
+
+```ts
+@Auth()
+@NestAuthRoles('admin')              // checks the default 'web' guard
+@NestAuthRoles('service', 'api')     // also requires the 'service' role on the 'api' guard
+@Get('/internal')
+```
+
+When both decorators are present, both must pass.
+
+## Related
+
+- [Guards](/docs/backend/guards).
+- [RBAC](/docs/concepts/rbac).
+- [Multi-Tenancy](/docs/concepts/multi-tenancy) — tenant decorators in context.

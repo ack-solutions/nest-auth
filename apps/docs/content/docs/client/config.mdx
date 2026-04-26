@@ -1,0 +1,102 @@
+---
+title: Config
+description: AuthClientConfig reference.
+---
+
+```ts
+new AuthClient({
+  baseUrl: 'https://api.example.com',
+  storage: new LocalStorageAdapter('myapp_'),
+  httpAdapter: new FetchAdapter(),
+  accessTokenType: 'header',
+  autoRefresh: true,
+  refreshThreshold: 60,
+  trustDeviceHeaderName: 'nest_auth_device_trust',
+  logger: { debug, info, warn, error },
+  onTokenRefreshed: (tokens) => {},
+  onLogout: () => {},
+  onError: (err) => {},
+});
+```
+
+## Required
+
+### `baseUrl: string`
+
+Base URL of the backend. Endpoints are appended (`/auth/login`, `/auth/refresh`, …).
+
+## Optional
+
+### `endpoints?: EndpointConfig`
+
+Override individual endpoint paths if your backend mounts them under a different prefix.
+
+```ts
+endpoints: {
+  login: '/api/v2/sign-in',
+  refresh: '/api/v2/refresh',
+  // …all paths in DEFAULT_ENDPOINTS are overrideable
+}
+```
+
+### `accessTokenType?: 'header' | 'cookie' | null`
+
+| Value | Meaning |
+|---|---|
+| `'header'` | Send `Authorization: Bearer <token>` |
+| `'cookie'` | Rely on `credentials: 'include'`; tokens live in HttpOnly cookies |
+| `null` (default) | Auto-detect via the `x-access-token-type` header |
+
+See [Sessions & Tokens](/docs/concepts/sessions-and-tokens) for the full discussion.
+
+### `storage?: StorageAdapter`
+
+Where to persist tokens in header mode. Default is `MemoryStorage` (SSR-safe). Pick `LocalStorageAdapter` for "remember me" persistence, `SessionStorageAdapter` for tab-scoped, `CookieStorageAdapter` for non-HttpOnly cookies. See [Storage Adapters](/docs/client/storage-adapters).
+
+### `httpAdapter?: HttpAdapter`
+
+The HTTP transport. Default is `FetchAdapter`. Use `createAxiosAdapter(axiosInstance)` if you need axios interceptors. See [HTTP Adapters](/docs/client/http-adapters).
+
+### `autoRefresh?: boolean`
+
+Default `true`. When `true`, the client transparently refreshes on 401 and retries the original request once.
+
+### `refreshThreshold?: number`
+
+Seconds before access-token expiry to start a pre-emptive refresh. Default `60`. Set to `0` to disable pre-emptive refresh and only refresh reactively on 401.
+
+### `trustDeviceHeaderName?: string`
+
+Default `'nest_auth_device_trust'`. Must match the server's `mfa.trustDeviceStorageName`. See the [custom-trusted-device-header recipe](/docs/recipes/custom-trusted-device-header) for the production-grade rename pattern.
+
+### `logger?: Logger`
+
+`{ debug, info, warn, error }` — any subset. Defaults to a no-op.
+
+### Callback shortcuts
+
+`onTokenRefreshed`, `onLogout`, `onError` are convenience equivalents to `client.onTokenRefreshed(...)`, etc. Use either style.
+
+## Per-request options
+
+Most client methods accept an `options?: RequestOptions` second argument:
+
+```ts
+interface RequestOptions {
+  timeout?: number;             // ms
+  headers?: Record<string, string>;
+  signal?: AbortSignal;
+  skipRefresh?: boolean;        // don't auto-refresh on 401 for this call
+  skipAuthHeader?: boolean;     // don't attach Authorization
+}
+```
+
+```ts
+const controller = new AbortController();
+await auth.login({ credentials }, { timeout: 10_000, signal: controller.signal });
+```
+
+## Related
+
+- [`AuthClient`](/docs/client/client) — the methods that consume this config.
+- [Storage Adapters](/docs/client/storage-adapters), [HTTP Adapters](/docs/client/http-adapters).

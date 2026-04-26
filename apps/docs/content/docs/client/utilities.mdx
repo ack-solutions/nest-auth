@@ -1,0 +1,85 @@
+---
+title: Utilities
+description: 'Standalone helpers exported from `@ackplus/nest-auth-client`.'
+---
+
+A handful of pure functions — useful inside or outside of `AuthClient`.
+
+## JWT helpers
+
+### `decodeJwt(token) => DecodedJwt | null`
+
+Non-verifying decoder. Reads the payload of a JWT string. Returns `null` for malformed tokens.
+
+```ts
+import { decodeJwt } from '@ackplus/nest-auth-client';
+
+const payload = decodeJwt(accessToken);
+console.log(payload?.userId, payload?.exp);
+```
+
+`DecodedJwt` has the standard claims (`sub`, `exp`, `iat`) plus the library's (`userId`, `sessionId`, `tenantId`).
+
+### `isTokenExpired(token, thresholdSeconds?) => boolean | null`
+
+`null` for invalid input. `thresholdSeconds` optional — `isTokenExpired(token, 60)` returns `true` 60 seconds before actual expiry.
+
+### `getTokenExpirationDate(token) => Date | null` / `getTokenTimeToExpiry(token) => number | null`
+
+Convenience around the same data.
+
+### `getUserIdFromToken(token) => string | null`
+
+Reads `userId`, `sub`, or `user_id` claim — whichever is present.
+
+## Role / permission helpers
+
+```ts
+import {
+  hasRole,
+  hasPermission,
+  hasAnyAccess,
+  hasAllAccess,
+} from '@ackplus/nest-auth-client';
+
+const user = await client.getSessionUserData();
+
+hasRole(user, 'admin');                                 // boolean
+hasRole(user, ['admin', 'editor']);                     // ANY (default)
+hasRole(user, ['admin', 'editor'], true);               // ALL
+
+hasPermission(user, 'orders.read');
+hasPermission(user, ['orders.read', 'orders.write'], true);
+
+hasAnyAccess(user, { roles: ['admin'], permissions: ['orders.read'] });
+hasAllAccess(user, { roles: ['admin'], permissions: ['orders.read'] });
+```
+
+`hasAnyAccess` returns `true` if the user has **any** of the listed roles **or** any of the listed permissions. `hasAllAccess` requires **all**.
+
+## Refresh primitives
+
+These are exported because some apps want to instrument them — typically you don't touch them.
+
+- `RefreshQueue` — prevents N concurrent 401s from triggering N refresh calls.
+- `RetryTracker` — ensures every original request retries at most once.
+
+See [Sessions & Tokens](/docs/concepts/sessions-and-tokens) for how they fit together.
+
+## Event emitter
+
+Re-exported from `@ackplus/nest-auth-client` for advanced cases:
+
+- `EventEmitter` — generic typed emitter.
+- `createAuthEventEmitter()` — returns an emitter typed for `AuthEvents`.
+
+## Identifier normalization
+
+For consistent lookups across email/phone shapes, the **server** exports `normalizedEmail` and `normalizedPhone`. They're not on the client SDK — keep normalization on the server side so the source of truth is the database, not the form.
+
+If you need the same normalization on the client (e.g. to deduplicate before sending), copy the rule into your form layer; don't try to import the server function.
+
+## Related
+
+- [`AuthClient`](/docs/client/client).
+- [RBAC](/docs/concepts/rbac).

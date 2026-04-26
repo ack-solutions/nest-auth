@@ -14,6 +14,14 @@ export class SocialCredentialsDto {
     token: string;
 
 
+    @ApiProperty({
+        description:
+            'How to interpret the supplied token. Required only for Google: `idToken` (default) verifies a Google-signed ID token client-side; `accessToken` calls Google\'s userinfo endpoint with a Bearer access token. Other providers (Facebook, Apple, GitHub) ignore this field.',
+        example: 'idToken',
+        enum: ['idToken', 'accessToken'],
+        default: 'idToken',
+        required: false,
+    })
     @IsOptional()
     @IsString()
     @IsEnum(['idToken', 'accessToken'])

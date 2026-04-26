@@ -1,0 +1,119 @@
+---
+title: 'React to a new signup with `UserRegisteredEvent`'
+description: Create your AppUser, link a referral, queue a welcome email — all in one listener.
+---
+
+The canonical extension. The signup payload is open-ended (`[key: string]: any`), so any field your frontend sends — `firstName`, `referralCode`, `marketingSource` — is on the event payload.
+
+## The listener
+
+```ts
+// app/users/listeners/user-registered.listener.ts
+import { Injectable, Logger } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Queue } from 'bullmq';
+
+import {
+  NestAuthEvents,
+  UserRegisteredEvent,
+} from '@ackplus/nest-auth';
+import { AppUser } from '../entities/app-user.entity';
+import { ReferralService } from '../../referrals/referral.service';
+
+@Injectable()
+export class UserRegisteredListener {
+  private readonly log = new Logger(UserRegisteredListener.name);
+
+  constructor(
+    @InjectRepository(AppUser)
+    private readonly appUsers: Repository<AppUser>,
+    private readonly referrals: ReferralService,
+    @InjectQueue('email') private readonly emailQueue: Queue,
+  ) {}
+
+  @OnEvent(NestAuthEvents.REGISTERED)
+  async handle(event: UserRegisteredEvent) {
+    const { user, payload } = event;
+
+    // 1. Create the AppUser row
+    const appUser = this.appUsers.create({
+      authUserId: user.id,
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      avatarUrl: payload.avatarUrl,
+    });
+
+    // 2. Handle referral
+    if (payload.referralCode) {
+      const referrer = await this.appUsers.findOne({
+        where: { referralCode: payload.referralCode },
+      });
+      if (referrer) {
+        appUser.referredById = referrer.id;
+        await this.referrals.creditReferrer(referrer.id, user.id);
+      } else {
+        this.log.warn(`unknown referral code ${payload.referralCode} on signup ${user.id}`);
+      }
+    }
+
+    await this.appUsers.save(appUser);
+
+    // 3. Fan out side effects (don't await — let the queue handle them)
+    await this.emailQueue.add('welcome', { userId: user.id });
+  }
+}
+```
+
+## Register it
+
+```ts
+// app/users/users.module.ts
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { BullModule } from '@nestjs/bullmq';
+
+import { AppUser } from './entities/app-user.entity';
+import { UserRegisteredListener } from './listeners/user-registered.listener';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([AppUser]),
+    BullModule.registerQueue({ name: 'email' }),
+  ],
+  providers: [UserRegisteredListener],
+})
+export class UsersModule {}
+```
+
+Make sure `EventEmitterModule.forRoot()` is in `AppModule` imports — without it, no listener fires.
+
+## Idempotency
+
+If the signup transaction succeeds but a downstream step fails and the user retries, the listener may run twice. Make the AppUser save idempotent:
+
+```ts
+const existing = await this.appUsers.findOne({ where: { authUserId: user.id } });
+if (existing) return;          // already handled
+
+await this.appUsers.save(appUser);
+```
+
+Alternative: put a unique constraint on `authUserId` and let the DB reject duplicates.
+
+## Want the welcome email immediately, not via queue?
+
+Move the send call into the listener directly:
+
+```ts
+await this.email.send(user.email, 'welcome', { firstName: payload.firstName });
+```
+
+But know the trade-off: a slow email provider now delays the signup response. Most apps prefer the queue.
+
+## Related
+
+- [User Model](/docs/concepts/user-model) — the `NestAuthUser` ↔ `AppUser` pattern.
+- [Events & Hooks](/docs/concepts/events-and-hooks).
+- [Sending Emails](/docs/production/sending-emails).

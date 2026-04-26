@@ -1,0 +1,109 @@
+---
+title: Logging & Debugging
+description: 'DebugLoggerService and the `debug` config.'
+---
+
+Nest Auth ships with a conditional debug logger. By default it's silent; flip it on per area when you need to see what the library is doing.
+
+## Enabling
+
+```ts
+NestAuthModule.forRoot({
+  // …
+  debug: {
+    enabled: true,
+    level: 'debug',          // 'verbose' | 'debug' | 'warn' | 'error'
+    areas: ['auth', 'mfa', 'session', 'guard'],   // or '*'
+  },
+});
+```
+
+When `debug.enabled` is `false` (the default), the logger emits nothing — there's zero overhead in production.
+
+## What gets logged
+
+Per area:
+
+| Area | What |
+|---|---|
+| `auth` | Signup / login / logout / refresh decisions, hook results |
+| `mfa` | MFA challenges, verification, trusted-device decisions |
+| `session` | Session create / refresh / revoke, store hits/misses |
+| `guard` | Per-request guard decisions (which decorator matched, role/permission outcomes) |
+| `provider` | OAuth provider validation flow |
+| `tenant` | Tenant resolution per request |
+
+Useful for chasing "why is this user getting 401?" — turn on `guard` and `auth` and you'll see the exact rejection reason.
+
+## Using the logger from your code
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { DebugLoggerService } from '@ackplus/nest-auth';
+
+@Injectable()
+export class MyService {
+  constructor(private readonly debug: DebugLoggerService) {}
+
+  doStuff() {
+    this.debug.log('app', 'doing stuff');
+    this.debug.warn('app', 'something fishy');
+    this.debug.error('app', 'broken', err);
+  }
+}
+```
+
+The first arg is the area; gate it the same way the library does so consumers can scope debug output.
+
+## What does NOT get logged
+
+- Passwords, password hashes.
+- Plaintext OTP codes.
+- Refresh tokens.
+- Access tokens (other than a fingerprint).
+
+If you patch the library to log secrets in dev, **never** ship that change.
+
+## Operational logs vs debug logs
+
+The library's own controllers also log via the standard NestJS `Logger`. Those are operational — connection errors, malformed input, etc. They're always on and go through whatever logger transport you've configured (Pino, Winston, console).
+
+The debug logger is *additional* output, off by default, intended for diagnosis.
+
+## What to log to your APM
+
+In production, log shape per request:
+
+```jsonc
+{
+  "level": "info",
+  "msg": "auth.login",
+  "userId": "u_abc",
+  "tenantId": "t_xyz",
+  "provider": "email",
+  "mfaRequired": false,
+  "ms": 45,
+  "ip": "203.0.113.42",
+}
+```
+
+The audit hook (`audit.onEvent`) is the recommended place to construct these — see [Audit Logging](/docs/concepts/audit-logging).
+
+## Common debugging recipes
+
+### "Why is auto-refresh not working?"
+
+Turn on `auth` and `session` debug. You'll see whether the refresh token is rejected, whether the session is missing, or whether the cookie isn't reaching the server (CORS).
+
+### "Why does this guard reject this user?"
+
+Turn on `guard`. Each rejection logs the decorator that failed, the user's resolved roles/permissions, and the route's required set.
+
+### "Why did this OAuth flow fail?"
+
+Turn on `provider`. Logs the provider's response without secrets.
+
+## Related
+
+- [Audit Logging](/docs/concepts/audit-logging).
+- [Production Checklist](/docs/production/production-checklist).

@@ -1,0 +1,108 @@
+---
+title: Production Checklist
+description: Items to tick before sending traffic.
+---
+
+Run through this before your first production deploy.
+
+## Secrets
+
+- [ ] `JWT_SECRET` is at least 256 bits, in a secrets manager, not in `.env` checked to git.
+- [ ] Refresh-token signing material is separate from `JWT_SECRET` (or use the same with secret rotation in mind).
+- [ ] Rotation plan documented: how to roll the secret without logging everyone out simultaneously.
+- [ ] OAuth client secrets (Google, Facebook, Apple, GitHub) live in the secrets manager, not in code.
+- [ ] `adminConsole.secretKey` is set if the admin console is enabled, and rotated when an operator leaves.
+
+## TLS
+
+- [ ] Backend serves HTTPS only.
+- [ ] HSTS header enabled for the auth host.
+- [ ] `cookieOptions.secure: true` (the default) — never serve auth cookies over plain HTTP.
+
+## Cookies
+
+For cookie-mode sessions:
+
+- [ ] `sameSite: 'lax'` (default) — strict if your app never embeds itself, none if cross-site is intentional.
+- [ ] `httpOnly: true` (default).
+- [ ] `domain` is explicitly set in production (don't rely on the request host).
+- [ ] CORS `Access-Control-Allow-Credentials: true` and explicit origin allowlist (no `*`).
+
+## CORS
+
+- [ ] Required headers in `allowedHeaders`: `Content-Type`, `Authorization`, `x-access-token-type`, the configured `trustDeviceHeaderName` (default `nest_auth_device_trust`).
+- [ ] Preflight (`OPTIONS`) responses cached with `Access-Control-Max-Age`.
+- [ ] If using cookie mode: explicit `origin` allowlist; `credentials: true`.
+
+See [CORS & Security](/docs/production/cors-and-security).
+
+## Rate limiting
+
+- [ ] `@nestjs/throttler` (or equivalent) on `/auth/login`, `/auth/passwordless/send`, `/auth/forgot-password`, `/auth/mfa/challenge`.
+- [ ] Per-IP and per-identifier (so an attacker hitting many usernames from one IP is blocked).
+
+See [Rate Limiting](/docs/production/rate-limiting).
+
+## Sessions
+
+- [ ] `session.storageType` is **not** `MEMORY` — pick DATABASE or REDIS.
+- [ ] If multi-instance: REDIS (or sticky sessions if you really must, but DATABASE is cleaner).
+- [ ] `session.maxSessionsPerUser` set to a reasonable cap (default 10).
+- [ ] Periodic cleanup of expired DB sessions if using `DATABASE`.
+- [ ] Refresh tokens rotated on every refresh (the default).
+
+## MFA
+
+- [ ] `mfa.required: true` for sensitive endpoints (or for all logins in compliance-heavy apps).
+- [ ] Recovery codes documented in your user-facing UX.
+- [ ] Trusted-device duration matches your policy (`trustedDeviceDuration: '14d'` or shorter).
+
+## Email & SMS
+
+- [ ] All six lifecycle events have a listener that delivers (or queues) the message.
+- [ ] No plaintext codes in logs, error reports, or third-party tools.
+- [ ] Async delivery via queue, not inline `await`, so a slow provider can't DoS your auth flow.
+
+See [Sending Emails](/docs/production/sending-emails) / [Sending SMS](/docs/production/sending-sms).
+
+## Audit
+
+- [ ] `audit.enabled: true`.
+- [ ] `audit.onEvent` writes to your durable audit store (not just logs).
+- [ ] Tamper-evident logging if your compliance regime requires it.
+
+## Database
+
+- [ ] `synchronize: false` — schema managed by migrations.
+- [ ] Indexes on `nest_auth_users.email`, `nest_auth_users.phone`, `nest_auth_sessions.userId`, `nest_auth_identities.(provider, providerId)`.
+- [ ] CASCADE delete from `NestAuthUser` is configured (it ships that way; verify it survived your migration).
+- [ ] Backups include all 14 auth tables.
+
+## Application
+
+- [ ] `cookieParser()` middleware is registered before routes.
+- [ ] `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true })` is registered globally.
+- [ ] `AuthExceptionFilter` is registered globally so error responses are structured.
+- [ ] `EventEmitterModule.forRoot()` is in `AppModule` imports — without it, every event silently no-ops.
+- [ ] Helmet / compression configured.
+
+See [Setup Checklist](/docs/getting-started/setup-checklist).
+
+## Monitoring
+
+- [ ] Auth error rate dashboard.
+- [ ] Login latency p95 / p99 dashboard.
+- [ ] Alert on `INVALID_CREDENTIALS` rate spikes (credential-stuffing).
+- [ ] Alert on session-store error rate.
+
+## Incident response
+
+- [ ] Documented runbook for "leaked JWT secret" (rotate secret → all sessions invalid).
+- [ ] Documented runbook for "compromised admin user" (force logout-all → reset MFA → audit).
+- [ ] Tested ability to disable auth methods quickly (e.g. flip `emailAuth.enabled: false` if a CVE hits an OAuth provider).
+
+## Related
+
+- [Setup Checklist](/docs/getting-started/setup-checklist).
+- [Logging & Debugging](/docs/production/logging-and-debugging).
+- [Scaling](/docs/production/scaling).

@@ -1,0 +1,81 @@
+---
+title: Provider
+description: <AuthProvider> and <NextAuthProvider> reference.
+---
+
+`AuthProvider` is the React glue. It owns the auth state, exposes it via context, and forwards calls to an `AuthClient`. Wrap your app once.
+
+## Basic setup
+
+```tsx
+import { AuthClient } from '@ackplus/nest-auth-client';
+import { AuthProvider } from '@ackplus/nest-auth-react';
+
+const client = new AuthClient({ baseUrl: '/api' });
+
+export default function App() {
+  return (
+    <AuthProvider client={client}>
+      <Routes />
+    </AuthProvider>
+  );
+}
+```
+
+## Props
+
+| Prop | Type | Notes |
+|---|---|---|
+| `client` | `AuthClient` | **Required.** The vanilla client this provider wraps. |
+| `initialState` | `InitialAuthState?` | Optional SSR hydration data. |
+| `onUnauthenticated` | `() => void` | Called when the user becomes unauthenticated (e.g. session expired). |
+| `onTokensSet` | `(tokens) => void \| Promise<void>` | Sync-or-async callback. |
+| `onTokensRemoved` | `() => void \| Promise<void>` | Sync-or-async callback. |
+
+`onTokensSet` / `onTokensRemoved` mirror the underlying client events but happen inside the React render cycle, so they're convenient places to call `useNavigate()`-style hooks.
+
+## `<NextAuthProvider>` — Next.js
+
+Adds App-Router-friendly hydration. Pair it with `createNextAuthHelpers` server-side.
+
+```tsx
+// app/layout.tsx (server component)
+import { NextAuthProvider } from '@ackplus/nest-auth-react';
+import { authHelpers, client } from '@/lib/auth';
+
+export default async function RootLayout({ children }) {
+  const initialState = await authHelpers.getServerAuth(cookies());
+
+  return (
+    <html>
+      <body>
+        <NextAuthProvider client={client} initialState={initialState}>
+          {children}
+        </NextAuthProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+When `initialState` is provided, the provider skips the client-side `getSessionUserData` round-trip on first render — the SSR-rendered HTML is already authenticated.
+
+See [Next.js helpers](/docs/react/nextjs) for the matching server-side setup.
+
+## What's in context
+
+The provider exposes a `useNestAuth()` value with everything: state (`status`, `sessionData`, `session`, `error`), derived booleans (`isLoading`, `isAuthenticated`), the underlying `client`, and every action from the client (`login`, `signup`, `logout`, `refresh`, …).
+
+Most components only need a slice. Reach for the focused hooks instead — see [Hooks](/docs/react/hooks).
+
+## Multiple providers
+
+Don't. The provider holds singletons (token state, refresh queue, event subscriptions). Mounting it twice gives you two unsynchronized auth states and double the network traffic.
+
+If you need per-tenant clients, switch tenant on the existing client instead of remounting.
+
+## Related
+
+- [Hooks](/docs/react/hooks).
+- [Next.js](/docs/react/nextjs).
+- [Cross-tab sync](/docs/react/cross-tab-sync).

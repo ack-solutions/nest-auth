@@ -1,0 +1,225 @@
+---
+title: Hooks Reference
+description: Every config-time hook with its execution-order timeline.
+---
+
+This is the exhaustive hook reference. For the conceptual overview of when to use a hook vs an event, see [Events & Hooks](/docs/concepts/events-and-hooks).
+
+## Execution-order timeline — signup flow
+
+```
+POST /auth/signup
+  │
+  ├─► registrationHooks.beforeSignup(payload, ctx)
+  │     • can mutate the payload
+  │     • can throw to abort (e.g. weak password, banned email)
+  │
+  ├─► user.beforeCreate(input)
+  │     • last chance to mutate the user entity before INSERT
+  │
+  ├─► [INSERT INTO nest_auth_users]
+  │
+  ├─► user.afterCreate(user)
+  │     • sync side effects that must succeed
+  │
+  ├─► registrationHooks.onSignup(user, payload)
+  │     • assign roles here — they land in the FIRST JWT
+  │     • this is your last chance before the session is built
+  │
+  ├─► user.getSessionUserData(user, helpers)  ← also called on subsequent logins
+  │     • shape what goes into the session payload
+  │
+  ├─► session.customizeSessionData(default, user)
+  ├─► session.customizeTokenPayload(default, session)
+  │     • final shaping of session row + JWT claims
+  │
+  ├─► [CREATE SESSION + SIGN JWT]
+  │
+  ├─► session.onCreated(session, user)         ← async, fire-and-forget
+  │
+  └─► UserRegisteredEvent emitted             ← your event listeners run
+```
+
+## Execution-order timeline — login flow
+
+```
+POST /auth/login
+  │
+  ├─► guards.beforeAuth(request)               ← runs on EVERY guarded request
+  │     • { reject: true, reason: '...' } to short-circuit
+  │
+  ├─► [resolve credentials → user]
+  │
+  ├─► loginHooks.onLogin(user, ctx)
+  │     • ctx includes userAccess + platformAccess
+  │     • use to sync external roles, write last-login, etc.
+  │
+  ├─► authorization.resolveRoles(user)         ← if you replaced the default
+  ├─► authorization.resolvePermissions(user, roles)
+  │
+  ├─► user.getSessionUserData → customizeSessionData → customizeTokenPayload
+  │     (same as signup)
+  │
+  ├─► [CREATE SESSION + SIGN JWT]
+  │
+  ├─► session.onCreated(session, user)
+  ├─► UserLoggedInEvent emitted
+  │
+  └─► guards.afterAuth(request, user)          ← last chance to reject
+```
+
+## Execution-order timeline — refresh flow
+
+```
+POST /auth/refresh-token
+  │
+  ├─► [validate refresh token → session row]
+  │
+  ├─► authorization.resolveRoles / resolvePermissions  (re-evaluated)
+  ├─► user.getSessionUserData                          (re-evaluated)
+  ├─► customizeSessionData / customizeTokenPayload     (re-applied)
+  │
+  ├─► [SIGN NEW ACCESS TOKEN]
+  │
+  └─► session.onRefreshed(oldSession, newSession)
+```
+
+## Hook reference
+
+### `registrationHooks.beforeSignup(payload, ctx) => Promise<payload> | payload`
+
+Gate or mutate signup. Throw to abort.
+
+```ts
+registrationHooks: {
+  async beforeSignup(payload, ctx) {
+    if (await this.banlist.has(payload.email)) {
+      throw new ForbiddenException('email_blacklisted');
+    }
+    return { ...payload, email: payload.email.toLowerCase() };
+  },
+},
+```
+
+### `registrationHooks.onSignup(user, payload) => Promise<void>`
+
+Runs after the user is inserted but **before** the first session is built. Assign initial roles here so they land in the first JWT:
+
+```ts
+registrationHooks: {
+  async onSignup(user, payload) {
+    if (payload.invitationToken) {
+      const role = await this.invites.consume(payload.invitationToken);
+      await this.userAccess.assignRole(user.id, role);
+    }
+  },
+},
+```
+
+### `user.beforeCreate(input) => input | Promise<input>`
+
+Final mutation before the user row is inserted.
+
+### `user.afterCreate(user) => Promise<void>`
+
+Sync side effects. Throws here roll back the signup.
+
+### `user.getSessionUserData(user, helpers) => SessionUserData | Promise<SessionUserData>`
+
+The most-called hook: runs on signup, login, and refresh. Use it to inject `AppUser` fields into the session payload.
+
+```ts
+user: {
+  async getSessionUserData(authUser, helpers) {
+    const appUser = await helpers.dataSource
+      .getRepository(AppUser)
+      .findOne({ where: { authUserId: authUser.id } });
+    return {
+      firstName: appUser?.firstName,
+      avatarUrl: appUser?.avatarUrl,
+    };
+  },
+},
+```
+
+### `user.sensitiveFields: string[]`
+
+List of `NestAuthUser` fields to never serialize into responses (e.g., `'metadata.internalNotes'`).
+
+### `loginHooks.onLogin(user, ctx) => Promise<void>`
+
+`ctx` carries `request`, `userAccess`, `platformAccess`. Useful for syncing external systems on every login.
+
+### `session.customizeSessionData(default, user) => SessionDataPayload`
+
+Reshape the snapshot stored on the session row. Don't bloat — this is loaded on every refresh.
+
+### `session.customizeTokenPayload(default, session) => JWTTokenPayload`
+
+Final claims for the JWT. Anything you add here is in the access token. Keep it small.
+
+### `session.onCreated / onRefreshed / onRevoked`
+
+Fire-and-forget. For audit, cache invalidation, etc.
+
+### `authorization.resolveRoles(user) => Promise<string[]>`
+
+Replaces the default DB lookup. Return whatever roles the user has.
+
+### `authorization.resolvePermissions(user, roles) => Promise<string[]>`
+
+Replaces the default role→permission expansion.
+
+### `guards.beforeAuth(request) => { reject?, reason? } | Promise<…>`
+
+```ts
+guards: {
+  beforeAuth(req) {
+    const ip = req.ip;
+    if (!this.allowlist.has(ip)) return { reject: true, reason: 'ip_blocked' };
+  },
+},
+```
+
+### `guards.afterAuth(request, user) => { reject?, reason? } | Promise<…>`
+
+Same shape, runs after auth succeeded. Useful for device fingerprint check that depends on `user`.
+
+### `errorHandler(error, context) => any`
+
+`context` is one of `'login' | 'signup' | 'password_reset' | 'mfa_verify' | …`. Transform the error into your app's standard shape.
+
+### `resolveConfig(context) => Partial<IAuthModuleOptions> | Promise<…>`
+
+Per-request config override. The most common use is mode-switching:
+
+```ts
+resolveConfig(ctx) {
+  const isMobile = ctx.request.headers['x-app'] === 'mobile';
+  return {
+    session: { accessTokenType: isMobile ? 'header' : 'cookie' },
+  };
+},
+```
+
+### `clientConfig.factory(default, context) => any`
+
+Reshapes the public `/auth/client-config` response — what your frontend reads to decide which sign-in buttons to render.
+
+### `password.hash(password) => Promise<string>` / `password.verify(password, hash) => Promise<boolean>`
+
+Drop-in replacements for argon2. Use this if your security team mandates a specific algorithm.
+
+### `otp.generate(length, format) => string | Promise<string>`
+
+Drop-in replacement for the default OTP generator.
+
+### `audit.onEvent(event) => Promise<void> | void`
+
+Sink for audit events. See [Audit Logging](/docs/concepts/audit-logging).
+
+## Related
+
+- [Events & Hooks](/docs/concepts/events-and-hooks) — when to pick a hook vs an event.
+- [Module reference](/docs/backend/module).
+- [Hook recipes](/docs/recipes) — concrete worked examples for the most useful hooks.

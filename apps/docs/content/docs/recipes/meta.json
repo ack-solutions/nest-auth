@@ -1,0 +1,26 @@
+{
+  "title": "Recipes",
+  "pages": [
+    "index",
+    "user-registered-listener",
+    "user-logged-in-listener",
+    "custom-oauth-provider",
+    "extra-signup-fields",
+    "react-auth-forms",
+    "migrate-existing-users",
+    "nextjs-protected-dashboard",
+    "tenant-switcher",
+    "remember-this-device",
+    "custom-jwt-claims",
+    "single-notification-service",
+    "link-multiple-providers",
+    "external-role-resolver",
+    "per-request-config",
+    "account-suspension",
+    "ip-allowlist-guard",
+    "per-flow-error-transform",
+    "mfa-recovery-codes",
+    "normalize-email-phone",
+    "custom-trusted-device-header"
+  ]
+}

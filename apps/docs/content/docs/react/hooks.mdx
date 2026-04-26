@@ -1,0 +1,107 @@
+---
+title: Hooks
+description: 'Every hook exported from `@ackplus/nest-auth-react`.'
+---
+
+Pick the narrowest hook for the job — components that subscribe to less re-render less.
+
+## `useNestAuth(): AuthContextValue`
+
+The full kitchen sink. Returns state, derived booleans, the `AuthClient` instance, and every auth action.
+
+```tsx
+const {
+  status, sessionData, session, error,
+  isLoading, isAuthenticated, isLoadingSessionData,
+  client,
+  login, signup, logout, logoutAll, refresh,
+  forgotPassword, resetPassword, changePassword,
+  verifyEmail, sendEmailVerification,
+  verifyPhone, sendPhoneVerification,
+  send2fa, verify2fa,
+  setupTotp, verifyTotpSetup, getMfaStatus,
+  listTotpDevices, removeTotpDevice, toggleMfa,
+  generateRecoveryCode, resetMfa,
+  switchTenant, setTenantId, getTenantId,
+  setMode, getMode,
+  passwordlessSend,
+  verifySession, getSessionData,
+} = useNestAuth();
+```
+
+Every action is an async wrapper around the underlying client method that updates context state on success/failure. Use it when you need both state *and* actions in one component.
+
+## `useUser(): ISessionUserData | null`
+
+Just the user.
+
+```tsx
+const user = useUser();
+if (!user) return null;
+return <div>Hello {user.email}</div>;
+```
+
+## `useSession(): ClientSession | null`
+
+The session metadata: `id`, `userId`, `tenantId`, `expiresAt`, `createdAt`. **Not** the user — for that, use `useUser()`.
+
+## `useAccessToken(): string | null`
+
+Reads the current access token. Returns `null` in cookie mode (the token is HttpOnly and never visible to JS).
+
+Use this for one-off integrations that need the raw token — websockets, third-party SDKs that take a JWT. For your own API calls, the `AuthClient` already attaches it.
+
+## `useAuthStatus()`
+
+Authentication status with derived booleans:
+
+```tsx
+const { status, isLoading, isAuthenticated, isUnauthenticated } = useAuthStatus();
+
+// status: 'loading' | 'authenticated' | 'unauthenticated'
+```
+
+`isLoading` is true on first mount until the provider has resolved the user. `isUnauthenticated` is the negation of `isAuthenticated` — convenient when you want to render a sign-in CTA.
+
+## `useHasRole(role, matchAll?): boolean`
+
+```tsx
+const isAdmin = useHasRole('admin');
+const canEdit = useHasRole(['admin', 'editor']);              // ANY (default)
+const isAdminAndOwner = useHasRole(['admin', 'owner'], true); // ALL
+```
+
+Returns `false` for unauthenticated users.
+
+## `useHasPermission(permission, matchAll?): boolean`
+
+Same shape as `useHasRole`, but checks against permissions instead.
+
+```tsx
+const canRead = useHasPermission('orders.read');
+const canEdit = useHasPermission(['orders.read', 'orders.write'], true);
+```
+
+## Re-render behavior
+
+Each hook subscribes to its own slice of context. `useUser()` re-renders when `sessionData` changes; `useHasRole('admin')` re-renders when the user's roles change. Components that only need a boolean don't re-render on token refresh.
+
+## Async-action hook (low-level)
+
+If you want an action without the full context, you can read the client off the provider once:
+
+```tsx
+const { client } = useNestAuth();
+
+const handleSave = async () => {
+  await client.changePassword({ currentPassword, newPassword });
+};
+```
+
+You can also reach `client` from anywhere in the tree — there's no need to keep it as state.
+
+## Related
+
+- [Provider](/docs/react/provider).
+- [Guards](/docs/react/guards).
+- [Client utilities](/docs/client/utilities) — the underlying `hasRole`/`hasPermission` helpers.

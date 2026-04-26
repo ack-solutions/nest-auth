@@ -1,0 +1,13 @@
+---
+title: JS Client Reference
+description: 'Full reference for `@ackplus/nest-auth-client`.'
+---
+
+The framework-agnostic JS/TS auth client. Use it directly from Vue, Angular, Svelte, vanilla JS, or as the foundation under `@ackplus/nest-auth-react`.
+
+- [`AuthClient`](/docs/client/client) — every method (login, signup, logout, refresh, MFA, password, verification, tenant) with TS signatures.
+- [`AuthClientConfig`](/docs/client/config) — `baseUrl`, `accessTokenType`, `autoRefresh`, `refreshThreshold`, hooks.
+- [Storage Adapters](/docs/client/storage-adapters) — `MemoryStorage`, `LocalStorageAdapter`, `SessionStorageAdapter`, `CookieStorageAdapter`, custom adapters.
+- [HTTP Adapters](/docs/client/http-adapters) — `FetchAdapter` (default), `createAxiosAdapter`, custom adapters.
+- [Events](/docs/client/events) — `onTokenRefreshed`, `onTokensSet`, `onTokensRemoved`, `onLogout`, `onError`, `onSessionVerified`, `onRefreshSessionData`.
+- [Utilities](/docs/client/utilities) — `decodeJwt`, `isTokenExpired`, `hasRole`, `hasPermission`, `hasAnyAccess`, `hasAllAccess`.

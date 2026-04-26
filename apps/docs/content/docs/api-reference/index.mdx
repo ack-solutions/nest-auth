@@ -1,0 +1,27 @@
+---
+title: API Reference
+description: Interactive REST endpoint documentation, plus the full TypeScript type catalogue.
+---
+
+Two views into the same source of truth.
+
+## Endpoints
+
+Browse every REST endpoint with full request/response shapes, examples, and a copy-pasteable curl call.
+
+- [All Endpoints](/docs/api-reference/(generated)) — index across every tag.
+- [Auth endpoints](/docs/api-reference/(generated)/auth) — sign-up, login, sessions, password & verification.
+- [MFA endpoints](/docs/api-reference/(generated)/mfa) — TOTP, email/SMS challenge, recovery codes.
+
+Pages are generated from the OpenAPI spec on every docs build, so they can never disagree with the running NestJS app.
+
+## TypeScript types
+
+[Types reference](/docs/api-reference/types) — full TypeDoc-style catalogue auto-generated from `@ackplus/nest-auth-contracts`.
+
+## Raw spec
+
+If you'd rather feed the spec into your own tooling (Swagger UI, Redoc, openapi-typescript, orval):
+
+- [`/api/nest-auth.json`](/api/nest-auth.json) — current OpenAPI 3.0 document.
+- See [REST Endpoints](/docs/api-reference/rest) for the integration patterns.

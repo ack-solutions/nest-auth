@@ -1,0 +1,70 @@
+---
+title: Remember this device with trusted-device tokens
+description: Skip MFA on familiar browsers without compromising security.
+---
+
+When the user verifies MFA, give them the option to "trust this device for 14 days." On their next login, MFA is auto-skipped on the same browser.
+
+## Server config
+
+```ts
+NestAuthModule.forRoot({
+  mfa: {
+    enabled: true,
+    methods: [NestAuthMFAMethodEnum.TOTP, NestAuthMFAMethodEnum.EMAIL],
+    trustedDeviceDuration: '14d',
+    trustDeviceStorageName: 'nest_auth_device_trust',   // default
+  },
+});
+```
+
+## In the MFA challenge UI
+
+```tsx
+function MfaChallenge() {
+  const { verify2fa } = useNestAuth();
+  const [otp, setOtp] = useState('');
+  const [trust, setTrust] = useState(false);
+
+  return (
+    <form onSubmit={async (e) => {
+      e.preventDefault();
+      await verify2fa({ otp, method: 'email', trustDevice: trust });
+    }}>
+      <input value={otp} onChange={(e) => setOtp(e.target.value)} />
+      <label>
+        <input type="checkbox" checked={trust} onChange={(e) => setTrust(e.target.checked)} />
+        Trust this device for 14 days
+      </label>
+      <button>Verify</button>
+    </form>
+  );
+}
+```
+
+When `trustDevice: true`, the response carries a `trustToken`. The library client persists it and sends it on every login attempt thereafter.
+
+## What the server sees
+
+On the next login, the request carries the trust token in the `nest_auth_device_trust` header. If the token is valid and not expired, MFA is skipped — login completes immediately.
+
+The server records the device in `nest_auth_trusted_devices` with `userAgent` and `ipAddress`. Build a "manage trusted devices" UI by listing those rows.
+
+## Make sure CORS allows the header
+
+```ts
+app.enableCors({
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-access-token-type', 'nest_auth_device_trust'],
+});
+```
+
+Browsers strip unknown headers in preflight; if this is missing, the trust token never reaches the server and every login re-prompts for MFA.
+
+## Revoking trust
+
+If the user clicks "remove this device," delete the matching row in `nest_auth_trusted_devices`. The next request from that device will require MFA again.
+
+## Related
+
+- [MFA](/docs/concepts/mfa).
+- [Custom trusted-device header recipe](/docs/recipes/custom-trusted-device-header).
