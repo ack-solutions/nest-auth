@@ -55,7 +55,27 @@ The workflow:
 
 ## Docs auto-rebuild
 
-The docs site's GitHub Actions workflow (`.github/workflows/docs.yml`) builds on every push to `main` that touches `apps/docs/**` or `packages/**`. It also re-runs the auto-generation pipeline (TypeDoc + OpenAPI + SQL snapshots), so the `API Reference` and `Database Setup` pages stay in sync with the latest code.
+The docs site's GitHub Actions workflow ([`.github/workflows/docs.yml`](https://github.com/ack-solutions/nest-auth/blob/main/.github/workflows/docs.yml)) builds on every push to `main` that touches `apps/docs/**` or any of the four packages. It also re-runs the auto-generation pipeline (TypeDoc + OpenAPI + SQL snapshots), so the `API Reference` and `Database Setup` pages stay in sync with the latest code.
+
+### One-time GitHub Pages setup
+
+Before the first deploy works, an admin needs to flip one switch in the repo:
+
+1. Go to **Settings → Pages** on `ack-solutions/nest-auth`.
+2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+3. Save.
+
+That's it. The next push to `main` (or a manual run via **Actions → Deploy Docs to GitHub Pages → Run workflow**) publishes the site at `https://ack-solutions.github.io/nest-auth/`.
+
+The workflow needs no secrets — `GITHUB_TOKEN` is enough because the `pages: write` and `id-token: write` permissions are scoped on the job.
+
+### Custom domain (optional)
+
+To serve at `docs.ackplus.com` instead of `ack-solutions.github.io/nest-auth/`:
+
+1. Add a CNAME record at your DNS provider pointing `docs.ackplus.com` → `ack-solutions.github.io`.
+2. In **Settings → Pages → Custom domain**, enter `docs.ackplus.com` and save.
+3. Set the env var `GITHUB_PAGES_USER_SITE=true` on the docs build step in [`docs.yml`](https://github.com/ack-solutions/nest-auth/blob/main/.github/workflows/docs.yml) — custom-domain Pages serves from the root, not a subpath, and the basePath logic in `next.config.mjs` keys off this flag.
 
 ## Verifying a release
 

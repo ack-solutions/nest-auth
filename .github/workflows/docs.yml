@@ -5,7 +5,10 @@ on:
     branches: [main]
     paths:
       - 'apps/docs/**'
-      - 'packages/**'
+      - 'packages/nest-auth/**'
+      - 'packages/nest-auth-client/**'
+      - 'packages/nest-auth-react/**'
+      - 'packages/nest-auth-contracts/**'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -15,30 +18,34 @@ permissions:
   id-token: write
 
 concurrency:
-  group: docs
+  group: pages
   cancel-in-progress: true
 
 jobs:
   build:
+    name: Build static site
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
           version: 10.21.0
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Build packages (so contracts/types resolve)
         run: pnpm build
 
-      - name: Build docs
+      - name: Build docs site (static export)
         run: pnpm --filter @ackplus/nest-auth-docs build
         env:
           NODE_ENV: production
@@ -46,11 +53,13 @@ jobs:
       - name: Add .nojekyll
         run: touch apps/docs/out/.nojekyll
 
-      - uses: actions/upload-pages-artifact@v3
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: apps/docs/out
 
   deploy:
+    name: Deploy to GitHub Pages
     needs: build
     runs-on: ubuntu-latest
     environment:
@@ -59,3 +68,12 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Print deployment URL
+        run: |
+          echo "Deployed: ${{ steps.deployment.outputs.page_url }}"
+          {
+            echo "## 📚 Docs deployed"
+            echo
+            echo "Live at: ${{ steps.deployment.outputs.page_url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
