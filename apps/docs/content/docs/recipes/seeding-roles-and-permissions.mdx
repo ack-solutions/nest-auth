@@ -1,0 +1,221 @@
+---
+title: Seeding roles & permissions
+description: Idempotent bootstrap of system roles, permissions, and assignments.
+---
+
+Your code references roles by name (`'admin'`, `'member'`) and permissions by name (`'orders.read'`). They need to exist in the database for guards to work. This recipe shows the canonical bootstrap: idempotent, safe to run on every deploy, and tagged `isSystem: true` so the admin console can't accidentally edit them.
+
+## The seeder service
+
+```ts
+// app/auth/role-seeder.service.ts
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { In } from 'typeorm';
+import {
+  PermissionService,
+  RoleService,
+  NestAuthPermission,
+  NestAuthRole,
+} from '@ackplus/nest-auth';
+import { RoleGuardEnum, RoleNameEnum } from '@libs/types';
+
+/**
+ * Pure data model: which permissions exist and which roles bundle them.
+ *
+ * Edit this file → restart the app → DB is reconciled.
+ */
+const PERMISSION_CATALOG = {
+  ORDERS:  ['orders.read', 'orders.write', 'orders.delete'],
+  USERS:   ['users.read', 'users.write', 'users.delete', 'users.invite'],
+  BILLING: ['billing.read', 'billing.write'],
+  SYSTEM:  ['system.audit', 'system.config'],
+};
+
+interface RoleSpec {
+  name: RoleNameEnum | string;
+  guard: RoleGuardEnum;
+  permissions: string[];        // permission names; '*' means "every permission on this guard"
+}
+
+const ROLE_CATALOG: RoleSpec[] = [
+  // ADMIN guard — internal staff only
+  { name: RoleNameEnum.SUPER_ADMIN, guard: RoleGuardEnum.ADMIN,    permissions: ['*'] },
+  { name: RoleNameEnum.SUPPORT,     guard: RoleGuardEnum.ADMIN,    permissions: ['users.read', 'orders.read', 'system.audit'] },
+
+  // PORTAL guard — tenant-facing app
+  { name: RoleNameEnum.OWNER,       guard: RoleGuardEnum.PORTAL,   permissions: ['*'] },
+  { name: RoleNameEnum.ADMIN,       guard: RoleGuardEnum.PORTAL,   permissions: ['orders.*', 'users.*', 'billing.*'] },
+  { name: RoleNameEnum.MEMBER,      guard: RoleGuardEnum.PORTAL,   permissions: ['orders.read', 'users.read'] },
+
+  // FRONTEND guard — public / mobile
+  { name: RoleNameEnum.CUSTOMER,    guard: RoleGuardEnum.FRONTEND, permissions: [] },
+];
+
+@Injectable()
+export class RoleSeederService implements OnApplicationBootstrap {
+  private readonly log = new Logger(RoleSeederService.name);
+
+  constructor(
+    private readonly permissions: PermissionService,
+    private readonly roles: RoleService,
+  ) {}
+
+  async onApplicationBootstrap() {
+    if (process.env.NODE_ENV === 'test') return;
+    await this.seed();
+  }
+
+  async seed() {
+    await this.upsertPermissions();
+    await this.upsertRoles();
+    this.log.log('Roles & permissions seeded.');
+  }
+
+  private async upsertPermissions() {
+    for (const [category, names] of Object.entries(PERMISSION_CATALOG)) {
+      for (const name of names) {
+        // Permissions are guard-agnostic in this design; if you want them per-guard,
+        // include the guard in the name (e.g. `portal.orders.read`).
+        for (const guard of Object.values(RoleGuardEnum)) {
+          const existing = await this.permissions.findOne({ name, guard });
+          if (existing) continue;
+
+          await this.permissions.create({
+            name,
+            guard,
+            category,
+            description: `${name} (${guard})`,
+          });
+        }
+      }
+    }
+  }
+
+  private async upsertRoles() {
+    for (const spec of ROLE_CATALOG) {
+      const permissionNames = spec.permissions.includes('*')
+        ? await this.expandWildcard(spec.guard)
+        : await this.expandPattern(spec.permissions, spec.guard);
+
+      const existing = await this.roles.findOne({ name: spec.name, guard: spec.guard });
+
+      if (!existing) {
+        await this.roles.create({
+          name: spec.name,
+          guard: spec.guard,
+          isSystem: true,
+          isActive: true,
+          permissions: permissionNames,
+        });
+        continue;
+      }
+
+      // Reconcile permissions on every boot so changes to the catalog land
+      // without an admin clicking around.
+      await this.roles.update(existing.id, {
+        permissions: permissionNames,
+        isActive: true,
+      });
+    }
+  }
+
+  private async expandWildcard(guard: RoleGuardEnum): Promise<string[]> {
+    const all = await NestAuthPermission.find({ where: { guard }, select: ['name'] });
+    return all.map((p) => p.name);
+  }
+
+  private async expandPattern(patterns: string[], guard: RoleGuardEnum): Promise<string[]> {
+    const all = await NestAuthPermission.find({ where: { guard }, select: ['name'] });
+    const set = new Set<string>();
+
+    for (const pattern of patterns) {
+      if (pattern.endsWith('.*')) {
+        const prefix = pattern.slice(0, -2);
+        for (const p of all) {
+          if (p.name.startsWith(prefix + '.')) set.add(p.name);
+        }
+      } else {
+        set.add(pattern);
+      }
+    }
+
+    return [...set];
+  }
+}
+```
+
+## Register it
+
+```ts
+@Module({
+  providers: [RoleSeederService],
+})
+export class AppModule {}
+```
+
+`OnApplicationBootstrap` runs once after every successful module init — your DB is reconciled on every deploy. Skipping in `NODE_ENV=test` keeps test runs fast and predictable.
+
+## Or: run-once, on demand
+
+If you'd rather not run on every boot (large catalogs), expose it as a CLI command:
+
+```ts
+// scripts/seed-roles.ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from '../app/app.module';
+import { RoleSeederService } from '../app/auth/role-seeder.service';
+
+async function run() {
+  const app = await NestFactory.createApplicationContext(AppModule);
+  await app.get(RoleSeederService).seed();
+  await app.close();
+}
+run();
+```
+
+Run with `pnpm tsx scripts/seed-roles.ts`.
+
+## Assigning a default role on signup
+
+Now that the rows exist, you can reference them by name in the signup hook:
+
+```ts
+registrationHooks: {
+  onSignup: async (user, input) => {
+    if (!input?.tenantId) return;
+
+    const access = await user.getUserAccess(input.tenantId, true);
+    const memberRole = await NestAuthRole.findOne({
+      where: {
+        name: RoleNameEnum.MEMBER,
+        guard: RoleGuardEnum.PORTAL,
+        isSystem: true,
+      },
+      select: ['id'],
+    });
+
+    if (memberRole) await access.assignRoles([memberRole.id]);
+  },
+},
+```
+
+## Granting permissions ad-hoc
+
+For one-off escalations (granting a specific user a specific permission outside the role system), use `RoleService` to **create** a per-user role rather than poking permissions directly. It keeps the role/permission model clean and auditable.
+
+```ts
+const customRole = await this.roles.create({
+  name: `temporary-orders-write-${userId}`,
+  guard: RoleGuardEnum.PORTAL,
+  isSystem: false,
+  permissions: ['orders.write'],
+});
+await this.userAccess.assignRoles(userId, tenantId, [customRole.id]);
+```
+
+## Related
+
+- [RBAC](/docs/concepts/rbac).
+- [User Access & Platform Access](/docs/concepts/user-access-and-platform-access).
+- [Multi-platform login](/docs/recipes/multi-platform-login).
+- [`RoleService` & `PermissionService` reference](/docs/backend/services).

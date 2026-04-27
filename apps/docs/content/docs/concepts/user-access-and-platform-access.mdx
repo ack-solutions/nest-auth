@@ -1,0 +1,194 @@
+---
+title: User Access & Platform Access
+description: Per-tenant memberships vs cross-tenant super-admin roles.
+---
+
+Once you've enabled multi-tenancy, you have two parallel models for "who can do what":
+
+| Model | Where it lives | What it grants | Who uses it |
+| --- | --- | --- | --- |
+| **`UserAccess`** | `nest_auth_user_accesses` (one row per user × tenant) | Roles **within a single tenant** | Regular users — owners, members, billing admins of one tenant |
+| **`PlatformAccess`** | `nest_auth_platform_accesses` (one row per user, no tenant) | Roles **across all tenants** | Internal staff — super-admins, support, ops |
+
+Both tables map a user to a `NestAuthRole[]`. The difference is whether that mapping is scoped to a tenant or not.
+
+## When to use which
+
+```
+                    ┌─────────────────────────┐
+                    │  NestAuthUser (alice)   │
+                    └────────────┬────────────┘
+            ┌────────────────────┼────────────────────┐
+            │                    │                    │
+   ┌────────▼─────────┐ ┌────────▼─────────┐ ┌────────▼─────────┐
+   │ UserAccess        │ │ UserAccess        │ │ PlatformAccess   │
+   │ tenant: acme      │ │ tenant: stark-co  │ │ (no tenant)      │
+   │ roles: [admin]    │ │ roles: [member]   │ │ roles: [SUPPORT] │
+   └───────────────────┘ └───────────────────┘ └──────────────────┘
+```
+
+Alice is the **admin** of Acme, a **member** of Stark Co, and (separately) a **support** agent on the platform itself. The same `NestAuthUser` row, three different access records.
+
+### `UserAccess` — per-tenant
+
+You'll create one row per user per tenant. This is what 99% of your users have:
+
+- Created on signup (in your `registrationHooks.onSignup` listener, or by `TenantService` when a user is invited).
+- Carries the user's roles **within that tenant**. A user might be admin in tenant A and member in tenant B.
+- Read by the `NestAuthAuthGuard` to populate `request.userAccess` on every request.
+- Tenant-scoped queries should join through this table (so a user can only see tenant data they have access to).
+
+### `PlatformAccess` — cross-tenant
+
+A separate, opt-in role bundle that lets internal staff act anywhere without being a member of every tenant:
+
+- One row per user. No tenant column.
+- Granted manually (or via an admin-only endpoint) — never auto-created by signup.
+- Lets the bearer pass tenant-scoped guards even when there's no `UserAccess` for the active tenant.
+- Useful for: super-admins, support agents impersonating users, ops fixing a tenant's data.
+
+## Configuration
+
+Enable platform access on the module:
+
+```ts
+NestAuthModule.forRoot({
+  // …
+  tenant: { enabled: true, mode: TenantModeEnum.SHARED },
+
+  platformAccess: {
+    enabled: true,
+
+    // Lock the platform-access privilege to admin-only origins so a leaked
+    // platform-admin token from a regular tenant subdomain doesn't escalate.
+    validate: async (request) => {
+      const origin = request.headers.origin ?? request.headers.referer;
+      if (!origin) return false;
+      return origin.includes(process.env.ADMIN_URL!);
+    },
+  },
+});
+```
+
+The `validate` hook is called on every authenticated request. If it returns `false`, the request's `platformAccess` is dropped on the floor — even if the user has a row in `nest_auth_platform_accesses`. This is how you prevent a stolen super-admin token from being usable on a regular tenant subdomain.
+
+## In a controller
+
+Both contexts are exposed to your handlers:
+
+```ts
+import { Controller, Get } from '@nestjs/common';
+import {
+  Auth,
+  CurrentUserAccess,
+  NestAuthUserAccess,
+  NestAuthPlatformAccess,
+} from '@ackplus/nest-auth';
+
+@Auth()
+@Controller('orders')
+export class OrdersController {
+  @Get()
+  list(
+    @CurrentUserAccess() access: NestAuthUserAccess | null,
+    @CurrentPlatformAccess() platform: NestAuthPlatformAccess | null,
+  ) {
+    if (platform) {
+      // Super-admin path — see all tenants
+      return this.orders.find();
+    }
+    if (access) {
+      // Regular tenant member path
+      return this.orders.find({ where: { tenantId: access.tenantId } });
+    }
+    throw new ForbiddenException();
+  }
+}
+```
+
+Or check inside service code via `RequestContext`:
+
+```ts
+import { RequestContext } from '@ackplus/nest-auth';
+
+const ctx = RequestContext.get();
+if (ctx?.platformAccess) {
+  // bypass tenant filter
+}
+```
+
+## Inside hooks
+
+In `loginHooks.onLogin` you receive both contexts so you can decide who gets in:
+
+```ts
+loginHooks: {
+  onLogin: async (user, input, context) => {
+    if (context.platformAccess) {
+      // staff member logging in; they don't need a tenantId
+      return;
+    }
+
+    if (!input.tenantId || !context.userAccess) {
+      throw new UnauthorizedException('tenant_required');
+    }
+
+    // …per-tenant gating, e.g. role/guard checks
+  },
+},
+```
+
+This is the canonical "two-rail" auth flow — staff log in via the cross-tenant rail, regular users via the per-tenant rail, both reach the same `/auth/login` endpoint.
+
+## Granting platform access
+
+There's no public endpoint for it (intentionally — it's a privilege escalation point). Grant it from your own admin-only code:
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { NestAuthPlatformAccess, NestAuthRole } from '@ackplus/nest-auth';
+
+@Injectable()
+export class StaffService {
+  constructor(
+    @InjectRepository(NestAuthPlatformAccess)
+    private readonly platformAccess: Repository<NestAuthPlatformAccess>,
+    @InjectRepository(NestAuthRole)
+    private readonly roles: Repository<NestAuthRole>,
+  ) {}
+
+  async grantStaff(userId: string, roleNames: string[]) {
+    const roles = await this.roles.findBy({ name: In(roleNames) });
+    await this.platformAccess.save({
+      userId,
+      roles,
+      isActive: true,
+    });
+  }
+}
+```
+
+Wrap that in a `@NestAuthRoles('SUPER_ADMIN')`-protected controller and you have a working "promote to staff" endpoint.
+
+## Common patterns
+
+### Multi-portal app (admin UI + tenant portal + mobile)
+
+Use `roleGuards: ['ADMIN', 'PORTAL', 'FRONTEND']` so the same role *name* (e.g. `member`) means different things on different portals. Then use `platformAccess.validate(request)` to ensure the staff cookie is only honoured on the admin portal's origin. See the [multi-platform login recipe](/docs/recipes/multi-platform-login).
+
+### Impersonation
+
+When a support agent needs to act as a tenant user, don't strip their `platformAccess` — instead, set an "acting as" tenant ID in the JWT via `customizeTokenPayload`, and have your code preference that tenant. The agent stays staff but the requests look as if they came from the impersonated tenant.
+
+### Auditing
+
+Every operation done under `platformAccess` should hit your audit hook with the **acting** user's id, not the impersonated user's. The library passes the real authenticated user; you decide what to log.
+
+## Related
+
+- [Multi-tenancy](/docs/concepts/multi-tenancy) — `SHARED` vs `ISOLATED` modes.
+- [RBAC](/docs/concepts/rbac) — roles, permissions, multiple guards.
+- [Multi-platform login recipe](/docs/recipes/multi-platform-login) — the worked example for admin / portal / mobile.
+- [`TenantService` & `RoleService`](/docs/backend/services) — programmatic management.

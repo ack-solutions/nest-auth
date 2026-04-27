@@ -45,13 +45,142 @@ The main facade for auth flows.
 | `create(input)` / `update(id, input)` / `delete(id)` | CRUD |
 | `setActive(id, isActive)` | Suspend/reactivate an account |
 
-## `RoleService` / `PermissionService`
+## `RoleService`
 
-Standard CRUD plus assignment helpers. Use these from your admin controllers if you build a custom admin UI on top of the library.
+Manage roles. A "role" is a named bucket — `admin`, `member`, `owner` — scoped to a guard (`web`, `api`, `mobile`, …). It maps many-to-many to permissions.
+
+| Method | Purpose |
+| --- | --- |
+| `create(input)` | Create a role on a guard. `input: { name, guard, tenantId?, isSystem?, isActive?, permissions: string[] }` |
+| `update(id, input)` | Update name / `isActive` / permissions. `guard`, `tenantId`, `isSystem` are read-only after creation |
+| `delete(id)` | Delete (rejected if `isSystem: true`) |
+| `findById(id)` | Fetch a role with its permissions |
+| `findOne(where)` | Lookup by `{ name, guard, tenantId? }` |
+| `findAll(query?)` | List, paginated; filter by `guard`, `tenantId`, `isActive`, etc. |
+| `assignPermissions(roleId, permissionIds)` | Replace the role's permission set |
+| `setActive(id, isActive)` | Toggle without deleting |
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { RoleService } from '@ackplus/nest-auth';
+
+@Injectable()
+export class CustomRolesService {
+  constructor(private readonly roles: RoleService) {}
+
+  async createPortalRole(name: string, permissions: string[]) {
+    return this.roles.create({
+      name,
+      guard: 'PORTAL',
+      isSystem: false,
+      isActive: true,
+      permissions,
+    });
+  }
+
+  async findPortalRole(name: string) {
+    return this.roles.findOne({ name, guard: 'PORTAL' });
+  }
+}
+```
+
+For end-to-end role assignment (creating the role + attaching it to a user × tenant), see the [RBAC concept page](/docs/concepts/rbac) and the [seeding-roles-and-permissions recipe](/docs/recipes/seeding-roles-and-permissions).
+
+## `PermissionService`
+
+Same shape as `RoleService` but for the per-action permissions (`orders.read`, `users.delete`, …) that roles bundle.
+
+| Method | Purpose |
+| --- | --- |
+| `create({ name, guard, description?, category? })` | Create a permission |
+| `update(id, { name?, description?, category? })` | Edit metadata (the `guard` is read-only) |
+| `delete(id)` | Remove |
+| `findById(id)` / `findOne(where)` | Lookup |
+| `findAll(query?)` | List, optionally grouped by `category` |
+
+```ts
+@Injectable()
+export class PermissionsBootstrap {
+  constructor(private readonly perms: PermissionService) {}
+
+  async seedOrders() {
+    for (const action of ['read', 'write', 'delete']) {
+      await this.perms.create({
+        name: `orders.${action}`,
+        guard: 'PORTAL',
+        category: 'Orders',
+        description: `Can ${action} orders`,
+      });
+    }
+  }
+}
+```
+
+Permissions are referenced by **name** in `@NestAuthPermissions(...)` decorators and in `RoleService.create({ permissions: [...] })`.
+
+## `UserAccessService` & `PlatformAccessService`
+
+Manage the actual `user × tenant × role[]` records. See [User Access & Platform Access](/docs/concepts/user-access-and-platform-access) for the conceptual split.
+
+| Method (UserAccess) | Purpose |
+| --- | --- |
+| `assign({ userId, tenantId, roleNames?, roleIds?, isDefault? })` | Create/update the membership and roles |
+| `assignRoles(userId, tenantId, roleIds)` | Replace just the roles on an existing membership |
+| `findByUser(userId, tenantId?)` | One or all memberships for a user |
+| `setActive(id, isActive)` | Suspend a user from a single tenant |
+| `revoke(userId, tenantId)` | Remove a user from a tenant (delete the row) |
+
+| Method (PlatformAccess) | Purpose |
+| --- | --- |
+| `grant(userId, roleIds)` | Promote a user to staff (cross-tenant) |
+| `revoke(userId)` | Demote |
+| `findByUser(userId)` | Read |
+
+You'll usually call these from your own admin endpoints — there's no public REST surface for them, by design.
 
 ## `TenantService`
 
-Tenant CRUD. Validates slug uniqueness, emits `TenantCreatedEvent` etc.
+Tenant lifecycle. Validates slug uniqueness, fires the `TenantCreatedEvent` / `TenantUpdatedEvent` / `TenantDeletedEvent` events.
+
+| Method | Purpose |
+| --- | --- |
+| `create(input)` | `{ name, slug, isActive?, metadata?, description? }` — emits `TenantCreatedEvent` |
+| `update(id, input)` | Patch metadata; emits `TenantUpdatedEvent` |
+| `delete(id)` | Soft-delete or hard-delete depending on your config; emits `TenantDeletedEvent` |
+| `findById(id)` / `findBySlug(slug)` | Lookup |
+| `findAll(query?)` | List with filters, paginated |
+| `setActive(id, isActive)` | Suspend without deleting |
+
+```ts
+@Injectable()
+export class OnboardingService {
+  constructor(
+    private readonly tenants: TenantService,
+    private readonly userAccess: UserAccessService,
+  ) {}
+
+  async createWorkspace(name: string, ownerId: string) {
+    const tenant = await this.tenants.create({
+      name,
+      slug: slugify(name),
+      isActive: true,
+      metadata: { plan: 'free' },
+    });
+
+    // Owner gets the admin role on the new tenant (PORTAL guard)
+    await this.userAccess.assign({
+      userId: ownerId,
+      tenantId: tenant.id,
+      roleNames: ['admin'],
+      isDefault: true,
+    });
+
+    return tenant;
+  }
+}
+```
+
+In `ISOLATED` mode the service handles per-tenant database provisioning automatically — you call `create()` and the right schema/database is set up behind the scenes. See [Multi-tenancy](/docs/concepts/multi-tenancy).
 
 ## `SessionManagerService`
 

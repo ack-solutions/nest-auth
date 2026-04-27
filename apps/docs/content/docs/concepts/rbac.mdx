@@ -28,6 +28,40 @@ NestAuthModule.forRoot({
 
 A role row carries its guard, so an `admin` web role and an `admin` api role are independent records that don't conflict.
 
+### When you need multiple guards
+
+The minimum useful set is one. Reach for multiple guards when **the same backend serves several frontends** that should authenticate independently — typically:
+
+| Guard | Frontend | Roles you'd find here |
+| --- | --- | --- |
+| `ADMIN` | Internal admin console (separate origin) | `super_admin`, `support`, `ops` |
+| `PORTAL` | Tenant-facing SaaS app | `owner`, `admin`, `member`, `billing` |
+| `FRONTEND` | Mobile app (or public marketing site) | `customer`, `guest` |
+
+A user can have roles on more than one guard — Alice could be `admin` on `PORTAL` and `support` on `ADMIN`. The library doesn't care; your `loginHooks.onLogin` decides which guard the user is allowed to log into based on the **request's origin** (or a header). See the [multi-platform login recipe](/docs/recipes/multi-platform-login) for the full pattern.
+
+### Creating roles per guard
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { RoleService } from '@ackplus/nest-auth';
+
+@Injectable()
+export class RoleSeederService {
+  constructor(private readonly roles: RoleService) {}
+
+  async seed() {
+    // Same name, different guard, different row.
+    await this.roles.create({ name: 'admin',  guard: 'ADMIN',  isSystem: true, permissions: ['*'] });
+    await this.roles.create({ name: 'admin',  guard: 'PORTAL', isSystem: true, permissions: ['orders.*', 'users.*'] });
+    await this.roles.create({ name: 'member', guard: 'PORTAL', isSystem: true, permissions: ['orders.read'] });
+    await this.roles.create({ name: 'customer', guard: 'FRONTEND', isSystem: true, permissions: ['profile.read', 'profile.write'] });
+  }
+}
+```
+
+A worked seeder migration with idempotent upserts: [seeding-roles-and-permissions recipe](/docs/recipes/seeding-roles-and-permissions).
+
 ## Decorators
 
 ```ts
@@ -111,12 +145,42 @@ authorization: {
 
 Both hooks run on every login and refresh. See the [external role resolver recipe](/docs/recipes/external-role-resolver) for a full example.
 
+## Assigning roles to users
+
+Roles aren't useful until you attach them to a user × tenant pair. That mapping lives on `NestAuthUserAccess` (or `NestAuthPlatformAccess` for staff). The most common spot to assign a default role is the `registrationHooks.onSignup` hook — it runs **after** the user is created but **before** the first session is built, so the role lands in the very first JWT.
+
+```ts
+import { NestAuthRole, RoleNameEnum, RoleGuardEnum } from '@ackplus/nest-auth';
+
+registrationHooks: {
+  onSignup: async (user, input) => {
+    if (!input?.tenantId) return;
+
+    const access = await user.getUserAccess(input.tenantId, /* createIfMissing */ true);
+
+    const memberRole = await NestAuthRole.findOne({
+      where: { name: RoleNameEnum.MEMBER, guard: RoleGuardEnum.PORTAL, isSystem: true },
+      select: ['id'],
+    });
+
+    if (memberRole) {
+      await access.assignRoles([memberRole.id]);
+    }
+  },
+},
+```
+
+For programmatic role/permission management from your own services (admin endpoints, invitation flows, role-change UIs), use [`RoleService`](/docs/backend/services) and [`PermissionService`](/docs/backend/services). They cover create / update / delete / assign / list, emit the matching events, and respect `isSystem` protection.
+
 ## System vs custom roles
 
-Roles can be marked `isSystem: true`. Those are protected — the admin console won't let users delete or rename them. Use this for the handful of roles your code references by name (`admin`, `member`).
+Roles can be marked `isSystem: true`. Those are protected — the admin console won't let users delete or rename them, and the library treats them as canonical. Use this for the handful of roles your **code** references by name (`admin`, `member`, `owner`); leave `isSystem: false` for end-user-defined roles ("Marketing Lead", "QA Manager") that admins can edit freely.
 
 ## Related
 
+- [User Access & Platform Access](/docs/concepts/user-access-and-platform-access) — where role assignments live.
 - [Multi-tenancy](/docs/concepts/multi-tenancy) — roles are per-tenant by default.
 - [Hooks reference](/docs/backend/hooks-reference) — `authorization.resolveRoles` / `resolvePermissions`.
 - [External role resolver recipe](/docs/recipes/external-role-resolver).
+- [Multi-platform login recipe](/docs/recipes/multi-platform-login) — guards in production.
+- [Seeding roles & permissions recipe](/docs/recipes/seeding-roles-and-permissions).

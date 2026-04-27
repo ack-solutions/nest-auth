@@ -6,6 +6,7 @@
     "session-storage",
     "user-model",
     "multi-tenancy",
+    "user-access-and-platform-access",
     "rbac",
     "mfa",
     "request-context",

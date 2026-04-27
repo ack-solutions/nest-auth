@@ -1,0 +1,373 @@
+---
+title: Multi-platform login with guards
+description: One backend serving an admin console, a tenant portal, and a mobile app — with origin-aware login gating.
+---
+
+A single Nest Auth backend often serves several frontends:
+
+- **Admin console** — internal staff (super-admins, support, ops). Tight permissions. Hosted at `admin.example.com`.
+- **Tenant portal** — your SaaS app. Tenant owners, members, billing admins. Hosted at `app.example.com` (or `*.example.com`).
+- **Mobile app / public site** — customers. Hosted at `example.com`, or signed in via `x-platform: mobile`.
+
+Each portal has its own role bundle. A user with the `member` role on `PORTAL` should be able to sign in to the portal — but **not** to the admin console, even with the same email and password. This recipe shows the canonical pattern: configure multiple `roleGuards`, detect the requesting origin, and enforce that the user has at least one role on the right guard.
+
+## 1. Define your guards
+
+Turn the guard names into a TypeScript enum so you don't typo them anywhere:
+
+```ts
+// libs/types/role-guard.enum.ts
+export enum RoleGuardEnum {
+  ADMIN = 'ADMIN',
+  PORTAL = 'PORTAL',
+  FRONTEND = 'FRONTEND',
+}
+
+export enum RoleNameEnum {
+  SUPER_ADMIN = 'super_admin',
+  SUPPORT    = 'support',
+  OWNER      = 'owner',
+  ADMIN      = 'admin',
+  MEMBER     = 'member',
+  CUSTOMER   = 'customer',
+}
+```
+
+## 2. Wire `NestAuthModule.forRootAsync`
+
+The full configuration — register all three guards, enable platform access (lock it to the admin origin), and add the `beforeSignup` / `onLogin` hooks that tie everything together.
+
+```ts
+// app/auth/nest-auth-config.service.ts
+import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Request } from 'express';
+import {
+  ERROR_CODES,
+  IAuthModuleOptions,
+  IAuthModuleOptionsFactory,
+  INestAuthRole,
+  NestAuthMFAMethodEnum,
+  NestAuthRole,
+  NestAuthUser,
+  NestAuthUserAccess,
+  TenantModeEnum,
+} from '@ackplus/nest-auth';
+import { RoleGuardEnum, RoleNameEnum } from '@libs/types';
+
+import { User } from '../user/user.entity';
+
+@Injectable()
+export class NestAuthConfigService implements IAuthModuleOptionsFactory {
+  constructor(private readonly config: ConfigService) {}
+
+  createAuthModuleOptions(): IAuthModuleOptions {
+    return {
+      appName: process.env.APP_NAME ?? 'My App',
+
+      // Every guard your front-ends use must be listed here.
+      roleGuards: Object.values(RoleGuardEnum),
+
+      // Lock cross-tenant staff access to the admin origin only.
+      platformAccess: {
+        enabled: true,
+        validate: async (request: Request) => {
+          const origin = this.extractRequestOrigin(request);
+          if (!origin) return false;
+
+          const adminUrl = this.normalizeUrl(this.config.get<string>('ADMIN_URL'));
+          return Boolean(adminUrl && this.normalizeUrl(origin).includes(adminUrl));
+        },
+      },
+
+      tenant: { enabled: true, mode: TenantModeEnum.SHARED },
+
+      mfa: {
+        enabled: true,
+        required: false,
+        methods: [
+          NestAuthMFAMethodEnum.EMAIL,
+          NestAuthMFAMethodEnum.SMS,
+          NestAuthMFAMethodEnum.TOTP,
+        ],
+      },
+
+      session: {
+        accessTokenValidity: '1h',
+        refreshTokenValidity: '30d',
+        jwt: { secret: this.config.getOrThrow<string>('JWT_SECRET') },
+        cookieOptions: {
+          domain: this.config.get<string>('COOKIE_DOMAIN'),
+          httpOnly: true,
+          secure: process.env.APP_ENV !== 'local',
+          sameSite: process.env.APP_ENV !== 'local' ? 'none' : 'lax',
+        },
+      },
+
+      // ─── The hooks that enforce per-platform login gating ──────────
+      registrationHooks: {
+        beforeSignup: async (input, ctx) => {
+          // Reject if the request and the input disagree about which app the
+          // user is signing up on. Allow signups that don't specify either —
+          // some flows (invite-only) carry no guard.
+          const requestGuard = this.resolveGuardFromRequest(ctx?.request);
+          const inputGuard = this.parseGuard(input?.guard);
+          this.validateGuardConsistency({ requestGuard, inputGuard, allowMissing: true });
+          return input;
+        },
+
+        onSignup: async (user: NestAuthUser, input) => {
+          if (!input?.tenantId) return;
+
+          // First-time tenant member: assign the default `member` role on PORTAL.
+          const access = await user.getUserAccess(input.tenantId, true);
+          const memberRole = await NestAuthRole.findOne({
+            where: {
+              name: RoleNameEnum.MEMBER,
+              guard: RoleGuardEnum.PORTAL,
+              isSystem: true,
+            },
+            select: ['id'],
+          });
+
+          if (memberRole) {
+            await access.assignRoles([memberRole.id]);
+          }
+        },
+      },
+
+      loginHooks: {
+        onLogin: async (user, input, ctx) => {
+          // Determine which guard the request is targeting (origin or header).
+          const requestGuard = this.resolveGuardFromRequest(ctx?.request);
+          const inputGuard = this.parseGuard(input?.guard);
+
+          this.validateGuardConsistency({ requestGuard, inputGuard, allowMissing: false });
+          const requiredGuard = inputGuard ?? requestGuard;
+
+          if (!requiredGuard) {
+            throw new UnauthorizedException({
+              message: 'Login requires a valid guard.',
+              code: ERROR_CODES.INVALID_CREDENTIALS,
+            });
+          }
+
+          // Pick the role set: PlatformAccess wins (staff), else UserAccess.
+          const roles =
+            ctx?.platformAccess?.roles ??
+            ctx?.userAccess?.roles ??
+            [];
+
+          if (!(await this.userHasGuardAccess(user, roles, requiredGuard))) {
+            // Same generic error for non-existent users and wrong-guard users —
+            // don't leak which it was.
+            throw new UnauthorizedException({
+              message: 'Invalid credentials',
+              code: ERROR_CODES.INVALID_CREDENTIALS,
+            });
+          }
+        },
+      },
+
+      // Inject your AppUser business fields into the session payload.
+      user: {
+        getSessionUserData: async (user) => {
+          const appUser = await User.findOne({ where: { authUserId: user.id } });
+          if (appUser) {
+            (user as any).appUser = { ...appUser, authUser: { ...user } };
+          }
+          return user;
+        },
+      },
+    };
+  }
+
+  /* ─────────────────────────── helpers ─────────────────────────── */
+
+  private parseGuard(value?: unknown): RoleGuardEnum | null {
+    if (typeof value !== 'string') return null;
+    return Object.values(RoleGuardEnum).includes(value as RoleGuardEnum)
+      ? (value as RoleGuardEnum)
+      : null;
+  }
+
+  private resolveGuardFromRequest(request?: Request): RoleGuardEnum | null {
+    if (!request) return null;
+
+    // Mobile apps don't have an origin — they signal via a header.
+    const platform =
+      request.headers['x-platform'] ??
+      request.headers['x-app-platform'] ??
+      request.headers['x-client-type'];
+
+    if (platform === 'mobile' || platform === 'app') {
+      const mobileGuard = this.parseGuard(request.headers['x-mobile-guard']);
+      return mobileGuard ?? RoleGuardEnum.FRONTEND;
+    }
+
+    // Web — match Origin / Referer to a configured URL.
+    const origin = this.extractRequestOrigin(request);
+    if (!origin) return null;
+    const o = this.normalizeUrl(origin);
+
+    const adminUrl  = this.normalizeUrl(this.config.get<string>('ADMIN_URL'));
+    const portalUrl = this.normalizeUrl(this.config.get<string>('PORTAL_URL'));
+    const frontUrl  = this.normalizeUrl(this.config.get<string>('FRONT_URL'));
+
+    if (adminUrl && o.includes(adminUrl)) return RoleGuardEnum.ADMIN;
+    if ((portalUrl && o.includes(portalUrl)) || (frontUrl && o.includes(frontUrl))) {
+      return RoleGuardEnum.PORTAL;
+    }
+
+    return null;
+  }
+
+  private extractRequestOrigin(request: Request): string | null {
+    const origin = request.headers.origin;
+    if (origin) return origin;
+
+    const referer = request.headers.referer;
+    if (!referer) return null;
+    try {
+      return new URL(referer).origin;
+    } catch {
+      return referer;
+    }
+  }
+
+  private normalizeUrl(value?: string | null): string {
+    if (!value) return '';
+    return value
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .replace(/\/$/, '')
+      .toLowerCase();
+  }
+
+  private validateGuardConsistency({
+    requestGuard,
+    inputGuard,
+    allowMissing,
+  }: {
+    requestGuard: RoleGuardEnum | null;
+    inputGuard: RoleGuardEnum | null;
+    allowMissing: boolean;
+  }) {
+    if (requestGuard && inputGuard && requestGuard !== inputGuard) {
+      throw new BadRequestException({
+        message: 'Invalid request',
+        code: ERROR_CODES.GUARD_MISMATCH,
+      });
+    }
+
+    if (!allowMissing && !requestGuard && !inputGuard) {
+      throw new UnauthorizedException({
+        message: 'Login requires a valid guard.',
+        code: ERROR_CODES.INVALID_CREDENTIALS,
+      });
+    }
+  }
+
+  private async userHasGuardAccess(
+    user: NestAuthUser,
+    roles: Partial<INestAuthRole>[],
+    requiredGuard: RoleGuardEnum,
+  ): Promise<boolean> {
+    if (roles.length > 0) {
+      return roles.some((r) => r.guard === requiredGuard);
+    }
+
+    // Fall back to a direct DB check if the resolved roles array was empty
+    // (e.g. user just signed up and the session hasn't been refreshed yet).
+    const access = await NestAuthUserAccess.findOne({
+      where: { userId: user.id, roles: { guard: requiredGuard } },
+    });
+    return Boolean(access);
+  }
+}
+```
+
+Register it on the module:
+
+```ts
+// app/app.module.ts
+import { NestAuthModule } from '@ackplus/nest-auth';
+import { NestAuthConfigService } from './auth/nest-auth-config.service';
+
+@Module({
+  imports: [
+    NestAuthModule.forRootAsync({
+      isGlobal: true,
+      imports: [ConfigModule],
+      useClass: NestAuthConfigService,
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+## 3. Seed roles per guard
+
+Roles live in `nest_auth_roles` with both a `name` and a `guard`. Same name on different guards = different rows. See the [seeding-roles-and-permissions recipe](/docs/recipes/seeding-roles-and-permissions) for an idempotent seeder.
+
+## 4. Frontend — pass the guard / origin
+
+Web frontends don't need to do anything — the backend reads the `Origin` / `Referer` header. Mobile apps **do**:
+
+```ts
+new AuthClient({
+  baseUrl: 'https://api.example.com',
+  httpAdapter: customFetchAdapter({
+    headers: {
+      'x-platform': 'mobile',
+      'x-mobile-guard': 'FRONTEND',   // omit to default to FRONTEND
+    },
+  }),
+});
+```
+
+Or, for explicit control, send `guard` in the login body:
+
+```ts
+await client.login({
+  providerName: 'email',
+  credentials: { email, password },
+  // @ts-ignore — extra fields pass through to the hook ctx.input
+  guard: 'PORTAL',
+});
+```
+
+The `validateGuardConsistency` helper rejects the request if the body's `guard` and the resolved request guard disagree — so a malicious portal page can't try to log a user in as admin by setting `guard: 'ADMIN'` in the body.
+
+## 5. Granting platform access (super-admins)
+
+Cross-tenant staff get `NestAuthPlatformAccess`, not `NestAuthUserAccess`. You'll typically grant this from a setup script or an admin-only endpoint:
+
+```ts
+@Auth()
+@NestAuthRoles(RoleNameEnum.SUPER_ADMIN, RoleGuardEnum.ADMIN)
+@Post('staff')
+async grantStaff(@Body() body: { userId: string; roles: string[] }) {
+  return this.staffService.grant(body.userId, body.roles);
+}
+```
+
+`platformAccess.validate(request)` ensures the staff session only works against the admin origin — even if a leaked staff token lands on the portal subdomain, it's discarded.
+
+## 6. The result
+
+| User | Logs into admin.example.com | Logs into app.example.com | Logs into mobile (FRONTEND) |
+| --- | --- | --- | --- |
+| Member of tenant Acme (`PORTAL/member`) | ❌ rejected | ✅ accepted | ❌ rejected |
+| Customer (`FRONTEND/customer`) | ❌ rejected | ❌ rejected | ✅ accepted |
+| Support staff (`PlatformAccess: SUPPORT`) | ✅ accepted | ❌ rejected (validate() returns false) | ❌ rejected |
+
+One backend, three login experiences, zero token-leakage between portals.
+
+## Related
+
+- [RBAC](/docs/concepts/rbac) — guards, roles, permissions.
+- [User Access & Platform Access](/docs/concepts/user-access-and-platform-access).
+- [Multi-tenancy](/docs/concepts/multi-tenancy).
+- [Seeding roles & permissions](/docs/recipes/seeding-roles-and-permissions).
+- [Hooks reference](/docs/backend/hooks-reference) — `registrationHooks.beforeSignup`, `loginHooks.onLogin`.

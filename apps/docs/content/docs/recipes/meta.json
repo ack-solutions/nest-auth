@@ -4,6 +4,8 @@
     "index",
     "user-registered-listener",
     "user-logged-in-listener",
+    "multi-platform-login",
+    "seeding-roles-and-permissions",
     "custom-oauth-provider",
     "extra-signup-fields",
     "react-auth-forms",

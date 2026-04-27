@@ -4,7 +4,13 @@
   <a href="https://nestjs.com/" target="_blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
 
-<p align="center">Full-featured authentication for NestJS, JavaScript, and React.</p>
+<p align="center"><strong>Full-featured authentication for NestJS, JavaScript, and React.</strong></p>
+
+<p align="center">
+  <a href="https://ack-solutions.github.io/nest-auth/"><strong>📚 Documentation</strong></a> ·
+  <a href="https://www.npmjs.com/package/@ackplus/nest-auth">npm</a> ·
+  <a href="https://github.com/ack-solutions/nest-auth/issues">Issues</a>
+</p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@ackplus/nest-auth"><img src="https://img.shields.io/npm/v/@ackplus/nest-auth.svg" alt="NPM Version" /></a>
@@ -14,7 +20,7 @@
 
 ## 📚 Documentation
 
-**Full documentation lives at [ack-solutions.github.io/nest-auth](https://ack-solutions.github.io/nest-auth).**
+**Full documentation lives at [ack-solutions.github.io/nest-auth](https://ack-solutions.github.io/nest-auth/).**
 
 The docs cover:
 
