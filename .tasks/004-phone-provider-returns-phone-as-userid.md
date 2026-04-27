@@ -2,10 +2,15 @@
 id: 004
 priority: P1
 area: backend
-status: open
+status: fixed
+fixed-at: 2026-04-27
 package: '@ackplus/nest-auth'
 title: PhoneAuthProvider.validate() returns phone number in the userId field
 ---
+
+> **Fixed.** One-line change in
+> `phone-auth.provider.ts`: `userId: identity.user?.phone` →
+> `userId: identity.user?.id`. Build verified clean.
 
 ## Summary
 

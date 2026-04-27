@@ -12,6 +12,7 @@ import {
     OneToOne,
     In,
     JoinColumn,
+    EntityManager,
 } from 'typeorm';
 import { NestAuthUser } from './user.entity';
 import { NestAuthRole } from '../../role/entities/role.entity';
@@ -68,12 +69,24 @@ export class NestAuthPlatformAccess extends BaseEntity {
         return access?.roles?.length ? access.roles : [];
     }
 
-    /** Assign multiple roles for a specific tenant (stores on user access). */
-    async assignRoles(roleIds: string | string[]): Promise<void> {
+    /**
+     * Replace this platform-access's roles with the provided ones.
+     * Pass `manager` to participate in a transaction.
+     */
+    async assignRoles(roleIds: string | string[], manager?: EntityManager): Promise<void> {
         const ids = Array.isArray(roleIds) ? roleIds : [roleIds];
+
+        const roleRepo = manager
+            ? manager.getRepository(NestAuthRole)
+            : NestAuthRole.getRepository();
+        const accessRepo = manager
+            ? manager.getRepository(NestAuthPlatformAccess)
+            : NestAuthPlatformAccess.getRepository();
+
         this.roles = ids.length
-            ? await NestAuthRole.find({ where: { id: In(ids) } })
+            ? await roleRepo.find({ where: { id: In(ids) } })
             : [];
-        await this.save();
+
+        await accessRepo.save(this);
     }
 }

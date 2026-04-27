@@ -63,10 +63,15 @@ export class PasswordlessAuthProvider extends BaseAuthProvider {
             );
             if (ok) {
                 const user = identity.user;
+                // Entering an OTP delivered to email/SMS proves channel
+                // ownership — same signal as a verification flow. Surface it
+                // so the auth service can lift `*VerifiedAt` if not already.
                 return {
                     userId: providerUserId,
                     email: user.email,
                     phone: user.phone,
+                    emailVerified: ch === 'email',
+                    phoneVerified: ch === 'sms',
                     metadata: user,
                 };
             }

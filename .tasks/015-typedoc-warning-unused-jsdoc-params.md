@@ -2,10 +2,15 @@
 id: 015
 priority: P3
 area: backend
-status: open
+status: fixed
+fixed-at: 2026-04-27
 package: '@ackplus/nest-auth'
 title: TypeDoc warns about JSDoc `@param` references to unused parameters
 ---
+
+> **Fixed.** Both stale JSDoc blocks rewritten to match the actual signatures:
+> - `IRegistrationHooks.beforeSignup` — JSDoc + `@example` now reflect `(input, context)` instead of the bogus `(request, input)` shape.
+> - `GoogleAuthProvider.validate` — `@param config` removed; `_tenantId` documented as deliberately unused with reasoning. TypeDoc no longer warns about either.
 
 ## Summary
 

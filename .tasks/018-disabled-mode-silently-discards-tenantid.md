@@ -3,10 +3,18 @@ id: 018
 priority: P2
 area: backend
 mode: disabled
-status: open
+status: fixed
+fixed-at: 2026-04-27
 package: '@ackplus/nest-auth'
 title: Disabled-tenant mode silently discards tenantId in signup/login
 ---
+
+> **Fixed.** Added `assertTenantIdAllowed(tenantId)` helper on
+> `AuthService` and called it at the top of `signup()` and `login()`
+> (skipped on platform-admin login). When `tenant.enabled = false` and
+> `tenantId` is provided, the request now fails fast with
+> `400 TENANT_NOT_ENABLED`. New error code added to `TENANT_ERROR_CODES`.
+> Build verified clean.
 
 ## Summary
 

@@ -85,11 +85,17 @@ export class SessionManagerService {
     private shouldTouchSession(session: NestAuthSession): boolean {
         const now = Date.now();
         const lastActive = session.lastActive ? new Date(session.lastActive).getTime() : 0;
-        const expiresAt = session.expiresAt ? new Date(session.expiresAt).getTime() : 0;
 
-        const touchedRecently = now - lastActive < 5 * 60 * 1000; // 5 minutes
+        const touchedRecently = now - lastActive < this.getTouchIntervalMs();
 
-        return !touchedRecently
+        return !touchedRecently;
+    }
+
+    private getTouchIntervalMs(): number {
+        const raw = this.options.session?.touchInterval ?? '5m';
+        // Use the same path as the rest of the library (see utils/date.util.ts).
+        // ms() typings vary by version; the cast keeps us version-tolerant.
+        return typeof raw === 'string' ? ms(raw as any) : raw;
     }
 
     /**
@@ -138,9 +144,19 @@ export class SessionManagerService {
     }
 
     /**
-     * Revoke (delete) a session
+     * Revoke (delete) a session.
+     *
+     * @param sessionId - Session to revoke.
+     * @param reason    - Why it's being revoked. Surfaced to the
+     *                    `session.onRevoked(session, reason)` hook so audit
+     *                    consumers can aggregate by cause. Defaults to
+     *                    `'admin'` for backward compatibility with callers
+     *                    that haven't been updated to specify.
      */
-    async revokeSession(sessionId: string): Promise<void> {
+    async revokeSession(
+        sessionId: string,
+        reason: 'logout' | 'expired' | 'admin' | 'security' | 'password_change' = 'admin',
+    ): Promise<void> {
         // Get session before deleting to pass to hook
         let session: NestAuthSession | null = null;
         if (this.options.session?.onRevoked) {
@@ -151,15 +167,18 @@ export class SessionManagerService {
 
         // Apply onRevoked hook if configured
         if (this.options.session?.onRevoked && session) {
-            await this.options.session.onRevoked(session, 'admin'); // Default reason, could be passed as arg
+            await this.options.session.onRevoked(session, reason);
         }
     }
 
     /**
-     * Delete a session (alias for revokeSession)
+     * Delete a session (alias for revokeSession).
      */
-    async deleteSession(sessionId: string): Promise<void> {
-        await this.revokeSession(sessionId);
+    async deleteSession(
+        sessionId: string,
+        reason: 'logout' | 'expired' | 'admin' | 'security' | 'password_change' = 'admin',
+    ): Promise<void> {
+        await this.revokeSession(sessionId, reason);
     }
 
     /**

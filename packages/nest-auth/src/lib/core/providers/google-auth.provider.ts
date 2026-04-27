@@ -38,11 +38,18 @@ export class GoogleAuthProvider extends BaseAuthProvider {
 
     /**
      * Validate Google credentials.
-     * Supports validation via 'idToken' or 'accessToken'.
      *
-     * @param credentials - Object containing either 'idToken' or 'accessToken'
-     * @param config - Optional configuration override
-     * @returns AuthProviderUser - Validated user user info
+     * Supports two token kinds, selected by `credentials.type`:
+     * - `'idToken'` (default) — JWT signed by Google, verified offline against
+     *   Google's public keys with `audience` pinned to the configured clientId.
+     * - `'accessToken'` — OAuth 2.0 bearer; validated via `getTokenInfo`, then
+     *   userinfo is fetched from `https://www.googleapis.com/oauth2/v3/userinfo`.
+     *
+     * @param credentials - Object containing `token` and optional `type`.
+     * @param _tenantId   - Tenant context, unused (Google identities are global
+     *                      by `sub`; tenant assignment happens later in the auth
+     *                      flow via UserAccess, not at provider validation time).
+     * @returns The resolved provider user (`{ userId, email, metadata }`).
      */
     async validate(credentials: SocialCredentialsDto, _tenantId?: string) {
         const currentConfig = this.googleConfig;
@@ -78,11 +85,6 @@ export class GoogleAuthProvider extends BaseAuthProvider {
                 // 1) Basic validation
                 const tokenInfo = await client.getTokenInfo(token);
 
-                // Optional / depends on scopes; don’t *assume* email_verified exists
-                // if ((tokenInfo as any).email_verified === false) {
-                //   throw new UnauthorizedException('Google email not verified');
-                // }
-
                 // 2) Fetch profile from userinfo endpoint (use plain fetch/axios)
                 const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                     headers: {
@@ -104,6 +106,9 @@ export class GoogleAuthProvider extends BaseAuthProvider {
                     name: userInfo.name,
                     picture: userInfo.picture,
                     locale: userInfo.locale,
+                    // userinfo's `email_verified` is more reliable than tokenInfo's
+                    email_verified:
+                        (userInfo as any).email_verified ?? (tokenInfo as any).email_verified,
                 };
             } catch (error) {
                 console.error('Google Access Token validation failed:', error);
@@ -121,9 +126,23 @@ export class GoogleAuthProvider extends BaseAuthProvider {
             throw new UnauthorizedException(`Invalid Google ${type} token`);
         }
 
+        // Strict email-verified gate. We only enforce when the field is
+        // explicitly `false` — missing means "Google didn't tell us", which
+        // is the original concern that motivated commenting this out.
+        if (
+            currentConfig.requireVerifiedEmail &&
+            (payload as any).email_verified === false
+        ) {
+            throw new UnauthorizedException('Google reports this email as unverified');
+        }
+
         return {
             userId: payload.sub,
             email: payload.email || '',
+            // Pass through Google's verification claim so the auth flow can
+            // promote `emailVerifiedAt` on the user. Google's idToken almost
+            // always carries this; access-token flows may not.
+            emailVerified: (payload as any).email_verified === true,
             metadata: {
                 name: payload.name,
                 picture: payload.picture,

@@ -143,6 +143,14 @@ export const TENANT_ERROR_CODES = {
     TENANT_NOT_FOUND: 'TENANT_NOT_FOUND',
     TENANT_ALREADY_EXISTS: 'TENANT_ALREADY_EXISTS',
     INVALID_TENANT: 'INVALID_TENANT',
+    /** A `tenantId` was supplied, but `tenant.enabled = false` on the server. */
+    TENANT_NOT_ENABLED: 'TENANT_NOT_ENABLED',
+    /** `switchTenant` called when multi-tenancy is disabled. */
+    TENANT_SWITCHING_DISABLED: 'TENANT_SWITCHING_DISABLED',
+    /** `switchTenant` called in ISOLATED mode (semantically meaningless). */
+    TENANT_SWITCHING_NOT_SUPPORTED: 'TENANT_SWITCHING_NOT_SUPPORTED',
+    /** Caller authenticated, but has no `userAccess`/`platformAccess` for the target tenant. */
+    NOT_A_MEMBER_OF_TENANT: 'NOT_A_MEMBER_OF_TENANT',
 } as const;
 
 // Consolidated Error Codes (for easy access)

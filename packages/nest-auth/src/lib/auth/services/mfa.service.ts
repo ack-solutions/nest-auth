@@ -198,6 +198,12 @@ export class MfaService {
                     type: NestAuthOTPTypeEnum.MFA,
                     code: inputOtp,
                 });
+
+                // The user just proved they control the channel by entering a
+                // code that was delivered there — that's exactly what email/
+                // phone verification is. Stamp `*VerifiedAt` if it isn't set.
+                await this.markChannelVerified(userId, method);
+
                 return true;
             } catch {
                 return false;
@@ -205,6 +211,32 @@ export class MfaService {
         }
 
         return false;
+    }
+
+    /**
+     * Lift `emailVerifiedAt` / `phoneVerifiedAt` after a successful
+     * email-OTP / SMS-OTP MFA verification. Idempotent — only writes when
+     * the field is currently null.
+     */
+    private async markChannelVerified(
+        userId: string,
+        method: NestAuthMFAMethodEnum,
+    ): Promise<void> {
+        try {
+            if (method === NestAuthMFAMethodEnum.EMAIL) {
+                await this.userRepository.update(
+                    { id: userId, emailVerifiedAt: IsNull() },
+                    { emailVerifiedAt: new Date() },
+                );
+            } else if (method === NestAuthMFAMethodEnum.SMS) {
+                await this.userRepository.update(
+                    { id: userId, phoneVerifiedAt: IsNull() },
+                    { phoneVerifiedAt: new Date() },
+                );
+            }
+        } catch {
+            // Verification stamping is best-effort — don't fail MFA over it.
+        }
     }
 
 

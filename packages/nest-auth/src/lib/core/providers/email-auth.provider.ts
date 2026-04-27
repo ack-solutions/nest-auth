@@ -57,7 +57,7 @@ export class EmailAuthProvider extends BaseAuthProvider {
         }
 
         return {
-            userId: identity.user?.email,
+            userId: identity.user?.id,
             email: identity.user?.email || '',
             metadata: identity.user,
         };

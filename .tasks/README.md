@@ -25,8 +25,6 @@ A flat directory of markdown files, one per known bug or unimplemented bit. Chea
 
 | ID | Area | Title |
 | --- | --- | --- |
-| [001](001-admin-password-validation-bypassed.md) | backend | Admin login bypasses password validation |
-| [002](002-plaintext-password-logged.md) | backend | Plaintext admin password logged to stdout |
 | [005](005-build-openapi-script-is-stub.md) | docs | `build-openapi.ts` is a stub — OpenAPI spec is hand-maintained |
 | [019](019-isolated-mode-not-actually-isolated.md) | backend / `mode: isolated` | ISOLATED tenant mode is currently a no-op — code does not honour the contract |
 
@@ -34,55 +32,61 @@ A flat directory of markdown files, one per known bug or unimplemented bit. Chea
 
 | ID | Area | Title |
 | --- | --- | --- |
-| [003](003-email-provider-returns-email-as-userid.md) | backend | EmailAuthProvider.validate() returns email in the userId field |
-| [004](004-phone-provider-returns-phone-as-userid.md) | backend | PhoneAuthProvider.validate() returns phone in the userId field |
 | [006](006-build-sql-snapshots-script-is-stub.md) | docs | `build-sql-snapshots.ts` is a stub — Database Setup page links to placeholder SQL |
 | [007](007-admin-controllers-missing-api-response-decorators.md) | backend | AdminUsersController endpoints have no `@ApiResponse` decorators |
 | [010](010-social-providers-skipmfa-inconsistent.md) | backend | Social providers inconsistently set `skipMfa` |
 | [013](013-no-test-coverage-on-any-package.md) | all | No automated test coverage on any of the four packages |
-| [017](017-switchtenant-no-mode-guard.md) | backend / `mode: cross-mode` | `POST /auth/switch-tenant` has no guard for tenant mode — accepts calls in any configuration |
 | [020](020-refresh-after-switchtenant-fragility.md) | backend / `mode: shared` | Refresh after `switchTenant` relies on `session.data` persistence — silent regression risk |
-| [021](021-user-email-not-unique-at-db-layer.md) | backend / `mode: shared` | `nest_auth_users.email` is `@Index` only, not `@Unique` — concurrent-signup race |
+| [021](021-user-email-not-unique-at-db-layer.md) | backend / `mode: shared` | `nest_auth_users.email` is `@Index` only, not `@Unique` — *deferred*, see file for tradeoff |
 
 #### P2 — paper cuts / inconsistencies
 
 | ID | Area | Title |
 | --- | --- | --- |
-| [008](008-session-onrevoked-hardcoded-reason.md) | backend | SessionManagerService passes hardcoded `'admin'` reason to `onRevoked` hook |
-| [009](009-session-touch-interval-hardcoded.md) | backend | Session "touch" interval is hardcoded to 5 minutes |
-| [011](011-google-email-verified-check-disabled.md) | backend | Google access-token flow has `email_verified` check commented out |
-| [012](012-github-provider-error-swallowing.md) | backend | `GitHubAuthProvider` catch block swallows the failure mode |
 | [016](016-openapi-spec-no-servers-and-no-tags.md) | backend | OpenAPI spec has empty `servers[]` and missing top-level `tags[]` |
-| [018](018-disabled-mode-silently-discards-tenantid.md) | backend / `mode: disabled` | Disabled-tenant mode silently discards `tenantId` in signup/login |
 | [022](022-sessions-tenantid-not-a-column.md) | backend / `mode: shared` | `nest_auth_sessions.tenantId` lives inside the JSON `data` column |
 
 #### P3 — nice-to-haves
 
 | ID | Area | Title |
 | --- | --- | --- |
-| [014](014-otp-input-skipdefaultstyles-deprecation.md) | backend | `otp-input` `skipDefaultStyles` prop marked for removal without version pin |
-| [015](015-typedoc-warning-unused-jsdoc-params.md) | backend | TypeDoc warns about JSDoc `@param` references to unused parameters |
-| [023](023-current-tenant-decorator-undocumented-disabled-behavior.md) | backend / `mode: disabled` | `@CurrentTenantId()` returns `null` in disabled mode without JSDoc clarifying it |
-| [024](024-mfa-not-tenant-scoped-design-undocumented.md) | backend / `mode: shared` | MFA secrets and trusted devices are user-global, not tenant-scoped — undocumented |
 
 ### Fixed
 
-_(none yet)_
+| ID | P | Area | Title | Date |
+| --- | --- | --- | --- | --- |
+| [001](001-admin-password-validation-bypassed.md) | P0 | backend | Admin login bypasses password validation | 2026-04-27 |
+| [002](002-plaintext-password-logged.md) | P0 | backend | Plaintext admin password logged to stdout | 2026-04-27 |
+| [003](003-email-provider-returns-email-as-userid.md) | P1 | backend | `EmailAuthProvider.validate()` returns email in the userId field | 2026-04-27 |
+| [004](004-phone-provider-returns-phone-as-userid.md) | P1 | backend | `PhoneAuthProvider.validate()` returns phone in the userId field | 2026-04-27 |
+| [008](008-session-onrevoked-hardcoded-reason.md) | P2 | backend | SessionManagerService passes hardcoded `'admin'` reason to `onRevoked` hook | 2026-04-27 |
+| [009](009-session-touch-interval-hardcoded.md) | P2 | backend | Session "touch" interval is hardcoded to 5 minutes (now configurable) | 2026-04-27 |
+| [011](011-google-email-verified-check-disabled.md) | P2 | backend | Google `email_verified` gate + `*VerifiedAt` lift on Google / GitHub / passwordless / MFA-OTP | 2026-04-27 |
+| [012](012-github-provider-error-swallowing.md) | P2 | backend | `GitHubAuthProvider` differentiates failure modes (network / 4xx / 5xx / no-public-email) | 2026-04-27 |
+| [014](014-otp-input-skipdefaultstyles-deprecation.md) | P3 | backend | `otp-input` `skipDefaultStyles` prop now `@deprecated` and pinned to v3.0.0 | 2026-04-27 |
+| [015](015-typedoc-warning-unused-jsdoc-params.md) | P3 | backend | TypeDoc unused-`@param` warnings cleaned up | 2026-04-27 |
+| [017](017-switchtenant-no-mode-guard.md) | P1 | backend / `mode: cross-mode` | `POST /auth/switch-tenant` mode + membership guards | 2026-04-27 |
+| [018](018-disabled-mode-silently-discards-tenantid.md) | P2 | backend / `mode: disabled` | Disabled-tenant mode now rejects `tenantId` in signup/login | 2026-04-27 |
+| [023](023-current-tenant-decorator-undocumented-disabled-behavior.md) | P3 | backend / `mode: disabled` | `@CurrentTenantId()` JSDoc rewritten to clarify `null` cases | 2026-04-27 |
+| [024](024-mfa-not-tenant-scoped-design-undocumented.md) | P3 | backend | MFA tenant-scope behaviour documented in concepts/mfa.mdx | 2026-04-27 |
+
+### Deferred
+
+| ID | P | Area | Title | Reason |
+| --- | --- | --- | --- | --- |
+| [021](021-user-email-not-unique-at-db-layer.md) | P1 | backend / `mode: shared` | `nest_auth_users.email` per-mode unique constraint | A simple `@Unique` would break ISOLATED mode (where the same email can exist once per tenant) since `tenantId` is on `user_access`, not on the user table. API-level check already covers normal traffic. Re-open alongside #022 schema rework. |
 
 ## Suggested order
 
 Security & quick wins first, then unblockers, then bigger-lift items.
 
-1. **#001 + #002** — admin-console security. Same file, same PR. ~10 lines of code; writing the test is the harder part.
-2. **#003 + #004** — provider userId bug. Same trivial diff, same test.
-3. **#017** — `switchTenant` mode guard. ~30 lines, knocks out one of the most user-facing tenant bugs.
-4. **#021** — add the unique constraint on `nest_auth_users.email` / `phone`. Migration required; test the race.
-5. **#013** — set up the test scaffold (vitest or jest). Everything below benefits from having tests as you go.
-6. **#005** — wire up the real OpenAPI generator. Unblocks #007 and #016.
+1. **#013** — set up the test scaffold (vitest or jest). Everything below benefits from having tests as you go.
+2. **#005** — wire up the real OpenAPI generator. Unblocks #007 and #016.
+3. **#019** — decide on ISOLATED mode. Either rename to STRICT and document that tenantId is just a tag, or commit to a per-DB lift. Bigger; needs an RFC.
+4. **#020 / #022** — session refresh hardening + `tenantId` as a column. Often paired in one PR. Reopens #021 once `tenantId` is on the user table.
+5. **#010** — social-providers `skipMfa` consistency.
+6. **#007 / #016** — once #005 lands.
 7. **#006** — SQL snapshots, makes the Database Setup page actually work.
-8. **#019** — decide on ISOLATED mode (rename to STRICT + add row-level enforcement, or commit to per-DB lift). Bigger; needs an RFC.
-9. **#020 / #022** — session refresh hardening + `tenantId` as a column. Often paired in one PR.
-10. The rest in priority order.
 
 ## By tenant mode
 
@@ -90,10 +94,10 @@ If you're only working on one mode, here's the slice:
 
 | Mode | Open issues |
 | --- | --- |
-| `disabled` | #018, #023 |
-| `shared` | #017, #020, #021, #022, #024 |
+| `disabled` | — (all caught up) |
+| `shared` | #020, #022 (#021 deferred) |
 | `isolated` | #019 |
-| `cross-mode` (any tenant config) | #017 |
+| `cross-mode` (any tenant config) | — |
 
 ## Adding a new task
 

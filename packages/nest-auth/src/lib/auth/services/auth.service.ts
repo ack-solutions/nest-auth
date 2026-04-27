@@ -146,6 +146,10 @@ export class AuthService {
 
             const { email, phone, password, tenantId } = input;
 
+            // Reject tenantId on a single-tenant deployment so misconfigured
+            // clients fail loudly instead of silently writing wrong data.
+            this.assertTenantIdAllowed(tenantId);
+
             // Resolve tenant ID
             await this.tenantService.resolveTenantId(tenantId);
 
@@ -291,6 +295,11 @@ export class AuthService {
         this.debugLogger.logFunctionEntry('login', 'AuthService', { providerName, createUserIfNotExists, guard, tenantId });
 
         try {
+            // Platform-admin login is tenant-agnostic; nothing to validate.
+            if (!isPlatformAccess) {
+                this.assertTenantIdAllowed(tenantId);
+            }
+
             let resolvedTenantId: string | null = null;
             if (isPlatformAccess) {
                 resolvedTenantId = null;
@@ -333,6 +342,12 @@ export class AuthService {
                 }
                 // Create new user if not exists and link to provider
                 user = await this.handleSocialLogin(provider, authProviderUser!, resolvedTenantId);
+            } else {
+                // Provider attests this email/phone belongs to the user (e.g. Google's
+                // `email_verified` claim, GitHub's verified primary email). Lift the
+                // matching `*VerifiedAt` field if it isn't set yet so this becomes a
+                // canonical source of "this email/phone is real and reachable".
+                user = await this.applyProviderVerification(user, authProviderUser);
             }
 
             if (user.isActive === false) {
@@ -650,6 +665,26 @@ export class AuthService {
             });
         }
 
+        // Guard 1: refuse on single-tenant deployments — silently switching
+        // (the previous behaviour) misled clients into thinking the call worked.
+        if (!this.authConfig.tenant?.enabled) {
+            throw new BadRequestException({
+                message: 'Multi-tenancy is disabled on this deployment.',
+                code: ERROR_CODES.TENANT_SWITCHING_DISABLED,
+            });
+        }
+
+        // Guard 2: in ISOLATED mode each tenant has its own user identity, so
+        // mid-session tenant switching is semantically wrong — the user should
+        // sign in to the target tenant directly.
+        const tenantMode = this.authConfig.tenant?.mode ?? TenantModeEnum.ISOLATED;
+        if (tenantMode === TenantModeEnum.ISOLATED) {
+            throw new BadRequestException({
+                message: 'Tenant switching is not supported in isolated mode. Sign in to the target tenant directly.',
+                code: ERROR_CODES.TENANT_SWITCHING_NOT_SUPPORTED,
+            });
+        }
+
         const resolvedTenantId = await this.tenantService.resolveTenantId(tenantId || null);
         const { user, userAccess } = await this.getUserWithAccess(session.userId!, resolvedTenantId);
         if (!user) {
@@ -657,6 +692,20 @@ export class AuthService {
                 message: 'User not found',
                 code: ERROR_CODES.USER_NOT_FOUND,
             });
+        }
+
+        // Guard 3: confirm the caller actually has access to the target tenant
+        // before binding the session to it.
+        if (resolvedTenantId && !userAccess) {
+            const platformAccess = await NestAuthPlatformAccess.findOne({
+                where: { userId: user.id, isActive: true },
+            });
+            if (!platformAccess) {
+                throw new ForbiddenException({
+                    message: 'You do not have access to that tenant.',
+                    code: ERROR_CODES.NOT_A_MEMBER_OF_TENANT,
+                });
+            }
         }
 
         await this.ensureTenantAccess(user, resolvedTenantId, false);
@@ -835,7 +884,7 @@ export class AuthService {
             const { user, userAccess, platformAccess } = await this.getUserWithAccess(session.userId!, session.data?.tenantId ?? null, isPlatformAccess);
 
             if (!user) {
-                await this.sessionManager.revokeSession(session.id);
+                await this.sessionManager.revokeSession(session.id, 'security');
                 throw new UnauthorizedException({
                     message: 'User not found',
                     code: ERROR_CODES.USER_NOT_FOUND,
@@ -843,7 +892,7 @@ export class AuthService {
             }
 
             if (user.isActive === false) {
-                await this.sessionManager.revokeSession(session.id);
+                await this.sessionManager.revokeSession(session.id, 'security');
                 throw new UnauthorizedException({
                     message: 'Your account is suspended, please contact support',
                     code: ERROR_CODES.ACCOUNT_INACTIVE,
@@ -856,12 +905,12 @@ export class AuthService {
                 try {
                     await this.ensureTenantAccess(user, tenantId, false);
                 } catch (error) {
-                    await this.sessionManager.revokeSession(session.id);
+                    await this.sessionManager.revokeSession(session.id, 'security');
                     throw error;
                 }
             }
             if (isPlatformAccess && !platformAccess) {
-                await this.sessionManager.revokeSession(session.id);
+                await this.sessionManager.revokeSession(session.id, 'security');
                 throw new UnauthorizedException({
                     message: 'You are not authorized to platform access',
                     code: ERROR_CODES.ACCESS_DENIED,
@@ -958,7 +1007,7 @@ export class AuthService {
                 })
             );
 
-            await this.sessionManager.revokeSession(session.id);
+            await this.sessionManager.revokeSession(session.id, 'logout');
         }
 
         return true;
@@ -1098,6 +1147,64 @@ export class AuthService {
         }
 
         return response;
+    }
+
+    /**
+     * Lift `emailVerifiedAt` / `phoneVerifiedAt` on an existing user when the
+     * provider attests that the contact channel belongs to them, but only if
+     * the matching value on the user matches what the provider returned and
+     * isn't already verified. Skips silently when nothing to do.
+     *
+     * Returns the (possibly updated) user. The reload is needed because the
+     * cached `identity.user` may not have the freshest fields.
+     */
+    private async applyProviderVerification(
+        user: NestAuthUser,
+        providerUser: AuthProviderUser,
+    ): Promise<NestAuthUser> {
+        const updates: Partial<NestAuthUser> = {};
+
+        if (
+            providerUser.emailVerified === true &&
+            !user.emailVerifiedAt &&
+            user.email &&
+            providerUser.email &&
+            user.email.toLowerCase() === providerUser.email.toLowerCase()
+        ) {
+            updates.emailVerifiedAt = new Date();
+        }
+
+        if (
+            providerUser.phoneVerified === true &&
+            !user.phoneVerifiedAt &&
+            user.phone &&
+            providerUser.phone &&
+            user.phone === providerUser.phone
+        ) {
+            updates.phoneVerifiedAt = new Date();
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return user;
+        }
+
+        await this.userRepository.update({ id: user.id }, updates);
+        return (await this.userRepository.findOne({ where: { id: user.id } })) ?? user;
+    }
+
+    /**
+     * Reject a request that supplies a `tenantId` on a deployment where
+     * multi-tenancy is disabled. Without this, the value is silently dropped
+     * — clients built against a multi-tenant deployment that get repointed
+     * at a single-tenant one would think their tenant scoping was working.
+     */
+    private assertTenantIdAllowed(tenantId?: string | null): void {
+        if (!this.authConfig.tenant?.enabled && tenantId) {
+            throw new BadRequestException({
+                message: 'tenantId provided but multi-tenancy is disabled on this deployment.',
+                code: ERROR_CODES.TENANT_NOT_ENABLED,
+            });
+        }
     }
 
     private async checkTrustedDevice(user: NestAuthUser): Promise<boolean> {

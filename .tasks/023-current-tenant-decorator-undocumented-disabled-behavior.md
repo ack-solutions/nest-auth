@@ -3,10 +3,19 @@ id: 023
 priority: P3
 area: backend
 mode: disabled
-status: open
+status: fixed
+fixed-at: 2026-04-27
 package: '@ackplus/nest-auth'
-title: @CurrentTenantId() returns null in disabled mode without JSDoc clarifying it
+title: '@CurrentTenantId() returns null in disabled mode without JSDoc clarifying it'
 ---
+
+> **Fixed.** Rewrote the JSDoc on `CurrentTenantId` to enumerate every
+> case where it returns `null` (single-tenant deployment, public route,
+> no-context-yet) and added a worked example showing the `null`-handling
+> pattern. The return type was already `string | null` so consumers will
+> get a TypeScript error if they assume non-null. `CurrentTenant` alias
+> picked up an `{@link CurrentTenantId}` reference and a v3-removal note.
+> Build verified clean.
 
 ## Summary
 

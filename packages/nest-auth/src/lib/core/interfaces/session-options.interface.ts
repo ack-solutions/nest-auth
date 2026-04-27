@@ -79,6 +79,15 @@ export interface SessionOptions {
     slidingExpiration?: boolean; // Whether to extend session on activity (default: false)
 
     /**
+     * How frequently a session row's `lastActive` should be touched while a
+     * user is active. Pass an `ms` string (e.g. `'5m'`, `'30s'`) or a number
+     * of milliseconds. Lower = more accurate "last seen" but more DB writes.
+     *
+     * @default '5m'
+     */
+    touchInterval?: number | string;
+
+    /**
      * Customize the data stored in the session (database).
      * This data is NOT sent to the client and can include sensitive information.
      * Supports async operations for database lookups.

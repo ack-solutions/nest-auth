@@ -2,10 +2,39 @@
 id: 011
 priority: P2
 area: backend
-status: open
+status: fixed
+fixed-at: 2026-04-27
 package: '@ackplus/nest-auth'
-title: Google access-token flow has email_verified check commented out
+title: 'Google access-token flow has email_verified check commented out — and lift verification on successful Google / MFA-OTP / passwordless-OTP'
 ---
+
+> **Fixed.** Scope expanded per user direction — the underlying request was
+> "use this verified flag to actually mark email/phone as verified across
+> the lib." Three pieces:
+>
+> 1. **Strict Google `email_verified` gate.** New
+>    `google.requireVerifiedEmail` config (default `false`, preserves current
+>    behaviour). When `true`, throws `INVALID_CREDENTIALS` if the claim is
+>    present and `false`. Missing claim is still tolerated (the original
+>    concern that motivated commenting it out).
+> 2. **Verification flag plumbed through providers.** `AuthProviderUser`
+>    grew optional `emailVerified` / `phoneVerified` fields. Google now sets
+>    `emailVerified = payload.email_verified === true`. GitHub sets it from
+>    the chosen email's `verified` flag (and treats public-on-profile
+>    emails as verified, since GitHub won't let you publish unverified ones).
+>    Passwordless-OTP provider sets `emailVerified` / `phoneVerified` based
+>    on the channel that consumed the code.
+> 3. **`AuthService.applyProviderVerification`** lifts `emailVerifiedAt` /
+>    `phoneVerifiedAt` on the matched user when the provider attests the
+>    contact channel and the email/phone matches what's on file. Idempotent.
+> 4. **MFA email/SMS OTP also stamps verification.** `MfaService.verifyMfa`
+>    now calls `markChannelVerified()` after a successful EMAIL/SMS OTP
+>    consume — entering a code delivered to the channel is exactly what
+>    "verified" means.
+>
+> Build verified clean. Document the new config in the Google OAuth and
+> MFA pages as a follow-up (already covered in concept; spec page is
+> auto-generated).
 
 ## Summary
 

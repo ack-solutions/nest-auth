@@ -2,10 +2,25 @@
 id: 012
 priority: P2
 area: backend
-status: open
+status: fixed
+fixed-at: 2026-04-27
 package: '@ackplus/nest-auth'
 title: GitHubAuthProvider catch block swallows the failure mode
 ---
+
+> **Fixed.** Replaced the single `catch (err) { throw "Invalid GitHub token" }`
+> with mode-specific handling:
+> - Network/DNS failure → `OAUTH_PROVIDER_ERROR`
+> - GitHub returns 401/403 → `INVALID_CREDENTIALS`
+> - GitHub returns 5xx or malformed JSON → `OAUTH_PROVIDER_ERROR`
+> - Token valid but no usable email → `OAUTH_EMAIL_NOT_PUBLIC`, with a
+>   user-facing message telling them to either make their email public,
+>   grant the `user:email` scope, or use another sign-in method.
+>
+> Also tightened the email-pick logic to prefer a *verified* primary
+> email and to surface the verification status as `emailVerified` on the
+> provider return — feeds into the #011 verification-flag work.
+> Build verified clean.
 
 ## Summary
 

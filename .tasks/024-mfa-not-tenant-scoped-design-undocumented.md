@@ -3,10 +3,13 @@ id: 024
 priority: P3
 area: backend
 mode: shared
-status: open
+status: fixed
+fixed-at: 2026-04-27
 package: '@ackplus/nest-auth'
 title: MFA secrets and trusted devices are user-global, not tenant-scoped — undocumented
 ---
+
+> **Fixed (Option A — document the design choice).** Added an "MFA scope across tenants" section to [`apps/docs/content/docs/concepts/mfa.mdx`](../apps/docs/content/docs/concepts/mfa.mdx) covering the user-global behaviour, the security trade-off, and how to enforce per-tenant MFA via `loginHooks.onLogin` or `guards.beforeAuth` for high-security cases. No code change. Option B (per-tenant MFA secrets) deferred unless a customer raises it.
 
 ## Summary
 

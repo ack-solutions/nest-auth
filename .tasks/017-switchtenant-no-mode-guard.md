@@ -3,10 +3,24 @@ id: 017
 priority: P1
 area: backend
 mode: cross-mode
-status: open
+status: fixed
+fixed-at: 2026-04-27
 package: '@ackplus/nest-auth'
-title: POST /auth/switch-tenant has no guard for tenant mode — accepts calls in any configuration
+title: 'POST /auth/switch-tenant has no guard for tenant mode — accepts calls in any configuration'
 ---
+
+> **Fixed.** Three guards added to `AuthService.switchTenant`:
+> 1. Disabled mode → `400 TENANT_SWITCHING_DISABLED`.
+> 2. ISOLATED mode → `400 TENANT_SWITCHING_NOT_SUPPORTED` (the user must
+>    sign in to the target tenant directly, since identity is per-tenant).
+> 3. Membership check before swap — when a non-platform user has no
+>    `userAccess` for the target tenant, returns
+>    `403 NOT_A_MEMBER_OF_TENANT`.
+>
+> Three new error codes added to `TENANT_ERROR_CODES`. The pre-existing
+> `ensureTenantAccess()` call still runs after the new checks so the
+> downstream session-update path is unchanged. Build verified clean.
+> #020 (refresh-after-switch fragility) is still open as a follow-up.
 
 ## Summary
 

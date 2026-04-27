@@ -49,8 +49,14 @@ interface OTPInputProps {
     inputStyle?: React.CSSProperties;
     /** The type that will be passed to the input being rendered */
     inputType?: AllowedInputTypes;
-    /** Do not apply the default styles to the inputs, will be removed in future versions */
-    skipDefaultStyles?: boolean; // TODO: Remove in next major release
+    /**
+     * Do not apply the default styles to the inputs.
+     *
+     * @deprecated Will be removed in v3.0.0. Use the `className` prop together
+     *             with your own stylesheet instead — this flag was a workaround
+     *             from before `className` existed on this component.
+     */
+    skipDefaultStyles?: boolean;
     className?: any;
 }
 

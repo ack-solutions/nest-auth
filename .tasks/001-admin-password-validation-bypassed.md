@@ -2,10 +2,16 @@
 id: 001
 priority: P0
 area: backend
-status: open
+status: fixed
+fixed-at: 2026-04-27
 package: '@ackplus/nest-auth'
 title: Admin login bypasses password validation
 ---
+
+> **Fixed.** Uncommented the `if (!valid) throw new UnauthorizedException(...)`
+> branch in `AdminAuthService.validateCredentials`. Wrong-password admin
+> logins now correctly return 401. Build verified clean. Pairs with #002
+> (plaintext password log, fixed earlier).
 
 ## Summary
 

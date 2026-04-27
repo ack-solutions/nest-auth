@@ -11,6 +11,18 @@ export interface AuthProviderUser {
     phone?: string;
     username?: string;
     metadata?: Record<string, any>;
+    /**
+     * Set to `true` when the provider attests that this email belongs to
+     * the user (e.g. Google's `email_verified` claim, or a verified primary
+     * email returned by GitHub). The auth service will lift `emailVerifiedAt`
+     * on the linked `NestAuthUser` when this is `true`.
+     */
+    emailVerified?: boolean;
+    /**
+     * Set to `true` when the provider attests that this phone belongs to
+     * the user. Lifts `phoneVerifiedAt` on the linked `NestAuthUser`.
+     */
+    phoneVerified?: boolean;
 }
 
 export type LinkUserWith = 'email' | 'phone';

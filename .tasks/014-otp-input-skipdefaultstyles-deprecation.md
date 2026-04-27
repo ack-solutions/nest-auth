@@ -2,10 +2,13 @@
 id: 014
 priority: P3
 area: backend
-status: open
+status: fixed
+fixed-at: 2026-04-27
 package: '@ackplus/nest-auth' (UI subpackage)
 title: otp-input skipDefaultStyles prop marked for removal without version pin
 ---
+
+> **Fixed.** Replaced the `// TODO: Remove in next major release` comment with a proper `@deprecated` JSDoc tag pinned to v3.0.0, including the recommended migration ("use `className` instead"). TypeScript editors will now surface a strikethrough on consumers using the prop. Build verified.
 
 ## Summary
 

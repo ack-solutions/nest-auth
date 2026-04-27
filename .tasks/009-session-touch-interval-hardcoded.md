@@ -2,10 +2,13 @@
 id: 009
 priority: P2
 area: backend
-status: open
+status: fixed
+fixed-at: 2026-04-27
 package: '@ackplus/nest-auth'
 title: Session "touch" interval is hardcoded to 5 minutes
 ---
+
+> **Fixed.** Added `session.touchInterval?: number | string` to `SessionOptions`, default `'5m'` (matches the previous hardcoded value — zero behaviour change for existing deployments). Accepts ms-strings (`'1m'`, `'30s'`, `'10m'`) or raw milliseconds. Wired into `SessionManagerService.shouldTouchSession()` via a new `getTouchIntervalMs()` helper. Build verified clean.
 
 ## Summary
 

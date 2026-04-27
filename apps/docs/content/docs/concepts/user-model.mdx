@@ -166,9 +166,23 @@ If you already have a project user table that mixes auth and business fields, th
 
 The [migration recipe](/docs/recipes/migrate-existing-users) walks through it with SQL.
 
+## Atomic creation across `NestAuthUser` and `AppUser`
+
+The event-listener pattern above runs *after* `createUser` commits, so a
+listener failure leaves you with a `NestAuthUser` row but no `AppUser`
+row. For portal-style "create user with roles and a tenant binding"
+flows where partial state is broken, use a **transaction**: every
+auth-side method on `UserService` and the `NestAuthUser` /
+`NestAuthUserAccess` / `NestAuthPlatformAccess` entities accepts an
+optional `EntityManager` so the entire flow rolls back as one unit.
+
+See the [Transactional user creation recipe](/docs/recipes/transactional-user-creation)
+for the canonical end-to-end pattern.
+
 ## Related
 
 - [Events & Hooks](/docs/concepts/events-and-hooks) — the full extension surface.
 - [Hooks Reference](/docs/backend/hooks-reference) — `user.beforeCreate`, `user.afterCreate`, `user.getSessionUserData`.
 - [user-registered listener recipe](/docs/recipes/user-registered-listener).
+- [Transactional user creation recipe](/docs/recipes/transactional-user-creation).
 - [Migrate existing users recipe](/docs/recipes/migrate-existing-users).

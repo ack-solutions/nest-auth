@@ -3,16 +3,35 @@ id: 021
 priority: P1
 area: backend
 mode: shared
-status: open
+status: deferred
 package: '@ackplus/nest-auth'
 title: nest_auth_users.email is only @Index, not @Unique — concurrent-signup race
 ---
+
+> **Deferred.** The simple fix (`@Unique(['email'])` on `NestAuthUser`)
+> works for SHARED + DISABLED modes but **breaks ISOLATED mode**, where
+> the same email is allowed to exist once per tenant. Per-tenant
+> uniqueness can't be expressed at the DB layer right now because
+> `tenantId` is not a column on `nest_auth_users` — it lives on
+> `nest_auth_user_access`. Doing this properly needs one of:
+> 1. Hoist `tenantId` onto `nest_auth_users` (schema change, multi-mode
+>    migration, touches identity entities too).
+> 2. A partial unique index with a per-mode CASE that varies at deploy time.
+> 3. A deferred constraint trigger.
+>
+> All three are bigger than a P1 paper-cut deserves, and the API-level
+> existence check in `UserService.create` already covers normal traffic.
+> The race window is narrow and only matters under heavy concurrent
+> signup load. Re-open as part of any larger schema rework, e.g. when
+> #022 (`tenantId` as a session column) is tackled.
 
 ## Summary
 
 In SHARED mode, `nest_auth_users.email` is supposed to be globally unique (one user per email regardless of how many tenants they belong to). The application logic enforces this in `UserService.create` by checking for an existing row before inserting — but the entity declares `@Index()` only, not `@Unique()`. Two concurrent signup requests for the same email can both pass the existence check and both INSERT, ending with two `NestAuthUser` rows sharing an email.
 
 Same applies to `phone`.
+
+In ISOLATED mode, the same email is **expected** to exist multiple times (once per tenant), so a global unique constraint would actively break the feature.
 
 ## Where
 

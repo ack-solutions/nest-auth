@@ -11,6 +11,7 @@ import {
     BeforeUpdate,
     OneToOne,
     Equal,
+    EntityManager,
     IsNull,
 } from "typeorm";
 import { hash, verify, Algorithm } from '@node-rs/argon2';
@@ -92,38 +93,66 @@ export class NestAuthUser extends BaseEntity {
         }
     }
 
-    async getUserAccess(tenantId: string = null, createIfNotExists: boolean = false) {
-        const existingUserAccess = await NestAuthUserAccess.findOne({
+    /**
+     * Get the user's `userAccess` row for a tenant, optionally creating one
+     * if missing. Pass `manager` to participate in a transaction.
+     */
+    async getUserAccess(
+        tenantId: string = null,
+        createIfNotExists: boolean = false,
+        manager?: EntityManager,
+    ) {
+        const repo = manager
+            ? manager.getRepository(NestAuthUserAccess)
+            : NestAuthUserAccess.getRepository();
+
+        const existingUserAccess = await repo.findOne({
             where: { userId: this.id, tenantId: tenantId ? Equal(tenantId) : IsNull() }
         });
         if (existingUserAccess) {
             return existingUserAccess;
         }
         if (createIfNotExists) {
-            const userAccess = NestAuthUserAccess.create({ userId: this.id, tenantId });
-            await userAccess.save();
+            const userAccess = repo.create({ userId: this.id, tenantId });
+            await repo.save(userAccess);
             return userAccess;
         }
         return null;
     }
 
-    async getPlatformAccess(createIfNotExists: boolean = false) {
-        const existingPlatformAccess = await NestAuthPlatformAccess.findOne({
+    /**
+     * Get the user's `platformAccess` row, optionally creating one if missing.
+     * Pass `manager` to participate in a transaction.
+     */
+    async getPlatformAccess(createIfNotExists: boolean = false, manager?: EntityManager) {
+        const repo = manager
+            ? manager.getRepository(NestAuthPlatformAccess)
+            : NestAuthPlatformAccess.getRepository();
+
+        const existingPlatformAccess = await repo.findOne({
             where: { userId: this.id }
         });
         if (existingPlatformAccess) {
             return existingPlatformAccess;
         }
         if (createIfNotExists) {
-            const platformAccess = NestAuthPlatformAccess.create({ userId: this.id });
-            await platformAccess.save();
+            const platformAccess = repo.create({ userId: this.id });
+            await repo.save(platformAccess);
             return platformAccess;
         }
         return null;
     }
 
-    async findOrCreateIdentity(provider: string, providerId: string) {
-        const existingIdentity = await NestAuthIdentity.findOne({
+    /**
+     * Idempotently link an identity row (provider + providerId) to this user.
+     * Pass `manager` to run inside a transaction.
+     */
+    async findOrCreateIdentity(provider: string, providerId: string, manager?: EntityManager) {
+        const repo = manager
+            ? manager.getRepository(NestAuthIdentity)
+            : NestAuthIdentity.getRepository();
+
+        const existingIdentity = await repo.findOne({
             where: { provider, providerId, userId: this.id }
         });
 
@@ -131,82 +160,112 @@ export class NestAuthUser extends BaseEntity {
             return existingIdentity;
         }
 
-        const identity = new NestAuthIdentity();
-        identity.provider = provider;
-        identity.providerId = providerId;
-        identity.user = this;
+        const identity = repo.create({
+            provider,
+            providerId,
+            userId: this.id,
+        });
 
-        return identity.save();
+        return repo.save(identity);
     }
 
+    /**
+     * Update an identity row's fields, or create the row when missing.
+     * Pass `manager` to run inside a transaction.
+     */
     async updateOrCreateIdentity(
         provider: string,
-        data: Partial<NestAuthIdentity>
+        data: Partial<NestAuthIdentity>,
+        manager?: EntityManager,
     ): Promise<NestAuthIdentity> {
+        const repo = manager
+            ? manager.getRepository(NestAuthIdentity)
+            : NestAuthIdentity.getRepository();
+
         // Find existing identity by provider and userId
-        const existingIdentity = await NestAuthIdentity.findOne({
+        const existingIdentity = await repo.findOne({
             where: { provider, userId: this.id },
         });
 
         if (existingIdentity) {
             // Update existing identity
             Object.assign(existingIdentity, data);
-            return existingIdentity.save();
+            return repo.save(existingIdentity);
         }
 
         // Create new identity if none exists
-        const newIdentity = NestAuthIdentity.create<NestAuthIdentity>({
+        const newIdentity = repo.create({
             provider,
             userId: this.id,
             ...data,
         });
-        return newIdentity.save();
+        return repo.save(newIdentity);
     }
 
     /**
-     * Update user email and sync the email identity (providerId). Clears emailVerifiedAt when email changes.
+     * Update user email and sync the email identity (providerId).
+     * Clears `emailVerifiedAt` when the email actually changes.
+     * Pass `manager` to participate in a transaction.
      */
-    async updateEmail(newEmail: string): Promise<void> {
+    async updateEmail(newEmail: string, manager?: EntityManager): Promise<void> {
         const normalized = newEmail ? newEmail.toLowerCase().trim() : null;
         const previousEmail = this.email?.toLowerCase().trim() ?? null;
         this.email = normalized ?? undefined;
         if (previousEmail !== normalized) {
             this.emailVerifiedAt = null;
         }
+
+        const identityRepo = manager
+            ? manager.getRepository(NestAuthIdentity)
+            : NestAuthIdentity.getRepository();
+        const userRepo = manager
+            ? manager.getRepository(NestAuthUser)
+            : NestAuthUser.getRepository();
+
         if (normalized) {
-            await this.updateOrCreateIdentity(EMAIL_AUTH_PROVIDER, { providerId: normalized });
+            await this.updateOrCreateIdentity(EMAIL_AUTH_PROVIDER, { providerId: normalized }, manager);
         } else {
-            const identity = await NestAuthIdentity.findOne({
+            const identity = await identityRepo.findOne({
                 where: { userId: this.id, provider: EMAIL_AUTH_PROVIDER },
             });
             if (identity) {
-                await identity.remove();
+                await identityRepo.remove(identity);
             }
         }
-        await this.save();
+        await userRepo.save(this);
     }
 
     /**
-     * Update user phone and sync the phone identity (providerId). Clears phoneVerifiedAt when phone changes.
+     * Update user phone and sync the phone identity (providerId).
+     * Clears `phoneVerifiedAt` when the phone actually changes.
+     * Pass `manager` to participate in a transaction.
      */
-    async updatePhone(newPhone: string | null | undefined): Promise<void> {
+    async updatePhone(newPhone: string | null | undefined, manager?: EntityManager): Promise<void> {
         const value = normalizedPhone(newPhone);
         const previousPhone = normalizedPhone(this.phone) ?? null;
         this.phone = value ?? undefined;
         if (previousPhone !== value) {
             this.phoneVerifiedAt = null;
         }
+
+        const identityRepo = manager
+            ? manager.getRepository(NestAuthIdentity)
+            : NestAuthIdentity.getRepository();
+        const userRepo = manager
+            ? manager.getRepository(NestAuthUser)
+            : NestAuthUser.getRepository();
+
         if (value) {
-            await this.updateOrCreateIdentity(PHONE_AUTH_PROVIDER, { providerId: value });
+            await this.updateOrCreateIdentity(PHONE_AUTH_PROVIDER, { providerId: value }, manager);
         } else {
-            const identity = await NestAuthIdentity.findOne({
+            const identity = await identityRepo.findOne({
                 where: { userId: this.id, provider: PHONE_AUTH_PROVIDER },
             });
             if (identity) {
-                await identity.remove();
+                await identityRepo.remove(identity);
             }
         }
-        await this.save();
+        await userRepo.save(this);
     }
 
     async validatePassword(password: string): Promise<boolean> {

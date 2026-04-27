@@ -118,18 +118,24 @@ export interface IAuthHooks {
 export interface IRegistrationHooks {
     /**
      * Called before user is created.
-     * Use this to modify the user data before creation.
-     * 
-     * @param request - The original signup request data
-     * @param input - The original signup request data
-     * @returns Modified user data or void
-     * 
+     * Use this to validate or mutate the signup payload, or to throw to abort.
+     *
+     * @param input   - The original signup request DTO. Mutating the return
+     *                  value (or returning a new object) lets you change what
+     *                  gets persisted on the user.
+     * @param context - Per-request context. `context.request` is the raw
+     *                  Express `Request`, useful for reading the origin /
+     *                  custom headers when deriving `tenantId` or guard.
+     * @returns The (possibly modified) signup payload.
+     *
      * @example
      * ```typescript
-     * beforeSignup: async (request, input) => ({
-     *     orgId: request.orgId,
-     *     tenantId: request.tenantId
-     * })
+     * beforeSignup: async (input, { request }) => {
+     *   if (await this.banlist.has(input.email)) {
+     *     throw new ForbiddenException({ code: 'EMAIL_BLACKLISTED' });
+     *   }
+     *   return { ...input, email: input.email.toLowerCase() };
+     * }
      * ```
      */
     beforeSignup?: (input: NestAuthSignupRequestDto, context: { request: any }) => Promise<NestAuthSignupRequestDto> | NestAuthSignupRequestDto;
@@ -293,6 +299,21 @@ export interface IAuthModuleOptions {
         clientId: string;
         clientSecret: string;
         redirectUri: string;
+        /**
+         * Reject the login when Google reports `email_verified === false`.
+         *
+         * - `false` (default) — preserve current behaviour. The check is only
+         *   skipped when the field is missing entirely (some access-token
+         *   flows omit it).
+         * - `true` — strict. Throw `INVALID_CREDENTIALS` if the claim is
+         *   present and not `true`. Use this for compliance-heavy apps.
+         *
+         * Either way, when Google sets `email_verified === true` we lift
+         * `emailVerifiedAt` on the matched `NestAuthUser`.
+         *
+         * @default false
+         */
+        requireVerifiedEmail?: boolean;
     };
     facebook?: {
         appId: string;

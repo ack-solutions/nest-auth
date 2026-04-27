@@ -841,7 +841,7 @@
   "info": {
     "title": "@ackplus/nest-auth API",
     "description": "OpenAPI specification generated from the Nest Auth module",
-    "version": "2.0.0-beta.20",
+    "version": "2.0.0-beta.26",
     "contact": {}
   },
   "tags": [],
@@ -998,6 +998,16 @@
             "type": "string",
             "description": "OAuth token or ID token from social provider",
             "example": "ya29.a0AfH6SMBx1234567890abcdefghijklmnop"
+          },
+          "type": {
+            "type": "string",
+            "description": "How to interpret the supplied token. Required only for Google: `idToken` (default) verifies a Google-signed ID token client-side; `accessToken` calls Google's userinfo endpoint with a Bearer access token. Other providers (Facebook, Apple, GitHub) ignore this field.",
+            "example": "idToken",
+            "enum": [
+              "idToken",
+              "accessToken"
+            ],
+            "default": "idToken"
           }
         },
         "required": [

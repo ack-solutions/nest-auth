@@ -4,6 +4,7 @@
     "index",
     "user-registered-listener",
     "user-logged-in-listener",
+    "transactional-user-creation",
     "multi-platform-login",
     "seeding-roles-and-permissions",
     "custom-oauth-provider",

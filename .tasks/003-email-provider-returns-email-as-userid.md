@@ -2,10 +2,15 @@
 id: 003
 priority: P1
 area: backend
-status: open
+status: fixed
+fixed-at: 2026-04-27
 package: '@ackplus/nest-auth'
 title: EmailAuthProvider.validate() returns email in the userId field
 ---
+
+> **Fixed.** One-line change in
+> `email-auth.provider.ts`: `userId: identity.user?.email` →
+> `userId: identity.user?.id`. Build verified clean.
 
 ## Summary
 

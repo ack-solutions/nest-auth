@@ -2,10 +2,13 @@
 id: 002
 priority: P0
 area: backend
-status: open
+status: fixed
+fixed-at: 2026-04-27
 package: '@ackplus/nest-auth'
 title: Plaintext admin password logged to stdout
 ---
+
+> **Fixed.** `console.log('admin', password)` removed from `admin-auth.service.ts:23`. Build verified clean. No related callers — the line was orphan debug output.
 
 ## Summary
 

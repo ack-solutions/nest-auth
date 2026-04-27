@@ -1,0 +1,348 @@
+---
+title: 'Transactional user creation (NestAuthUser + AppUser in one rollback)'
+description: Wrap signup-style flows in a TypeORM transaction so a failure halfway through doesn't leave a half-created user in `nest_auth_users`.
+---
+
+## The problem
+
+A typical "create portal user" flow does several writes that need to succeed
+together:
+
+1. Create the `NestAuthUser` row (auth identity).
+2. Hash and store the password.
+3. Create email/phone identity rows in `nest_auth_identities`.
+4. Bind the user to a tenant via `nest_auth_user_accesses` and assign roles.
+5. *(Or, for admin users)* bind to `nest_auth_platform_accesses` and assign
+   admin roles.
+6. Create the corresponding row in your application's `AppUser` table
+   (linked via `authUserId`).
+
+Without a transaction wrapping all six, a failure between step 1 and
+step 6 leaves you with **a `NestAuthUser` row but no `AppUser` row**.
+The next time the operator retries with the same email, signup fails
+with `EMAIL_ALREADY_EXISTS` from nest-auth — even though the user
+*looks* like it doesn't exist from your application's perspective. You
+have to manually clean up `nest_auth_users` to recover.
+
+## What's transaction-aware now
+
+Every method in the user-creation chain accepts an optional
+`manager: EntityManager` parameter. Pass it, and the statement
+participates in your transaction. Omit it, and behaviour is identical
+to before (each statement uses the default datasource), so existing
+non-transactional callers don't have to change.
+
+**`UserService` — top-level helper and CRUD methods**
+
+| Method | Notes |
+| --- | --- |
+| `runInTransaction(fn)` | Convenience wrapper around `dataSource.transaction(...)`. Use this if you don't already have your own `DataSource` injected. |
+| `createUser(data, tenantId?, context?, manager?)` | |
+| `updateUser(id, data, manager?)` | The same-tenant uniqueness check, the user UPDATE, and the identity UPSERTs run on the supplied connection. |
+| `deleteUser(id, manager?)` | Listener still runs outside the tx (see gotchas). |
+| `verifyUser(id, type?, manager?)` / `unverifyUser(id, type?, manager?)` | |
+| `updateUserStatus(id, isActive, manager?)` | |
+| `updateUserMetadata(id, metadata, manager?)` | |
+| `getUserById(id, options?, manager?)` | |
+| `getUserByEmail(email, tenantId?, options?, manager?)` | |
+| `getUserByPhone(phone, tenantId?, options?, manager?)` | |
+| `getUsers(options?, manager?)` | |
+| `getUsersAndCount(options?, manager?)` / `countUsers(options?, manager?)` | |
+| `getUsersByRole(roleName, guard, tenantId?, manager?)` | |
+| `getUserTenants(userId, manager?)` | |
+| `isUserInTenant(userId, tenantId, manager?)` | |
+| `ensureUserAccess(userId, tenantId, manager?)` | |
+| `setUserAccessRoles(userId, tenantId, roleIds, manager?)` | |
+| `deleteUserAccess(userId, tenantId, manager?)` | |
+
+**Entity helpers (BaseEntity methods)**
+
+| Method | Where |
+| --- | --- |
+| `authUser.findOrCreateIdentity(provider, providerId, manager?)` | `NestAuthUser` |
+| `authUser.updateOrCreateIdentity(provider, data, manager?)` | `NestAuthUser` |
+| `authUser.updateEmail(newEmail, manager?)` | `NestAuthUser` |
+| `authUser.updatePhone(newPhone, manager?)` | `NestAuthUser` |
+| `authUser.getUserAccess(tenantId, createIfNotExists, manager?)` | `NestAuthUser` |
+| `authUser.getPlatformAccess(createIfNotExists, manager?)` | `NestAuthUser` |
+| `userAccess.assignRoles(roleIds, manager?)` | `NestAuthUserAccess` |
+| `platformAccess.assignRoles(roleIds, manager?)` | `NestAuthPlatformAccess` |
+
+Note that **`entity.save()` is not transaction-aware** — TypeORM's
+`BaseEntity.save()` always uses the static datasource. Inside a
+transaction, call `manager.save(entity)` instead.
+
+## Recipe — portal "create user" with full rollback
+
+This is the canonical end-to-end shape. Compare against your existing
+non-transactional version: every DB-touching call gained a `manager`
+argument, and `entity.save()` became `manager.save(entity)`.
+
+```ts
+import { In } from 'typeorm';
+import {
+  NestAuthRole,
+  NestAuthUser,
+  RoleGuardEnum,
+  UserService as NestAuthUserService,
+} from '@ackplus/nest-auth';
+
+@Injectable()
+export class PortalUserService extends BaseService<AppUser> {
+  constructor(
+    @InjectRepository(AppUser) private readonly appUserRepo: Repository<AppUser>,
+    private readonly nestAuthUserService: NestAuthUserService,
+  ) {
+    super(appUserRepo);
+  }
+
+  override async create(entity: CreateUserDTO, options?: SaveOptions) {
+    const isAdmin = AuthHelper.isAdmin();
+    const guard = entity.guard || RoleGuardEnum.PORTAL;
+    const hasAdminGuard = guard === RoleGuardEnum.ADMIN;
+    const tenantId = isAdmin ? entity.tenantId : AuthHelper.getTenantId();
+
+    if (!isAdmin && hasAdminGuard) {
+      throw new ForbiddenException('Only admin can create admin users.');
+    }
+
+    // Same role-validation block you had before — keep outside the tx
+    // so the early bail-outs don't open a transaction unnecessarily.
+    if (isAdmin && !entity.guard && entity.rolesIds?.length) {
+      const adminRolesCount = await NestAuthRole.count({
+        where: { id: In(entity.rolesIds), guard: RoleGuardEnum.ADMIN },
+      });
+      if (adminRolesCount > 0) {
+        throw new BadRequestException(
+          'Guard is required as ADMIN when assigning admin roles.',
+        );
+      }
+    }
+
+    const shouldSendInviteEmail = Boolean(entity.invite);
+
+    // Everything inside this callback runs in a single TypeORM transaction.
+    // Throw at any point → automatic rollback. Resolve → commit.
+    const user = await this.nestAuthUserService.runInTransaction(async (manager) => {
+      // 1. NestAuthUser row + default userAccess
+      const authUser = await this.nestAuthUserService.createUser(
+        {
+          phone: entity.phoneNumber,
+          email: entity.email,
+          isActive: !entity.invite,
+        },
+        undefined,
+        undefined,
+        manager,
+      );
+
+      // 2. Password (in-memory hash only — DB write happens below)
+      if (entity.password) {
+        await authUser.setPassword(entity.password);
+      }
+
+      // 3. Identities
+      if (entity.phoneNumber) {
+        await authUser.findOrCreateIdentity(
+          'phone',
+          `${entity.phoneCountryCode}${entity.phoneNumber}`,
+          manager,
+        );
+      }
+      if (entity.email) {
+        await authUser.findOrCreateIdentity('email', entity.email, manager);
+      }
+
+      // 4. Persist password-hash update (was authUser.save() before)
+      await manager.save(authUser);
+
+      // 5. Tenant binding for portal users
+      if (!hasAdminGuard && tenantId) {
+        let roleIds = entity.rolesIds || [];
+        if (entity.rolesIds?.length > 0) {
+          const roles = await manager.find(NestAuthRole, {
+            where: { id: In(entity.rolesIds), guard: RoleGuardEnum.PORTAL },
+            select: ['id'],
+          });
+          if (roles.length !== entity.rolesIds.length) {
+            throw new BadRequestException('Invalid roles provided for portal user.');
+          }
+          roleIds = roles.map((r) => r.id);
+        } else {
+          const memberRole = await manager.findOne(NestAuthRole, {
+            where: {
+              name: RoleNameEnum.MEMBER,
+              guard: RoleGuardEnum.PORTAL,
+              isSystem: true,
+            },
+            select: ['id'],
+          });
+          roleIds = memberRole?.id ? [memberRole.id] : [];
+        }
+        if (roleIds.length > 0) {
+          const userAccess = await authUser.getUserAccess(tenantId, true, manager);
+          await userAccess.assignRoles(roleIds, manager);
+        }
+      }
+
+      // 6. Platform binding for admin users
+      if (hasAdminGuard && entity.rolesIds?.length) {
+        const roles = await manager.find(NestAuthRole, {
+          where: { id: In(entity.rolesIds), guard: RoleGuardEnum.ADMIN },
+          select: ['id'],
+        });
+        const roleIds = roles.map((r) => r.id);
+        if (roleIds.length === entity.rolesIds.length) {
+          const platformAccess = await authUser.getPlatformAccess(true, manager);
+          await platformAccess.assignRoles(roleIds, manager);
+        }
+      }
+
+      // 7. AppUser row — uses the SAME manager so it rolls back together
+      entity.authUserId = authUser.id;
+      const appUser = manager.create(AppUser, entity as any);
+      await manager.save(appUser);
+      return appUser;
+    });
+
+    // Side-effects that happen *after* commit. If the email send fails,
+    // the user still exists — that's the right trade-off (don't roll
+    // back a successful user creation just because the email server
+    // hiccuped).
+    if (shouldSendInviteEmail && user.status === UserStatusEnum.INVITED) {
+      await this.deliverInvitationEmail(user.id);
+    }
+
+    return user;
+  }
+}
+```
+
+## What changes — diff against the original flow
+
+```diff
+- const authUser = await this.nestAuthUserService.createUser({
+-   phone: entity.phoneNumber,
+-   email: entity.email,
+-   isActive: !entity.invite,
+- });
+- if (entity.password) {
+-   await authUser.setPassword(entity.password);
+- }
+- if (entity.phoneNumber) {
+-   await authUser.findOrCreateIdentity('phone', `${entity.phoneCountryCode}${entity.phoneNumber}`);
+- }
+- if (entity.email) {
+-   await authUser.findOrCreateIdentity('email', entity.email);
+- }
+- await authUser.save();
+- // ... tenant / platform binding ...
+- entity.authUserId = authUser.id;
+- const user = await super.create(entity, options);
+
++ const user = await this.nestAuthUserService.runInTransaction(async (manager) => {
++   const authUser = await this.nestAuthUserService.createUser(
++     { phone: entity.phoneNumber, email: entity.email, isActive: !entity.invite },
++     undefined, undefined, manager,
++   );
++   if (entity.password) await authUser.setPassword(entity.password);
++   if (entity.phoneNumber) {
++     await authUser.findOrCreateIdentity('phone', `${entity.phoneCountryCode}${entity.phoneNumber}`, manager);
++   }
++   if (entity.email) {
++     await authUser.findOrCreateIdentity('email', entity.email, manager);
++   }
++   await manager.save(authUser);
++   // ... tenant / platform binding (each call gets `manager`) ...
++   entity.authUserId = authUser.id;
++   const appUser = manager.create(AppUser, entity);
++   await manager.save(appUser);
++   return appUser;
++ });
+```
+
+Concretely: every existing call grew a final `manager` argument, and
+the two `entity.save()` calls became `manager.save(entity)`.
+
+## Gotchas
+
+### Event listeners run after commit, not inside the tx
+
+`UserCreatedEvent`, `UserRegisteredEvent`, etc. are emitted via
+`@nestjs/event-emitter` from inside `createUser()`. They fire while the
+transaction is still open, but **listeners that do their own DB work
+will not see your uncommitted rows** — they use the default datasource,
+not the manager.
+
+If a listener must participate in the same transaction, refactor it
+into a synchronous `user.afterCreate` hook (which receives the user
+and runs in the same call stack) instead.
+
+### `entity.save()` is not tx-aware
+
+TypeORM's `BaseEntity.save()` always uses the static datasource. Inside
+a transaction, call `manager.save(entity)`. The new tx-aware methods on
+`NestAuthUser`, `NestAuthUserAccess` and `NestAuthPlatformAccess` already
+do this internally when you pass `manager` — but if you call
+`entity.save()` directly anywhere in the flow, it will silently bypass
+the transaction.
+
+### Don't open a transaction for read-only paths
+
+`runInTransaction` opens a real DB transaction every time. Don't wrap
+read-only paths or the simple `getUserByEmail` lookup in it — there's
+no benefit and you pay the BEGIN/COMMIT cost.
+
+### The flow without a transaction still works
+
+You don't have to migrate. `createUser(data, tenantId)` (no manager
+arg) works exactly as it always did. Reach for `runInTransaction` only
+when you need atomicity across multiple writes.
+
+## Updating a user atomically with `AppUser`
+
+The same pattern works for updates. `updateUser` is itself multi-write
+(a uniqueness pre-check, a user UPDATE, and identity UPSERTs for changed
+email/phone), so wrapping it lets you mirror the changes onto your
+`AppUser` row in the same transaction:
+
+```ts
+await this.nestAuthUserService.runInTransaction(async (manager) => {
+  const updated = await this.nestAuthUserService.updateUser(
+    authUserId,
+    { email: dto.email, phone: dto.phone },
+    manager,
+  );
+
+  // Mirror onto AppUser in the same tx — the email/phone live on
+  // NestAuthUser, but you might keep `displayName` / `dob` on AppUser.
+  await manager.update(
+    AppUser,
+    { authUserId: updated.id },
+    { displayName: dto.displayName, dob: dto.dob },
+  );
+});
+```
+
+If the `manager.update(AppUser, ...)` throws (FK violation, validation,
+network), the email/phone change on `NestAuthUser` rolls back too — no
+mismatch between the two tables.
+
+## When you don't need this
+
+- **OAuth signup paths** — handled internally by `AuthService.handleSocialLogin`.
+  Already safe (one `createUser` call, identity link is best-effort and
+  retryable).
+- **Pure single-row updates** — e.g. `updateUserStatus(id, true)` is one
+  UPDATE statement; row-level atomicity is automatic.
+- **Read flows** — never need a transaction.
+
+The transactional pattern is for **multi-write flows where the partial
+state is broken** — typically:
+
+- "Create portal/admin user with role assignment + AppUser row" (the
+  recipe above).
+- "Update email/phone on both `NestAuthUser` and `AppUser`" — when you
+  want both tables consistent or neither.
+- "Delete user + clean up tenant accesses + revoke sessions" — multiple
+  writes where an aborted middle step leaves orphans.

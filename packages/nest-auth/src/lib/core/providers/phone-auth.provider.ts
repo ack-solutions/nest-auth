@@ -40,7 +40,7 @@ export class PhoneAuthProvider extends BaseAuthProvider {
         }
 
         return {
-            userId: identity.user?.phone,
+            userId: identity.user?.id,
             phone: identity.user?.phone || '',
             metadata: identity.user,
         };

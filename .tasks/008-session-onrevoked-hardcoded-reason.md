@@ -2,10 +2,18 @@
 id: 008
 priority: P2
 area: backend
-status: open
+status: fixed
+fixed-at: 2026-04-27
 package: '@ackplus/nest-auth'
 title: SessionManagerService passes hardcoded "admin" reason to onRevoked hook
 ---
+
+> **Fixed.** `SessionManagerService.revokeSession(sessionId, reason?)` now accepts a typed `reason` parameter (`'logout' | 'expired' | 'admin' | 'security' | 'password_change'`, default `'admin'` for back-compat). Updated callers to pass the real cause:
+> - `AuthService` refresh-time validation failures (user-not-found, account-suspended, tenant-access, platform-access) → `'security'`
+> - `AuthService.logout` → `'logout'`
+> - `AdminUsersController.revokeSession` → `'admin'` (explicit, no longer relying on default)
+>
+> `rotateSession` already passed `'security'` correctly — left as-is. `revokeAllUserSessions` does not currently fire the hook (separate concern, not part of this task). Build verified clean.
 
 ## Summary
 

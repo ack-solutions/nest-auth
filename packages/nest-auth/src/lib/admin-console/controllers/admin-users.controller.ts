@@ -546,7 +546,7 @@ export class AdminUsersController {
       if (!session) {
         throw new NotFoundException('Session not found for this user');
       }
-      await this.sessionManager.revokeSession(session.id);
+      await this.sessionManager.revokeSession(session.id, 'admin');
       return { message: 'Session revoked successfully' };
     } catch (error) {
       throw new NotFoundException('Session not found for this user');

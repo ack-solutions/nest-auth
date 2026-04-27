@@ -90,6 +90,22 @@ The server verifies the code matches the secret, then marks the device verified.
 
 A user can enroll multiple TOTP devices (`listTotpDevices`, `removeTotpDevice`) — useful for users who want a phone *and* a hardware token like a YubiKey.
 
+## MFA scope across tenants
+
+In multi-tenant deployments (`tenant.enabled = true`), MFA enrolment is **user-global**, not per-tenant. The `nest_auth_mfa_secrets` and `nest_auth_trusted_devices` tables key off `userId` only — there's no `tenantId` column.
+
+Practical consequences in **SHARED** mode (one user → many tenants):
+
+- A user enrols TOTP once. The same TOTP code works to sign into every tenant they belong to.
+- A trusted-device token earned in tenant A also lets the user skip MFA in tenant B on the same device.
+- `toggleMfa` / `resetMfa` operate on the user's *global* MFA state — flipping MFA off in one tenant flips it off everywhere.
+
+This is intentional: in SHARED mode the user really is a single identity, so a single MFA configuration matches the model. **The trade-off:** if an attacker compromises the user's authenticator, they can sign into every tenant the user belongs to with the same code.
+
+If your security policy requires per-tenant MFA challenges (e.g. tenant Acme stores high-sensitivity data and wants a fresh TOTP prompt on every tenant switch even if MFA is satisfied for the current session), enforce it via `loginHooks.onLogin` or `guards.beforeAuth` — the library doesn't ship per-tenant MFA out of the box.
+
+In **ISOLATED** mode the question is moot: a "user" is per-tenant by definition, so each tenant has its own MFA state automatically.
+
 ## `@SkipMfa()`
 
 Some endpoints inside the auth flow itself need to bypass MFA enforcement (e.g. the verify endpoint can't require MFA — that's circular). Annotate them with `@SkipMfa()`:
