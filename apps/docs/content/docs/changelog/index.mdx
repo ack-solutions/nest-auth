@@ -1,16 +1,50 @@
 ---
 title: Changelog
-description: What changed in each release.
+description: What's new in each release of @ackplus/nest-auth.
 ---
 
-The changelog is auto-generated from the changesets / git history on every release. The most recent entries:
+All four packages (`@ackplus/nest-auth`, `-client`, `-react`, `-contracts`) release together at the same version. Upgrading from v1? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 
-## 2.0.0-beta.26
+---
 
-Latest beta. See the [release process](/docs/changelog/release-process) for how versions are cut and how to interpret beta tags.
+## 2.0.0 — What's new
 
-> The full historical changelog will be wired up by the release CI as part of the launch. See `scripts/publish.js` and `.github/workflows/publish.yml` for the existing release workflow.
+v2 is a major release: the same `NestAuthModule.forRoot()` wiring and flat config, but a substantially hardened core, several new capabilities, and complete docs. Highlights below; see the [migration guide](/docs/migration) for the breaking changes and how to upgrade.
 
-## Migration guides
+### New capabilities
 
-- [v1 → v2](/docs/changelog/migrations) — placeholder for the upcoming stable release.
+- **Passwordless login** — email/SMS OTP via `passwordless: { enabled, allowSignUp }`, with client/React `passwordlessSend` helpers and a `POST /auth/passwordless/send` endpoint.
+- **Phone verification** — `POST /auth/send-phone-verification` and `POST /auth/verify-phone`, backed by a shared OTP flow service.
+- **Platform admin** — a first-class, cross-tenant super-admin (`platformAccess: { enabled, validate }`). See [Platform admin portal](/docs/recipes/platform-admin-portal).
+- **Embedded admin dashboard** — a full management UI served at `/auth/admin` (enable with `adminConsole`), backed by a documented REST API. No separate install.
+- **`GET /auth/me`** — a guarded current-user endpoint.
+
+### Reliability
+
+- **Atomic user mutations** — signup, admin/programmatic create, update, and delete each run in a single transaction. A failing hook, listener, or multi-step write rolls back completely: no partially-created or half-updated users. Lifecycle events fire only after commit.
+- **Full lifecycle hooks** — added `user.beforeUpdate` / `afterUpdate` / `beforeDelete` / `afterDelete`, and the transactional `EntityManager` is now passed to create/update/delete and `onSignup` / `onLogin` hooks so your sync code commits atomically with the user. See the [hooks reference](/docs/backend/hooks-reference).
+- **RBAC events** — `RoleService` and `PermissionService` now emit `ROLE_*` / `PERMISSION_*` created/updated/deleted events so role and permission changes are syncable. See the [events reference](/docs/backend/events).
+
+### Security hardening
+
+- **Secrets hashed at rest** — API-key secrets, MFA recovery codes, OTP codes, and trusted-device tokens are now stored hashed (and verified with constant-time comparisons). Trusted devices also support explicit revocation. _Existing API keys must be regenerated — see the [migration guide](/docs/migration)._
+- **Configurable password hashing** — bring-your-own `password.hash` / `password.verify`, or tune the built-in Argon2 (`password.argon2`).
+- **OAuth hardening** — Google `requireVerifiedEmail`, and GitHub Enterprise endpoint overrides (`github.userApiUrl` / `emailsApiUrl`).
+
+### Developer experience
+
+- **Complete API reference** — a generated OpenAPI 3.0 spec (every endpoint documented with summaries, examples, and error codes) rendered in the admin console and the docs site.
+- **Real-database tests** — the suite runs against a real database with no mocks.
+- **Lighter & modern** — dropped the `moment` dependency; requires Node ≥ 20 and pnpm ≥ 10.
+
+### Breaking changes
+
+A focused set: token-TTL config renamed, a few hook/SDK method renames, and the API-key rehash. All of them — with before/after code — are in the **[v1 → v2 migration guide](/docs/migration)**.
+
+---
+
+## Beta releases (`2.0.0-beta.*`)
+
+The current line is `2.0.0-beta.*`. Betas follow [semver pre-release](https://semver.org/#spec-item-9) semantics — we avoid breaking changes between betas but reserve the right to make one when an API decision turns out wrong before stable. Any beta that does will call it out here.
+
+See the [release process](/docs/changelog/release-process) for how versions are cut and how the full per-release history is wired up by CI at launch.
