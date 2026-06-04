@@ -112,6 +112,49 @@ void main() {
     expect(storage.length, 0);
     client.close();
   });
+
+  test('NestAuthController reflects auth state reactively', () async {
+    final controller = NestAuthController(NestAuthClient(baseUrl: baseUrl));
+    expect(controller.status, AuthStatus.unknown);
+    expect(controller.isAuthenticated, isFalse);
+
+    var notifications = 0;
+    controller.addListener(() => notifications++);
+
+    await controller.signup(
+      email: 'flutter-ctrl@test.local',
+      password: _password,
+    );
+    expect(controller.status, AuthStatus.authenticated);
+    expect(controller.isAuthenticated, isTrue);
+    expect(controller.user?.email, 'flutter-ctrl@test.local');
+    expect(notifications, greaterThan(0));
+
+    await controller.logout();
+    expect(controller.status, AuthStatus.unauthenticated);
+    expect(controller.isAuthenticated, isFalse);
+    expect(controller.user, isNull);
+
+    controller.client.close();
+  });
+
+  test('NestAuthController.restore() loads a persisted session', () async {
+    final storage = InMemoryTokenStorage();
+    final seed = NestAuthClient(baseUrl: baseUrl, storage: storage);
+    await seed.signup(email: 'flutter-restore@test.local', password: _password);
+    seed.close();
+
+    // New controller over the same storage — simulates relaunching the app.
+    final controller =
+        NestAuthController(NestAuthClient(baseUrl: baseUrl, storage: storage));
+    expect(controller.status, AuthStatus.unknown);
+
+    await controller.restore();
+    expect(controller.isAuthenticated, isTrue);
+    expect(controller.user?.email, 'flutter-restore@test.local');
+
+    controller.client.close();
+  });
 }
 
 Future<int> _freePort() async {

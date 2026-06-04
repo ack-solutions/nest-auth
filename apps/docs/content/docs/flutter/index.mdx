@@ -48,6 +48,67 @@ await auth.logout();
 
 The client attaches the access token to authenticated requests and, on a `401`, transparently refreshes once and retries.
 
+## Use it in your app
+
+For a reactive UI, wrap the client in a **`NestAuthController`** (a `ChangeNotifier`) — your widgets rebuild automatically on login/logout.
+
+```dart
+final auth = NestAuthController(
+  NestAuthClient(baseUrl: 'https://api.example.com', storage: SecureTokenStorage()),
+);
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await auth.restore(); // restore a persisted session on launch
+  runApp(MyApp(auth: auth));
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key, required this.auth});
+  final NestAuthController auth;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: ListenableBuilder(
+        listenable: auth,
+        builder: (context, _) {
+          switch (auth.status) {
+            case AuthStatus.unknown:
+              return const Scaffold(body: Center(child: CircularProgressIndicator()));
+            case AuthStatus.authenticated:
+              return HomeScreen(auth: auth);
+            case AuthStatus.unauthenticated:
+              return LoginScreen(auth: auth);
+          }
+        },
+      ),
+    );
+  }
+}
+```
+
+A login screen just calls the controller — the tree updates itself:
+
+```dart
+ElevatedButton(
+  onPressed: auth.isBusy
+      ? null
+      : () async {
+          try {
+            await auth.loginWithEmail(emailCtrl.text, passwordCtrl.text);
+          } on NestAuthException catch (e) {
+            // show e.message
+          }
+        },
+  child: auth.isBusy
+      ? const CircularProgressIndicator()
+      : const Text('Sign in'),
+);
+```
+
+`NestAuthController` exposes `status`, `user`, `isAuthenticated`, `isBusy`, and `lastError`, plus `signup`, `login`, `loginWithEmail`, `logout`, `restore`, and `refreshUser`. It works with any state solution — pass it to `provider`, Riverpod, or just `ListenableBuilder` as above.
+
 ## API
 
 | Member | Description |

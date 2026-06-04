@@ -47,6 +47,32 @@ await auth.logout();
 
 `NestAuthClient` attaches the access token to authenticated requests and, on a `401`, transparently refreshes once and retries.
 
+## Reactive UI (`NestAuthController`)
+
+Wrap the client in a `NestAuthController` (a `ChangeNotifier`) so widgets rebuild on login/logout:
+
+```dart
+final auth = NestAuthController(
+  NestAuthClient(baseUrl: 'https://api.example.com', storage: SecureTokenStorage()),
+);
+
+await auth.restore(); // on app start
+
+// In your root widget:
+ListenableBuilder(
+  listenable: auth,
+  builder: (context, _) {
+    if (auth.status == AuthStatus.unknown) return const SplashScreen();
+    return auth.isAuthenticated ? HomeScreen(auth: auth) : LoginScreen(auth: auth);
+  },
+);
+
+// A button just calls the controller; the UI updates itself:
+await auth.loginWithEmail(email, password);
+```
+
+It exposes `status`, `user`, `isAuthenticated`, `isBusy`, `lastError`, plus `signup`, `login`, `loginWithEmail`, `logout`, `restore`, `refreshUser` — and works with `provider`, Riverpod, or plain `ListenableBuilder`.
+
 ## API
 
 | Member | Description |
