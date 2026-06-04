@@ -95,6 +95,38 @@ export class UserService {
      *                   each statement uses the default datasource.
      */
     async createUser(data: Partial<NestAuthUser>, tenantId?: string, context?: any, manager?: EntityManager): Promise<NestAuthUser> {
+        // When the caller supplies its own transactional manager, participate in
+        // that transaction and let the caller emit USER_CREATED after it commits
+        // (so the event reflects committed state and a later rollback can't leave
+        // listeners acting on a phantom user).
+        if (manager) {
+            return this.createUserCore(data, tenantId, context, manager);
+        }
+
+        // Otherwise own the transaction so the whole create — user row + default
+        // access + identities + the user.afterCreate hook — is atomic. A throw
+        // anywhere (validation, conflict, or a failing afterCreate hook) rolls the
+        // partial user back. USER_CREATED fires only after a successful commit.
+        const created = await this.runInTransaction((m) => this.createUserCore(data, tenantId, context, m));
+
+        await this.eventEmitter.emitAsync(
+            NestAuthEvents.USER_CREATED,
+            new UserCreatedEvent({
+                user: created,
+                input: context,
+                tenantId,
+            }),
+        );
+
+        return created;
+    }
+
+    /**
+     * Inner create — performs every DB write through the supplied transactional
+     * `manager` and runs the beforeCreate/afterCreate hooks, but does NOT emit
+     * lifecycle events (the transactional boundary owner does that post-commit).
+     */
+    private async createUserCore(data: Partial<NestAuthUser>, tenantId: string | undefined, context: any, manager: EntityManager): Promise<NestAuthUser> {
         const config = this.authConfigService.getConfig();
         const userRepo = this.getUserRepo(manager);
 
@@ -157,24 +189,12 @@ export class UserService {
                 await user.findOrCreateIdentity(PHONE_AUTH_PROVIDER, phone, manager);
             }
 
-            // Emit user created event. Note: listeners run *outside* the
-            // transaction — if a listener does its own DB work, it will not
-            // see uncommitted rows from this `manager`. That's intentional;
-            // a synchronous listener that needs to participate should be
-            // refactored into a `user.afterCreate` hook (which runs before
-            // commit) or invoked manually after the tx commits.
-            await this.eventEmitter.emitAsync(
-                NestAuthEvents.USER_CREATED,
-                new UserCreatedEvent({
-                    user,
-                    input: context,
-                    tenantId: tenantId
-                })
-            );
-
-            // Apply user.afterCreate hook if configured
+            // Apply user.afterCreate hook if configured. It runs INSIDE the
+            // transaction, so throwing here rolls the whole user back (no
+            // partial create). USER_CREATED is emitted by the transaction owner
+            // only after a successful commit.
             if (config.user?.afterCreate) {
-                await config.user.afterCreate?.(user, context);
+                await config.user.afterCreate?.(user, context, manager);
             }
 
             this.debugLogger.logFunctionExit('createUser', 'UserService', { userId: user.id });
@@ -317,23 +337,43 @@ export class UserService {
 
 
             this.debugLogger.debug('Updating user data', 'UserService', { userId: id, fields: Object.keys(data) });
-            Object.assign(user, data);
-            const updatedUser = await this.getUserRepo(manager).save(user);
-
             const updateConfig = this.authConfigService.getConfig();
-            if (data.email && updateConfig.emailAuth?.enabled !== false) {
-                this.debugLogger.debug('Updating email identity', 'UserService', { userId: id });
-                await user.updateOrCreateIdentity(EMAIL_AUTH_PROVIDER, { providerId: data.email }, manager);
-            }
 
-            if (data.phone && updateConfig.phoneAuth?.enabled === true) {
-                this.debugLogger.debug('Updating phone identity', 'UserService', { userId: id });
-                await user.updateOrCreateIdentity(PHONE_AUTH_PROVIDER, { providerId: data.phone }, manager);
-            }
+            // Persist the user row and its identities atomically — if an identity
+            // write fails, the column change rolls back too (no half-applied update).
+            const applyUpdate = async (m: EntityManager): Promise<NestAuthUser> => {
+                // beforeUpdate hook — may mutate `data` or return a partial to merge,
+                // or throw to abort. Runs inside the transaction.
+                if (updateConfig.user?.beforeUpdate) {
+                    const modified = await updateConfig.user.beforeUpdate(user, data, m);
+                    if (modified) data = { ...data, ...modified };
+                }
 
-            // Emit user updated event. Listeners run outside the transaction
-            // and use the default datasource — they will not see uncommitted
-            // changes from `manager`.
+                Object.assign(user, data);
+                const saved = await this.getUserRepo(m).save(user);
+
+                if (data.email && updateConfig.emailAuth?.enabled !== false) {
+                    this.debugLogger.debug('Updating email identity', 'UserService', { userId: id });
+                    await user.updateOrCreateIdentity(EMAIL_AUTH_PROVIDER, { providerId: data.email }, m);
+                }
+                if (data.phone && updateConfig.phoneAuth?.enabled === true) {
+                    this.debugLogger.debug('Updating phone identity', 'UserService', { userId: id });
+                    await user.updateOrCreateIdentity(PHONE_AUTH_PROVIDER, { providerId: data.phone }, m);
+                }
+
+                // afterUpdate hook — inside the transaction, throwing rolls back.
+                if (updateConfig.user?.afterUpdate) {
+                    await updateConfig.user.afterUpdate(saved, data, m);
+                }
+                return saved;
+            };
+
+            const updatedUser = manager
+                ? await applyUpdate(manager)
+                : await this.runInTransaction(applyUpdate);
+
+            // Emit AFTER the writes are persisted so listeners observe committed
+            // state (when we own the transaction).
             this.debugLogger.debug('Emitting user updated event', 'UserService', { userId: updatedUser.id });
             await this.eventEmitter.emitAsync(
                 NestAuthEvents.USER_UPDATED,
@@ -469,21 +509,47 @@ export class UserService {
                 });
             }
 
-            // Emit user deleted event before deletion. Listeners run outside
-            // the transaction; if you need a listener to also delete its
-            // own AppUser row inside this tx, do that work directly inside
-            // your `runInTransaction` wrapper instead.
+            const config = this.authConfigService.getConfig();
+
+            // Snapshot the user for the post-commit event — TypeORM's remove()
+            // clears the generated id from the live entity.
+            const snapshot = Object.assign(
+                Object.create(Object.getPrototypeOf(user)),
+                user,
+            ) as NestAuthUser;
+
+            // Delete inside a transaction so the beforeDelete/afterDelete hooks
+            // (and any related-row cleanup they perform via `manager`) commit or
+            // roll back together with the removal. A throwing hook leaves the user
+            // intact — no half-deleted state.
+            const doDelete = async (m: EntityManager): Promise<void> => {
+                if (config.user?.beforeDelete) {
+                    await config.user.beforeDelete(user, m);
+                }
+                this.debugLogger.debug('Deleting user from database', 'UserService', { userId: id });
+                await this.getUserRepo(m).remove(user);
+                if (config.user?.afterDelete) {
+                    await config.user.afterDelete(snapshot, m);
+                }
+            };
+
+            if (manager) {
+                await doDelete(manager);
+            } else {
+                await this.runInTransaction(doDelete);
+            }
+
+            this.debugLogger.info('User deleted successfully', 'UserService', { userId: id });
+
+            // Emit AFTER the deletion commits, using the pre-delete snapshot so
+            // listeners still have the user's data to act on.
             this.debugLogger.debug('Emitting user deleted event', 'UserService', { userId: id });
             await this.eventEmitter.emitAsync(
                 NestAuthEvents.USER_DELETED,
                 new UserDeletedEvent({
-                    user,
+                    user: snapshot,
                 })
             );
-
-            this.debugLogger.debug('Deleting user from database', 'UserService', { userId: id });
-            await this.getUserRepo(manager).remove(user);
-            this.debugLogger.info('User deleted successfully', 'UserService', { userId: id });
 
             this.debugLogger.logFunctionExit('deleteUser', 'UserService', { userId: id });
 

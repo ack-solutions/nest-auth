@@ -8,6 +8,7 @@ import { SessionPayload, JWTTokenPayload } from './token-payload.interface';
 import { NestAuthSignupRequestDto } from '../../auth/dto/requests/signup.request.dto';
 import { INestAuthTenantOptions, TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { Request } from 'express';
+import { EntityManager } from 'typeorm';
 import { NestAuthPlatformAccess, NestAuthUserAccess } from '../entities';
 
 /**
@@ -66,8 +67,45 @@ export interface IUserHooks {
     /**
      * Callback after user creation.
      * Use for side effects like creating related records, sending notifications.
+     *
+     * Runs INSIDE the user-creation transaction. Throwing here rolls the whole
+     * user back (no partial create). Use the provided `manager` for any DB
+     * writes that must commit/rollback together with the user.
      */
-    afterCreate?: (user: NestAuthUser, input: any) => Promise<void> | void;
+    afterCreate?: (user: NestAuthUser, input: any, manager?: EntityManager) => Promise<void> | void;
+
+    /**
+     * Transform the requested changes before a user is updated.
+     * Return a (partial) object to merge into the changes, or mutate `changes`
+     * in place. Throw to abort the update. Runs INSIDE the update transaction.
+     *
+     * @param user    The user as it currently exists (pre-update).
+     * @param changes The requested column changes.
+     * @param manager The transactional EntityManager (use it for related writes).
+     */
+    beforeUpdate?: (user: NestAuthUser, changes: Partial<NestAuthUser>, manager?: EntityManager) => Promise<Partial<NestAuthUser> | void> | Partial<NestAuthUser> | void;
+
+    /**
+     * Callback after a user is updated, INSIDE the update transaction.
+     * Throwing rolls the update back. Use `manager` for transactional side effects.
+     *
+     * @param user    The updated user.
+     * @param changes The fields that were changed.
+     */
+    afterUpdate?: (user: NestAuthUser, changes: Partial<NestAuthUser>, manager?: EntityManager) => Promise<void> | void;
+
+    /**
+     * Callback before a user is deleted, INSIDE the delete transaction (runs
+     * while the row still exists). Throw to abort the deletion. Use `manager`
+     * to clean up related rows so they commit/rollback together with the delete.
+     */
+    beforeDelete?: (user: NestAuthUser, manager?: EntityManager) => Promise<void> | void;
+
+    /**
+     * Callback after a user is deleted, INSIDE the delete transaction.
+     * Throwing rolls the deletion back. Receives a snapshot of the deleted user.
+     */
+    afterDelete?: (user: NestAuthUser, manager?: EntityManager) => Promise<void> | void;
 
     /**
      * Control which user fields appear in API responses.
@@ -160,7 +198,7 @@ export interface IRegistrationHooks {
      * }
      * ```
      */
-    onSignup?: (user: NestAuthUser, input: any, context?: { request?: any }) => Promise<void> | void;
+    onSignup?: (user: NestAuthUser, input: any, context?: { request?: any; manager?: EntityManager }) => Promise<void> | void;
 }
 
 /**
@@ -189,7 +227,7 @@ export interface ILoginHooks {
      * }
      * ```
      */
-    onLogin?: (user: NestAuthUser, input: any, context?: { userAccess?: NestAuthUserAccess; platformAccess?: NestAuthPlatformAccess; request?: any; provider?: any }) => Promise<void> | void;
+    onLogin?: (user: NestAuthUser, input: any, context?: { userAccess?: NestAuthUserAccess; platformAccess?: NestAuthPlatformAccess; request?: any; provider?: any; manager?: EntityManager }) => Promise<void> | void;
 }
 
 /**

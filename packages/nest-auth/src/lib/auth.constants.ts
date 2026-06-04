@@ -215,6 +215,16 @@ export const NestAuthEvents = {
     TENANT_UPDATED: 'nest_auth.tenant.updated',
     TENANT_DELETED: 'nest_auth.tenant.deleted',
 
+    // Role events
+    ROLE_CREATED: 'nest_auth.role.created',
+    ROLE_UPDATED: 'nest_auth.role.updated',
+    ROLE_DELETED: 'nest_auth.role.deleted',
+
+    // Permission events
+    PERMISSION_CREATED: 'nest_auth.permission.created',
+    PERMISSION_UPDATED: 'nest_auth.permission.updated',
+    PERMISSION_DELETED: 'nest_auth.permission.deleted',
+
     // Access key events
     ACCESS_KEY_CREATED: 'nest_auth.access_key.created',
     ACCESS_KEY_DELETED: 'nest_auth.access_key.deleted',

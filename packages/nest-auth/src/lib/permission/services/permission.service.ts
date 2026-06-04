@@ -1,10 +1,14 @@
 import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { NestAuthPermission } from '../entities/permission.entity';
-import { DEFAULT_GUARD_NAME, GUARD_ERROR_CODES } from '../../auth.constants';
+import { DEFAULT_GUARD_NAME, GUARD_ERROR_CODES, NestAuthEvents } from '../../auth.constants';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { IUpdatePermissionInput } from '@ackplus/nest-auth-contracts';
+import { PermissionCreatedEvent } from '../events/permission-created.event';
+import { PermissionUpdatedEvent } from '../events/permission-updated.event';
+import { PermissionDeletedEvent } from '../events/permission-deleted.event';
 
 @Injectable()
 export class PermissionService {
@@ -12,6 +16,7 @@ export class PermissionService {
         @InjectRepository(NestAuthPermission)
         private permissionRepository: Repository<NestAuthPermission>,
         private authConfigService: AuthConfigService,
+        private readonly eventEmitter: EventEmitter2,
     ) { }
 
     private getDefaultRoleGuard(): string {
@@ -51,7 +56,14 @@ export class PermissionService {
             category: data.category?.trim(),
         });
 
-        return this.permissionRepository.save(permission);
+        const saved = await this.permissionRepository.save(permission);
+
+        await this.eventEmitter.emitAsync(
+            NestAuthEvents.PERMISSION_CREATED,
+            new PermissionCreatedEvent({ permission: saved }),
+        );
+
+        return saved;
     }
 
     async getPermissions(options?: {
@@ -156,12 +168,24 @@ export class PermissionService {
             permission.category = data.category?.trim() || null;
         }
 
-        return this.permissionRepository.save(permission);
+        const saved = await this.permissionRepository.save(permission);
+
+        await this.eventEmitter.emitAsync(
+            NestAuthEvents.PERMISSION_UPDATED,
+            new PermissionUpdatedEvent({ permission: saved, updatedFields: Object.keys(data ?? {}) }),
+        );
+
+        return saved;
     }
 
     async deletePermission(id: string): Promise<void> {
         const permission = await this.getPermissionById(id);
         await this.permissionRepository.remove(permission);
+
+        await this.eventEmitter.emitAsync(
+            NestAuthEvents.PERMISSION_DELETED,
+            new PermissionDeletedEvent({ permission }),
+        );
     }
 
 

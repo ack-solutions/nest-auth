@@ -1,14 +1,18 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, DataSource, EntityManager, FindManyOptions, FindOneOptions, IsNull, Repository } from 'typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import { DEFAULT_GUARD_NAME, GUARD_ERROR_CODES } from '../../auth.constants';
+import { DEFAULT_GUARD_NAME, GUARD_ERROR_CODES, NestAuthEvents } from '../../auth.constants';
 import { NestAuthPermission } from '../../permission/entities/permission.entity';
 import { isUniqueConstraintViolation } from '../../utils';
 import { NestAuthRole } from '../entities/role.entity';
 import { NestAuthRolePermission } from '../entities/role-permission.entity';
 import { getRolePermissionNames } from '../utils/role-mapper.util';
 import { IUpdateRoleInput } from '@ackplus/nest-auth-contracts';
+import { RoleCreatedEvent } from '../events/role-created.event';
+import { RoleUpdatedEvent } from '../events/role-updated.event';
+import { RoleDeletedEvent } from '../events/role-deleted.event';
 
 @Injectable()
 export class RoleService {
@@ -17,6 +21,7 @@ export class RoleService {
         private roleRepository: Repository<NestAuthRole>,
         private dataSource: DataSource,
         private authConfigService: AuthConfigService,
+        private readonly eventEmitter: EventEmitter2,
     ) { }
 
     private getDefaultRoleGuard(): string {
@@ -189,7 +194,7 @@ export class RoleService {
         const normalizedTenantId = tenantId?.trim() || null;
         const roleTenantId = isSystem ? null : normalizedTenantId;
 
-        return this.dataSource.transaction(async (manager) => {
+        const createdRole = await this.dataSource.transaction(async (manager) => {
             await this.ensureRoleIsUnique(manager, {
                 name: normalizedName,
                 guard: resolvedGuard,
@@ -227,6 +232,13 @@ export class RoleService {
 
             return this.getHydratedRole(manager, savedRole.id, true);
         });
+
+        await this.eventEmitter.emitAsync(
+            NestAuthEvents.ROLE_CREATED,
+            new RoleCreatedEvent({ role: createdRole }),
+        );
+
+        return createdRole;
     }
 
     async getRoleById(id: string, options?: Omit<FindOneOptions<NestAuthRole>, 'where'>): Promise<NestAuthRole> {
@@ -354,7 +366,7 @@ export class RoleService {
         id: string,
         data:IUpdateRoleInput,
     ): Promise<NestAuthRole> {
-        return this.dataSource.transaction(async (manager) => {
+        const updatedRole = await this.dataSource.transaction(async (manager) => {
             const role = await this.getHydratedRole(manager, id, true);
 
             if (!role) {
@@ -412,6 +424,13 @@ export class RoleService {
 
             return this.getHydratedRole(manager, role.id, true);
         });
+
+        await this.eventEmitter.emitAsync(
+            NestAuthEvents.ROLE_UPDATED,
+            new RoleUpdatedEvent({ role: updatedRole, updatedFields: Object.keys(data ?? {}) }),
+        );
+
+        return updatedRole;
     }
 
     async updateRolePermissions(id: string, permissionNames: string[]): Promise<NestAuthRole> {
@@ -429,5 +448,10 @@ export class RoleService {
         }
 
         await this.roleRepository.remove(role);
+
+        await this.eventEmitter.emitAsync(
+            NestAuthEvents.ROLE_DELETED,
+            new RoleDeletedEvent({ role }),
+        );
     }
 }

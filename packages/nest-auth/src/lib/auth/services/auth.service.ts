@@ -27,6 +27,7 @@ import { NestAuthVerify2faRequestDto } from '../dto/requests/verify-2fa.request.
 import { INestAuthUser, ISessionUserData, NestAuthMFAMethodEnum, NestAuthOTPTypeEnum, TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { JWTTokenPayload, SessionDataPayload, SessionPayload } from '../../core/interfaces/token-payload.interface';
 import { UserRegisteredEvent } from '../events/user-registered.event';
+import { UserCreatedEvent } from '../../user/events/user-created.event';
 import { UserLoggedInEvent } from '../events/user-logged-in.event';
 import { LoginFailedEvent } from '../events/login-failed.event';
 import { User2faVerifiedEvent } from '../events/user-2fa-verified.event';
@@ -192,31 +193,42 @@ export class AuthService {
 
             this.debugLogger.debug('Creating new user via UserService', 'AuthService', { email: !!email, phone: !!phone, tenantId });
 
-            // Use UserService to create user, which handles hooks and password hashing
-            // We pass the plain password, UserService will hash it if provided
-            const user = await this.userService.createUser({
-                email,
-                phone,
-                emailVerifiedAt: null,
-                phoneVerifiedAt: null,
-                password
-            } as any, tenantId, input);
+            // Create the user and run the onSignup hook inside ONE transaction so
+            // any failure — a DB error or a throwing onSignup hook — rolls the
+            // whole thing back. createUser also creates the email/phone identities
+            // and default access within this same transaction, so there is no way
+            // to end up with a half-created user. The USER_CREATED / REGISTERED
+            // events are emitted only AFTER the transaction commits.
+            //
+            // Note: a hook that needs to do its own DB writes transactionally
+            // should use `context.manager` (the same transactional EntityManager)
+            // so its work commits or rolls back together with the user.
+            const request = RequestContext.currentRequest();
+            const user = await this.userService.runInTransaction(async (manager) => {
+                const created = await this.userService.createUser({
+                    email,
+                    phone,
+                    emailVerifiedAt: null,
+                    phoneVerifiedAt: null,
+                    password
+                } as any, tenantId, input, manager);
+
+                if (this.authConfig.registrationHooks?.onSignup) {
+                    this.debugLogger.debug('Applying registrationHooks.onSignup hook', 'AuthService', { userId: created.id });
+                    await this.authConfig.registrationHooks.onSignup(created, input, { request, manager });
+                }
+
+                return created;
+            });
 
             this.debugLogger.info('User created successfully', 'AuthService', { userId: user.id, tenantId });
 
-            // Link user to all enabled providers
-            for (const item of providersToLink) {
-                this.debugLogger.debug('Linking user to provider', 'AuthService', { userId: user.id, providerName: item.provider.providerName });
-                // Note: UserService might have already created the identity, but we ensure it's linked here
-                await item.provider.linkToUser(user.id, item.providerId);
-            }
-
-
-            if (this.authConfig.registrationHooks?.onSignup) {
-                this.debugLogger.debug('Applying registrationHooks.onSignup hook', 'AuthService', { userId: user.id });
-                const request = RequestContext.currentRequest();
-                await this.authConfig.registrationHooks.onSignup(user, input, { request });
-            }
+            // User row (+ access + identities) is committed — emit USER_CREATED now
+            // (deferred from createUser because signup owned the transaction).
+            await this.eventEmitter.emitAsync(
+                NestAuthEvents.USER_CREATED,
+                new UserCreatedEvent({ user, input, tenantId }),
+            );
 
             const { user: authUser, userAccess } = await this.getUserWithAccess(user.id, tenantId);
 

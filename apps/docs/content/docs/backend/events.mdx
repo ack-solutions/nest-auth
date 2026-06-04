@@ -97,6 +97,20 @@ export class AuthEventsListener {
 | `TenantUpdatedEvent` | `NestAuthEvents.TENANT_UPDATED` | `tenant`, `previous` |
 | `TenantDeletedEvent` | `NestAuthEvents.TENANT_DELETED` | `tenant` |
 
+## Roles & permissions
+
+Emitted by `RoleService` / `PermissionService` on every mutation, so you can sync
+RBAC changes to an external system or audit log.
+
+| Event | Constant | Payload |
+|---|---|---|
+| `RoleCreatedEvent` | `NestAuthEvents.ROLE_CREATED` | `role` |
+| `RoleUpdatedEvent` | `NestAuthEvents.ROLE_UPDATED` | `role`, `updatedFields` |
+| `RoleDeletedEvent` | `NestAuthEvents.ROLE_DELETED` | `role` |
+| `PermissionCreatedEvent` | `NestAuthEvents.PERMISSION_CREATED` | `permission` |
+| `PermissionUpdatedEvent` | `NestAuthEvents.PERMISSION_UPDATED` | `permission`, `updatedFields` |
+| `PermissionDeletedEvent` | `NestAuthEvents.PERMISSION_DELETED` | `permission` |
+
 ## API keys
 
 | Event | Constant | Payload |

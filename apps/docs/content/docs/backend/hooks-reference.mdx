@@ -120,9 +120,49 @@ registrationHooks: {
 
 Final mutation before the user row is inserted.
 
-### `user.afterCreate(user) => Promise<void>`
+### `user.afterCreate(user, input, manager) => Promise<void>`
 
-Sync side effects. Throws here roll back the signup.
+Sync side effects after the user (plus its default access and identities) are
+inserted. Runs **inside the creation transaction** — throwing rolls the whole
+create back, so a partial user can never be persisted. Use the third argument
+`manager` (a TypeORM `EntityManager`) for any DB writes that must commit or roll
+back **together with** the user:
+
+```ts
+user: {
+  async afterCreate(user, input, manager) {
+    // This insert is part of the same transaction — if it throws, the auth
+    // user is rolled back too. No orphaned rows on either side.
+    await manager.getRepository(AppUser).insert({ authUserId: user.id });
+  },
+},
+```
+
+### `user.beforeUpdate(user, changes, manager) => Partial<NestAuthUser> | void`
+
+Runs inside the update transaction before the row is saved. Return a partial to
+merge into `changes`, mutate `changes` in place, or throw to abort the update.
+
+### `user.afterUpdate(user, changes, manager) => Promise<void>`
+
+Runs inside the update transaction after the row is saved. Throwing rolls the
+update back. `changes` is the set of fields that changed.
+
+### `user.beforeDelete(user, manager) => Promise<void>`
+
+Runs inside the delete transaction while the row still exists. Throw to abort the
+deletion. Use `manager` to remove related rows so they roll back together.
+
+### `user.afterDelete(user, manager) => Promise<void>`
+
+Runs inside the delete transaction after removal (receives a snapshot of the
+deleted user). Throwing rolls the deletion back.
+
+> **Atomicity.** User create, update, and delete each run in a single
+> transaction. If any hook (or a related DB write you make via `manager`) throws,
+> the entire operation rolls back — there are no partially-created or
+> half-updated users. Lifecycle **events** (`user.created` / `updated` /
+> `deleted`) are emitted only **after** the transaction commits.
 
 ### `user.getSessionUserData(user, helpers) => SessionUserData | Promise<SessionUserData>`
 
@@ -148,7 +188,7 @@ List of `NestAuthUser` fields to never serialize into responses (e.g., `'metadat
 
 ### `loginHooks.onLogin(user, ctx) => Promise<void>`
 
-`ctx` carries `request`, `userAccess`, `platformAccess`. Useful for syncing external systems on every login.
+`ctx` carries `request`, `userAccess`, `platformAccess`, and (when the login auto-creates a user) `manager`. Useful for syncing external systems on every login. `registrationHooks.onSignup` likewise receives `{ request, manager }` so its writes can join the signup transaction.
 
 ### `session.customizeSessionData(default, user) => SessionDataPayload`
 

@@ -88,6 +88,33 @@ function buildTenantConfig() {
       phoneAuth: {
         enabled: true,
       },
+
+      // Social login — each provider is enabled ONLY when its credentials are
+      // present in the environment, so the demo runs fine without them. See
+      // OAUTH-TESTING.md for how to obtain credentials and run a live test.
+      ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+        ? {
+            google: {
+              clientId: process.env.GOOGLE_CLIENT_ID,
+              clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+              redirectUri:
+                process.env.GOOGLE_REDIRECT_URI ||
+                'http://localhost:4200/auth/google/callback',
+            },
+          }
+        : {}),
+      ...(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET
+        ? {
+            github: {
+              clientId: process.env.GITHUB_CLIENT_ID,
+              clientSecret: process.env.GITHUB_CLIENT_SECRET,
+              redirectUri:
+                process.env.GITHUB_REDIRECT_URI ||
+                'http://localhost:4200/auth/github/callback',
+            },
+          }
+        : {}),
+
       passwordless: {
         enabled: true,
         allowSignUp: true,
