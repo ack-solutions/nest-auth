@@ -2,10 +2,18 @@
 id: 005
 priority: P0
 area: docs
-status: open
+status: fixed
 package: '@ackplus/nest-auth-docs'
 title: build-openapi.ts script is a stub — OpenAPI spec is hand-maintained
+fixed-by: T-024
+fixed-date: 2026-05-21
 ---
+
+## Resolution (T-024, 2026-05-21)
+
+`apps/docs/scripts/build-openapi.ts` now invokes the existing `packages/nest-auth/script/generate-nest-auth-swagger.mjs` generator (which boots NestAuthModule in-memory, runs `SwaggerModule.createDocument`, and writes to 4 destinations including `apps/docs/public/api/nest-auth.json`).
+
+Verified end-to-end: `pnpm --filter @ackplus/nest-auth-docs run generate:openapi` regenerates the spec from live code.
 
 ## Summary
 

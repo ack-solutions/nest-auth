@@ -52,7 +52,25 @@ export class EmailAuthProvider extends BaseAuthProvider {
 
         const identity = await this.findIdentity(emailNorm, tenantId);
 
-        if (!identity?.user || !(await identity.user.validatePassword(credentials.password))) {
+        if (!identity?.user) {
+            throw new UnauthorizedException('Invalid credentials');
+        }
+
+        // `passwordHash` is `select: false` on NestAuthUser, so the relation
+        // loaded by `findIdentity` doesn't include it. The instance's fallback
+        // path uses `BaseEntity.createQueryBuilder` which is brittle when the
+        // entity isn't bound to the default DataSource. Load it explicitly here.
+        const userWithHash = await this.userRepository.findOne({
+            where: { id: identity.user.id },
+            select: { id: true, passwordHash: true },
+        });
+
+        if (!userWithHash?.passwordHash) {
+            throw new UnauthorizedException('Invalid credentials');
+        }
+        identity.user.passwordHash = userWithHash.passwordHash;
+
+        if (!(await identity.user.validatePassword(credentials.password))) {
             throw new UnauthorizedException('Invalid credentials');
         }
 

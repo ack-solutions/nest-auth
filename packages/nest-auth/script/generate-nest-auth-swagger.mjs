@@ -75,7 +75,7 @@ async function generateSwaggerSpec() {
   const destinations = [
     join(repoRoot, 'apps/docs/public/api'),
     join(repoRoot, 'apps/docs/src/data/openapi'),
-    join(packageRoot, 'ui/src/data'), // For UI build-time consumption
+    join(repoRoot, 'packages/nest-auth-admin/src/data'), // For admin UI build-time consumption (was ui/src/data before T-002)
     join(packageRoot, 'dist/lib/admin-console/static'), // For runtime consumption
   ];
 

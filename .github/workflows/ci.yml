@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel previous runs of the same PR to save CI time
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-check:
+    name: Build, lint, typecheck (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # for changeset detection
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.21.0
+          run_install: false
+
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Turborepo cache: keyed by lockfile + source tree
+      - name: Restore turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-node${{ matrix.node }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-node${{ matrix.node }}-
+
+      - name: Typecheck
+        run: pnpm typecheck
+        # Hard gate — client + backend typecheck verified clean (2026-05-21).
+        # contracts/react have no typecheck script yet; turbo skips them.
+
+      - name: Lint
+        run: pnpm lint
+        # Lint enabled package-by-package as `tools/eslint-config` is adopted (T-009)
+        continue-on-error: true
+
+      - name: Build
+        run: pnpm build
+
+      # Test step — hard gate. Current tests use in-memory sqljs + in-process
+      # backend (no Docker). When Testcontainers-based tests land, add
+      # `services: { postgres, redis }` to this job.
+      - name: Test
+        run: pnpm test
+
+  changeset-check:
+    name: Changeset present on PR
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.21.0
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Check for changeset
+        run: pnpm changeset status --since=origin/main
+        # Soft-fail until contributors are familiar with the workflow
+        continue-on-error: true

@@ -119,9 +119,12 @@ export class NestAuthAuthGuard implements CanActivate {
             return false;
         }
 
-        // After successful authentication, check authorization (roles, permissions)
-        // Only check authorization if user is authenticated and we have user data
-        if (isAuthenticated && request.user) {
+        // After successful authentication, check authorization (roles, permissions).
+        // Always run when authenticated: checkAuthorization() is a no-op for routes
+        // without @Roles/@Permissions, and fails closed (throws) when requirements
+        // exist but no principal was established — so role/permission checks can
+        // never be silently skipped.
+        if (isAuthenticated) {
             await this.checkAuthorization(context, request);
         }
         return true;

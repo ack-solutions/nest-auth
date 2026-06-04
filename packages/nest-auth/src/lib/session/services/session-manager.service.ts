@@ -108,11 +108,11 @@ export class SessionManagerService {
             throw new UnauthorizedException('Session not found');
         }
 
-        // Check if expired
-        // if (this.isExpired(session)) {
-        //     await this.store.delete(sessionId);
-        //     throw new UnauthorizedException('Session expired');
-        // }
+        // Enforce server-side session expiry (HIPAA/idle + absolute timeout).
+        if (this.isExpired(session)) {
+            await this.store.delete(sessionId);
+            throw new UnauthorizedException('Session expired');
+        }
         // Update last active if sliding expiration enabled
         if (this.slidingExpiration && this.shouldTouchSession(session)) {
             const updatedSession = await this.touchSession(sessionId);

@@ -49,7 +49,6 @@ export class ProfileController {
      */
     private async getCurrentUserOrThrow() {
         const user = await RequestContext.currentUser();
-        console.log('user', user);
         if (!user) {
             throw new UnauthorizedException('User not found');
         }

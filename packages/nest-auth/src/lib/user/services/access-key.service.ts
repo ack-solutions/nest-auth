@@ -4,8 +4,15 @@ import { Repository } from 'typeorm';
 import { NestAuthAccessKey } from '../entities/access-key.entity';
 import { NestAuthUser } from '../entities/user.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { randomBytes, createHash } from 'crypto';
+import { randomBytes, createHash, timingSafeEqual } from 'crypto';
 import { NestAuthEvents } from '../../auth.constants';
+
+/**
+ * Domain-separation prefix so the stored secret hash differs from `publicKey`
+ * (which is `sha256(privateKey)`). Without this, the stored hash would equal the
+ * publicly-known `publicKey`, defeating the point of hashing the secret.
+ */
+const ACCESS_KEY_SECRET_DOMAIN = 'nest_auth:access_key_secret:v1:';
 
 @Injectable()
 export class AccessKeyService {
@@ -15,7 +22,7 @@ export class AccessKeyService {
 
         @InjectRepository(NestAuthUser)
         private userRepository: Repository<NestAuthUser>,
-        
+
         private eventEmitter: EventEmitter2
     ) { }
 
@@ -23,6 +30,16 @@ export class AccessKeyService {
         const privateKey = randomBytes(32).toString('hex');
         const publicKey = createHash('sha256').update(privateKey).digest('hex');
         return { publicKey, privateKey };
+    }
+
+    /**
+     * Hash of the secret for at-rest storage (B-12). Domain-separated SHA-256.
+     * The plaintext `privateKey` is high-entropy (32 random bytes), so a single
+     * SHA-256 with domain separation is sufficient (no per-key salt needed, and
+     * a salt would prevent O(1) lookup-by-publicKey verification anyway).
+     */
+    private hashSecret(privateKey: string): string {
+        return createHash('sha256').update(ACCESS_KEY_SECRET_DOMAIN + privateKey).digest('hex');
     }
 
     async createAccessKey(userId: string, name: string): Promise<NestAuthAccessKey> {
@@ -39,7 +56,9 @@ export class AccessKeyService {
         const accessKey = this.accessKeyRepository.create({
             name,
             publicKey,
-            privateKey,
+            // Store ONLY the hash. The plaintext is returned to the caller once
+            // (below) and is never recoverable from the DB after that.
+            privateKey: this.hashSecret(privateKey),
             userId,
         });
 
@@ -54,6 +73,9 @@ export class AccessKeyService {
             }
         );
 
+        // Surface the PLAINTEXT private key to the caller exactly once. It is not
+        // persisted in plaintext — `savedKey.privateKey` in the DB is the hash.
+        savedKey.privateKey = privateKey;
         return savedKey;
     }
 
@@ -94,8 +116,24 @@ export class AccessKeyService {
     }
 
     async validateAccessKey(publicKey: string, privateKey: string): Promise<boolean> {
-        const accessKey = await this.getAccessKey(publicKey);
-        return accessKey.privateKey === privateKey;
+        let accessKey: NestAuthAccessKey;
+        try {
+            accessKey = await this.getAccessKey(publicKey);
+        } catch {
+            // Unknown / inactive / expired key → invalid. Don't leak which.
+            return false;
+        }
+
+        const expected = Buffer.from(accessKey.privateKey, 'utf8');
+        const actual = Buffer.from(this.hashSecret(privateKey), 'utf8');
+
+        // Length guard: timingSafeEqual throws on unequal lengths. Both are
+        // 64-char hex in the current scheme; a length mismatch means a legacy
+        // plaintext-stored key (pre-B-12) — treat as invalid (must be regenerated).
+        if (expected.length !== actual.length) {
+            return false;
+        }
+        return timingSafeEqual(expected, actual);
     }
 
     async getUserAccessKeys(userId: string): Promise<NestAuthAccessKey[]> {

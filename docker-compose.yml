@@ -1,0 +1,73 @@
+# Visual-testing stack for @ackplus/nest-auth.
+#
+#   docker compose up --build
+#
+# Then open:
+#   - http://localhost:4200            React demo (signup / login / MFA / sessions / profile)
+#   - http://localhost:3333/api        Swagger UI (interactively hit every endpoint)
+#   - http://localhost:3333/api/auth/admin   Admin console dashboard (users / roles / tenants)
+#
+# Switch the multi-tenancy mode (each mode uses its own database, so data never mixes):
+#   TENANT_MODE=disabled docker compose up --build   # default — single tenant
+#   TENANT_MODE=shared   docker compose up --build   # global users, switchTenant
+#   TENANT_MODE=isolated docker compose up --build   # users scoped per tenant
+#
+# Postgres data persists in the `pgdata` volume. `docker compose down -v` wipes it.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: nestauth
+      POSTGRES_PASSWORD: nestauth
+      POSTGRES_DB: nest_auth_disabled
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Creates nest_auth_disabled / _shared / _isolated on first init.
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nestauth"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/example-nest/Dockerfile
+    environment:
+      NODE_ENV: development
+      PORT: 3333
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: nestauth
+      DB_PASSWORD: nestauth
+      # One DB per tenant mode (created by postgres-init.sql).
+      DB_NAME: nest_auth_${TENANT_MODE:-disabled}
+      TENANT_MODE: ${TENANT_MODE:-disabled}
+      # Dev secrets — DO NOT use in production.
+      JWT_SECRET: dev-jwt-secret-change-me
+      TRUSTED_DEVICE_SECRET: dev-trusted-device-secret
+      ADMIN_CONSOLE_SECRET_KEY: cArX1qCWcih8JVk8P19HT0vTrXnR8HcFPMpzminV/XE=
+    ports:
+      - "3333:3333"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/example-react/Dockerfile
+      args:
+        # Browser-facing URL of the backend (host-mapped port), NOT the compose hostname.
+        VITE_API_BASE_URL: http://localhost:3333/api
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

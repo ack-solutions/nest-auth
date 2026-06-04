@@ -11,20 +11,43 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { NestAuthModule, NestAuthEntities } from '@ackplus/nest-auth';
+import { NestAuthModule } from '@ackplus/nest-auth';
 import { SessionStorageType } from '@ackplus/nest-auth';
 import { NestAuthMFAMethodEnum, TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { buildDatabaseConfig } from './database.config';
+import { DevCodeLogger } from './dev/dev-code-logger';
+import { PlatformModule } from './platform/platform.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { ProfileModule } from './profile/profile.module';
-import { AppUser } from './user/user.entity';
 import { UserModule } from './user/user.module';
 
 enum RoleGuardEnum {
   WEB = 'web',
   ADMIN = 'admin',
   PORTAL = 'portal',
+  // Dedicated namespace for platform-level (super-admin) roles, isolated from
+  // tenant-user roles. See src/platform/ for the platform-admin portal.
+  PLATFORM = 'platform',
+}
+
+/**
+ * Tenant config driven by the `TENANT_MODE` env var so the demo can be booted in
+ * any of the three multi-tenancy modes without code changes:
+ *   - `disabled` (default) — single-tenant; tenantId is rejected.
+ *   - `shared`             — global users that can join multiple tenants (switchTenant).
+ *   - `isolated`           — users scoped per tenant (same email allowed per tenant).
+ */
+function buildTenantConfig() {
+  const mode = (process.env.TENANT_MODE || 'disabled').toLowerCase();
+  if (mode === 'shared') {
+    return { enabled: true, mode: TenantModeEnum.SHARED };
+  }
+  if (mode === 'isolated') {
+    return { enabled: true, mode: TenantModeEnum.ISOLATED };
+  }
+  return { enabled: false };
 }
 
 @Module({
@@ -38,20 +61,11 @@ enum RoleGuardEnum {
 
     /**
      * TypeORM Database Module
-     * Configures database connection for auth entities
+     * Configures the database connection for auth + app entities.
+     * Defaults to Postgres; uses portable in-memory SQLite when
+     * `DB_DRIVER=sqlite` or `NODE_ENV=test` (see `database.config.ts`).
      */
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT || '5432'),
-      username: process.env.DB_USERNAME || 'ajaykhandla',
-      password: process.env.DB_PASSWORD || '',
-      database: process.env.DB_NAME || 'nest-auth-example',
-      // Include nest-auth entities for user, session, and MFA storage
-      entities: [...NestAuthEntities, AppUser],
-      synchronize: true, // Auto-sync schema - disable in production
-      logging: false,
-    }),
+    TypeOrmModule.forRoot(buildDatabaseConfig()),
 
 
     NestAuthModule.forRoot({
@@ -117,12 +131,25 @@ enum RoleGuardEnum {
         },
       },
 
-      tenant: {
-        enabled: false,
-      },
+      tenant: buildTenantConfig(),
 
       // Only these guards can be used for roles/permissions. Admin UI shows them in a dropdown; to add more, extend RoleGuardEnum and list here.
       roleGuards: Object.values(RoleGuardEnum),
+
+      /**
+       * Platform access — the first-class, cross-tenant super-admin mechanism
+       * (a `NestAuthPlatformAccess` row per user; see src/platform/).
+       *
+       * `validate(request)` is the origin-lock: a user's platform roles are only
+       * resolved into their session when this returns true. We gate on a header
+       * the platform-admin portal sends, so a leaked token from a normal tenant
+       * origin can NOT be used as a platform-god token. Returns false for normal
+       * tenant logins, so tenant RBAC is unaffected.
+       */
+      platformAccess: {
+        enabled: true,
+        validate: (request: any) => request?.headers?.['x-platform-portal'] === 'true',
+      },
 
       /**
        * Multi-Factor Authentication (MFA) configuration
@@ -157,10 +184,10 @@ enum RoleGuardEnum {
       },
 
       /**
-       * Debug logging (disable in production)
+       * Debug logging (disable in production; also kept quiet under tests)
        */
       debug: {
-        enabled: process.env.NODE_ENV !== 'production',
+        enabled: process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test',
       },
 
       adminConsole: {
@@ -176,8 +203,9 @@ enum RoleGuardEnum {
     SessionsModule,
     ProfileModule,
     UserModule,
+    PlatformModule.register(),
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, DevCodeLogger],
 })
 export class AppModule { }

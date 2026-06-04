@@ -27,7 +27,11 @@ export class NestAuthTrustedDevice {
     @Column()
     expiresAt: Date;
 
-    @Column({ nullable: true })
+    // Explicit `type: 'datetime'` because the TS union `Date | null` makes
+    // emitDecoratorMetadata produce `Object` instead of `Date`, which breaks
+    // TypeORM under sqljs/sqlite. Cross-DB safe — TypeORM maps to the right
+    // backend type (TIMESTAMP on Postgres, DATETIME on SQLite).
+    @Column({ type: 'datetime', nullable: true })
     revokedAt: Date | null;
 
     @Column({ nullable: true })

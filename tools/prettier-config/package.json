@@ -1,0 +1,8 @@
+{
+  "name": "@ackplus/prettier-config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared Prettier config for the nest-auth monorepo. Internal package, never published.",
+  "main": "./index.cjs",
+  "files": ["index.cjs"]
+}

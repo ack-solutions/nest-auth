@@ -87,7 +87,7 @@ export default function ResetPasswordPage() {
             });
 
             // Store the reset token for step 2
-            setResetToken(response.token);
+            setResetToken(response.resetToken ?? response.token ?? '');
             setActiveStep(1);
             enqueueSnackbar('Code verified! Enter your new password.', {
                 variant: 'success'
@@ -136,7 +136,7 @@ export default function ResetPasswordPage() {
             // Reset password using the token via client from provider
             await client.resetPassword({
                 token: resetToken,
-                password: password,
+                newPassword: password,
             });
 
             enqueueSnackbar('Password reset successfully! Please sign in.', {

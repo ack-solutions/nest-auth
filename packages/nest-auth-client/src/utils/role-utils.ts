@@ -113,8 +113,8 @@ export function hasAnyAccess(
     user: ISessionUserData | null | undefined,
     requirements?: { roles?: string | string[]; permissions?: string | string[] },
 ): boolean {
-    const requiredRoles = Array.isArray(requirements?.roles) ? requirements?.roles : [requirements?.roles];
-    const requiredPermissions = Array.isArray(requirements?.permissions) ? requirements?.permissions : [requirements?.permissions];
+    const requiredRoles = normalizeRequirement(requirements?.roles);
+    const requiredPermissions = normalizeRequirement(requirements?.permissions);
 
     if (requiredRoles.length === 0 && requiredPermissions.length === 0) {
         return true;
@@ -145,8 +145,8 @@ export function hasAllAccess(
     user: ISessionUserData | null | undefined,
     requirements?: { roles?: string | string[]; permissions?: string | string[] },
 ): boolean {
-    const requiredRoles = Array.isArray(requirements?.roles) ? requirements?.roles : [requirements?.roles];
-    const requiredPermissions = Array.isArray(requirements?.permissions) ? requirements?.permissions : [requirements?.permissions];
+    const requiredRoles = normalizeRequirement(requirements?.roles);
+    const requiredPermissions = normalizeRequirement(requirements?.permissions);
 
     if (requiredRoles.length === 0 && requiredPermissions.length === 0) {
         return true;
@@ -161,5 +161,19 @@ export function hasAllAccess(
     const hasRequiredPermissions = requiredPermissions.length === 0 || hasPermission(user, requiredPermissions, true);
 
     return hasRequiredRoles && hasRequiredPermissions;
+}
+
+/**
+ * Normalize a roles/permissions requirement input to a clean string array.
+ *
+ * Fixes a bug where `{ roles: undefined }` was being coerced to `[undefined]`
+ * (length 1) instead of `[]`, breaking the "no requirements = allow" semantics.
+ */
+function normalizeRequirement(value: string | string[] | undefined | null): string[] {
+    if (value == null) return [];
+    if (Array.isArray(value)) {
+        return value.filter((v): v is string => typeof v === 'string' && v.length > 0);
+    }
+    return typeof value === 'string' && value.length > 0 ? [value] : [];
 }
 

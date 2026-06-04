@@ -1,11 +1,16 @@
 /**
- * @libs/auth-s - Shared authentication s
+ * @ackplus/nest-auth-contracts — shared types + a few runtime enums.
+ *
+ * Note: `export {}` is used for RUNTIME values (enums + token constants).
+ *       `export type {}` is used for INTERFACES + TYPE ALIASES.
+ * Mixing them causes "No matching export" errors under newer esbuild (≥0.27).
  */
 
-// Auth s (from auth.ts)
-export {
-    NestAuthMFAMethodEnum,
-    NestAuthOTPTypeEnum,
+// Runtime values from auth.ts (enums only)
+export { NestAuthMFAMethodEnum, NestAuthOTPTypeEnum } from './auth';
+
+// Type-only re-exports from auth.ts
+export type {
     IEmailCredentials,
     IPhoneCredentials,
     ISocialCredentials,
@@ -24,15 +29,14 @@ export {
     IAuthSuccessResponse,
     IUserResponse,
     ITokensResponse,
-    // Entities
     INestAuthIdentity,
     INestAuthSession,
     INestAuthAccessKey,
     INestAuthOTP,
 } from './auth';
 
-// MFA (from mfa.ts)
-export {
+// MFA (from mfa.ts) — all types
+export type {
     IVerify2faRequest,
     IVerify2faResponse,
     ISendMfaCodeRequest,
@@ -42,13 +46,12 @@ export {
     IMfaStatusResponse,
     IMfaCodeResponse,
     ITotpSetupResponse,
-    // Entities
     INestAuthMFASecret,
     INestAuthTrustedDevice,
 } from './mfa';
 
-// Password
-export {
+// Password — all types
+export type {
     IForgotPasswordRequest,
     IResetPasswordWithTokenRequest,
     IChangePasswordRequest,
@@ -56,8 +59,8 @@ export {
     IVerifyOtpResponse,
 } from './password';
 
-// Verification
-export {
+// Verification — all types
+export type {
     IVerifyEmailRequest,
     IVerifyPhoneRequest,
     IResendVerificationRequest,
@@ -65,24 +68,21 @@ export {
     ISendPhoneVerificationRequest,
     ISessionVerifyResponse,
 } from './verification';
-// Passwordless login
-export {
-    NEST_AUTH_PASSWORDLESS_PROVIDER,
-} from './passwordless';
-export type {
-    PasswordlessChannel,
-    IPasswordlessSendRequest,
-} from './passwordless';
 
-// Admin
-export {
+// Passwordless — runtime constant + types
+export { NEST_AUTH_PASSWORDLESS_PROVIDER } from './passwordless';
+export type { PasswordlessChannel, IPasswordlessSendRequest } from './passwordless';
+
+// Admin — all types
+export type {
     IInitializeAdminRequest,
     IInitializeAdminResponse,
     IAdminUser,
 } from './admin';
 
-// Config
-export {
+// Config — runtime enum + types
+export { TenantModeEnum } from './config';
+export type {
     IEmailAuthConfig,
     IPhoneAuthConfig,
     IProfileFieldOption,
@@ -94,17 +94,14 @@ export {
     ISsoProviderConfig,
     ISsoConfig,
     IUiConfig,
-    TenantModeEnum,
     INestAuthTenantOptions,
 } from './config';
 
-// User & Role (from user.ts)
-export {
-    INestAuthUser,
-} from './user';
+// User (from user.ts) — type
+export type { INestAuthUser } from './user';
 
-// Role & Permission (from role.ts)
-export {
+// Role & Permission (from role.ts) — all types
+export type {
     INestAuthRoleTenant,
     INestAuthRole,
     INestAuthPermission,
@@ -114,8 +111,8 @@ export {
     IRoleResponse,
 } from './role';
 
-// Tenant (from tenant.ts)
-export {
+// Tenant (from tenant.ts) — all types
+export type {
     INestAuthTenant,
     INestAuthUserAccess,
 } from './tenant';

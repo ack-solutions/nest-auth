@@ -1,0 +1,92 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "globalDependencies": [
+    "tsconfig.base.json",
+    ".npmrc",
+    "pnpm-workspace.yaml"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**",
+        "build/**"
+      ],
+      "inputs": [
+        "src/**",
+        "script/**",
+        "scripts/**",
+        "tsconfig*.json",
+        "tsup.config.*",
+        "vite.config.*",
+        "next.config.*",
+        "package.json"
+      ]
+    },
+    "@ackplus/nest-auth-admin#build": {
+      "dependsOn": ["^build", "@ackplus/nest-auth#build"],
+      "outputs": ["../nest-auth/dist/lib/admin-console/static/**"],
+      "inputs": [
+        "src/**",
+        "index.html",
+        "vite.config.*",
+        "tsconfig*.json",
+        "package.json"
+      ]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "src/**",
+        "test/**",
+        "vitest.config.*",
+        "jest.config.*",
+        "tsconfig*.json",
+        "package.json"
+      ]
+    },
+    "lint": {
+      "outputs": [],
+      "inputs": [
+        "src/**",
+        "test/**",
+        ".eslintrc*",
+        "eslint.config.*",
+        "package.json"
+      ]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "inputs": [
+        "src/**",
+        "test/**",
+        "tsconfig*.json",
+        "package.json"
+      ]
+    },
+    "format": {
+      "outputs": [],
+      "cache": false
+    },
+    "clean": {
+      "cache": false
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "watch": {
+      "cache": false,
+      "persistent": true
+    },
+    "generate:swagger": {
+      "outputs": ["dist/swagger.json"],
+      "inputs": ["src/**", "script/**", "package.json"]
+    }
+  }
+}

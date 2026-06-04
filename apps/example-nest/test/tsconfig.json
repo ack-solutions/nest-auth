@@ -1,0 +1,19 @@
+{
+  "//": "Self-contained tsconfig for ts-jest e2e tests. Deliberately does NOT extend the app's nodenext tsconfig — Jest needs CommonJS + classic resolution.",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "isolatedModules": true,
+    "resolvePackageJsonExports": false,
+    "target": "ES2021",
+    "lib": ["ES2021"],
+    "skipLibCheck": true,
+    "strictNullChecks": false,
+    "noImplicitAny": false,
+    "types": ["node", "jest"]
+  }
+}

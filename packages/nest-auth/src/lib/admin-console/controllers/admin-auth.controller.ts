@@ -11,6 +11,7 @@ import {
   Res,
   UnauthorizedException,
   UseGuards,
+  UseFilters,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { AdminAuthService } from '../services/admin-auth.service';
@@ -20,6 +21,7 @@ import { AdminLoginDto } from '../dto/login.dto';
 import { AdminResetPasswordDto } from '../dto/reset-password.dto';
 import { AdminSignupDto } from '../dto/signup.dto';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
+import { AuthExceptionFilter } from '../../auth/filters/auth-exception.filter';
 import { CurrentAdmin } from '../decorators/current-admin.decorator';
 import { NestAuthAdminUser } from '../entities/admin-user.entity';
 import { CreateDashboardAdminDto, UpdateDashboardAdminDto } from '../dto/create-dashboard-admin.dto';
@@ -34,6 +36,7 @@ import { NestAuthUser } from '../../user/entities/user.entity';
 import { MoreThanOrEqual } from 'typeorm';
 
 @Controller('auth/admin')
+@UseFilters(AuthExceptionFilter)
 export class AdminAuthController {
   constructor(
     private readonly adminAuth: AdminAuthService,

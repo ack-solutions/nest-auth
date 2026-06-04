@@ -55,6 +55,7 @@ async function bootstrap() {
       // AuthClient sends these (see @ackplus/nest-auth-client buildHeaders)
       'x-access-token-type', // header vs cookie mode; required or browser blocks preflight
       'nest_auth_device_trust', // MFA trusted-device token in header mode (configurable name)
+      'x-platform-portal', // platform-admin portal origin-lock (see platformAccess.validate)
     ],
     // Headers exposed to the client
     exposedHeaders: ['Set-Cookie'],

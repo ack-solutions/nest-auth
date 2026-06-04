@@ -3,4 +3,22 @@ dist
 /.pnpm-store
 *.tsbuildinfo
 
+# Turborepo cache (T-001)
+.turbo
+
+# Next.js / Vite build output
+.next
+build
+out
+
+# macOS
+.DS_Store
+
+# Coverage (Phase 1 onward)
+coverage
+.vitest
+
+# Generated artifacts (T-002 — admin UI reads swagger from here)
+packages/nest-auth-admin/src/data/nest-auth.json
+
 .env

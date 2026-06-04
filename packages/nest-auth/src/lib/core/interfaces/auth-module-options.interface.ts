@@ -267,7 +267,7 @@ export interface IAuthorizationHooks {
  * Audit event structure
  */
 export interface IAuthAuditEvent {
-    type: 'login' | 'logout' | 'signup' | 'password_change' | 'mfa_enable' | 'session_revoke';
+    type: 'login' | 'login_failed' | 'logout' | 'signup' | 'password_change' | 'mfa_enable' | 'mfa_disable' | 'session_revoke';
     userId?: string;
     ip?: string;
     userAgent?: string;
@@ -332,6 +332,17 @@ export interface IAuthModuleOptions {
         clientId: string;
         clientSecret: string;
         redirectUri: string;
+        /**
+         * Override the GitHub user API endpoint. Defaults to
+         * `https://api.github.com/user`. Useful for GitHub Enterprise
+         * (`https://<host>/api/v3/user`), corporate proxies, or tests.
+         */
+        userApiUrl?: string;
+        /**
+         * Override the GitHub emails API endpoint. Defaults to
+         * `https://api.github.com/user/emails`.
+         */
+        emailsApiUrl?: string;
     };
     phoneAuth?: {
         enabled: boolean;

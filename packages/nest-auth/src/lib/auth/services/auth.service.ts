@@ -28,6 +28,7 @@ import { INestAuthUser, ISessionUserData, NestAuthMFAMethodEnum, NestAuthOTPType
 import { JWTTokenPayload, SessionDataPayload, SessionPayload } from '../../core/interfaces/token-payload.interface';
 import { UserRegisteredEvent } from '../events/user-registered.event';
 import { UserLoggedInEvent } from '../events/user-logged-in.event';
+import { LoginFailedEvent } from '../events/login-failed.event';
 import { User2faVerifiedEvent } from '../events/user-2fa-verified.event';
 import { UserRefreshTokenEvent } from '../events/user-refresh-token.event';
 import { LoggedOutEvent } from '../events/logged-out.event';
@@ -47,6 +48,8 @@ import { IAuthModuleOptions } from '../../core/interfaces/auth-module-options.in
 import { getRolePermissionNames, mapRoleToSessionSnapshot } from '../../role/utils/role-mapper.util';
 import { normalizedEmail, normalizedPhone } from '../../utils';
 import { OtpFlowService } from './otp-flow.service';
+import { LogoutService } from './logout.service';
+import { SessionTokenService } from './session-token.service';
 import { PasswordlessCodeRequestedEvent } from '../events/passwordless-code-requested.event';
 import { chain, omit, pick } from 'lodash';
 import { NestAuthRole } from '../../role/entities/role.entity';
@@ -83,6 +86,10 @@ export class AuthService {
 
         private readonly otpFlow: OtpFlowService,
 
+        private readonly logoutService: LogoutService,
+
+        private readonly sessionTokenService: SessionTokenService,
+
         @Inject(NEST_AUTH_TENANT_CONTEXT_SERVICE)
         private readonly tenantContext: ITenantContextService,
 
@@ -91,40 +98,14 @@ export class AuthService {
         this.authConfig = this.authConfigService.getConfig();
     }
 
+    // Shared user/token/response helpers extracted to SessionTokenService
+    // (Phase-2 split, #11). Kept as thin facades — public API unchanged.
     getUserWithRoles(userId: string, relations: string[] = []): Promise<NestAuthUser> {
-        return this.userRepository.findOne({
-            where: { id: userId },
-            relations: [
-                'userAccesses',
-                'userAccesses.roles',
-                ...relations
-            ],
-        });
+        return this.sessionTokenService.getUserWithRoles(userId, relations);
     }
-    async getUserWithAccess(userId: string, tenantId: string, isPlatformAccess = false): Promise<{ user: NestAuthUser, userAccess?: NestAuthUserAccess, platformAccess?: NestAuthPlatformAccess }> {
-        const user = await this.userRepository.findOne({
-            where: {
-                id: userId,
-                ...(tenantId ? { userAccesses: { tenantId } } : {}),
-            }
-        });
-        if (isPlatformAccess) {
-            const platformAccess = await NestAuthPlatformAccess.findOne({
-                where: { userId, isActive: true },
-                relations: ['roles', 'roles.rolePermissions', 'roles.rolePermissions.permission'],
-            });
-            return { user, platformAccess };
-        }
-        const userAccess = await NestAuthUserAccess.findOne({
-            where: {
-                userId,
-                isActive: true,
-                tenantId: tenantId ? Equal(tenantId) : IsNull(),
-            },
-            relations: ['roles', 'roles.rolePermissions', 'roles.rolePermissions.permission'],
-        });
 
-        return { user, userAccess };
+    getUserWithAccess(userId: string, tenantId: string, isPlatformAccess = false): Promise<{ user: NestAuthUser, userAccess?: NestAuthUserAccess, platformAccess?: NestAuthPlatformAccess }> {
+        return this.sessionTokenService.getUserWithAccess(userId, tenantId, isPlatformAccess);
     }
 
     async signup(input: NestAuthSignupRequestDto): Promise<AuthResponseDto> {
@@ -329,7 +310,12 @@ export class AuthService {
             }
             const authProviderUser = await provider.validate(credentials, resolvedTenantId);
 
-            const identity = await provider.findIdentity(authProviderUser.userId, resolvedTenantId);
+            // BUG FIX (T-167-followup): post-.tasks/003, providers now return
+            // userId (UUID), not the providerUserId (email/phone/oauth-id).
+            // So we must use findIdentityByUserId here, not findIdentity (which
+            // expects a providerUserId, e.g. email). Calling findIdentity with a
+            // UUID silently returned null → INVALID_CREDENTIALS on every login.
+            const identity = await provider.findIdentityByUserId(authProviderUser.userId);
 
             let user: NestAuthUser | null = identity?.user || null;
 
@@ -443,8 +429,45 @@ export class AuthService {
             return this.generateAuthResponse(authUser, session, tokens, isRequiresMfa);
         } catch (error) {
             this.debugLogger.logError(error, 'login', { providerName, createUserIfNotExists });
+            // HIPAA §164.312(b) — record failed access attempts. Emitted before
+            // handleError so the audit trail captures it even if a custom
+            // errorHandler transforms/re-throws.
+            await this.emitLoginFailed(input, error);
             this.handleError(error, 'login');
             throw error;
+        }
+    }
+
+    /** Best-effort emit of LOGIN_FAILED for the audit trail / lockout monitoring. */
+    private async emitLoginFailed(input: NestAuthLoginRequestDto, error: any): Promise<void> {
+        try {
+            const creds: any = input?.credentials ?? {};
+            const identifier = creds.email ?? creds.phone ?? creds.identifier ?? undefined;
+            const req: any = RequestContext.currentRequest?.();
+            const resp = error?.getResponse?.();
+            // Prefer an explicit error code; otherwise derive a stable code from
+            // the HTTP status so the audit trail always has a non-empty reason
+            // (some providers throw string-message exceptions without a `code`).
+            const status = error?.getStatus?.();
+            const reasonCode =
+                (typeof resp === 'object' && resp?.code) ||
+                error?.code ||
+                (status ? `HTTP_${status}` : 'LOGIN_FAILED');
+            await this.eventEmitter.emitAsync(
+                NestAuthEvents.LOGIN_FAILED,
+                new LoginFailedEvent({
+                    identifier,
+                    providerName: input?.providerName,
+                    reasonCode,
+                    reason: error?.message,
+                    ip: req?.ip ?? req?.headers?.['x-forwarded-for'],
+                    userAgent: req?.headers?.['user-agent'],
+                    tenantId: input?.tenantId ?? null,
+                    at: new Date(),
+                }),
+            );
+        } catch {
+            // Never let audit emission mask the original auth error.
         }
     }
 
@@ -989,52 +1012,14 @@ export class AuthService {
 
     // forgotPassword, verifyForgotPasswordOtp, resetPassword, resetPasswordWithToken moved to PasswordService
 
+    // Logout logic extracted to LogoutService (Phase-2 god-service split).
+    // These remain as thin facades so the public AuthService API is unchanged.
     async logout(logoutType: 'user' | 'admin' | 'system' = 'user', reason?: string) {
-        const session = RequestContext.currentSession();
-
-        const user = await RequestContext.currentUser();
-
-        if (session) {
-            // Emit logout event
-            await this.eventEmitter.emitAsync(
-                NestAuthEvents.LOGGED_OUT,
-                new LoggedOutEvent({
-                    user,
-                    tenantId: session?.data?.tenantId ?? (user as any)?.tenantId,
-                    session,
-                    logoutType,
-                    reason,
-                })
-            );
-
-            await this.sessionManager.revokeSession(session.id, 'logout');
-        }
-
-        return true;
+        return this.logoutService.logout(logoutType, reason);
     }
 
     async logoutAll(userId: string, logoutType: 'user' | 'admin' | 'system' = 'user', reason?: string) {
-        const sessions = await this.sessionManager.getUserSessions(userId);
-
-        await this.sessionManager.revokeAllUserSessions(userId);
-
-        const user = await this.userRepository.findOne({ where: { id: userId } });
-
-        if (user) {
-            // Emit logout event
-            await this.eventEmitter.emitAsync(
-                NestAuthEvents.LOGGED_OUT_ALL,
-                new LoggedOutAllEvent({
-                    user,
-                    tenantId: RequestContext.currentTenantId(),
-                    logoutType,
-                    reason,
-                    sessions,
-                })
-            );
-        }
-
-        return true;
+        return this.logoutService.logoutAll(userId, logoutType, reason);
     }
 
     // sendEmailVerification, verifyEmail moved to VerificationServi
@@ -1059,31 +1044,7 @@ export class AuthService {
         }
     }
 
-    private async generateTokensPayload(session: SessionPayload, otherPayload: Partial<JWTTokenPayload> = {}): Promise<JWTTokenPayload> {
-
-        let payload: JWTTokenPayload = {
-            id: session.userId,
-            sub: session.userId,
-            sessionId: session.id,
-            email: session.data?.user?.email,
-            phone: session.data?.user?.phone,
-            emailVerifiedAt: session.data?.user?.emailVerifiedAt,
-            phoneVerifiedAt: session.data?.user?.phoneVerifiedAt,
-            roles: session.data?.roles || [],
-            tenantId: session.data?.tenantId,
-            isMfaEnabled: session.data?.user?.isMfaEnabled,
-            isMfaVerified: session.data?.isMfaVerified,
-            ...otherPayload,
-        };
-
-        // Apply custom token payload hook if configured
-        const config = this.authConfigService.getConfig();
-        if (config.session?.customizeTokenPayload) {
-            payload = await config.session.customizeTokenPayload(payload, session);
-        }
-
-        return payload;
-    }
+    // generateTokensPayload moved to SessionTokenService (#11).
 
     /**
      * Handle errors using the errorHandler hook if configured
@@ -1100,10 +1061,10 @@ export class AuthService {
         }
     }
 
+    // generateTokensFromSession + generateAuthResponse moved to SessionTokenService
+    // (#11). Kept as thin facades — public API unchanged.
     async generateTokensFromSession(session: NestAuthSession): Promise<AuthTokensResponseDto> {
-        const payload = await this.generateTokensPayload(session);
-        const tokens = await this.jwtService.generateTokens(payload);
-        return tokens
+        return this.sessionTokenService.generateTokensFromSession(session);
     }
 
     async generateAuthResponse(
@@ -1113,40 +1074,7 @@ export class AuthService {
         isRequiresMfa: boolean,
         trustToken?: string,
     ): Promise<AuthResponseDto> {
-        // Serialize user for response
-        const config = this.authConfigService.getConfig();
-
-        const activeTenantId = session?.data?.tenantId;
-        let tenants = await this.userService.getUserTenants(user.id);
-        if (!tenants.length && activeTenantId) {
-            const fallbackTenant = await this.tenantService.getTenantById(activeTenantId);
-            if (fallbackTenant) {
-                tenants = [fallbackTenant];
-            }
-        }
-
-        let response: AuthResponseDto = {
-            accessToken: tokens.accessToken,
-            refreshToken: tokens.refreshToken,
-            isRequiresMfa: isRequiresMfa,
-        };
-
-        if (isRequiresMfa) {
-            const enabledMethods = await this.mfaService.getEnabledMethods(user.id);
-            response.mfaMethods = enabledMethods;
-            response.defaultMfaMethod = this.mfaService.mfaConfig?.defaultMethod || enabledMethods[0];
-        }
-
-        if (config.auth?.transformResponse) {
-            response = await config.auth.transformResponse(response, user, session);
-        }
-
-        // Add trustToken if provided (for MFA verification)
-        if (trustToken) {
-            response.trustToken = trustToken;
-        }
-
-        return response;
+        return this.sessionTokenService.generateAuthResponse(user, session, tokens, isRequiresMfa, trustToken);
     }
 
     /**

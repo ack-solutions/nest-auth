@@ -351,21 +351,36 @@ curl -X DELETE http://localhost:3000/users/1
 
 ## 🧪 Testing
 
-### Run Tests
+This app ships a full **end-to-end API test suite** (`test/*.e2e-spec.ts`) that boots
+the **real** `AppModule` and exercises every auth use case over real HTTP — **no mocks**.
+It runs against a portable in-memory SQLite (sqljs) database, so no Postgres is needed:
+`setup-env.ts` sets `DB_DRIVER=sqljs` automatically. OTP / reset / verification codes are
+read off the real event stream (`test/utils/event-capture.ts`), so no SMTP/SMS server is
+required either.
 
 ```bash
-# Unit tests
-pnpm test
-
-# E2E tests
-pnpm test:e2e
-
-# Test coverage
-pnpm test:cov
+# Run the whole API test suite (real HTTP, real DB)
+pnpm test          # alias: pnpm test:e2e
 
 # Watch mode
 pnpm test:watch
 ```
+
+### What it covers
+
+| Suite | Use cases |
+|---|---|
+| `auth.e2e-spec.ts` | email & phone signup, email/phone+password login, `/me`, `/user`, `/verify-session`, `/client-config` |
+| `passwordless.e2e-spec.ts` | passwordless email-OTP send → login |
+| `password.e2e-spec.ts` | forgot → verify-OTP → reset → login; authenticated change-password |
+| `verification.e2e-spec.ts` | email + phone verification (send → verify) |
+| `mfa.e2e-spec.ts` | TOTP enrol → login challenge → verify; MFA status / toggle |
+| `sessions.e2e-spec.ts` | refresh-token, logout, logout-all, list/revoke sessions |
+| `admin.e2e-spec.ts` | admin signup (secret-gated) → cookie login → admin user API |
+| `cross-system-sync.e2e-spec.ts` | the consumer `app_users` table staying in sync with the auth user (both ways) |
+
+The helpers in `test/utils/` (`test-app.ts`, `api.ts`, `event-capture.ts`) are a ready
+template you can copy to test your **own** app's integration with `@ackplus/nest-auth`.
 
 ## 📁 Project Structure
 

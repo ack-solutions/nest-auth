@@ -39,7 +39,7 @@ import {
     Logout as LogoutIcon,
     Settings as SettingsIcon,
 } from '@mui/icons-material';
-import type { ISessionUserData } from '@ackplus/nest-auth-contracts';
+import type { ISessionUserData } from '@ackplus/nest-auth-client';
 
 /** Drawer width constant */
 const DRAWER_WIDTH = 240;
@@ -55,7 +55,7 @@ const NAV_ITEMS = [
 ];
 
 export default function Layout() {
-    const { user, logout } = useNestAuth();
+    const { sessionData: user, logout } = useNestAuth();
     const navigate = useNavigate();
     const location = useLocation();
     const { enqueueSnackbar } = useSnackbar();

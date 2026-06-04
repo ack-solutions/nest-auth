@@ -12,6 +12,8 @@ import { NestAuthUser } from '../user/entities/user.entity';
 import { PasswordService } from './services/password.service';
 import { VerificationService } from './services/verification.service';
 import { OtpFlowService } from './services/otp-flow.service';
+import { LogoutService } from './services/logout.service';
+import { SessionTokenService } from './services/session-token.service';
 import { NestAuthOTP } from './entities/otp.entity';
 import { NestAuthMFASecret } from './entities/mfa-secret.entity';
 import { NestAuthAccessKey } from '../user/entities/access-key.entity';
@@ -51,6 +53,8 @@ import { PermissionModule } from '../permission';
         PasswordService,
         VerificationService,
         OtpFlowService,
+        LogoutService,
+        SessionTokenService,
     ],
     controllers: [AuthController, MfaController],
     exports: [
@@ -58,6 +62,8 @@ import { PermissionModule } from '../permission';
         PasswordService,
         VerificationService,
         OtpFlowService,
+        LogoutService,
+        SessionTokenService,
         MfaService,
         NestAuthAuthGuard,
         TokenResponseInterceptor,

@@ -5,31 +5,33 @@ import { existsSync, readFileSync } from 'fs';
 import { AdminConsoleConfigService } from '../services/admin-console-config.service';
 
 const candidateStaticRoots = [
-  // When the library itself is built (dist/packages/nest-auth/...)
+  // Primary — relative to THIS compiled module. Works for both the published
+  // package (dist/lib/admin-console/controllers → ../static = dist/lib/admin-console/static)
+  // and ts-source dev runs (src/lib/admin-console/controllers → ../static).
+  // `@ackplus/nest-auth-admin`'s `vite build` outputs index.html here.
   join(__dirname, '..', 'static'),
-  // When the library is consumed via ts-node/tsconfig paths during development
+  // Fallbacks for unusual consumer build layouts (best-effort, cwd-relative).
+  join(process.cwd(), 'node_modules', '@ackplus', 'nest-auth', 'dist', 'lib', 'admin-console', 'static'),
+  join(process.cwd(), 'packages', 'nest-auth', 'dist', 'lib', 'admin-console', 'static'),
   join(process.cwd(), 'packages', 'nest-auth', 'src', 'lib', 'admin-console', 'static'),
-  // When the consumer (apps/nest-examples) compiles everything into dist/apps/...
-  join(process.cwd(), 'dist', 'apps', 'nest-examples', 'packages', 'nest-auth', 'src', 'lib', 'admin-console', 'static'),
-  // Generic fallback: dist/packages/... in monorepo root
-  join(process.cwd(), 'dist', 'packages', 'nest-auth', 'src', 'lib', 'admin-console', 'static'),
 ];
 
-function resolveStaticRoot(): string {
+/** Returns the first root that actually contains a built index.html, or null. */
+function resolveStaticRoot(): string | null {
   for (const root of candidateStaticRoots) {
     if (existsSync(join(root, 'index.html'))) {
       return root;
     }
   }
-  return candidateStaticRoots[1];
+  return null;
 }
 
 @Controller('auth/admin')
 export class AdminConsoleController implements OnModuleInit {
   private readonly logger = new Logger(AdminConsoleController.name);
   private cachedIndexHtml: string | null = null;
-  private staticRoot = resolveStaticRoot();
-  private readonly indexPath = join(this.staticRoot, 'index.html');
+  private readonly staticRoot = resolveStaticRoot();
+  private readonly indexPath = this.staticRoot ? join(this.staticRoot, 'index.html') : null;
 
   constructor(private readonly config: AdminConsoleConfigService) { }
 
@@ -37,11 +39,22 @@ export class AdminConsoleController implements OnModuleInit {
     if (this.config.getConfig().enabled === false) {
       return;
     }
+    if (!this.indexPath) {
+      // Not an error — normal for API-only consumers, or before the dashboard
+      // UI has been built. The admin REST API under /auth/admin/api/* still works.
+      this.logger.warn(
+        'Admin console UI bundle not found (no static/index.html). The admin API still works; ' +
+        'run `pnpm -F @ackplus/nest-auth-admin build` to serve the dashboard at /auth/admin.',
+      );
+      return;
+    }
     try {
       this.cachedIndexHtml = readFileSync(this.indexPath, 'utf8');
-      this.logger.log('Admin console index.html cached successfully');
+      this.logger.log('Admin console UI bundle loaded');
     } catch (error) {
-      this.logger.error('Failed to read admin console index.html on startup', { path: this.indexPath, message: error.message }, error.stack);
+      this.logger.warn(
+        `Admin console UI bundle could not be read at ${this.indexPath}: ${error.message}`,
+      );
     }
   }
 
@@ -50,8 +63,15 @@ export class AdminConsoleController implements OnModuleInit {
     this.config.ensureEnabled();
 
     if (!this.cachedIndexHtml) {
-      this.logger.error('Cached index.html is not available');
-      res.status(500).send('Internal Server Error');
+      // The dashboard UI isn't bundled in this build — respond clearly instead
+      // of a bare 500. The admin REST API under /auth/admin/api/* is unaffected.
+      res
+        .status(404)
+        .type('text/plain')
+        .send(
+          'Admin console UI is not bundled in this build. The admin API is available under ' +
+          '/auth/admin/api/*. To serve the dashboard UI, build @ackplus/nest-auth-admin.',
+        );
       return;
     }
 

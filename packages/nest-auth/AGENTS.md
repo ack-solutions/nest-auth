@@ -92,15 +92,15 @@ Optional (lazy-loaded — only required when feature is enabled): `cookie-parser
 
 ## Embedded admin console
 
-Lives under `packages/nest-auth/ui` (separate npm install at postinstall). Don't edit the compiled output. The dashboard mounts at `adminConsole.basePath` (default `/auth/admin`).
+Lives under [`packages/nest-auth-admin/`](../nest-auth-admin/) (its own pnpm workspace package — was `packages/nest-auth/ui/` before [T-002](../../.tasks/task-tracker.md)). Don't edit the compiled output. The dashboard mounts at `adminConsole.basePath` (default `/auth/admin`). The admin's vite build still writes its static SPA into this package's `dist/lib/admin-console/static/` so the `AdminConsoleController` can serve it. T-109 will fully decouple this in Phase 5.
 
 ## Testing
 
-Sparse currently — see `.tasks/` for the "Write a real test suite" issue. When adding tests, integration tests should boot a `Test.createTestingModule` with `SessionStorageType.MEMORY` and `synchronize: true` SQLite. See the testing-your-auth docs page for the canonical patterns.
+Real-test-only policy enforced — see [`../../.tasks/test-catalog.md`](../../.tasks/test-catalog.md) "No-mock policy". The shared test infrastructure (Testcontainers Postgres + Redis, OAuth stub server, email/SMS capture transports) lives in [`tools/vitest-preset/`](../../tools/vitest-preset/). Integration tests boot a real `Test.createTestingModule` with `app.init()`, hit it via supertest. No `vi.mock(...)` on internal classes.
 
 ## Build
 
-`tsup` (configured in `tsup.config.ts`). Outputs `dist/`. The `ui` subfolder is built by its own toolchain (see `packages/nest-auth/ui/package.json`).
+Currently `tsc` directly (T-008 will move to `tsup` to match other packages). Outputs `dist/`. The admin UI lives in [`packages/nest-auth-admin/`](../nest-auth-admin/) as a separate workspace package; turbo's task graph enforces it builds after this package.
 
 ## Docs
 

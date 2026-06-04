@@ -2,6 +2,23 @@
 
 A flat directory of markdown files, one per known bug or unimplemented bit. Cheaper than a real issue tracker, lives in-repo, can be edited in the same PR that fixes the bug.
 
+## Meta documents
+
+These are not single tasks — they're reference documents that span many tasks.
+
+| Doc | Purpose |
+| --- | --- |
+| [000-master-roadmap.md](000-master-roadmap.md) | v2.0 master roadmap — architecture refactor, plugin system, file restructure, test strategy, examples, docs. **Read first.** |
+| [task-tracker.md](task-tracker.md) | All 207 tasks (T-NNN ids), grouped by phase, with effort estimates, dependencies, and verification tests. **This is the execution doc.** |
+| [test-catalog.md](test-catalog.md) | ~520 test cases (TC-NNN ids) across all four packages, real-test-only policy. |
+| [monorepo-and-deployment.md](monorepo-and-deployment.md) | Phase 0: monorepo audit (Turborepo, embedded-UI extraction, configs, strict TS) + Vercel/Railway deployment plan for examples. |
+| [cross-system-sync.md](cross-system-sync.md) | Design: how consumer apps keep their tables in sync with nest-auth across API, OAuth, admin dashboard, and plugins. Defines four sync patterns (hook / event / plugin / outbox), the canonical-event invariant, and **rollback/saga semantics** for multi-system flows. |
+| [client-sdk-token-handling.md](client-sdk-token-handling.md) | Design: proper architecture for sharing the access token with consumer-app HTTP clients. Defines `attachToAxios`/`attachToFetch` helpers, `useAuthHeaderFn` stable-ref hook, and identifies the 6 defects in v1 that forced the user's patch. |
+| [react-native-and-social-login.md](react-native-and-social-login.md) | Design: social-login SDK helpers (web + native) and a `@ackplus/nest-auth-react-native` package with native Google/Apple/Facebook auth. Phase 10 tasks (RN-1..RN-17) + test cases (TC-RN-*). |
+| [compliance-and-healthcare.md](compliance-and-healthcare.md) | Internal compliance gap-plan + HIPAA depth. Universal posture (anchored on OWASP ASVS L2 + NIST 800-63B AAL2, mapped to SOC 2 / ISO 27001 / PCI-DSS / GDPR / DPDP / HIPAA / PSD2). Grounded current-state, gap list with severity, Phase 11 tasks (CMP-*), the `compliance` preset, shared-responsibility model. **Consumer-facing posture statement:** `apps/docs/content/docs/production/compliance.mdx`. |
+| [migration-v1-to-v2.md](migration-v1-to-v2.md) | Customer-facing migration guide for the v1.x → v2.0 major bump. Step-by-step, before/after code, schema migration plan, rollback procedure. Draft until v2.0 GA. |
+| [audit-types.md](audit-types.md) | Type/enum duplication audit across packages. |
+
 ## Conventions
 
 - **Filename:** `NNN-short-slug.md`. Three-digit zero-padded id, kebab-case slug.
@@ -25,7 +42,6 @@ A flat directory of markdown files, one per known bug or unimplemented bit. Chea
 
 | ID | Area | Title |
 | --- | --- | --- |
-| [005](005-build-openapi-script-is-stub.md) | docs | `build-openapi.ts` is a stub — OpenAPI spec is hand-maintained |
 | [019](019-isolated-mode-not-actually-isolated.md) | backend / `mode: isolated` | ISOLATED tenant mode is currently a no-op — code does not honour the contract |
 
 #### P1 — real bug
@@ -69,6 +85,7 @@ A flat directory of markdown files, one per known bug or unimplemented bit. Chea
 | [018](018-disabled-mode-silently-discards-tenantid.md) | P2 | backend / `mode: disabled` | Disabled-tenant mode now rejects `tenantId` in signup/login | 2026-04-27 |
 | [023](023-current-tenant-decorator-undocumented-disabled-behavior.md) | P3 | backend / `mode: disabled` | `@CurrentTenantId()` JSDoc rewritten to clarify `null` cases | 2026-04-27 |
 | [024](024-mfa-not-tenant-scoped-design-undocumented.md) | P3 | backend | MFA tenant-scope behaviour documented in concepts/mfa.mdx | 2026-04-27 |
+| [005](005-build-openapi-script-is-stub.md) | P0 | docs | `build-openapi.ts` now invokes the real generator (T-024) | 2026-05-21 |
 
 ### Deferred
 

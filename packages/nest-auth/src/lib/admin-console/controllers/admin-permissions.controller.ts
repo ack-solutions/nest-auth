@@ -8,14 +8,17 @@ import {
     Post,
     Query,
     UseGuards,
+    UseFilters,
 } from '@nestjs/common';
 import { NotFoundException } from '@nestjs/common';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
+import { AuthExceptionFilter } from '../../auth/filters/auth-exception.filter';
 import { AdminCreatePermissionDto, AdminUpdatePermissionDto } from '../dto/admin-permission.dto';
 import { PermissionService } from '../../permission/services/permission.service';
 import { NestAuthPermission } from '../../permission/entities/permission.entity';
 
 @Controller('auth/admin/api/permissions')
+@UseFilters(AuthExceptionFilter)
 @UseGuards(AdminSessionGuard)
 export class AdminPermissionsController {
     constructor(

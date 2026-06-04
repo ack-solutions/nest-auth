@@ -84,7 +84,7 @@ export class OtpFlowService {
             await this.deleteByUserAndType(userId, type);
         }
 
-        const expiresAtMs = this.resolveExpiresMs(this.otpConfig.codeExpiresIn, '30m');
+        const expiresAtMs = this.resolveExpiresMs(this.otpConfig.codeExpiresIn, '10m');
         const expiresAt = new Date(Date.now() + expiresAtMs); 
 
         const entity = this.otpRepository.create({
@@ -93,7 +93,6 @@ export class OtpFlowService {
             expiresAt,
         });
         const plainCode = await this.generatePlainCode(otpOptions ?? undefined);
-        console.info('plainCode', plainCode);
         await entity.setCode(plainCode);
 
         await this.otpRepository.save(entity);

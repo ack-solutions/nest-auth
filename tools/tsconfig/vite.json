@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Vite — for packages built with Vite (React SPAs, the admin UI)",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "lib": ["DOM", "DOM.Iterable", "ES2023"],
+    "useDefineForClassFields": true,
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "noEmit": true
+  }
+}

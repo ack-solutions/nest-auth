@@ -226,3 +226,32 @@ export interface RequestOptions {
     /** Skip adding Authorization header */
     skipAuthHeader?: boolean;
 }
+
+/**
+ * Options for `authClient.getAuthHeaders()` / `getAuthHeadersSync()`.
+ *
+ * All fields are optional with sensible defaults — most consumers can call
+ * `getAuthHeaders()` with no args.
+ */
+export interface GetAuthHeadersOptions {
+    /**
+     * Override the Authorization header name. Some backends expect `X-API-Token`
+     * or similar instead of the standard `Authorization`. Default: `'Authorization'`.
+     */
+    authHeaderName?: string;
+
+    /**
+     * Override the trust-device header name. Default: AuthClient config's
+     * `trustDeviceHeaderName`, or `'nest_auth_device_trust'`.
+     */
+    trustHeaderName?: string;
+
+    /** Omit the `Authorization` header entirely (e.g. for explicitly-unauth requests). Default: `false`. */
+    skipAuthHeader?: boolean;
+
+    /** Omit the trust token header. Default: `false` (trust token is included if present). */
+    includeTrustToken?: boolean;
+
+    /** Omit the `x-access-token-type` mode indicator. Default: `false` (header included). */
+    includeAccessTokenTypeHeader?: boolean;
+}

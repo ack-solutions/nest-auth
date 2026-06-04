@@ -3,6 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { NestAuthEvents } from '../../auth.constants';
 import { UserLoggedInEvent } from '../../auth/events/user-logged-in.event';
+import { LoginFailedEvent } from '../../auth/events/login-failed.event';
 import { LoggedOutEvent } from '../../auth/events/logged-out.event';
 import { UserRegisteredEvent } from '../../auth/events/user-registered.event';
 import { UserPasswordChangedEvent } from '../../auth/events/user-password-changed.event';
@@ -47,6 +48,25 @@ export class AuditService {
                 tenantId: payload.payload.tenantId,
             },
             timestamp: new Date(),
+        });
+    }
+
+    @OnEvent(NestAuthEvents.LOGIN_FAILED)
+    async handleLoginFailed(event: LoginFailedEvent) {
+        // HIPAA §164.312(b): record failed access attempts.
+        await this.emitAuditEvent({
+            type: 'login_failed',
+            ip: event.payload.ip,
+            userAgent: event.payload.userAgent,
+            success: false,
+            metadata: {
+                identifier: event.payload.identifier,
+                provider: event.payload.providerName,
+                reasonCode: event.payload.reasonCode,
+                reason: event.payload.reason,
+                tenantId: event.payload.tenantId,
+            },
+            timestamp: event.payload.at,
         });
     }
 

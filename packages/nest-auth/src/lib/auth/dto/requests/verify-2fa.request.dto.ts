@@ -1,4 +1,4 @@
-import { IsEnum, IsString, IsNotEmpty } from "class-validator";
+import { IsEnum, IsString, IsNotEmpty, IsOptional, IsBoolean } from "class-validator";
 import { NestAuthMFAMethodEnum } from "@ackplus/nest-auth-contracts";
 import { ApiProperty } from "@nestjs/swagger";
 import { IVerify2faRequest } from "@ackplus/nest-auth-contracts";
@@ -28,5 +28,10 @@ export class NestAuthVerify2faRequestDto implements IVerify2faRequest {
         example: true,
         required: false,
     })
+    // B-13: was missing class-validator decorators, so under `whitelist: true`
+    // the field was non-whitelisted → `forbidNonWhitelisted` rejected any request
+    // that carried it, breaking the verify endpoint.
+    @IsOptional()
+    @IsBoolean()
     trustDevice?: boolean;
 }

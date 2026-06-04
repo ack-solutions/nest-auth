@@ -10,6 +10,7 @@
     "logging-and-debugging",
     "testing-your-auth",
     "scaling",
-    "cors-and-security"
+    "cors-and-security",
+    "compliance"
   ]
 }

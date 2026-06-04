@@ -17,6 +17,7 @@ export { useSession } from './hooks/use-session';
 export { useAccessToken } from './hooks/use-access-token';
 export { useAuthStatus, AuthStatusResult } from './hooks/use-auth-status';
 export { useHasRole, useHasPermission } from './hooks/use-has-role';
+export { useAuthHeaderFn, useAuthHeaderFnSync } from './hooks/use-auth-header-fn';
 
 
 // Guards

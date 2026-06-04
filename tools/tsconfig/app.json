@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "App — for apps/* (NestJS, Next.js, plain Node)",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "declaration": false,
+    "declarationMap": false,
+    "noEmitOnError": false
+  }
+}

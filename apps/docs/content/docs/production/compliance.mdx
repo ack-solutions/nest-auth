@@ -1,0 +1,153 @@
+---
+title: Compliance & Standards
+description: Which authentication standards and regulatory frameworks Nest Auth's controls map to — and the shared-responsibility model.
+---
+
+Nest Auth is used across many industries — SaaS, fintech, healthcare, government, education. Rather than chase one regulation, it implements its authentication controls against the two standards that *directly specify* what good auth looks like, then maps those controls to the higher-level frameworks auditors care about.
+
+**Anchor standards:**
+
+- **OWASP ASVS** (Application Security Verification Standard) — V2 Authentication, V3 Session Management, V4 Access Control. Target: **Level 2**.
+- **NIST SP 800-63B** (Digital Identity Guidelines) — Authentication Assurance. Target: **AAL2**.
+
+Meeting ASVS L2 + NIST AAL2 satisfies the *technical authentication-control* portions of SOC 2, ISO 27001, PCI-DSS, HIPAA, GDPR, India DPDP, and PSD2-SCA — because all of those reference the same underlying controls (MFA, strong password storage, session management, rate-limiting, audit logging, least-privilege access).
+
+> **No library can make you "compliant."** Compliance is a property of your whole system and organization — policies, BAAs/DPAs, TLS, database-at-rest encryption, physical safeguards, and access logging *in your application*. Nest Auth provides the **identity & access technical controls**. The [shared-responsibility matrix](#shared-responsibility) below makes the boundary explicit.
+
+## Control status legend
+
+| Symbol | Meaning |
+|---|---|
+| ✅ **Shipped** | Implemented and tested in the package today |
+| 🧩 **Configurable** | Supported via config / a hook / a guard you wire up |
+| 🗺️ **Roadmap** | Planned; tracked in the project roadmap (Phase 11 — Compliance) |
+| ➖ **Your responsibility** | Outside the package: deployment, infrastructure, or org policy |
+
+## Authentication controls
+
+| Control | Status | ASVS | NIST 800-63B |
+|---|---|---|---|
+| Memory-hard password hashing (**Argon2id**, configurable cost) | ✅ | V2.4 | §5.1.1.2 (verifier) |
+| Custom hasher override (Argon2/scrypt/bcrypt) | 🧩 | V2.4 | — |
+| Minimum password length, no forced composition rules | ✅ | V2.1 | §5.1.1.2 |
+| No mandatory periodic rotation | ✅ | V2.1.7 | §5.1.1.2 |
+| Breached-password screening (k-anonymity / HIBP) | 🗺️ | V2.1.7 | §5.1.1.2 |
+| **MFA** — TOTP, Email OTP, SMS OTP, recovery codes, trusted devices | ✅ | V2.8 | §4.2.1 (AAL2) |
+| Replay-resistant authenticators (TOTP, single-use OTP) | ✅ | V2.8.1 | §5.2.8 |
+| Passwordless / magic link / OTP login | ✅ | V2.x | — |
+| FIDO2 / WebAuthn passkeys | 🗺️ | V2.2 | §5.1.7 (AAL3-capable) |
+| OAuth 2.0 / OIDC social login (Google, GitHub, Apple, Facebook, custom) | ✅ | — | Federation |
+| Account-enumeration resistance (login & password-reset return generic responses) | ✅ | V2.5.3 | §5.2.2 |
+| **Rate-limiting / throttling** of auth attempts | 🗺️ | V2.2.1 | §5.2.2 |
+| **Account lockout / failed-attempt handling** | 🗺️ | V2.2.1 | §5.2.2 |
+| Failed-login **audit event** (`login_failed`) | ✅ | V7.2 | §5.2.2 |
+| Step-up / re-authentication for sensitive actions | 🗺️ | V2.x | §4.2 reauth |
+
+## Session management
+
+| Control | Status | ASVS | NIST |
+|---|---|---|---|
+| Server-side sessions (DB / Redis / memory backends) | ✅ | V3.2 | §7 |
+| HttpOnly + SameSite + Secure cookies (prod) | ✅ | V3.4 | §7.1 |
+| Explicit `secure`/`sameSite` config + healthcare-strict preset | 🗺️ | V3.4 | — |
+| Token in header **or** HttpOnly cookie | ✅ | V3.5 | — |
+| **Idle timeout + absolute timeout** (automatic logoff) | ✅ | V3.3 | §7.2 (reauth ≤12h / ≤30m idle) |
+| Sliding expiration | ✅ | V3.3 | — |
+| Session revocation on logout (single + all) | ✅ | V3.3.1 | §7.1 |
+| Refresh-token rotation + reuse detection | 🗺️ | V3.5 | §7.1 |
+| Concurrent-session limit per user | 🗺️ | V3.3 | — |
+| Session fixation prevention (new id on login) | 🧩 | V3.2.1 | §7.1 |
+
+## Access control & authorization
+
+| Control | Status | ASVS | Frameworks |
+|---|---|---|---|
+| Unique user identification (UUID) | ✅ | V4.1 | HIPAA §164.312(a)(2)(i), PCI 8.2 |
+| **RBAC** — roles + permissions, multiple guard namespaces (web/api/mobile) | ✅ | V4.1 | SOC 2 CC6.1, ISO A.9 |
+| Tenant-scoped roles (multi-tenancy: disabled/shared/isolated) | ✅ / 🗺️ | V4.1 | — |
+| Least-privilege enforcement via guards/decorators | ✅ | V4.2 | SOC 2 CC6.3 |
+| **Emergency access (break-glass)** with mandatory audit | 🗺️ | — | HIPAA §164.312(a)(2)(ii) |
+| API keys with **hashed-at-rest secrets** (timing-safe verify) | ✅ | V2.10 | PCI 8.2.1 |
+
+## Audit & accountability
+
+| Control | Status | ASVS | Frameworks |
+|---|---|---|---|
+| Auth event stream → your audit sink (`audit.onEvent`) | ✅ | V7.1 | HIPAA §164.312(b), SOC 2 CC7.2 |
+| Events: login, **login_failed**, logout, signup, password_change, 2FA enable/disable | ✅ | V7.2 | — |
+| Admin-action / impersonation / session-revoke / permission-change events | 🗺️ | V7.2 | SOX, SOC 2 |
+| Persistent, append-only, **tamper-evident (hash-chained)** audit store | 🗺️ | V7.3 | HIPAA, ISO A.12.4 |
+| Retention configuration (e.g. HIPAA 6 years) | 🗺️ | — | HIPAA/HITECH |
+| No secrets/PHI in logs (passwords never logged) | ✅ | V7.1.1 | All |
+
+## Data protection & privacy (GDPR / India DPDP / CCPA)
+
+| Control | Status | Frameworks |
+|---|---|---|
+| **Data minimization** — `NestAuthUser` holds only auth fields; business/PHI data lives on your `AppUser` | ✅ | GDPR Art.5, DPDP, HIPAA |
+| Lifecycle hooks/events to keep your tables in sync (no PHI duplicated into auth tables) | ✅ | — |
+| Consent capture + versioned records | 🗺️ | GDPR Art.7, DPDP §6 |
+| Right of access / data export (`exportUserData`) | 🗺️ | GDPR Art.15/20, CCPA |
+| Right to erasure / anonymize (`eraseUser`) with audit | 🧩 / 🗺️ | GDPR Art.17, DPDP |
+| Records of processing (via audit stream) | 🧩 | GDPR Art.30 |
+
+## Transmission security
+
+| Control | Status | Notes |
+|---|---|---|
+| TLS / HTTPS everywhere | ➖ | Your reverse proxy / platform |
+| Database encryption at rest | ➖ | Your DB (TDE) / disk encryption |
+| Secret/JWT-secret management | 🧩 | You supply via env/secret manager; rotation supported |
+| CORS configuration | 🧩 | See [CORS & Security](./cors-and-security) |
+
+## The `compliance` preset (roadmap)
+
+Rather than make every consumer configure two dozen knobs, an upcoming preset flips safe defaults for a target framework, all still overridable:
+
+```ts
+NestAuthModule.forRoot({
+  compliance: 'baseline',   // 'asvs-l2' | 'nist-800-63b' | 'hipaa' | 'gdpr' | 'pci'
+  // The preset sets, e.g.:
+  //   session: { idleTimeout: '15m', absoluteTimeout: '12h' }
+  //   mfa: { required: true }
+  //   lockout: { enabled: true, maxAttempts: 5 }
+  //   rateLimit: { enabled: true }
+  //   password: { minLength: 12, breachCheck: true }
+  //   audit: { enabled: true, persist: true, immutable: true }
+  //   cookie: { secure: true, sameSite: 'strict' }
+});
+```
+
+A boot-time `complianceReport()` will print which required controls are active vs inactive, so you can assert posture in CI and hand evidence to an auditor.
+
+## Framework coverage at a glance
+
+| Framework | What Nest Auth covers (the auth slice) | Your part |
+|---|---|---|
+| **OWASP ASVS L2** | V2 Authn, V3 Session, V4 Access Control, V7 Logging (see tables above) | V1 architecture, V5 validation, V12/13 files/API |
+| **NIST 800-63B AAL2** | MFA, verifier hashing, reauth/timeouts, throttling (roadmap) | IAL (identity proofing), FAL (federation assurance) |
+| **OWASP Top 10** | A01 Broken Access Control, A07 Auth Failures | A02 Crypto, A03 Injection, etc. |
+| **SOC 2** | CC6 (logical access), CC7 (audit/monitoring) controls | Org policies, vendor mgmt, the audit itself |
+| **ISO/IEC 27001** | A.9 Access Control, A.12.4 Logging | ISMS, risk treatment, certification |
+| **PCI-DSS** | Req 8 (identify & authenticate) | Cardholder-data scope, network, the rest of PCI |
+| **HIPAA** | §164.312 (a)(1), (b), (d), (e) technical safeguards | Admin/physical safeguards, BAAs — see [Healthcare guide](#) |
+| **GDPR / India DPDP / CCPA** | Data minimization, access logs, export/erasure (roadmap) | Lawful basis, DPA, DPO, breach notification |
+| **PSD2-SCA** | MFA / strong customer authentication building blocks | Payment-flow integration, exemptions |
+
+## Shared responsibility
+
+| Layer | Owner |
+|---|---|
+| Password hashing, MFA, session lifecycle, access control, auth audit events, enumeration resistance | **Nest Auth** ✅ |
+| Rate-limit / lockout / persistent immutable audit / break-glass / consent / export-erasure | **Nest Auth (roadmap)** 🗺️ + your config |
+| TLS, DB-at-rest encryption, secret storage, network controls | **You / your platform** ➖ |
+| Policies, training, BAAs/DPAs, risk assessments, the certification audit | **Your organization** ➖ |
+| PHI/PII access logging *inside your application* | **You** (Nest Auth gives you the hooks/events) ➖ |
+
+## See also
+
+- [Audit Logging](../concepts/audit-logging) — wiring the event stream to your store
+- [CORS & Security](./cors-and-security)
+- [Rate Limiting](./rate-limiting)
+- [Production Checklist](./production-checklist)
+- [Sessions & Tokens](../concepts/sessions-and-tokens)

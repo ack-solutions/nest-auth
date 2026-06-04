@@ -7,13 +7,16 @@ import {
   Patch,
   Post,
   UseGuards,
+  UseFilters,
 } from '@nestjs/common';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
+import { AuthExceptionFilter } from '../../auth/filters/auth-exception.filter';
 import { TenantService } from '../../tenant/services/tenant.service';
 import { AdminCreateTenantDto, AdminUpdateTenantDto } from '../dto/admin-tenant.dto';
 import { NestAuthTenant } from '../../tenant/entities/tenant.entity';
 
 @Controller('auth/admin/api/tenants')
+@UseFilters(AuthExceptionFilter)
 @UseGuards(AdminSessionGuard)
 export class AdminTenantsController {
   constructor(private readonly tenants: TenantService) { }

@@ -1,0 +1,158 @@
+---
+title: Platform-admin portal
+description: A "manage the entire platform" portal — full nest-auth users with a cross-tenant super-admin role, origin-locked and optionally MFA-gated.
+---
+
+You need an internal portal where your own staff manage **all tenants and the whole
+platform** — and unlike the minimal [admin console](/docs/backend/admin-console), these
+admins want the **full nest-auth feature set**: social login, MFA, passwordless, RBAC.
+
+Don't build a second auth system. Make platform admins **normal `NestAuthUser`s** that hold a
+**platform-level role** granted via the first-class [`PlatformAccess`](/docs/concepts/user-access-and-platform-access)
+(cross-tenant, resolved on every login) — then gate the portal on that role, origin-lock it,
+and optionally require MFA.
+
+A complete, tested reference lives in the example app at `apps/example-nest/src/platform/`
+(and `test/platform-admin.e2e-spec.ts`).
+
+## 1. Configure a guard namespace + platform access
+
+```ts
+NestAuthModule.forRoot({
+  // dedicated namespace so platform roles never collide with tenant roles
+  roleGuards: ['web', 'platform'],
+
+  // first-class cross-tenant access, origin-locked:
+  platformAccess: {
+    enabled: true,
+    // Platform roles are resolved at login ONLY when this returns true.
+    // Gate it on something only your platform portal sends (a header, an origin,
+    // an internal subdomain) so a leaked tenant token can't become a god token.
+    validate: (request) => request?.headers?.['x-platform-portal'] === 'true',
+  },
+});
+```
+
+`validate` returning `false` for normal tenant logins means tenant RBAC is completely
+unaffected — only requests coming through the portal get platform access.
+
+## 2. Seed the first platform admin (chicken-and-egg)
+
+Idempotent boot seeder: create the platform role, the first admin user, and grant it via
+`PlatformAccess`. In production, prefer a migration or a one-time secret over env defaults.
+
+```ts
+@Injectable()
+export class PlatformAdminSeeder implements OnModuleInit {
+  constructor(private roles: RoleService, private users: UserService) {}
+
+  async onModuleInit() {
+    // role: super_admin under the `platform` guard
+    let role = await this.roles.getRoleByName('super_admin', 'platform').catch(() => null);
+    if (!role) role = await this.roles.createRole('super_admin', 'platform', null, false);
+
+    // a normal nest-auth user (social/MFA/etc. all work)
+    let user = await this.users.getUserByEmail(process.env.PLATFORM_ADMIN_EMAIL!).catch(() => null);
+    if (!user) {
+      user = await this.users.createUser({ email: process.env.PLATFORM_ADMIN_EMAIL! });
+      await user.setPassword(process.env.PLATFORM_ADMIN_PASSWORD!);
+      await user.save();
+    }
+
+    // grant the platform role via the dedicated PlatformAccess (cross-tenant)
+    const platformAccess = await user.getPlatformAccess(true);
+    await platformAccess.assignRoles([role.id]);
+  }
+}
+```
+
+## 3. The cross-tenant management controller
+
+Every route requires the platform role under the `platform` guard. Because platform roles are
+`tenantId`-independent, queries here are intentionally **not** tenant-filtered.
+
+```ts
+@Controller('platform')
+@UseGuards(NestAuthAuthGuard, PlatformMfaGuard)   // PlatformMfaGuard is optional (see §5)
+@NestAuthRoles('super_admin', 'platform')
+export class PlatformAdminController {
+  constructor(private users: UserService, private tenants: TenantService, private roles: RoleService) {}
+
+  @Get('tenants')                       // ALL tenants
+  allTenants() { return this.tenants.getTenants(); }
+
+  @Get('users')                         // ALL users across every tenant
+  async allUsers() {
+    const [users, total] = await this.users.getUsersAndCount({ take: 100 });
+    return { total, users };
+  }
+
+  @Post('grant-admin')                  // mint another platform admin
+  async grant(@Body() { email }: { email: string }) {
+    const target = await this.users.getUserByEmail(email);
+    const role = await this.roles.getRoleByName('super_admin', 'platform');
+    const access = await target.getPlatformAccess(true);
+    await access.assignRoles([role!.id]);
+    return { ok: true };
+  }
+}
+```
+
+**No privilege escalation:** a tenant user can never reach `grant-admin` (the platform-role guard
+blocks them), so only an existing platform admin can create another.
+
+## 4. Logging in through the portal
+
+The portal sends the origin-lock header on login. Add it to CORS so the browser can:
+
+```ts
+app.enableCors({ allowedHeaders: ['Content-Type', 'Authorization', 'x-platform-portal'] });
+```
+
+```bash
+# portal login → platform session (roles resolved). Without the header you get a normal
+# session with no platform roles; a non-platform user with the header is rejected 403 ACCESS_DENIED.
+curl -X POST /auth/login -H 'x-platform-portal: true' \
+  -d '{"providerName":"email","credentials":{"email":"platform@acme.com","password":"…"}}'
+```
+
+The role is baked into the session at login, so subsequent `/platform/*` calls just send the
+bearer token — no header needed on every request.
+
+## 5. Optional: require MFA for platform admins
+
+Because platform admins are real users, "require MFA" just reuses the [MFA](/docs/concepts/mfa)
+flow. A tiny guard, read per-request so you can flip the policy without a rebuild:
+
+```ts
+@Injectable()
+export class PlatformMfaGuard implements CanActivate {
+  async canActivate() {
+    if (process.env.PLATFORM_REQUIRE_MFA !== 'true') return true;
+    const user = await RequestContext.currentUser();
+    if (!user?.isMfaEnabled) {
+      throw new ForbiddenException({ code: 'PLATFORM_MFA_REQUIRED', message: 'Enable MFA first.' });
+    }
+    return true;
+  }
+}
+```
+
+Once the admin enrols TOTP, every portal login goes through the MFA challenge before the
+portal opens.
+
+## Security boundaries (all tested)
+
+| Scenario | Result |
+| --- | --- |
+| Tenant user → `/platform/*` | **403** (no platform role) |
+| Super-admin logs in **without** the portal header → `/platform/*` | **403** (origin-lock) |
+| Non-platform user logs in **with** the portal header | **403 `ACCESS_DENIED`** |
+| Tenant user → `POST /platform/grant-admin` | **403** (no escalation) |
+| `PLATFORM_REQUIRE_MFA=true`, admin without MFA | **403 `PLATFORM_MFA_REQUIRED`** |
+
+## Related
+
+- [User Access & Platform Access](/docs/concepts/user-access-and-platform-access) — the `PlatformAccess` model + `validate` origin-lock
+- [Multi-platform login with guards](/docs/recipes/multi-platform-login) — guard namespaces per portal
+- [RBAC](/docs/concepts/rbac) · [Multi-tenancy](/docs/concepts/multi-tenancy) · [Admin console](/docs/backend/admin-console)

@@ -6,11 +6,11 @@ import type { AuthClient, ISessionUserData } from '@ackplus/nest-auth-client';
 export function createAuthService(client: AuthClient) {
     return {
         /**
-         * Re-validates the session with the server and returns the updated user (also on `client.getUser()`).
+         * Re-validates the session with the server and returns the updated user.
          */
         async getCurrentUser(): Promise<ISessionUserData | null> {
             await client.verifySession();
-            return client.getUser();
+            return client.getSessionUserData();
         },
     };
 }

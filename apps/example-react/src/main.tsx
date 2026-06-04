@@ -8,7 +8,6 @@
  * - SnackbarProvider: Toast notifications
  */
 
-import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
@@ -43,7 +42,11 @@ const authConfig = {
    * - 'cookie': Uses httpOnly cookies (more secure for web, handles CSRF)
    * - null: Auto-detect based on backend response
    */
-  accessTokenType: 'cookie' as const,
+  // Header mode (tokens in the response body + Authorization header). This is the
+  // reliable choice for a cross-origin SPA over http (e.g. Vite :4200 -> API :3333):
+  // httpOnly SameSite=Lax cookies are NOT sent on cross-site XHR, so cookie mode
+  // would break auth here. The backend (accessTokenType: null) honors this.
+  accessTokenType: 'header' as const,
 
   httpAdapter: createAxiosAdapter(instanceApi),
 

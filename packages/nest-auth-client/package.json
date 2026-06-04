@@ -17,6 +17,10 @@
     "clean": "rm -rf dist tsconfig.build.tsbuildinfo",
     "watch": "pnpm -C ../.. exec tsc -p packages/nest-auth-client/tsconfig.build.json -w",
     "build": "pnpm clean && tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.ts\"",
     "lint": "eslint \"src/**/*.ts\" --fix"
   },
@@ -52,6 +56,8 @@
     "tslib": "^2.3.0"
   },
   "devDependencies": {
-    "typescript": "^5.7.3"
+    "@ackplus/vitest-preset": "workspace:*",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.0"
   }
 }

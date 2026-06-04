@@ -41,7 +41,7 @@ import { profileService } from '../services/profile.service';
  * Uses the /profile endpoint from the example backend.
  */
 export default function ProfilePage() {
-    const { user } = useNestAuth();
+    const { sessionData: user } = useNestAuth();
     const { enqueueSnackbar } = useSnackbar();
 
     // Profile data state

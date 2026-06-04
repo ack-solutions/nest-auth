@@ -25,11 +25,19 @@ export class GitHubAuthProvider extends BaseAuthProvider {
         this.enabled = Boolean(this.githubConfig);
     }
 
+    private get userApiUrl(): string {
+        return this.githubConfig?.userApiUrl || 'https://api.github.com/user';
+    }
+
+    private get emailsApiUrl(): string {
+        return this.githubConfig?.emailsApiUrl || 'https://api.github.com/user/emails';
+    }
+
     async validate(credentials: SocialCredentialsDto, _tenantId?: string) {
         let userResponse: Response;
         try {
-            // Fetch user info from GitHub API
-            userResponse = await fetch('https://api.github.com/user', {
+            // Fetch user info from GitHub API (URL configurable for Enterprise/proxy/tests)
+            userResponse = await fetch(this.userApiUrl, {
                 headers: {
                     Authorization: `Bearer ${credentials.token}`,
                     Accept: 'application/vnd.github.v3+json',
@@ -74,7 +82,7 @@ export class GitHubAuthProvider extends BaseAuthProvider {
         let emailVerified = false;
         if (!email) {
             try {
-                const emailsResponse = await fetch('https://api.github.com/user/emails', {
+                const emailsResponse = await fetch(this.emailsApiUrl, {
                     headers: {
                         Authorization: `Bearer ${credentials.token}`,
                         Accept: 'application/vnd.github.v3+json',

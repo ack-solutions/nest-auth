@@ -4,17 +4,29 @@
   "description": "Monorepo for @ackplus/nest-auth and @ackplus/nest-auth-client packages",
   "private": true,
   "scripts": {
-    "build": "pnpm nest-auth-contracts build && pnpm nest-auth build && pnpm nest-auth-client build && pnpm nest-auth-react build",
+    "build": "turbo run build",
+    "build:packages": "turbo run build --filter=\"./packages/*\"",
+    "build:apps": "turbo run build --filter=\"./apps/*\"",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "format": "turbo run format",
+    "clean": "turbo run clean && rm -rf node_modules/.cache .turbo",
+    "dev": "turbo run dev --parallel",
+    "watch": "turbo run watch --parallel",
+    "demo:build": "turbo run build --filter=example-nest --filter=@ackplus/nest-auth-admin --filter=example-react",
+    "demo:api": "DB_DRIVER=sqljs NODE_ENV=development PORT=3333 JWT_SECRET=dev-jwt-secret-change-me TRUSTED_DEVICE_SECRET=dev-trusted-device-secret ADMIN_CONSOLE_SECRET_KEY=cArX1qCWcih8JVk8P19HT0vTrXnR8HcFPMpzminV/XE= TENANT_MODE=${TENANT_MODE:-disabled} node apps/example-nest/dist/main.js",
+    "demo:web": "pnpm -F example-react preview --port 4200 --host",
+    "demo": "pnpm demo:build && concurrently -k -n api,web -c blue,green \"pnpm demo:api\" \"pnpm demo:web\"",
+    "prepublishOnly": "turbo run build --filter=\"./packages/*\"",
     "nest-auth-contracts": "pnpm -C packages/nest-auth-contracts",
     "nest-auth": "pnpm -C packages/nest-auth",
-    "watch": "pnpm --filter \"./packages/*\" --parallel run watch",
-    "nest-auth-ui": "pnpm -C packages/nest-auth/ui",
+    "nest-auth-admin": "pnpm -C packages/nest-auth-admin",
     "nest-auth-client": "pnpm -C packages/nest-auth-client",
     "nest-auth-react": "pnpm -C packages/nest-auth-react",
     "nest": "pnpm -C apps/example-nest",
     "react": "pnpm -C apps/example-react",
-    "publish": "node scripts/publish.js",
-    "postinstall": "npm --prefix packages/nest-auth/ui install"
+    "publish": "node scripts/publish.js"
   },
   "keywords": [
     "nestjs",
@@ -30,7 +42,19 @@
     "url": "https://github.com/ack-solutions/nest-auth"
   },
   "packageManager": "pnpm@10.21.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "reflect-metadata": "^0.2.2"
+    }
+  },
   "devDependencies": {
+    "@changesets/cli": "^2.31.0",
+    "concurrently": "^9.1.0",
+    "turbo": "^2.9.14",
     "typescript": "^5.7.3"
   }
 }

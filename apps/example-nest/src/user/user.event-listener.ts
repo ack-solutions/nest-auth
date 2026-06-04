@@ -24,12 +24,10 @@ export class UserEventListener {
 
     @OnEvent(NestAuthEvents.REGISTERED)
     async onRegistered(event: UserRegisteredEvent) {
-        console.log('onRegistered', event.payload);
-        console.log('onRegistered input', event.payload?.input);
         const payload = event.payload as UserRegisteredEventPayload;
         const authUserId = payload.user.id;
         const input = payload.input as unknown as SignupInputWithMetadata;
-        console.log('input', input);
+        // Keep the consumer's `app_users` table in sync with every new auth user.
         await this.userService.upsertFromSignup(authUserId, input.metadata);
     }
 

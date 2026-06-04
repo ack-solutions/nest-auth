@@ -114,8 +114,10 @@ export class TokenResponseInterceptor implements NestInterceptor {
             });
         }
 
+        // Do NOT log raw token values, even at debug level.
         this.debugLogger.debug('Setting tokens in cookies', 'TokenResponseInterceptor', {
-            tokens,
+            hasAccessToken: !!tokens.accessToken,
+            hasRefreshToken: !!tokens.refreshToken,
             accessDuration,
             refreshDuration,
         });
@@ -126,9 +128,11 @@ export class TokenResponseInterceptor implements NestInterceptor {
         const cookieOptions = {
             httpOnly: true,
             path: '/',
-            secure: this.options.session?.cookieOptions?.secure,
+            // Secure by default — auth/refresh tokens must not ride plaintext HTTP.
+            // Integrators can explicitly set cookieOptions.secure = false for local dev.
+            secure: this.options.session?.cookieOptions?.secure ?? true,
             ...this.options.session?.cookieOptions?.domain ? { domain: this.options.session?.cookieOptions?.domain } : {},
-            sameSite: this.options.session?.cookieOptions?.sameSite as 'strict' | 'lax' | 'none' | undefined,
+            sameSite: (this.options.session?.cookieOptions?.sameSite ?? 'lax') as 'strict' | 'lax' | 'none' | undefined,
             maxAge: ms(this.options.session?.accessTokenValidity || '7d'),
             ...options,
         };

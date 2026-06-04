@@ -42,12 +42,12 @@ import {
     Security as SecurityIcon,
     Smartphone as SmartphoneIcon,
     Key as KeyIcon,
-    Delete as DeleteIcon,
     CheckCircle as CheckCircleIcon,
-    Warning as WarningIcon,
 } from '@mui/icons-material';
+import { config } from '../config';
 
-const API_BASE_URL = 'http://localhost:3000';
+// Same origin the AuthClient uses (VITE_API_BASE_URL, e.g. http://localhost:3333/api).
+const API_BASE_URL = config.apiBaseOrigin || 'http://localhost:3333/api';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -71,7 +71,7 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function SecurityPage() {
-    const { user, client } = useNestAuth();
+    const { client } = useNestAuth();
     const { enqueueSnackbar } = useSnackbar();
 
     // Tab state

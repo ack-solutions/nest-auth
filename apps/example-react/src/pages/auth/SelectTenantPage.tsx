@@ -18,8 +18,8 @@ export default function SelectTenantPage() {
 
     const fromPath = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/dashboard';
 
-    const tenantOptions = useMemo(() => {
-        return []
+    const tenantOptions = useMemo<Array<{ id: string; name: string; isDefault?: boolean }>>(() => {
+        return [];
     }, []);
 
     const defaultTenantId = useMemo(() => {

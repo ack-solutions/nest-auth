@@ -144,6 +144,10 @@ export class NestAuthModule {
   }
 
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RequestContextMiddleware).forRoutes('auth/*');
+    // Apply to ALL routes — not just `auth/*` — so consumer controllers can use
+    // `RequestContext.currentUser()/currentSession()/currentTenantId()` too.
+    // Previously scoped to `auth/*`, which made RequestContext silently return
+    // null inside any consumer-owned route (e.g. a /profile or /sessions controller).
+    consumer.apply(RequestContextMiddleware).forRoutes('*');
   }
 }

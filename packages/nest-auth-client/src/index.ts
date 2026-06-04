@@ -15,6 +15,7 @@ export {
     AuthError,
     DecodedJwt,
     ClientSession,
+    TokenState,
 } from './types/auth.types';
 
 // Config types
@@ -28,6 +29,7 @@ export {
     AccessTokenType,
     AuthClientConfig,
     RequestOptions,
+    GetAuthHeadersOptions,
 } from './types/config.types';
 
 export { DEFAULT_ENDPOINTS } from './types/config.types';
@@ -52,9 +54,8 @@ export { AuthClient } from './client/auth-client';
 export { EventEmitter, createAuthEventEmitter } from './client/event-emitter';
 export type { AuthEvents } from './client/event-emitter';
 export { RefreshQueue, RetryTracker } from './client/refresh-queue';
+export { attachToAxios, attachToFetch } from './client/http-attach';
+export type { AxiosLikeInstance, AttachOptions } from './client/http-attach';
 
 // Utilities
 export { hasRole, hasPermission, hasAnyAccess, hasAllAccess } from './utils/role-utils';
-
-// Re-export all shared types and enums from contracts for consumers
-export * from '@ackplus/nest-auth-contracts';

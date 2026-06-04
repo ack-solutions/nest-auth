@@ -59,7 +59,7 @@ const QUICK_ACTIONS = [
 ];
 
 export default function DashboardPage() {
-    const { user } = useNestAuth();
+    const { sessionData: user } = useNestAuth();
     const navigate = useNavigate();
 
     // Get display name
@@ -130,7 +130,7 @@ export default function DashboardPage() {
             </Typography>
             <Grid container spacing={3}>
                 {QUICK_ACTIONS.map((action) => (
-                    <Grid item xs={12} sm={6} md={3} key={action.title}>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }} key={action.title}>
                         <Card
                             sx={{
                                 height: '100%',

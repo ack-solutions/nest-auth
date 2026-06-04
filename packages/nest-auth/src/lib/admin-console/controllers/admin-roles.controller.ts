@@ -9,14 +9,17 @@ import {
   Post,
   Query,
   UseGuards,
+  UseFilters,
 } from '@nestjs/common';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
+import { AuthExceptionFilter } from '../../auth/filters/auth-exception.filter';
 import { RoleService } from '../../role/services/role.service';
 import { AdminCreateRoleDto, AdminUpdateRoleDto } from '../dto/admin-role.dto';
 import { DEFAULT_GUARD_NAME } from '../../auth.constants';
 import { mapRoleToResponse } from '../../role/utils/role-mapper.util';
 
 @Controller('auth/admin/api/roles')
+@UseFilters(AuthExceptionFilter)
 @UseGuards(AdminSessionGuard)
 export class AdminRolesController {
   constructor(private readonly roles: RoleService) { }

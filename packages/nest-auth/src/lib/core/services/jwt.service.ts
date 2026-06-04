@@ -70,6 +70,7 @@ export class JwtService {
             jwt.verify(
                 token,
                 jwtSecret,
+                { algorithms: ['HS256'] },
                 (err, decoded) => {
                     if (err) reject(err);
                     else resolve(decoded as JWTTokenPayload);
@@ -124,7 +125,14 @@ export class JwtService {
 
     async generatePasswordResetToken(payload: { userId: string; passwordHashPrefix: string; type: string; tenantId?: string }): Promise<string> {
         return new Promise((resolve, reject) => {
-            const expiresIn = this.options.password?.passwordResetTokenExpiresIn || '1h';
+            const expiresInRaw = this.options.password?.passwordResetTokenExpiresIn || '1h';
+            // ms() returns MILLISECONDS, but a JWT `exp` claim is in SECONDS.
+            // The previous code added milliseconds to a seconds timestamp, making
+            // reset tokens valid for ~41 days. Convert to seconds; accept a numeric
+            // (already-seconds) config value as-is.
+            const expiresInSec = typeof expiresInRaw === 'number'
+                ? expiresInRaw
+                : Math.floor((ms(expiresInRaw) as number) / 1000);
             const jwtSecret = this.options.session?.jwt?.secret;
             if (!jwtSecret) {
                 return reject(new Error('Missing session.jwt.secret'));
@@ -132,10 +140,11 @@ export class JwtService {
             jwt.sign(
                 {
                     ...payload,
-                    exp: Math.floor(Date.now() / 1000) + ms(expiresIn),
+                    exp: Math.floor(Date.now() / 1000) + expiresInSec,
                     iat: Math.floor(Date.now() / 1000),
                 },
                 jwtSecret,
+                { algorithm: 'HS256' },
                 (err, token) => {
                     if (err) reject(err);
                     else resolve(token);
@@ -153,6 +162,7 @@ export class JwtService {
             jwt.verify(
                 token,
                 jwtSecret,
+                { algorithms: ['HS256'] },
                 (err, decoded) => {
                     if (err) reject(err);
                     else resolve(decoded);

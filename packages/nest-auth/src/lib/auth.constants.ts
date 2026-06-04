@@ -187,6 +187,8 @@ export const NestAuthEvents = {
     PHONE_VERIFIED: 'phone.verified',
     // Auth events
     LOGGED_IN: 'nest_auth.logged_in',
+    /** A login attempt failed (bad credentials, inactive account, etc.). Required for HIPAA §164.312(b) failed-access logging. */
+    LOGIN_FAILED: 'nest_auth.login_failed',
     /** Email/SMS OTP for passwordless login — send the `code` in the listener */
     PASSWORDLESS_CODE_REQUESTED: 'nest_auth.passwordless.code.requested',
     /** Magic link URL built — send email in listener */

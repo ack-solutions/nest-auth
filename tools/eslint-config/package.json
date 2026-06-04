@@ -1,0 +1,22 @@
+{
+  "name": "@ackplus/eslint-config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared ESLint flat config presets for the nest-auth monorepo. Internal package, never published.",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./react": "./react.js",
+    "./node": "./node.js"
+  },
+  "files": [
+    "index.js",
+    "react.js",
+    "node.js"
+  ],
+  "peerDependencies": {
+    "eslint": "^9.0.0",
+    "typescript-eslint": "^8.0.0"
+  }
+}

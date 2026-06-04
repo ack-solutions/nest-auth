@@ -6,6 +6,7 @@
     "user-logged-in-listener",
     "transactional-user-creation",
     "multi-platform-login",
+    "platform-admin-portal",
     "seeding-roles-and-permissions",
     "custom-oauth-provider",
     "extra-signup-fields",

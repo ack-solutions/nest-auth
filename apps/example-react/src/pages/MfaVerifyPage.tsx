@@ -28,8 +28,8 @@ import {
     Pin as PinIcon,
     Key as KeyIcon,
     Smartphone as SmartphoneIcon,
-    Email as EmailIcon,
 } from '@mui/icons-material';
+import type { IVerify2faRequest } from '@ackplus/nest-auth-client';
 
 import AuthCard from '../components/AuthCard';
 
@@ -77,7 +77,7 @@ export default function MfaVerifyPage() {
             // Verify MFA code
             await verify2fa({
                 otp: otp.trim(),
-                method: method === 'recovery' ? 'recovery' : 'totp',
+                method: (method === 'recovery' ? 'recovery' : 'totp') as unknown as IVerify2faRequest['method'],
             });
 
             // Success - login complete

@@ -9,11 +9,13 @@ import {
   Post,
   Query,
   UseGuards,
+  UseFilters,
 } from '@nestjs/common';
 import { NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
+import { AuthExceptionFilter } from '../../auth/filters/auth-exception.filter';
 import { AdminCreateUserDto, AdminUpdateUserDto } from '../dto/admin-user.dto';
 import { UserService } from '../../user/services/user.service';
 import { AdminUserManagementService } from '../services/admin-user-management.service';
@@ -32,6 +34,7 @@ import { mapRoleToResponse } from '../../role/utils/role-mapper.util';
 import { NestAuthTrustedDevice } from '../../auth/entities/trusted-device.entity';
 
 @Controller('auth/admin/api/users')
+@UseFilters(AuthExceptionFilter)
 @UseGuards(AdminSessionGuard)
 export class AdminUsersController {
   constructor(

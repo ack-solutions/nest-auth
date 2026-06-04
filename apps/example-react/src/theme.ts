@@ -5,7 +5,7 @@
  * Uses a modern, professional color palette suitable for auth screens.
  */
 
-import { createTheme, alpha } from '@mui/material/styles';
+import { createTheme } from '@mui/material/styles';
 
 /**
  * Color palette based on a professional auth-focused design

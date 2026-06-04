@@ -1,0 +1,14 @@
+# Keep the build context small and force a clean install/build inside the image.
+**/node_modules
+**/dist
+**/.turbo
+**/.next
+**/coverage
+**/.vite
+**/*.tsbuildinfo
+**/*.log
+.git
+.github
+.idea
+.vscode
+**/.DS_Store

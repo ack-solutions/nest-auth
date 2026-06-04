@@ -28,6 +28,7 @@ import { AuthConfigService } from '../../core/services/auth-config.service';
 import { BaseAuthProvider } from '../../core/providers/base-auth.provider';
 import { OtpFlowService } from './otp-flow.service';
 import type { MessageResponseDto } from '../../core/dto/message.response.dto';
+import { hmacSha256Hex, timingSafeEqualHex } from '../../utils/has-token';
 
 @Injectable()
 export class PasswordService {
@@ -67,6 +68,20 @@ export class PasswordService {
         }
     }
 
+    /**
+     * Single-use signature for a password-reset token: HMAC over the FULL current
+     * password hash. Because the hash changes when the password is reset, any
+     * previously-issued reset token (which carries the old signature) is
+     * automatically invalidated — making the token effectively single-use.
+     */
+    private resetSignature(passwordHash: string): string {
+        const secret = AuthConfigService.getOptions().session?.jwt?.secret;
+        if (!secret) {
+            throw new Error('Missing session.jwt.secret');
+        }
+        return hmacSha256Hex(secret, passwordHash || '');
+    }
+
 
     async changePassword(input: NestAuthChangePasswordRequestDto): Promise<MessageResponseDto> {
         this.debugLogger.logFunctionEntry('changePassword', 'PasswordService');
@@ -81,9 +96,14 @@ export class PasswordService {
                 });
             }
 
+            // Note: 'roles' is NOT a relation on NestAuthUser (access is via
+            // userAccesses) — requesting it threw "Relation not found" → 500.
+            // We also must explicitly select `passwordHash` (select: false) so
+            // validatePassword can verify the current password without relying
+            // on the brittle BaseEntity.createQueryBuilder fallback.
             const user = await this.userRepository.findOne({
                 where: { id: currentUser.id },
-                relations: ['roles'] // minimal relations needed
+                select: { id: true, email: true, phone: true, passwordHash: true },
             });
 
             if (!user) {
@@ -195,7 +215,9 @@ export class PasswordService {
             );
 
             this.debugLogger.logFunctionExit('forgotPassword', 'PasswordService');
-            return true;
+            // Return the SAME generic message as the "account not found" branch
+            // above so the response shape can't be used to enumerate accounts.
+            return { message: 'If the account exists, a password reset code has been sent' };
 
         } catch (error) {
             this.debugLogger.logError(error, 'forgotPassword');
@@ -250,14 +272,15 @@ export class PasswordService {
                 code,
             });
 
-            const user = await this.userRepository.findOne({ where: { id: userId } });
+            const user = await this.userRepository.findOne({ where: { id: userId }, select: { id: true, passwordHash: true } });
             if (!user) {
                 throw new BadRequestException({
                     message: 'User not found',
                     code: ERROR_CODES.USER_NOT_FOUND,
                 });
             }
-            const passwordHashPrefix = user.passwordHash ? user.passwordHash.substring(0, 10) : '';
+            // Sign over the FULL password hash (select:false → fetched explicitly).
+            const passwordHashPrefix = user.passwordHash ? this.resetSignature(user.passwordHash) : '';
             const resetToken = await this.jwtService.generatePasswordResetToken({
                 userId: user.id,
                 passwordHashPrefix,
@@ -311,8 +334,14 @@ export class PasswordService {
                 });
             }
 
-            const currentPasswordHashPrefix = user.passwordHash ? user.passwordHash.substring(0, 10) : '';
-            if (decoded.passwordHashPrefix !== currentPasswordHashPrefix) {
+            // passwordHash is select:false — fetch it explicitly to verify the
+            // single-use signature embedded in the reset token.
+            const withHash = await this.userRepository.findOne({
+                where: { id: decoded.userId },
+                select: { id: true, passwordHash: true },
+            });
+            const currentSignature = withHash?.passwordHash ? this.resetSignature(withHash.passwordHash) : '';
+            if (!timingSafeEqualHex(String(decoded.passwordHashPrefix || ''), currentSignature)) {
                 throw new BadRequestException({
                     message: 'Reset token is no longer valid',
                     code: ERROR_CODES.PASSWORD_RESET_TOKEN_INVALID,
@@ -321,6 +350,10 @@ export class PasswordService {
 
             await user.setPassword(newPassword);
             await this.userRepository.save(user);
+
+            // Invalidate all existing sessions after a password reset — account
+            // recovery must log out any attacker holding a live session.
+            await this.sessionManager.revokeAllUserSessions(user.id);
 
             await this.eventEmitter.emitAsync(
                 NestAuthEvents.PASSWORD_RESET,

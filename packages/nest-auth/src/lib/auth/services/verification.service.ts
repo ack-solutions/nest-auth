@@ -44,7 +44,7 @@ export class VerificationService {
     }
 
     /**
-     * Loads the current user (with roles) or throws UNAUTHORIZED / USER_NOT_FOUND.
+     * Loads the current user or throws UNAUTHORIZED / USER_NOT_FOUND.
      */
     private async requireAuthenticatedUser(): Promise<NestAuthUser> {
         const userId = RequestContext.currentUserId();
@@ -55,9 +55,11 @@ export class VerificationService {
             });
         }
 
+        // NOTE: NestAuthUser has no `roles` relation (roles live on user_access);
+        // requesting it here threw EntityPropertyNotFoundError → 500 on every
+        // send-email/phone-verification call.
         const user = await this.userRepository.findOne({
             where: { id: userId },
-            relations: ['roles'],
         });
 
         if (!user) {

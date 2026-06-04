@@ -57,3 +57,23 @@ export interface DecodedJwt {
     type?: string;
     [key: string]: any;
 }
+
+/**
+ * Observable snapshot of the current token state.
+ * Exposed via `authClient.getTokenState()` / `authClient.subscribeTokenState()`.
+ *
+ * For consumers outside React (web workers, service workers, analytics) that
+ * need to react to auth state changes without going through React context.
+ */
+export interface TokenState {
+    /** The current access token, or null if not logged in / in cookie mode. */
+    accessToken: string | null;
+    /** Current token transport mode. */
+    mode: 'header' | 'cookie';
+    /** Whether the AuthClient considers the user authenticated. */
+    isAuthenticated: boolean;
+    /** Token expiry, parsed from JWT `exp` claim. Null if token absent/invalid. */
+    expiresAt: Date | null;
+    /** User id from JWT `sub`/`userId`/`user_id` claims. Null if no token. */
+    userId: string | null;
+}

@@ -66,8 +66,14 @@ export class PasswordlessAuthProvider extends BaseAuthProvider {
                 // Entering an OTP delivered to email/SMS proves channel
                 // ownership — same signal as a verification flow. Surface it
                 // so the auth service can lift `*VerifiedAt` if not already.
+                //
+                // BUG FIX (B-10): `userId` must be the user's UUID, not the
+                // providerUserId (email/phone). The email/phone providers return
+                // `identity.user.id`; this provider returned `providerUserId`,
+                // which broke `AuthService.login`'s `findIdentityByUserId(userId)`
+                // lookup (post-B-7) → every passwordless login failed with 401.
                 return {
-                    userId: providerUserId,
+                    userId: user.id,
                     email: user.email,
                     phone: user.phone,
                     emailVerified: ch === 'email',
@@ -124,16 +130,32 @@ export class PasswordlessAuthProvider extends BaseAuthProvider {
     async findIdentity(providerUserId: string, tenantId?: string): Promise<NestAuthIdentity | null> {
 
         let found = await this.findIdentityForChannel('email', providerUserId, tenantId);
-       
+
         if (found?.identity) {
             return found.identity;
         }
-        
+
         found = await this.findIdentityForChannel('sms', providerUserId, tenantId);
         if (found?.identity) {
             return found.identity;
         }
         return null;
+    }
+
+    /**
+     * BUG FIX (B-11): passwordless users authenticate via their underlying
+     * `email`/`phone` identities — there is no `passwordless` provider identity
+     * row. The base `findIdentityByUserId` filters by `provider: this.providerName`
+     * ('passwordless'), which finds nothing, so `AuthService.login`'s post-validate
+     * lookup returned null → 401 on every passwordless login. Override to find any
+     * identity for the user.
+     */
+    override async findIdentityByUserId(userId: string): Promise<NestAuthIdentity | null> {
+        return this.authIdentityRepository.findOne({
+            where: { userId },
+            relations: ['user'],
+            order: { createdAt: 'ASC' },
+        });
     }
 
     getRequiredFields(): string[] {

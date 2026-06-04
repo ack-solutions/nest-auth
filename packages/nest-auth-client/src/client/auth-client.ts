@@ -35,9 +35,10 @@ import {
     AuthClientConfig,
     HttpResponse,
     RequestOptions,
+    GetAuthHeadersOptions,
     DEFAULT_ENDPOINTS,
 } from '../types/config.types';
-import { ClientSession } from '../types/auth.types';
+import { ClientSession, TokenState } from '../types/auth.types';
 import { AuthError } from '../types/auth.types';
 import { LocalStorageAdapter } from '../storage/local.storage';
 import { FetchAdapter } from '../http/fetch.adapter';
@@ -45,6 +46,12 @@ import { TokenManager } from '../token/token-manager';
 import { decodeJwt, getUserIdFromToken } from '../token/jwt-utils';
 import { EventEmitter, AuthEvents } from './event-emitter';
 import { RefreshQueue, RetryTracker } from './refresh-queue';
+import {
+    attachToAxios,
+    attachToFetch,
+    type AxiosLikeInstance,
+    type AttachOptions,
+} from './http-attach';
 
 /** Storage keys */
 const STORAGE_KEYS = {
@@ -462,6 +469,47 @@ export class AuthClient {
         // Full authentication - store tokens and set authenticated state
         await this.handleAuthResponse(response.data);
         return response.data;
+    }
+
+    /**
+     * Social / OAuth login (RN-1). Acquire the provider token yourself (web
+     * popup via Google Identity Services / Apple JS, or a native SDK like
+     * `@react-native-google-signin`), then pass it here.
+     *
+     * Composes the `login` DTO and reuses the MFA-aware `login()` path. Defaults
+     * `createUserIfNotExists: true` so a first-time social sign-in provisions the
+     * account (matching the backend's social-login behaviour).
+     *
+     * @example
+     * ```ts
+     * // After getting an id token from Google Identity Services / native SDK:
+     * const res = await authClient.socialLogin('google', idToken, { type: 'idToken' });
+     * ```
+     */
+    async socialLogin(
+        provider: 'google' | 'github' | 'facebook' | 'apple' | (string & {}),
+        token: string,
+        opts?: {
+            type?: 'idToken' | 'accessToken';
+            createUserIfNotExists?: boolean;
+            tenantId?: string;
+            /** Extra credential fields some providers need (e.g. Apple first-sign-in name/email). */
+            extraCredentials?: Record<string, unknown>;
+        },
+        options?: RequestOptions,
+    ): Promise<IAuthResponse> {
+        const dto: ILoginRequest = {
+            providerName: provider,
+            credentials: {
+                token,
+                ...(opts?.type ? { type: opts.type } : {}),
+                ...(opts?.extraCredentials ?? {}),
+            } as ILoginRequest['credentials'],
+            createUserIfNotExists: opts?.createUserIfNotExists ?? true,
+            ...(opts?.tenantId ? { tenantId: opts.tenantId } : {}),
+        } as ILoginRequest;
+
+        return this.login(dto, options);
     }
 
     /**
@@ -1062,5 +1110,206 @@ export class AuthClient {
      */
     onRefreshSessionData(callback: () => void): () => void {
         return this.events.on('refreshSessionData', callback);
+    }
+
+    // ============================================================================
+    // T-167b — public auth-header APIs for consumer HTTP clients
+    //
+    // These are the SUPPORTED public surface for wiring up your own axios/fetch
+    // instance to share auth state with this AuthClient. They replace the old
+    // `onTokensSet` patch pattern documented in .tasks/client-sdk-token-handling.md.
+    //
+    // Use `getAuthHeadersSync()` from inside an axios.interceptors.request
+    // callback (sync); use `getAuthHeaders()` if you can be async (e.g. fetch wrapper).
+    // ============================================================================
+
+    /**
+     * Get the headers to attach to outgoing requests so they share auth state
+     * with this AuthClient. Async — consults storage on mirror miss (the rare
+     * case where this client instance was just created and warm-up isn't done).
+     *
+     * Returns an object suitable for spreading into request headers:
+     *   - `Authorization: 'Bearer ...'` — only in header mode, only if logged in
+     *   - `x-access-token-type: 'header' | 'cookie'` — always
+     *   - `<trustDeviceHeaderName>: '...'` — only in header mode if a trust token is set
+     *
+     * @example
+     * ```ts
+     * // Custom fetch wrapper
+     * const headers = await authClient.getAuthHeaders();
+     * await fetch('/my-api', { headers });
+     * ```
+     */
+    async getAuthHeaders(opts?: GetAuthHeadersOptions): Promise<Record<string, string>> {
+        const headers: Record<string, string> = {};
+
+        const mode = this.tokenManager.getMode();
+        if (mode && opts?.includeAccessTokenTypeHeader !== false) {
+            headers['x-access-token-type'] = mode;
+        }
+
+        if (this.tokenManager.isHeaderMode() && opts?.skipAuthHeader !== true) {
+            const authHeader = await this.tokenManager.getAuthorizationHeader();
+            if (authHeader) {
+                const headerName = opts?.authHeaderName ?? 'Authorization';
+                headers[headerName] = authHeader;
+            }
+        }
+
+        if (this.tokenManager.isHeaderMode() && opts?.includeTrustToken !== false) {
+            const trust = await this.tokenManager.getTrustToken();
+            if (trust) {
+                const name = opts?.trustHeaderName ?? this.config.trustDeviceHeaderName ?? 'nest_auth_device_trust';
+                headers[name] = trust;
+            }
+        }
+
+        return headers;
+    }
+
+    /**
+     * Sync version of `getAuthHeaders` — reads only the in-memory mirror
+     * (populated by `setTokens` / `setTrustToken`, or by `await ready()` after
+     * construction). Use this in synchronous axios request interceptors.
+     *
+     * Returns the same shape as `getAuthHeaders`. If the mirror is empty
+     * (no login yet, or warm-up still pending), the `Authorization` and trust
+     * headers are simply omitted — the request goes out unauthenticated,
+     * which is the right thing for a not-yet-logged-in user.
+     */
+    getAuthHeadersSync(opts?: GetAuthHeadersOptions): Record<string, string> {
+        const headers: Record<string, string> = {};
+
+        const mode = this.tokenManager.getMode();
+        if (mode && opts?.includeAccessTokenTypeHeader !== false) {
+            headers['x-access-token-type'] = mode;
+        }
+
+        if (this.tokenManager.isHeaderMode() && opts?.skipAuthHeader !== true) {
+            const authHeader = this.tokenManager.getAuthorizationHeaderSync();
+            if (authHeader) {
+                const headerName = opts?.authHeaderName ?? 'Authorization';
+                headers[headerName] = authHeader;
+            }
+        }
+
+        if (this.tokenManager.isHeaderMode() && opts?.includeTrustToken !== false) {
+            const trust = this.tokenManager.getTrustTokenSync();
+            if (trust) {
+                const name = opts?.trustHeaderName ?? this.config.trustDeviceHeaderName ?? 'nest_auth_device_trust';
+                headers[name] = trust;
+            }
+        }
+
+        return headers;
+    }
+
+    /**
+     * Whether outgoing requests to the consumer's own backend should set
+     * `credentials: 'include'` (cookie mode) or not.
+     *
+     * Mirrors what this AuthClient does for its own requests. Helpful when
+     * the consumer is wiring up a fetch wrapper / axios instance.
+     */
+    shouldSendCookies(): boolean {
+        return this.tokenManager.isCookieMode();
+    }
+
+    /**
+     * Wait for the TokenManager's initial async warm-up to complete.
+     * Call this once at app boot if you plan to rely on `getAuthHeadersSync()`
+     * immediately on first render (rare; useful for SSR-without-storage scenarios).
+     */
+    async ready(): Promise<void> {
+        await this.tokenManager.ready();
+    }
+
+    // ============================================================================
+    // T-167c — HTTP-client attach helpers
+    //
+    // One-line replacements for the legacy `onTokensSet` patch pattern.
+    // See .tasks/client-sdk-token-handling.md for the design rationale.
+    // ============================================================================
+
+    /**
+     * Wire an axios-like instance to share auth state with this AuthClient.
+     * Returns an unsubscribe function — call it on logout/unmount to detach.
+     *
+     * @example
+     * ```ts
+     * import axios from 'axios';
+     * const api = axios.create({ baseURL: '/api' });
+     * const unsubscribe = authClient.attachToAxios(api, { retryOn401: true });
+     * ```
+     *
+     * See [`http-attach.ts`](./http-attach.ts) for full options.
+     */
+    attachToAxios(instance: AxiosLikeInstance, opts?: AttachOptions): () => void {
+        return attachToAxios(this, instance, opts);
+    }
+
+    /**
+     * Wrap a fetch function so every call automatically attaches auth headers
+     * and retries once on 401 after refresh.
+     *
+     * @example
+     * ```ts
+     * const myFetch = authClient.attachToFetch(); // wraps globalThis.fetch
+     * const res = await myFetch('/api/data');
+     * ```
+     */
+    attachToFetch(baseFetch?: typeof globalThis.fetch, opts?: AttachOptions): typeof globalThis.fetch {
+        return attachToFetch(this, baseFetch ?? globalThis.fetch, opts);
+    }
+
+    // ============================================================================
+    // T-167d — observable token state
+    //
+    // For consumers outside React (web workers, service workers, analytics, native
+    // bridges) that need to react to auth state changes. Wraps the existing event
+    // emitter into a clean state-store API.
+    // ============================================================================
+
+    /**
+     * Get a snapshot of the current token state. Synchronous; reads only the
+     * in-memory mirror via the TokenManager.
+     */
+    getTokenState(): TokenState {
+        const accessToken = this.tokenManager.getAccessTokenSync();
+        const decoded = accessToken ? decodeJwt(accessToken) : null;
+        return {
+            accessToken,
+            mode: this.tokenManager.getMode(),
+            isAuthenticated: this.isAuthenticated,
+            expiresAt: decoded?.exp ? new Date(decoded.exp * 1000) : null,
+            userId: accessToken ? getUserIdFromToken(accessToken) : null,
+        };
+    }
+
+    /**
+     * Subscribe to token-state changes. Fires whenever tokens are set, refreshed,
+     * or cleared. Subscriber receives the latest `TokenState`.
+     *
+     * Returns an unsubscribe function for cleanup.
+     *
+     * @example
+     * ```ts
+     * const unsub = authClient.subscribeTokenState((state) => {
+     *   console.log('Token state changed:', state);
+     * });
+     * // later:
+     * unsub();
+     * ```
+     */
+    subscribeTokenState(listener: (state: TokenState) => void): () => void {
+        // Multiplex over the three relevant events
+        const unsubSet = this.events.on('tokensSet', () => listener(this.getTokenState()));
+        const unsubRefreshed = this.events.on('tokenRefreshed', () => listener(this.getTokenState()));
+        const unsubRemoved = this.events.on('tokensRemoved', () => listener(this.getTokenState()));
+        return () => {
+            unsubSet();
+            unsubRefreshed();
+            unsubRemoved();
+        };
     }
 }

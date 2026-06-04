@@ -18,6 +18,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TwoFactorCodeSentEvent } from '../events/two-factor-code-sent.event';
 import { NestAuthTrustedDevice } from '../entities/trusted-device.entity';
 import { randomBytes } from 'crypto';
+import { hmacSha256Hex, timingSafeEqualHex } from '../../utils/has-token';
 import { IsNull, MoreThan } from 'typeorm';
 import { User2faEnabledEvent } from '../events/user-2fa-enabled.event';
 import { User2faDisabledEvent } from '../events/user-2fa-disabled.event';
@@ -418,14 +419,24 @@ export class MfaService {
         await this.mfaSecretRepository.delete({ id: deviceId });
     }
 
+    private getRecoveryCodeSecret(): string {
+        const opts = AuthConfigService.getOptions();
+        const secret = opts.mfa?.trustedDeviceSecret || opts.session?.jwt?.secret;
+        if (!secret) {
+            throw new Error('Recovery code HMAC secret is not configured. Set mfa.trustedDeviceSecret or session.jwt.secret.');
+        }
+        return secret;
+    }
+
     async generateRecoveryCode(userId: string): Promise<string> {
         this.checkIsMfaEnabledForApp(true)
 
-        const secret = speakeasy.generateSecret({
-            name: `NestAuth:${userId}`,
-        });
-        await this.userRepository.update(userId, { mfaRecoveryCode: secret.base32 });
-        return secret.base32;
+        // Generate a high-entropy recovery code and persist ONLY its HMAC hash.
+        // The plaintext is returned once to the user and never stored.
+        const plainCode = randomBytes(20).toString('base64url');
+        const hashed = hmacSha256Hex(this.getRecoveryCodeSecret(), plainCode);
+        await this.userRepository.update(userId, { mfaRecoveryCode: hashed });
+        return plainCode;
     }
 
     async resetMfa(userId: string, code: string): Promise<{ message: string }> {
@@ -439,8 +450,10 @@ export class MfaService {
                 code: ERROR_CODES.USER_NOT_FOUND
             });
         }
-        if (user.mfaRecoveryCode === code) {
-            // Delete recovery code
+        const stored = user.mfaRecoveryCode || '';
+        const computed = hmacSha256Hex(this.getRecoveryCodeSecret(), code);
+        if (stored && timingSafeEqualHex(stored, computed)) {
+            // Consume the recovery code (single use)
             await this.userRepository.update(userId, { mfaRecoveryCode: null });
 
             // Delete all mfa secrets
