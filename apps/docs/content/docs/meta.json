@@ -9,6 +9,8 @@
     "backend",
     "client",
     "react",
+    "react-native",
+    "flutter",
     "production",
     "recipes",
     "api-reference",
