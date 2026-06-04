@@ -22,6 +22,8 @@ import { AdminResetPasswordDto } from '../dto/reset-password.dto';
 import { AdminSignupDto } from '../dto/signup.dto';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
 import { AuthExceptionFilter } from '../../auth/filters/auth-exception.filter';
+import { ApiTags, ApiCookieAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiUnauthorized, ApiForbidden, ApiValidationError } from '../../core';
 import { CurrentAdmin } from '../decorators/current-admin.decorator';
 import { NestAuthAdminUser } from '../entities/admin-user.entity';
 import { CreateDashboardAdminDto, UpdateDashboardAdminDto } from '../dto/create-dashboard-admin.dto';
@@ -37,6 +39,9 @@ import { MoreThanOrEqual } from 'typeorm';
 
 @Controller('auth/admin')
 @UseFilters(AuthExceptionFilter)
+@ApiTags('Admin · Console')
+@ApiValidationError()
+@ApiUnauthorized()
 export class AdminAuthController {
   constructor(
     private readonly adminAuth: AdminAuthService,
@@ -59,6 +64,7 @@ export class AdminAuthController {
     return opts;
   }
 
+  @ApiOperation({ summary: 'Create an admin (secret-key gated)' })
   @Post('signup')
   async signup(@Body() dto: AdminSignupDto) {
     this.config.ensureEnabled();
@@ -93,6 +99,7 @@ export class AdminAuthController {
     };
   }
 
+  @ApiOperation({ summary: 'Admin login (sets the session cookie)' })
   @Post('login')
   async login(@Body() dto: AdminLoginDto, @Res({ passthrough: true }) res: Response) {
     this.config.ensureEnabled();
@@ -105,12 +112,14 @@ export class AdminAuthController {
     };
   }
 
+  @ApiOperation({ summary: 'Current admin' })
   @Get('me')
   @UseGuards(AdminSessionGuard)
   async me(@CurrentAdmin() admin: NestAuthAdminUser) {
     return this.toSafeAdmin(admin);
   }
 
+  @ApiOperation({ summary: 'Admin logout' })
   @Post('logout')
   @UseGuards(AdminSessionGuard)
   async logout(@CurrentAdmin() admin: NestAuthAdminUser, @Res({ passthrough: true }) res: Response) {
@@ -129,6 +138,7 @@ export class AdminAuthController {
     return { message: 'Signed out' };
   }
 
+  @ApiOperation({ summary: 'Public admin-console config' })
   @Get('config')
   async publicConfig() {
     // Only return properties that are actually used by the UI
@@ -137,6 +147,7 @@ export class AdminAuthController {
     };
   }
 
+  @ApiOperation({ summary: 'Dashboard stats' })
   @Get('api/stats')
   @UseGuards(AdminSessionGuard)
   async getDashboardStats() {
@@ -212,6 +223,7 @@ export class AdminAuthController {
     };
   }
 
+  @ApiOperation({ summary: 'List admins' })
   @Get('admins')
   @UseGuards(AdminSessionGuard)
   async listAdmins() {
@@ -224,6 +236,7 @@ export class AdminAuthController {
     };
   }
 
+  @ApiOperation({ summary: 'Create an admin' })
   @Post('admins')
   @UseGuards(AdminSessionGuard)
   async createAdmin(@Body() dto: CreateDashboardAdminDto) {
@@ -234,6 +247,7 @@ export class AdminAuthController {
     return { admin: this.toSafeAdmin(admin) };
   }
 
+  @ApiOperation({ summary: 'Update an admin' })
   @Patch('admins/:id')
   @UseGuards(AdminSessionGuard)
   async updateAdmin(@Param('id') id: string, @Body() dto: UpdateDashboardAdminDto) {
@@ -244,6 +258,7 @@ export class AdminAuthController {
     return { admin: this.toSafeAdmin(admin) };
   }
 
+  @ApiOperation({ summary: 'Delete an admin' })
   @Delete('admins/:id')
   @UseGuards(AdminSessionGuard)
   async deleteAdmin(@Param('id') id: string) {
@@ -254,6 +269,7 @@ export class AdminAuthController {
     return { message: 'Admin deleted successfully' };
   }
 
+  @ApiOperation({ summary: "Reset an admin's password" })
   @Post('reset-password')
   async resetPassword(@Body() dto: AdminResetPasswordDto) {
     this.config.ensureEnabled();

@@ -1,11 +1,11 @@
 import { Controller, Post, Body, UnauthorizedException, UseGuards, HttpCode, Get, Delete, Param, ForbiddenException } from '@nestjs/common';
-import { SkipMfa, NestAuthUser } from '../../core';
+import { SkipMfa, NestAuthUser, ApiValidationError, ApiUnauthorized, ApiForbidden } from '../../core';
 import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
 import { MfaService } from '../services/mfa.service';
 import { RequestContext } from '../../request-context/request-context';
 import { NestAuthSendMfaCodeRequestDto } from '../dto/requests/send-mfa-code.request.dto';
 import { NestAuthVerifyTotpSetupRequestDto } from '../dto/requests/verify-totp-setup.request.dto';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { NestAuthAuthGuard } from '../guards/auth.guard';
 import { NestAuthToggleMfaRequestDto } from '../dto/requests/toggle-mfa.request.dto';
 import { MfaStatusResponseDto, MfaDeviceDto } from '../dto/responses/mfa-status.response.dto';
@@ -19,6 +19,11 @@ import {
 } from '../dto/responses/auth-messages.response.dto';
 import { MFA_ERROR_CODES, ERROR_CODES } from '../../auth.constants';
 
+@ApiTags('MFA')
+@ApiBearerAuth('access-token')
+@ApiValidationError('Invalid or expired code.') // 400 — all routes
+@ApiUnauthorized() //                               401 — all routes
+@ApiForbidden() //                                  403 — all routes
 @Controller('auth/mfa')
 export class MfaController {
     constructor(

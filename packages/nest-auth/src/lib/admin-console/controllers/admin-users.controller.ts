@@ -16,6 +16,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
 import { AuthExceptionFilter } from '../../auth/filters/auth-exception.filter';
+import { ApiTags, ApiCookieAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiUnauthorized, ApiForbidden, ApiValidationError, ApiNotFoundError } from '../../core';
 import { AdminCreateUserDto, AdminUpdateUserDto } from '../dto/admin-user.dto';
 import { UserService } from '../../user/services/user.service';
 import { AdminUserManagementService } from '../services/admin-user-management.service';
@@ -36,6 +38,12 @@ import { NestAuthTrustedDevice } from '../../auth/entities/trusted-device.entity
 @Controller('auth/admin/api/users')
 @UseFilters(AuthExceptionFilter)
 @UseGuards(AdminSessionGuard)
+@ApiTags('Admin · Users')
+@ApiCookieAuth('admin-session')
+@ApiUnauthorized('Admin session missing or invalid.')
+@ApiForbidden()
+@ApiValidationError()
+@ApiNotFoundError('User not found.')
 export class AdminUsersController {
   constructor(
     private readonly users: UserService,
@@ -111,6 +119,7 @@ export class AdminUsersController {
     return resolvedSet;
   }
 
+  @ApiOperation({ summary: 'List users (paginated, cross-tenant; filter by status/tenant/role/search)' })
   @Get()
   async listUsers(
     @Query('page') page?: string,
@@ -199,6 +208,7 @@ export class AdminUsersController {
     };
   }
 
+  @ApiOperation({ summary: 'Create a user' })
   @Post()
   async createUser(@Body() dto: AdminCreateUserDto) {
     const config = this.authConfigService.getConfig();
@@ -234,6 +244,7 @@ export class AdminUsersController {
     return { user: safeUser };
   }
 
+  @ApiOperation({ summary: 'Get a user (with roles, sessions, identities)' })
   @Get(':id')
   async getUser(@Param('id') id: string) {
     const user = await this.users.getUserById(id, {
@@ -351,6 +362,7 @@ export class AdminUsersController {
     };
   }
 
+  @ApiOperation({ summary: 'Update a user' })
   @Patch(':id')
   async updateUser(@Param('id') id: string, @Body() dto: AdminUpdateUserDto) {
     let user = await this.users.getUserById(id, {
@@ -505,6 +517,7 @@ export class AdminUsersController {
     return { user: safeUser };
   }
 
+  @ApiOperation({ summary: "Remove a user's TOTP device" })
   @Delete(':id/totp-devices/:deviceId')
   async deleteTotpDevice(@Param('id') id: string, @Param('deviceId') deviceId: string) {
     const user = await this.users.getUserById(id);
@@ -524,6 +537,7 @@ export class AdminUsersController {
     return { message: 'TOTP device deleted successfully' };
   }
 
+  @ApiOperation({ summary: "List a user's active sessions" })
   @Get(':id/sessions')
   async listSessions(@Param('id') id: string) {
     const user = await this.ensureUserExists(id);
@@ -539,6 +553,7 @@ export class AdminUsersController {
     };
   }
 
+  @ApiOperation({ summary: 'Revoke a single user session' })
   @Delete(':id/sessions/:sessionId')
   async revokeSession(@Param('id') id: string, @Param('sessionId') sessionId: string) {
     const user = await this.ensureUserExists(id);
@@ -556,6 +571,7 @@ export class AdminUsersController {
     }
   }
   
+  @ApiOperation({ summary: "Revoke all of a user's sessions" })
   @Delete(':id/sessions')
   async revokeAllSessions(@Param('id') id: string) {
     const user = await this.ensureUserExists(id);
@@ -563,6 +579,7 @@ export class AdminUsersController {
     return { message: 'All sessions revoked successfully' };
   }
 
+  @ApiOperation({ summary: 'Delete a user' })
   @Delete(':id')
   async deleteUser(@Param('id') id: string) {
     await this.users.deleteUser(id);

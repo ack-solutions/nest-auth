@@ -12,6 +12,7 @@
     "production",
     "recipes",
     "api-reference",
+    "migration",
     "changelog",
     "faq"
   ]

@@ -29,6 +29,7 @@ if (!distEntry) {
 const distRoot = dirname(distEntry);
 const { NestAuthModule } = require(distEntry);
 const { AuthModule } = require(join(distRoot, 'lib', 'auth', 'auth.module.js'));
+const { AdminConsoleModule } = require(join(distRoot, 'lib', 'admin-console', 'admin-console.module.js'));
 
 class NestAuthSwaggerModule { }
 Module({
@@ -48,7 +49,8 @@ Module({
         secret: 'swagger-secret',
       },
       adminConsole: {
-        enabled: false, // Disable admin console for doc generation
+        enabled: true, // Enable so the admin controllers are documented
+        secretKey: 'swagger-doc-secret',
       },
     }),
   ],
@@ -63,13 +65,38 @@ async function generateSwaggerSpec() {
 
   const documentConfig = new DocumentBuilder()
     .setTitle('@ackplus/nest-auth API')
-    .setDescription('OpenAPI specification generated from the Nest Auth module')
+    .setDescription(
+      [
+        'Authentication & authorization API for **@ackplus/nest-auth**.',
+        '',
+        '### Conventions',
+        '- **Base URL** — routes are shown relative to your app’s global prefix. The reference example app uses `/api`, so a route like `POST /auth/login` is called at `POST /api/auth/login`.',
+        '- **Auth** — most endpoints require a Bearer access token: `Authorization: Bearer <accessToken>`. The **Admin** endpoints use an httpOnly session cookie set by `POST /auth/admin/login`.',
+        '- **Token modes** — in *header* mode (default) tokens are returned in the response body; in *cookie* mode they are set as httpOnly cookies. Controlled by `accessTokenType`.',
+        '- **Errors** — failures return `{ statusCode, error, message, code }`; the machine-readable `code` is the value to branch on.',
+        '',
+        'Browse by section in the sidebar: **Authentication**, **Password**, **Verification**, **Passwordless**, **MFA**, and the **Admin** groups.',
+      ].join('\n'),
+    )
     .setVersion(nestAuthPackage.version ?? '0.0.0')
-    .addBearerAuth()
+    .addServer('/api', 'Default — your app’s global prefix (the example app uses `api`)')
+    .addServer('/', 'No global prefix')
+    .addBearerAuth(
+      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'Paste an access token from /auth/login' },
+      'access-token',
+    )
+    .addCookieAuth('nest_auth_admin', { type: 'apiKey', in: 'cookie', name: 'nest_auth_admin' }, 'admin-session')
+    .addTag('Authentication', 'Sign up, log in/out, refresh, sessions, password, verification, passwordless, account introspection, tenant switching.')
+    .addTag('MFA', 'Multi-factor: TOTP, email/SMS OTP, recovery codes, trusted devices.')
+    .addTag('Admin · Console', 'Admin sign-in (cookie session), profile, dashboard stats, and managing admins.')
+    .addTag('Admin · Users', 'Cross-tenant user management: list, create, update, delete, sessions, MFA reset.')
+    .addTag('Admin · Roles', 'Create and manage roles + their permissions.')
+    .addTag('Admin · Permissions', 'Create and manage permissions.')
+    .addTag('Admin · Tenants', 'Create and manage tenants.')
     .build();
 
   const document = SwaggerModule.createDocument(app, documentConfig, {
-    include: [AuthModule],
+    include: [AuthModule, AdminConsoleModule],
   });
 
   const destinations = [

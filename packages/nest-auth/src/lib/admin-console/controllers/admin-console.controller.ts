@@ -1,4 +1,5 @@
 import { Controller, Get, Logger, OnModuleInit, Param, Res } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import { Response } from 'express';
 import { join } from 'path';
 import { existsSync, readFileSync } from 'fs';
@@ -26,6 +27,7 @@ function resolveStaticRoot(): string | null {
   return null;
 }
 
+@ApiExcludeController() // serves the admin SPA HTML, not an API endpoint
 @Controller('auth/admin')
 export class AdminConsoleController implements OnModuleInit {
   private readonly logger = new Logger(AdminConsoleController.name);

@@ -13,6 +13,8 @@ import {
 import { NotFoundException } from '@nestjs/common';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
 import { AuthExceptionFilter } from '../../auth/filters/auth-exception.filter';
+import { ApiTags, ApiCookieAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiUnauthorized, ApiForbidden, ApiValidationError, ApiNotFoundError } from '../../core';
 import { AdminCreatePermissionDto, AdminUpdatePermissionDto } from '../dto/admin-permission.dto';
 import { PermissionService } from '../../permission/services/permission.service';
 import { NestAuthPermission } from '../../permission/entities/permission.entity';
@@ -20,11 +22,18 @@ import { NestAuthPermission } from '../../permission/entities/permission.entity'
 @Controller('auth/admin/api/permissions')
 @UseFilters(AuthExceptionFilter)
 @UseGuards(AdminSessionGuard)
+@ApiTags('Admin · Permissions')
+@ApiCookieAuth('admin-session')
+@ApiUnauthorized('Admin session missing or invalid.')
+@ApiForbidden()
+@ApiValidationError()
+@ApiNotFoundError('Permission not found.')
 export class AdminPermissionsController {
     constructor(
         private readonly permissionService: PermissionService,
     ) { }
 
+    @ApiOperation({ summary: 'List permissions' })
     @Get()
     async listPermissions(
         @Query('search') search?: string,
@@ -45,12 +54,14 @@ export class AdminPermissionsController {
         };
     }
 
+    @ApiOperation({ summary: 'List guard namespaces' })
     @Get('guards')
     async getGuards() {
         const guards = await this.permissionService.getGuards();
         return { data: guards };
     }
 
+    @ApiOperation({ summary: 'Search permissions' })
     @Get('search')
     async searchPermissions(
         @Query('q') query: string,
@@ -69,12 +80,14 @@ export class AdminPermissionsController {
         };
     }
 
+    @ApiOperation({ summary: 'List permission categories' })
     @Get('categories')
     async getCategories() {
         const categories = await this.permissionService.getCategories();
         return { data: categories };
     }
 
+    @ApiOperation({ summary: 'Create a permission' })
     @Post()
     async createPermission(@Body() dto: AdminCreatePermissionDto) {
         const permission = await this.permissionService.createPermission({
@@ -89,6 +102,7 @@ export class AdminPermissionsController {
         };
     }
 
+    @ApiOperation({ summary: 'Get a permission' })
     @Get(':id')
     async getPermission(@Param('id') id: string) {
         try {
@@ -104,6 +118,7 @@ export class AdminPermissionsController {
         }
     }
 
+    @ApiOperation({ summary: 'Update a permission' })
     @Patch(':id')
     async updatePermission(
         @Param('id') id: string,
@@ -120,6 +135,7 @@ export class AdminPermissionsController {
         };
     }
 
+    @ApiOperation({ summary: 'Delete a permission' })
     @Delete(':id')
     async deletePermission(@Param('id') id: string) {
         await this.permissionService.deletePermission(id);

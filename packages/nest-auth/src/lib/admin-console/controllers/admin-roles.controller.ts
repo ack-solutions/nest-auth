@@ -13,6 +13,8 @@ import {
 } from '@nestjs/common';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
 import { AuthExceptionFilter } from '../../auth/filters/auth-exception.filter';
+import { ApiTags, ApiCookieAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiUnauthorized, ApiForbidden, ApiValidationError, ApiNotFoundError } from '../../core';
 import { RoleService } from '../../role/services/role.service';
 import { AdminCreateRoleDto, AdminUpdateRoleDto } from '../dto/admin-role.dto';
 import { DEFAULT_GUARD_NAME } from '../../auth.constants';
@@ -21,9 +23,16 @@ import { mapRoleToResponse } from '../../role/utils/role-mapper.util';
 @Controller('auth/admin/api/roles')
 @UseFilters(AuthExceptionFilter)
 @UseGuards(AdminSessionGuard)
+@ApiTags('Admin · Roles')
+@ApiCookieAuth('admin-session')
+@ApiUnauthorized('Admin session missing or invalid.')
+@ApiForbidden()
+@ApiValidationError()
+@ApiNotFoundError('Role not found.')
 export class AdminRolesController {
   constructor(private readonly roles: RoleService) { }
 
+  @ApiOperation({ summary: 'List roles' })
   @Get()
   async listRoles(
     @Query('tenantId') tenantId?: string,
@@ -39,6 +48,7 @@ export class AdminRolesController {
     };
   }
 
+  @ApiOperation({ summary: 'Create a role' })
   @Post()
   async createRole(@Body() dto: AdminCreateRoleDto) {
     const role = await this.roles.createRole(
@@ -52,6 +62,7 @@ export class AdminRolesController {
     return { role: this.toSafeRole(role) };
   }
 
+  @ApiOperation({ summary: 'Update a role' })
   @Patch(':id')
   async updateRole(@Param('id') id: string, @Body() dto: AdminUpdateRoleDto) {
     if (
@@ -73,6 +84,7 @@ export class AdminRolesController {
     return { role: this.toSafeRole(role) };
   }
 
+  @ApiOperation({ summary: 'Delete a role' })
   @Delete(':id')
   async deleteRole(@Param('id') id: string) {
     await this.roles.deleteRole(id);

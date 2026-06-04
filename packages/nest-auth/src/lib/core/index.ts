@@ -5,6 +5,9 @@ export * from './decorators/permissions.decorator';
 export * from './decorators/skip-mfa.decorator';
 export * from './decorators/auth.decorator';
 
+// Swagger / OpenAPI helpers
+export * from './swagger/api-responses.decorator';
+
 // Interfaces
 export * from './interfaces/auth-module-options.interface';
 export * from './interfaces/mfa-options.interface';

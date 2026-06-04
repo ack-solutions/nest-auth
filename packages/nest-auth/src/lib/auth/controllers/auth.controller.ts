@@ -3,8 +3,7 @@ import { AuthService } from '../services/auth.service';
 import { NestAuthVerify2faRequestDto } from '../dto/requests/verify-2fa.request.dto';
 import { NestAuthRefreshTokenRequestDto } from '../dto/requests/refresh-token.request.dto';
 import { Request, Response } from 'express';
-import { ApiResponse } from '@nestjs/swagger';
-import { ApiOperation } from '@nestjs/swagger';
+import { ApiResponse, ApiOperation, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthWithTokensResponseDto, UserResponseDto, Verify2faWithTokensResponseDto } from '../dto/responses/auth.response.dto';
 import { AuthCookieResponseDto } from '../dto/responses/auth-cookie.response.dto';
 import { NestAuthSignupRequestDto } from '../dto/requests/signup.request.dto';
@@ -21,7 +20,7 @@ import {
 } from '../dto/responses/auth-messages.response.dto';
 import { NestAuthLoginRequestDto } from '../dto/requests/login.request.dto';
 import { RequestContext } from '../../request-context/request-context';
-import { MessageResponseDto, SkipMfa } from '../../core';
+import { MessageResponseDto, SkipMfa, ApiValidationError, ApiUnauthorized, ApiConflictError } from '../../core';
 import { ISessionUserData, NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
 import { NestAuthForgotPasswordRequestDto } from '../dto/requests/forgot-password.request.dto';
 import { NestAuthAuthGuard } from '../guards/auth.guard';
@@ -49,6 +48,10 @@ import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { NestAuthPasswordlessSendRequestDto } from '../dto/requests/passwordless-send.request.dto';
 import { CookieHelper } from '../../utils/cookie.helper';
 
+@ApiTags('Authentication')
+@ApiBearerAuth('access-token')
+@ApiValidationError() // 400 — applies to every route in this controller
+@ApiUnauthorized() //   401 — applies to every route in this controller
 @Controller('auth')
 @UseFilters(AuthExceptionFilter)
 export class AuthController {
@@ -70,6 +73,7 @@ export class AuthController {
     })
     @ApiResponse({ status: 200, type: AuthWithTokensResponseDto, description: 'Header mode: Returns message + tokens in body' })
     @ApiResponse({ status: 200, type: AuthCookieResponseDto, description: 'Cookie mode: Returns message only, tokens in cookies' })
+    @ApiConflictError('A user with this email or phone already exists.')
     @HttpCode(200)
     @Post('signup')
     @UseInterceptors(TokenResponseInterceptor)

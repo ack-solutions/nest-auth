@@ -11,6 +11,8 @@ import {
 } from '@nestjs/common';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
 import { AuthExceptionFilter } from '../../auth/filters/auth-exception.filter';
+import { ApiTags, ApiCookieAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiUnauthorized, ApiForbidden, ApiValidationError, ApiNotFoundError } from '../../core';
 import { TenantService } from '../../tenant/services/tenant.service';
 import { AdminCreateTenantDto, AdminUpdateTenantDto } from '../dto/admin-tenant.dto';
 import { NestAuthTenant } from '../../tenant/entities/tenant.entity';
@@ -18,9 +20,16 @@ import { NestAuthTenant } from '../../tenant/entities/tenant.entity';
 @Controller('auth/admin/api/tenants')
 @UseFilters(AuthExceptionFilter)
 @UseGuards(AdminSessionGuard)
+@ApiTags('Admin · Tenants')
+@ApiCookieAuth('admin-session')
+@ApiUnauthorized('Admin session missing or invalid.')
+@ApiForbidden()
+@ApiValidationError()
+@ApiNotFoundError('Tenant not found.')
 export class AdminTenantsController {
   constructor(private readonly tenants: TenantService) { }
 
+  @ApiOperation({ summary: 'List tenants' })
   @Get()
   async listTenants() {
     const tenants = await this.tenants.getTenants({ order: { createdAt: 'DESC' } });
@@ -29,6 +38,7 @@ export class AdminTenantsController {
     };
   }
 
+  @ApiOperation({ summary: 'Create a tenant' })
   @Post()
   async createTenant(@Body() dto: AdminCreateTenantDto) {
     const tenant = await this.tenants.createTenant({
@@ -40,6 +50,7 @@ export class AdminTenantsController {
     return { tenant: this.toSafeTenant(tenant) };
   }
 
+  @ApiOperation({ summary: 'Update a tenant' })
   @Patch(':id')
   async updateTenant(@Param('id') id: string, @Body() dto: AdminUpdateTenantDto) {
     const tenant = await this.tenants.updateTenant(id, {
@@ -51,6 +62,7 @@ export class AdminTenantsController {
     return { tenant: this.toSafeTenant(tenant) };
   }
 
+  @ApiOperation({ summary: 'Delete a tenant' })
   @Delete(':id')
   async deleteTenant(@Param('id') id: string) {
     await this.tenants.deleteTenant(id);
