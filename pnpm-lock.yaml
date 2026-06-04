@@ -608,6 +608,31 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
+  packages/nest-auth-react-native:
+    dependencies:
+      '@ackplus/nest-auth-client':
+        specifier: workspace:*
+        version: link:../nest-auth-client
+      '@ackplus/nest-auth-contracts':
+        specifier: workspace:*
+        version: link:../nest-auth-contracts
+      '@ackplus/nest-auth-react':
+        specifier: workspace:*
+        version: link:../nest-auth-react
+      react:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.2.3
+    devDependencies:
+      '@types/react':
+        specifier: ^18.0.0
+        version: 18.3.27
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/debug@4.1.13)(@types/node@24.10.4)(lightningcss@1.30.2)(terser@5.44.1)
+
   tools/eslint-config:
     dependencies:
       eslint:

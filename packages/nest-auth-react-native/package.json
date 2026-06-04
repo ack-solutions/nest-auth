@@ -1,0 +1,57 @@
+{
+  "name": "@ackplus/nest-auth-react-native",
+  "version": "2.0.0-beta.26",
+  "description": "React Native / Expo SDK for NestJS authentication - hooks, guards, and secure token storage",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "clean": "rm -rf dist tsconfig.build.tsbuildinfo",
+    "build": "pnpm clean && tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "auth",
+    "authentication",
+    "react-native",
+    "expo",
+    "hooks",
+    "nestjs",
+    "jwt",
+    "oauth",
+    "asyncstorage"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ack-solutions/nest-auth"
+  },
+  "license": "MIT",
+  "author": "Ackplus",
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "dependencies": {
+    "@ackplus/nest-auth-client": "workspace:*",
+    "@ackplus/nest-auth-contracts": "workspace:*",
+    "@ackplus/nest-auth-react": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "@types/react": "^18.0.0",
+    "vitest": "^3.0.0"
+  }
+}
