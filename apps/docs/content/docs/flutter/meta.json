@@ -1,6 +1,10 @@
 {
   "title": "Flutter / Dart",
   "pages": [
-    "index"
+    "index",
+    "getting-started",
+    "auth",
+    "mfa-and-tenancy",
+    "app"
   ]
 }

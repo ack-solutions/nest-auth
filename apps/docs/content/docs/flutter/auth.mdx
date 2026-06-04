@@ -1,0 +1,262 @@
+---
+title: Authentication
+description: 'Signup, login (password / passwordless / social), logout, password reset, verification, and change password.'
+---
+
+Every call below is a method on `NestAuthClient`. Login and signup persist the returned tokens automatically, so a subsequent `getSessionUserData()` is authenticated without any extra wiring. Non-2xx responses throw [`NestAuthException`](/docs/flutter/app#error-handling).
+
+## Sign up
+
+Register a new account with an email or phone plus a password. The returned `AuthResponse` carries the token pair, which is persisted for you:
+
+```dart
+final res = await auth.signup(
+  email: 'a@b.com',
+  password: 'super-secret',
+);
+print(res.accessToken);
+```
+
+The full signature accepts an optional `tenantId` and an `extra` map merged into the request body for app-specific signup fields:
+
+```dart
+Future<AuthResponse> signup({
+  String? email,
+  String? phone,
+  required String password,
+  String? tenantId,
+  Map<String, dynamic>? extra,
+})
+```
+
+```dart
+await auth.signup(
+  email: 'a@b.com',
+  password: 'super-secret',
+  tenantId: 'acme',
+  extra: {'firstName': 'Ada', 'lastName': 'Lovelace'},
+);
+```
+
+## Log in with email & password
+
+The simplest path is `loginWithEmail`:
+
+```dart
+final res = await auth.loginWithEmail('a@b.com', 'super-secret');
+```
+
+> If the account has MFA enabled, `res.isRequiresMfa` is `true` and **no tokens are stored yet** — you must complete the challenge. See [MFA & Tenancy](/docs/flutter/mfa-and-tenancy).
+
+For full control use `login`, which targets a named provider and takes a free-form `credentials` map:
+
+```dart
+Future<AuthResponse> login({
+  String providerName = 'email',
+  required Map<String, dynamic> credentials,
+  bool createUserIfNotExists = false,
+  String? tenantId,
+})
+```
+
+```dart
+// Equivalent to loginWithEmail:
+await auth.login(credentials: {'email': 'a@b.com', 'password': 'super-secret'});
+
+// Scope the login to a tenant, creating the user on first sign-in:
+await auth.login(
+  credentials: {'email': 'a@b.com', 'password': 'super-secret'},
+  tenantId: 'acme',
+  createUserIfNotExists: true,
+);
+```
+
+## Passwordless login
+
+A two-step flow: send a one-time code to an email or phone, then exchange the code for a session.
+
+**Step 1 — send the code.** `channel` is `'email'` or `'sms'`, and `identifier` is the matching address:
+
+```dart
+await auth.passwordlessSend(
+  identifier: 'a@b.com',
+  channel: 'email',
+);
+```
+
+```dart
+Future<Map<String, dynamic>> passwordlessSend({
+  required String identifier,
+  required String channel, // 'email' or 'sms'
+  String? tenantId,
+})
+```
+
+**Step 2 — verify the code.** The user reads the code from their inbox / SMS and enters it; this persists tokens on success:
+
+```dart
+final res = await auth.passwordlessLogin(
+  identifier: 'a@b.com',
+  code: enteredCode,
+  channel: 'email',
+);
+```
+
+```dart
+Future<AuthResponse> passwordlessLogin({
+  required String identifier,
+  required String code,
+  String channel = 'email',
+  String? tenantId,
+})
+```
+
+## Social login
+
+Acquire the provider token natively first (e.g. with `google_sign_in` or `sign_in_with_apple`), then hand it to `socialLogin`. For Google, `type` is `'idToken'` or `'accessToken'`:
+
+```dart
+Future<AuthResponse> socialLogin(
+  String providerName,
+  String token, {
+  String? type,
+})
+```
+
+```dart
+import 'package:google_sign_in/google_sign_in.dart';
+
+final account = await GoogleSignIn().signIn();
+final googleAuth = await account?.authentication;
+final idToken = googleAuth?.idToken;
+
+if (idToken != null) {
+  await auth.socialLogin('google', idToken, type: 'idToken');
+}
+```
+
+```dart
+// Apple, via sign_in_with_apple:
+final credential = await SignInWithApple.getAppleIDCredential(
+  scopes: [AppleIDAuthorizationScopes.email],
+);
+await auth.socialLogin('apple', credential.identityToken!);
+```
+
+## The current session
+
+After a successful login, fetch the signed-in user with `getSessionUserData` (`GET /auth/me`). The typed `SessionUser` exposes `id`, `email`, and `phone`; the full payload is on `raw` for any app-specific fields:
+
+```dart
+final user = await auth.getSessionUserData();
+print('${user.id} / ${user.email}');
+final plan = user.raw['plan']; // any extra field returned by your backend
+```
+
+## Log out
+
+`logout` revokes the session server-side (best effort) and clears the local tokens regardless of the server response:
+
+```dart
+await auth.logout();
+```
+
+## Password reset
+
+A three-step flow for users who have forgotten their password.
+
+**Step 1 — request a code.** Pass the account's `email` or `phone`:
+
+```dart
+await auth.forgotPassword(email: 'a@b.com');
+```
+
+**Step 2 — verify the code.** The response contains a `token` (also exposed as `resetToken`) to use in the final step:
+
+```dart
+final res = await auth.verifyForgotPasswordOtp(
+  email: 'a@b.com',
+  code: enteredCode,
+);
+final resetToken = (res['token'] ?? res['resetToken']) as String;
+```
+
+**Step 3 — set the new password** using that token:
+
+```dart
+await auth.resetPassword(
+  token: resetToken,
+  newPassword: 'a-brand-new-secret',
+);
+```
+
+The signatures:
+
+```dart
+Future<Map<String, dynamic>> forgotPassword({String? email, String? phone});
+
+Future<Map<String, dynamic>> verifyForgotPasswordOtp({
+  String? email,
+  String? phone,
+  required String code,
+  String? tenantId,
+});
+
+Future<Map<String, dynamic>> resetPassword({
+  required String token,
+  required String newPassword,
+});
+```
+
+## Change password
+
+For a signed-in user who knows their current password:
+
+```dart
+await auth.changePassword(
+  currentPassword: 'super-secret',
+  newPassword: 'an-even-better-secret',
+);
+```
+
+```dart
+Future<Map<String, dynamic>> changePassword({
+  required String currentPassword,
+  required String newPassword,
+})
+```
+
+## Email verification
+
+Two steps: send a verification code to the signed-in user's email, then verify the code they enter.
+
+```dart
+await auth.sendEmailVerification();
+// ...user reads the code from their inbox...
+await auth.verifyEmail(code: enteredCode);
+```
+
+```dart
+Future<Map<String, dynamic>> sendEmailVerification({String? tenantId});
+Future<Map<String, dynamic>> verifyEmail({required String code, String? tenantId});
+```
+
+## Phone verification
+
+The same two-step pattern over SMS:
+
+```dart
+await auth.sendPhoneVerification();
+// ...user reads the code from the SMS...
+await auth.verifyPhone(code: enteredCode);
+```
+
+```dart
+Future<Map<String, dynamic>> sendPhoneVerification({String? tenantId});
+Future<Map<String, dynamic>> verifyPhone({required String code, String? tenantId});
+```
+
+## Next steps
+
+- [MFA & Tenancy](/docs/flutter/mfa-and-tenancy) — complete an MFA-gated login and switch tenants.
+- [Using it in your app](/docs/flutter/app) — drive a reactive UI and handle errors.

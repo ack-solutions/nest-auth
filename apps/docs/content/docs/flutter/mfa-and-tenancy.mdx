@@ -1,0 +1,82 @@
+---
+title: MFA & Tenancy
+description: 'Complete an MFA-gated login, read MFA status, and switch the active tenant.'
+---
+
+## Multi-factor authentication
+
+When an account has MFA enabled, a normal login does **not** sign the user in. Instead, [`login`](/docs/flutter/auth#log-in-with-email--password) returns an `AuthResponse` with `isRequiresMfa == true` and stores no tokens. You then send a one-time code and verify it to complete the login.
+
+The flow is three calls:
+
+1. `login(...)` → returns `AuthResponse` with `isRequiresMfa == true`.
+2. `sendMfaChallenge(method: 'email')` → delivers a one-time code.
+3. `verifyMfa(otp: enteredCode)` → completes the login and persists tokens.
+
+```dart
+final res = await auth.loginWithEmail('a@b.com', 'super-secret');
+
+if (res.isRequiresMfa) {
+  // Step 2: deliver a code over the chosen channel.
+  await auth.sendMfaChallenge(method: 'email'); // 'email' or 'phone'
+
+  // ...collect the code the user enters...
+
+  // Step 3: verify it — this stores the tokens and finishes the login.
+  await auth.verifyMfa(otp: enteredCode);
+}
+
+// Now authenticated:
+final user = await auth.getSessionUserData();
+```
+
+### `sendMfaChallenge`
+
+Requests a one-time code during an MFA-gated login. `method` is `'email'` or `'phone'`:
+
+```dart
+Future<Map<String, dynamic>> sendMfaChallenge({String method = 'email'})
+```
+
+### `verifyMfa`
+
+Completes the login with the one-time `otp`. Pass `trustDevice: true` to remember this device and skip MFA on future logins (subject to backend policy):
+
+```dart
+Future<AuthResponse> verifyMfa({
+  required String otp,
+  String? method,
+  bool trustDevice = false,
+})
+```
+
+```dart
+await auth.verifyMfa(otp: enteredCode, method: 'email', trustDevice: true);
+```
+
+### `getMfaStatus`
+
+Read the current user's MFA configuration — for example to drive a security-settings screen:
+
+```dart
+final status = await auth.getMfaStatus();
+```
+
+```dart
+Future<Map<String, dynamic>> getMfaStatus()
+```
+
+## Multi-tenancy
+
+If a user belongs to several tenants, `switchTenant` re-issues tokens scoped to the target tenant and persists them, so subsequent requests run in that tenant's context:
+
+```dart
+final res = await auth.switchTenant('acme');
+print(res.accessToken); // a fresh token for the 'acme' tenant
+```
+
+```dart
+Future<AuthResponse> switchTenant(String tenantId)
+```
+
+> Several other methods also accept a `tenantId` to scope a single call — including [`login`](/docs/flutter/auth#log-in-with-email--password), [`signup`](/docs/flutter/auth#sign-up), `passwordlessSend`, `passwordlessLogin`, `verifyForgotPasswordOtp`, `verifyEmail`, and `verifyPhone`. Use `switchTenant` when you want to change the tenant for the whole session.

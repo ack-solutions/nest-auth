@@ -1,0 +1,149 @@
+---
+title: Getting Started
+description: 'Install the SDK, configure the backend, create a client, and pick a token store.'
+---
+
+## Install
+
+Add the package to your `pubspec.yaml`:
+
+```yaml
+# pubspec.yaml
+dependencies:
+  nest_auth_flutter: ^2.0.0
+```
+
+Then fetch it:
+
+```bash
+flutter pub get
+```
+
+`SecureTokenStorage` depends on `flutter_secure_storage`, which is pulled in transitively. On iOS no extra setup is needed; on Android make sure your `minSdkVersion` is at least 18.
+
+## Backend setup
+
+Mobile clients don't use cookies, so the backend must return tokens in the response body. Run your nest-auth backend in **header token mode**:
+
+```ts
+NestAuthModule.forRoot({
+  session: { jwt: { secret: env.JWT_SECRET }, accessTokenType: 'header' },
+});
+```
+
+> Without `accessTokenType: 'header'` the server sets a session cookie instead of returning `accessToken` / `refreshToken` in the body, and the SDK has nothing to persist.
+
+## Create a client
+
+`NestAuthClient` is the entry point. Only `baseUrl` is required:
+
+```dart
+import 'package:nest_auth_flutter/nest_auth_flutter.dart';
+
+final auth = NestAuthClient(
+  baseUrl: 'https://api.example.com',
+  storage: SecureTokenStorage(), // optional; defaults to InMemoryTokenStorage
+);
+```
+
+The constructor signature is:
+
+```dart
+NestAuthClient({
+  required String baseUrl,
+  TokenStorage? storage,      // defaults to InMemoryTokenStorage()
+  http.Client? httpClient,    // bring your own (e.g. for interceptors / mocks)
+})
+```
+
+A trailing slash on `baseUrl` is trimmed for you, so `https://api.example.com` and `https://api.example.com/` behave identically.
+
+Two top-level getters report the current auth state, and `close()` releases the underlying HTTP client when you're done with it:
+
+```dart
+final bool signedIn = await auth.isAuthenticated;
+final String? token = await auth.accessToken; // null when signed out
+
+auth.close(); // call on shutdown if you own the client's lifecycle
+```
+
+> If you pass your own `http.Client`, you are responsible for closing it. `NestAuthClient.close()` closes whatever client it holds — the one you passed, or the one it created.
+
+## Token storage
+
+The client persists the access and refresh tokens through a `TokenStorage`. Pick the adapter that fits your environment:
+
+- **`SecureTokenStorage`** — backed by `flutter_secure_storage` (platform keychain / keystore). Recommended for production.
+- **`InMemoryTokenStorage`** — ephemeral; tokens live only for the lifetime of the process. The default, and handy for tests.
+
+```dart
+// Production: persist to the keychain / keystore.
+final secure = NestAuthClient(
+  baseUrl: 'https://api.example.com',
+  storage: SecureTokenStorage(),
+);
+
+// Tests / throwaway sessions: keep tokens in memory only.
+final ephemeral = NestAuthClient(
+  baseUrl: 'https://api.example.com',
+  storage: InMemoryTokenStorage(),
+);
+```
+
+`SecureTokenStorage` namespaces its keys with a prefix (default `nest_auth.`) and can wrap a pre-configured `FlutterSecureStorage` instance:
+
+```dart
+SecureTokenStorage({
+  FlutterSecureStorage? storage,  // supply your own to set platform options
+  String prefix = 'nest_auth.',   // key namespace
+})
+```
+
+```dart
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+final storage = SecureTokenStorage(
+  storage: const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  ),
+  prefix: 'myapp.auth.',
+);
+```
+
+### Custom storage
+
+Implement `TokenStorage` to back the client with anything else — an encrypted database, a platform channel, etc. It is a three-method `key` / `value` interface:
+
+```dart
+abstract class TokenStorage {
+  Future<String?> read(String key);
+  Future<void> write(String key, String value);
+  Future<void> delete(String key);
+}
+```
+
+```dart
+class MyStorage implements TokenStorage {
+  @override
+  Future<String?> read(String key) async {
+    // ... load and return the stored value, or null
+  }
+
+  @override
+  Future<void> write(String key, String value) async {
+    // ... persist value under key
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    // ... remove key
+  }
+}
+```
+
+The client reads and writes two keys — `accessToken` and `refreshToken`.
+
+## Next steps
+
+- [Authentication](/docs/flutter/auth) — sign users in and out, reset and change passwords, verify email & phone.
+- [Using it in your app](/docs/flutter/app) — wire the client into a reactive Flutter UI.

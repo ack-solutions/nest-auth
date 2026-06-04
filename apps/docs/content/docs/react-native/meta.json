@@ -1,6 +1,10 @@
 {
   "title": "React Native / Expo",
   "pages": [
-    "index"
+    "index",
+    "getting-started",
+    "auth",
+    "mfa-and-tenancy",
+    "hooks-and-guards"
   ]
 }

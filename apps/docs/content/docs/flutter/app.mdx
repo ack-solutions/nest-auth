@@ -1,0 +1,212 @@
+---
+title: Using it in your app
+description: 'The reactive NestAuthController, a login-to-home widget example, and error handling.'
+---
+
+`NestAuthClient` is enough on its own, but for a reactive UI wrap it in a **`NestAuthController`** — a `ChangeNotifier` that tracks auth state and notifies listeners on login and logout, so your widgets rebuild automatically.
+
+## The controller
+
+Construct it with a client, then call `restore()` once on app start to load any persisted session:
+
+```dart
+final auth = NestAuthController(
+  NestAuthClient(baseUrl: 'https://api.example.com', storage: SecureTokenStorage()),
+);
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await auth.restore(); // restore a persisted session on launch
+  runApp(MyApp(auth: auth));
+}
+```
+
+### State
+
+| Getter | Type | Description |
+| --- | --- | --- |
+| `status` | `AuthStatus` | `unknown`, `authenticated`, or `unauthenticated`. |
+| `user` | `SessionUser?` | The signed-in user, or `null`. |
+| `isAuthenticated` | `bool` | Convenience for `status == authenticated`. |
+| `isBusy` | `bool` | True while a sign-in / sign-up / sign-out call is in flight. |
+| `lastError` | `Object?` | The error thrown by the most recent action (cleared when a new one starts). |
+
+`status` starts as `AuthStatus.unknown`; after `restore()` it settles into `authenticated` or `unauthenticated`. Use the `unknown` state to show a splash / loading screen.
+
+### Methods
+
+| Method | Description |
+| --- | --- |
+| `restore()` | Load a persisted session on app start. |
+| `signup({email, phone, password})` | Register, then load the user. |
+| `login({providerName, credentials})` | Log in with a provider, then load the user. |
+| `loginWithEmail(email, password)` | Convenience email / password login. |
+| `logout()` | Clear the session and tokens. |
+| `refreshUser()` | Re-fetch the current user (e.g. after a profile update). |
+
+> The controller surfaces the common sign-in flows. For everything else — passwordless, social login, MFA, password reset, verification, `switchTenant` — call the methods on the underlying `client` (`auth.client.socialLogin(...)`), then `await auth.refreshUser()` to update the UI.
+
+## A login-to-home root
+
+Drive your whole tree off `status` with a `ListenableBuilder`:
+
+```dart
+class MyApp extends StatelessWidget {
+  const MyApp({super.key, required this.auth});
+  final NestAuthController auth;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: ListenableBuilder(
+        listenable: auth,
+        builder: (context, _) {
+          switch (auth.status) {
+            case AuthStatus.unknown:
+              return const Scaffold(body: Center(child: CircularProgressIndicator()));
+            case AuthStatus.authenticated:
+              return HomeScreen(auth: auth);
+            case AuthStatus.unauthenticated:
+              return LoginScreen(auth: auth);
+          }
+        },
+      ),
+    );
+  }
+}
+```
+
+A login screen just calls the controller — the tree updates itself when `status` flips to `authenticated`:
+
+```dart
+class LoginScreen extends StatelessWidget {
+  const LoginScreen({super.key, required this.auth});
+  final NestAuthController auth;
+
+  @override
+  Widget build(BuildContext context) {
+    final emailCtrl = TextEditingController();
+    final passwordCtrl = TextEditingController();
+
+    return Scaffold(
+      body: ListenableBuilder(
+        listenable: auth,
+        builder: (context, _) => Column(
+          children: [
+            TextField(controller: emailCtrl),
+            TextField(controller: passwordCtrl, obscureText: true),
+            if (auth.lastError != null)
+              Text(
+                (auth.lastError as NestAuthException).message,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ElevatedButton(
+              onPressed: auth.isBusy
+                  ? null
+                  : () async {
+                      try {
+                        await auth.loginWithEmail(emailCtrl.text, passwordCtrl.text);
+                      } on NestAuthException catch (_) {
+                        // lastError is set; the rebuild above shows it.
+                      }
+                    },
+              child: auth.isBusy
+                  ? const CircularProgressIndicator()
+                  : const Text('Sign in'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+```
+
+The home screen reads `auth.user` and signs out by calling `auth.logout()`:
+
+```dart
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key, required this.auth});
+  final NestAuthController auth;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Hello ${auth.user?.email ?? ''}'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => auth.logout(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+```
+
+`NestAuthController` works with any state solution — pass it to `provider`, Riverpod, or just `ListenableBuilder` as above.
+
+## Error handling
+
+Non-2xx responses throw `NestAuthException`, which mirrors the backend's error envelope:
+
+```dart
+class NestAuthException implements Exception {
+  final int statusCode;          // HTTP status
+  final String message;          // human-readable message
+  final String? code;            // machine code, e.g. 'INVALID_CREDENTIALS'
+  final Map<String, dynamic>? body; // raw error body
+}
+```
+
+Catch it to branch on `code` or `statusCode`:
+
+```dart
+try {
+  await auth.loginWithEmail(email, password);
+} on NestAuthException catch (e) {
+  if (e.code == 'INVALID_CREDENTIALS') {
+    // show "wrong email or password"
+  } else if (e.statusCode == 429) {
+    // show "too many attempts, try again later"
+  } else {
+    // show e.message
+  }
+}
+```
+
+When you use the controller, the same exception is stored on `lastError` (and still rethrown), so you can render it during a rebuild rather than catching it inline:
+
+```dart
+if (auth.lastError is NestAuthException) {
+  final e = auth.lastError as NestAuthException;
+  // show e.message
+}
+```
+
+## Models
+
+The data types returned across the SDK:
+
+```dart
+class AuthResponse {
+  final String accessToken;
+  final String refreshToken;
+  final bool isRequiresMfa;       // true → finish the MFA flow before tokens are stored
+  final Map<String, dynamic> raw;
+}
+
+class SessionUser {
+  final String id;
+  final String? email;
+  final String? phone;
+  final Map<String, dynamic> raw; // full /auth/me payload
+}
+
+class TokenPair {
+  final String accessToken;
+  final String refreshToken;
+}
+```

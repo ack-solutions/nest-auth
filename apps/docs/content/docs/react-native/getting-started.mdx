@@ -1,0 +1,144 @@
+---
+title: Getting started
+description: 'Install, configure storage, and wrap your app in `AuthProvider`.'
+---
+
+This page gets a React Native or Expo app talking to a nest-auth backend: install the packages, pick a storage backend, create the client, and mount the provider.
+
+## Install
+
+```bash
+npm install @ackplus/nest-auth-react-native @ackplus/nest-auth-react @ackplus/nest-auth-client react
+# choose a storage backend:
+npm install @react-native-async-storage/async-storage   # bare RN / Expo
+# or, keychain-backed:
+npx expo install expo-secure-store
+```
+
+The SDK never imports the native storage module directly — you pass it in — so it carries no native dependency of its own. That means you install whichever storage backend you want and hand the module to an adapter.
+
+## Backend setup
+
+React Native can't use http-only cookies, so the backend must return tokens in the response body. Run your nest-auth backend in **header token mode**:
+
+```ts
+NestAuthModule.forRoot({
+  session: { jwt: { secret: env.JWT_SECRET }, accessTokenType: 'header' },
+  // ...
+});
+```
+
+With `accessTokenType: 'header'` the access and refresh tokens come back in the login response, the client stores them through your adapter, and every subsequent request sends them in the `Authorization` header.
+
+## Storage adapters
+
+A storage adapter is where tokens live between app launches. Both adapters implement the core `StorageAdapter` interface (`get` / `set` / `remove` / optional `clear`), and both take a key `prefix` (default `"nest_auth."`) so the SDK never collides with the rest of your app's storage.
+
+> The native store is injected, not imported. You construct the adapter with the module — `AsyncStorage` or the `expo-secure-store` namespace — so the package stays free of native dependencies and testable in plain Node.
+
+### AsyncStorage
+
+Good for development and apps without strict secret-storage requirements.
+
+```ts
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AsyncStorageAdapter } from '@ackplus/nest-auth-react-native';
+
+new AsyncStorageAdapter(AsyncStorage);            // default prefix: "nest_auth."
+new AsyncStorageAdapter(AsyncStorage, 'myapp.');  // custom prefix
+```
+
+### Expo SecureStore (recommended for production)
+
+Stores tokens in the device keychain / keystore instead of plain AsyncStorage — the right choice when you hold long-lived refresh tokens.
+
+```ts
+import * as SecureStore from 'expo-secure-store';
+import { SecureStoreAdapter } from '@ackplus/nest-auth-react-native';
+
+new SecureStoreAdapter(SecureStore);             // default prefix: "nest_auth."
+new SecureStoreAdapter(SecureStore, 'myapp.');   // custom prefix
+```
+
+Because both adapters only implement the `StorageAdapter` interface, you can swap in any compatible store — an encrypted DB, MMKV, etc.
+
+## Create the client
+
+Create the client **once** and export it. `createNestAuthClient` takes `baseUrl`, the required `storage` adapter, and any other `AuthClientConfig` option:
+
+```ts
+// auth.ts
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createNestAuthClient, AsyncStorageAdapter } from '@ackplus/nest-auth-react-native';
+
+export const authClient = createNestAuthClient({
+  baseUrl: 'https://api.example.com',
+  storage: new AsyncStorageAdapter(AsyncStorage),
+});
+```
+
+`createNestAuthClient` defaults to `accessTokenType: 'header'` and enables auto-refresh — when the access token nears expiry the client refreshes it and writes the new tokens back through your storage adapter. `storage` is **required**; on React Native there is no implicit browser storage to fall back on.
+
+To use the keychain instead, swap the adapter:
+
+```ts
+import * as SecureStore from 'expo-secure-store';
+import { createNestAuthClient, SecureStoreAdapter } from '@ackplus/nest-auth-react-native';
+
+export const authClient = createNestAuthClient({
+  baseUrl: 'https://api.example.com',
+  storage: new SecureStoreAdapter(SecureStore),
+});
+```
+
+## Wrap your app
+
+Mount `AuthProvider` once near the root, passing the client you created. Everything below it can read auth state and call auth actions through the hooks.
+
+```tsx
+// App.tsx
+import { AuthProvider } from '@ackplus/nest-auth-react-native';
+import { authClient } from './auth';
+import { RootNavigator } from './RootNavigator';
+
+export default function App() {
+  return (
+    <AuthProvider client={authClient}>
+      <RootNavigator />
+    </AuthProvider>
+  );
+}
+```
+
+> Mount the provider exactly once. It holds singletons (token state, the refresh queue, event subscriptions); two providers give you two unsynchronized auth states and double the network traffic.
+
+On first mount the provider restores any persisted session from storage and resolves the current user, so a returning user lands authenticated without re-entering credentials.
+
+## Read auth state
+
+From any screen, call `useNestAuth()`:
+
+```tsx
+// HomeScreen.tsx
+import { View, Text, ActivityIndicator } from 'react-native';
+import { useNestAuth } from '@ackplus/nest-auth-react-native';
+
+export function HomeScreen() {
+  const { isLoading, isAuthenticated, sessionData } = useNestAuth();
+
+  if (isLoading) return <ActivityIndicator />;
+  if (!isAuthenticated) return <Text>Please sign in.</Text>;
+
+  return (
+    <View>
+      <Text>Hello {sessionData?.email}</Text>
+    </View>
+  );
+}
+```
+
+## Next steps
+
+- [Authentication](/docs/react-native/auth) — log users in and out.
+- [MFA & tenancy](/docs/react-native/mfa-and-tenancy) — two-factor and multi-tenant flows.
+- [Hooks & guards](/docs/react-native/hooks-and-guards) — focused hooks and route protection.

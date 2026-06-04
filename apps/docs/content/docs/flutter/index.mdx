@@ -5,25 +5,16 @@ description: 'Full reference for the `nest_auth_flutter` package.'
 
 `nest_auth_flutter` is a small, dependency-light Flutter / Dart SDK for `@ackplus/nest-auth`: HTTP auth flows, secure token storage, and transparent token refresh. The core `NestAuthClient` is pure Dart; `SecureTokenStorage` wraps `flutter_secure_storage` for production apps.
 
-## Install
+Tokens are returned in the response body and sent in the `Authorization` header — so the backend must run in **header token mode**. The client attaches the access token to authenticated requests and, on a `401`, transparently refreshes once and retries. For reactive UIs, the `NestAuthController` (`ChangeNotifier`) rebuilds your widgets on login and logout.
 
-```yaml
-# pubspec.yaml
-dependencies:
-  nest_auth_flutter: ^2.0.0
-```
+## Sections
 
-## Backend setup
+- [Getting Started](/docs/flutter/getting-started) — install, backend setup, creating a `NestAuthClient`, and token storage adapters.
+- [Authentication](/docs/flutter/auth) — signup, email / password, passwordless, and social login; logout; password reset; email & phone verification; change password.
+- [MFA & Tenancy](/docs/flutter/mfa-and-tenancy) — the MFA challenge / verify flow, reading MFA status, and `switchTenant`.
+- [Using it in your app](/docs/flutter/app) — the reactive `NestAuthController`, a `ListenableBuilder` login-to-home example, and error handling with `NestAuthException`.
 
-Run your nest-auth backend in **header token mode** so tokens are returned in the response body (mobile clients don't use cookies):
-
-```ts
-NestAuthModule.forRoot({
-  session: { jwt: { secret: env.JWT_SECRET }, accessTokenType: 'header' },
-});
-```
-
-## Quick start
+## At a glance
 
 ```dart
 import 'package:nest_auth_flutter/nest_auth_flutter.dart';
@@ -33,10 +24,7 @@ final auth = NestAuthClient(
   storage: SecureTokenStorage(), // keychain / keystore-backed
 );
 
-// Sign up or log in — tokens are persisted automatically.
-await auth.signup(email: 'a@b.com', password: 'secret');
-// or
-await auth.loginWithEmail('a@b.com', 'secret');
+await auth.loginWithEmail('a@b.com', 'secret'); // tokens persisted automatically
 
 if (await auth.isAuthenticated) {
   final user = await auth.getSessionUserData();
@@ -44,116 +32,4 @@ if (await auth.isAuthenticated) {
 }
 
 await auth.logout();
-```
-
-The client attaches the access token to authenticated requests and, on a `401`, transparently refreshes once and retries.
-
-## Use it in your app
-
-For a reactive UI, wrap the client in a **`NestAuthController`** (a `ChangeNotifier`) — your widgets rebuild automatically on login/logout.
-
-```dart
-final auth = NestAuthController(
-  NestAuthClient(baseUrl: 'https://api.example.com', storage: SecureTokenStorage()),
-);
-
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await auth.restore(); // restore a persisted session on launch
-  runApp(MyApp(auth: auth));
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key, required this.auth});
-  final NestAuthController auth;
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: ListenableBuilder(
-        listenable: auth,
-        builder: (context, _) {
-          switch (auth.status) {
-            case AuthStatus.unknown:
-              return const Scaffold(body: Center(child: CircularProgressIndicator()));
-            case AuthStatus.authenticated:
-              return HomeScreen(auth: auth);
-            case AuthStatus.unauthenticated:
-              return LoginScreen(auth: auth);
-          }
-        },
-      ),
-    );
-  }
-}
-```
-
-A login screen just calls the controller — the tree updates itself:
-
-```dart
-ElevatedButton(
-  onPressed: auth.isBusy
-      ? null
-      : () async {
-          try {
-            await auth.loginWithEmail(emailCtrl.text, passwordCtrl.text);
-          } on NestAuthException catch (e) {
-            // show e.message
-          }
-        },
-  child: auth.isBusy
-      ? const CircularProgressIndicator()
-      : const Text('Sign in'),
-);
-```
-
-`NestAuthController` exposes `status`, `user`, `isAuthenticated`, `isBusy`, and `lastError`, plus `signup`, `login`, `loginWithEmail`, `logout`, `restore`, and `refreshUser`. It works with any state solution — pass it to `provider`, Riverpod, or just `ListenableBuilder` as above.
-
-## API
-
-| Member | Description |
-| --- | --- |
-| `NestAuthClient(baseUrl:, storage:, httpClient:)` | Create a client. `storage` defaults to `InMemoryTokenStorage`. |
-| `signup({email, phone, password, tenantId, extra})` | Register; persists tokens. |
-| `login({providerName, credentials, ...})` / `loginWithEmail(email, password)` | Log in; persists tokens. |
-| `socialLogin(provider, token, {type})` | Social login with a provider token obtained natively. |
-| `getSessionUserData()` | `GET /auth/me` → `SessionUser`. |
-| `refresh()` | Exchange the refresh token → `TokenPair?`. |
-| `logout()` | Revoke server-side (best effort) + clear local tokens. |
-| `isAuthenticated` / `accessToken` | Current auth state. |
-
-## Token storage
-
-- **`SecureTokenStorage`** — `flutter_secure_storage` (keychain / keystore). Recommended for production.
-- **`InMemoryTokenStorage`** — ephemeral; good for tests.
-- Implement **`TokenStorage`** to back the client with anything else (e.g. an encrypted DB).
-
-```dart
-class MyStorage implements TokenStorage {
-  @override Future<String?> read(String key) async { /* ... */ }
-  @override Future<void> write(String key, String value) async { /* ... */ }
-  @override Future<void> delete(String key) async { /* ... */ }
-}
-```
-
-## Errors
-
-Non-2xx responses throw `NestAuthException` with `statusCode`, `message`, and `code` — matching the backend's error envelope:
-
-```dart
-try {
-  await auth.loginWithEmail(email, password);
-} on NestAuthException catch (e) {
-  if (e.code == 'INVALID_CREDENTIALS') {
-    // show "wrong email or password"
-  }
-}
-```
-
-## Social login
-
-Acquire the provider token natively (e.g. `google_sign_in`, `sign_in_with_apple`), then:
-
-```dart
-await auth.socialLogin('google', idToken, type: 'idToken');
 ```

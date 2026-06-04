@@ -1,0 +1,220 @@
+---
+title: Authentication
+description: 'Signup, login, passwordless, social, logout, password reset, and verification — all through `useNestAuth()`.'
+---
+
+Every action on this page comes from the `useNestAuth()` hook. Each method is async (returns a Promise) and updates the provider's state — `status`, `sessionData`, `isAuthenticated`, `error` — on success or failure, so your screens re-render automatically.
+
+```tsx
+import { useNestAuth } from '@ackplus/nest-auth-react-native';
+
+const {
+  login, signup, logout, logoutAll, refresh,
+  passwordlessSend,
+  forgotPassword, verifyForgotPasswordOtp, resetPassword, changePassword,
+  sendEmailVerification, verifyEmail,
+  sendPhoneVerification, verifyPhone,
+  verifySession, getSessionData,
+} = useNestAuth();
+```
+
+## Sign up
+
+`signup` takes an `email` or `phone` plus a `password`:
+
+```tsx
+import { useState } from 'react';
+import { View, TextInput, Button } from 'react-native';
+import { useNestAuth } from '@ackplus/nest-auth-react-native';
+
+export function SignupScreen() {
+  const { signup, isLoading } = useNestAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const onSubmit = async () => {
+    await signup({ email, password });
+  };
+
+  return (
+    <View>
+      <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" />
+      <TextInput value={password} onChangeText={setPassword} secureTextEntry />
+      <Button title="Create account" onPress={onSubmit} disabled={isLoading} />
+    </View>
+  );
+}
+```
+
+## Email & password login
+
+Pass `providerName: 'email'` with `credentials: { email, password }`:
+
+```tsx
+import { useState } from 'react';
+import { View, TextInput, Button, Text } from 'react-native';
+import { useNestAuth } from '@ackplus/nest-auth-react-native';
+
+export function LoginScreen() {
+  const { login, error, isLoading } = useNestAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const onSubmit = async () => {
+    await login({ providerName: 'email', credentials: { email, password } });
+    // on success `isAuthenticated` flips and `sessionData` populates
+  };
+
+  return (
+    <View>
+      <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" />
+      <TextInput value={password} onChangeText={setPassword} secureTextEntry />
+      {error ? <Text>{String(error)}</Text> : null}
+      <Button title="Sign in" onPress={onSubmit} disabled={isLoading} />
+    </View>
+  );
+}
+```
+
+`login` also accepts `createUserIfNotExists?` and `tenantId?`. The full shape is `login({ providerName?, credentials, createUserIfNotExists?, tenantId? })`.
+
+> If the response has `isRequiresMfa === true`, the account has two-factor enabled and login isn't finished yet — see [MFA & tenancy](/docs/react-native/mfa-and-tenancy).
+
+## Passwordless login
+
+A two-step flow. First send a one-time code over `email` or `sms`:
+
+```tsx
+const { passwordlessSend } = useNestAuth();
+
+await passwordlessSend({ identifier: 'user@example.com', channel: 'email' });
+```
+
+Then complete login with the code the user received, using the `passwordless` provider:
+
+```tsx
+const { login } = useNestAuth();
+
+await login({
+  providerName: 'passwordless',
+  credentials: {
+    identifier: 'user@example.com',
+    code: '123456',
+    channels: ['email'],
+  },
+});
+```
+
+Use `channel: 'sms'` (and `channels: ['sms']`) to deliver and verify the code by text instead.
+
+## Social login
+
+Acquire the provider token with a native SDK (for example `@react-native-google-signin/google-signin` or Apple Authentication), then hand it to the underlying client. Reach the client via `client` from `useNestAuth()`:
+
+```tsx
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { useNestAuth } from '@ackplus/nest-auth-react-native';
+
+export function GoogleButton() {
+  const { client } = useNestAuth();
+
+  const onPress = async () => {
+    await GoogleSignin.hasPlayServices();
+    const { idToken } = await GoogleSignin.signIn();
+    await client.socialLogin('google', idToken, { type: 'idToken' });
+  };
+
+  return <Button title="Continue with Google" onPress={onPress} />;
+}
+```
+
+The backend verifies the token, provisions the account on first sign-in, and links the provider identity — atomically.
+
+## Logout
+
+`logout` ends the current session; `logoutAll` revokes every session for the user (all devices):
+
+```tsx
+const { logout, logoutAll } = useNestAuth();
+
+await logout();      // this device
+await logoutAll();   // every device
+```
+
+Both clear the stored tokens through your storage adapter, so the next launch starts unauthenticated.
+
+## Refresh & session checks
+
+The client auto-refreshes near expiry, but you can also drive it manually:
+
+```tsx
+const { refresh, verifySession, getSessionData } = useNestAuth();
+
+await refresh();         // force a token refresh
+await verifySession();   // re-validate the session with the backend
+await getSessionData();  // re-fetch the current session user
+```
+
+`isLoadingSessionData` is true while `getSessionData` is in flight, if you want to show a spinner.
+
+## Password reset (forgot password)
+
+Three steps: request a code, verify it to get a reset token, then set the new password.
+
+```tsx
+const { forgotPassword, verifyForgotPasswordOtp, resetPassword } = useNestAuth();
+
+// 1. send the reset code (by email or phone)
+await forgotPassword({ email: 'user@example.com' });
+
+// 2. verify the code — returns a short-lived reset token
+const { token } = await verifyForgotPasswordOtp({
+  email: 'user@example.com',
+  code: '123456',
+});
+
+// 3. set the new password using that token
+await resetPassword({ token, newPassword: 'a-new-strong-password' });
+```
+
+For phone-based reset, pass `phone` instead of `email` to `forgotPassword` and `verifyForgotPasswordOtp`.
+
+## Change password (while signed in)
+
+When the user is authenticated and knows their current password:
+
+```tsx
+const { changePassword } = useNestAuth();
+
+await changePassword({
+  currentPassword: 'old-password',
+  newPassword: 'new-strong-password',
+});
+```
+
+## Email verification
+
+Send a verification code, then confirm it:
+
+```tsx
+const { sendEmailVerification, verifyEmail } = useNestAuth();
+
+await sendEmailVerification();        // optionally pass a DTO
+await verifyEmail({ code: '123456' });
+```
+
+## Phone verification
+
+Same shape, for the user's phone number:
+
+```tsx
+const { sendPhoneVerification, verifyPhone } = useNestAuth();
+
+await sendPhoneVerification();        // optionally pass a DTO
+await verifyPhone({ code: '123456' });
+```
+
+## Related
+
+- [MFA & tenancy](/docs/react-native/mfa-and-tenancy) — finish MFA-gated logins and switch tenants.
+- [Hooks & guards](/docs/react-native/hooks-and-guards) — read user/role/permission state and protect screens.

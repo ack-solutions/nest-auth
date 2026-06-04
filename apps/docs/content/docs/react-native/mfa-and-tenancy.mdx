@@ -1,0 +1,117 @@
+---
+title: MFA & tenancy
+description: 'Two-factor login, TOTP setup, recovery codes, and tenant switching via `useNestAuth()`.'
+---
+
+This page covers multi-factor authentication and multi-tenant switching. As everywhere in the SDK, the actions come from `useNestAuth()` and are async.
+
+```tsx
+import { useNestAuth } from '@ackplus/nest-auth-react-native';
+
+const {
+  login,
+  send2fa, verify2fa,
+  setupTotp, verifyTotpSetup, getMfaStatus,
+  listTotpDevices, removeTotpDevice, toggleMfa,
+  generateRecoveryCode, resetMfa,
+  switchTenant, setTenantId, getTenantId,
+} = useNestAuth();
+```
+
+## MFA-gated login
+
+When an account has MFA enabled, `login(...)` resolves with a response whose `isRequiresMfa` is `true` instead of completing the session. Send a code, then verify it to finish:
+
+```tsx
+const { login, send2fa, verify2fa } = useNestAuth();
+
+const res = await login({
+  providerName: 'email',
+  credentials: { email, password },
+});
+
+if (res?.isRequiresMfa) {
+  // deliver the code (default channel shown)
+  await send2fa('email');
+
+  // …collect `otp` from the user, then:
+  await verify2fa({ otp: '123456' });
+  // session is now established; `isAuthenticated` flips to true
+}
+```
+
+`send2fa` accepts an optional method — `'email'` or `'phone'`. `verify2fa` takes `{ otp, method?, trustDevice? }`; pass `trustDevice: true` to skip the second factor on this device next time:
+
+```tsx
+await send2fa('phone');
+await verify2fa({ otp: '123456', method: 'phone', trustDevice: true });
+```
+
+## TOTP (authenticator app) setup
+
+Let a signed-in user enroll an authenticator app. `setupTotp()` returns the enrollment data (such as the secret / otpauth URI to render as a QR code); after the user scans it and enters the first code, confirm with `verifyTotpSetup`:
+
+```tsx
+const { setupTotp, verifyTotpSetup } = useNestAuth();
+
+const setup = await setupTotp();
+// render `setup` (e.g. a QR for the otpauth URI) for the user to scan
+
+await verifyTotpSetup({ code: '123456' });
+```
+
+> `verifyTotpSetup(dto)` takes the DTO your backend expects for confirming enrollment (typically the first code from the authenticator app).
+
+## MFA status & devices
+
+Inspect and manage a user's MFA configuration:
+
+```tsx
+const {
+  getMfaStatus, listTotpDevices, removeTotpDevice, toggleMfa,
+} = useNestAuth();
+
+const status = await getMfaStatus();      // whether MFA is on, which methods, etc.
+const devices = await listTotpDevices();  // enrolled authenticator devices
+
+await removeTotpDevice(deviceId);         // unenroll one device
+await toggleMfa(dto);                     // enable/disable MFA (DTO per backend)
+```
+
+## Recovery codes
+
+Generate a backup recovery code, and use one to reset MFA if the user loses their device:
+
+```tsx
+const { generateRecoveryCode, resetMfa } = useNestAuth();
+
+const recovery = await generateRecoveryCode(); // show once; user stores it safely
+
+await resetMfa(recoveryCode);                  // recover using a stored code
+```
+
+## Switching tenants
+
+For multi-tenant apps, switch the active tenant on the existing client (don't remount the provider). `switchTenant` re-scopes the session to a new tenant:
+
+```tsx
+const { switchTenant } = useNestAuth();
+
+await switchTenant({ tenantId: 'tenant-123' });
+```
+
+You can also read or set the tenant id directly on the client without performing a switch round-trip:
+
+```tsx
+const { setTenantId, getTenantId } = useNestAuth();
+
+setTenantId('tenant-123');
+const current = getTenantId();
+```
+
+`login(...)` also accepts a `tenantId?` so you can target a specific tenant at sign-in time — see [Authentication](/docs/react-native/auth).
+
+## Related
+
+- [Authentication](/docs/react-native/auth) — login, signup, password flows.
+- [Hooks & guards](/docs/react-native/hooks-and-guards) — gate screens by role and permission.

@@ -1,0 +1,196 @@
+---
+title: Hooks & guards
+description: 'The full hook list, conditional-render guards, and calling your own API with `useAuthHeaderFn`.'
+---
+
+The provider, hooks, and guards are re-exported from [`@ackplus/nest-auth-react`](/docs/react) and behave identically on React Native — only their web-only code paths are feature-detected away. Pick the narrowest hook for the job: components that subscribe to less re-render less.
+
+## `useNestAuth()`
+
+The full context value: all state plus every action. Use it when a component needs both.
+
+```tsx
+import { useNestAuth } from '@ackplus/nest-auth-react-native';
+
+const {
+  // state
+  status, sessionData, session, error,
+  isLoading, isLoadingSessionData, isAuthenticated,
+  client,
+  // actions
+  login, signup, logout, logoutAll, refresh,
+  passwordlessSend,
+  forgotPassword, verifyForgotPasswordOtp, resetPassword, changePassword,
+  sendEmailVerification, verifyEmail,
+  sendPhoneVerification, verifyPhone,
+  send2fa, verify2fa,
+  setupTotp, verifyTotpSetup, getMfaStatus,
+  listTotpDevices, removeTotpDevice, toggleMfa,
+  generateRecoveryCode, resetMfa,
+  switchTenant, setTenantId, getTenantId,
+  setMode, getMode,
+  verifySession, getSessionData,
+} = useNestAuth();
+```
+
+- `status` — `'loading' | 'authenticated' | 'unauthenticated'`.
+- `sessionData` — the session user, or `null`.
+- `session` — the session metadata (id, userId, tenantId, expiry).
+- `client` — the underlying `AuthClient`, reachable from anywhere in the tree.
+- `setMode('header' | 'cookie')` / `getMode()` — read or change the token transport. React Native uses `'header'`.
+
+## Focused hooks
+
+Reach for these in components that only need a slice of auth state — they re-render only when that slice changes.
+
+### `useUser()`
+
+The session user, or `null`.
+
+```tsx
+import { Text } from 'react-native';
+import { useUser } from '@ackplus/nest-auth-react-native';
+
+export function Greeting() {
+  const user = useUser();
+  if (!user) return null;
+  return <Text>Hello {user.email}</Text>;
+}
+```
+
+### `useSession()`
+
+The session metadata object (not the user) — `id`, `userId`, `tenantId`, `expiresAt`, `createdAt`.
+
+### `useAccessToken()`
+
+The current access token string, or `null`. In header mode (the RN default) this is the raw JWT — handy for one-off integrations like websockets or third-party SDKs. For your own API calls, prefer `useAuthHeaderFn` below.
+
+### `useAuthStatus()`
+
+Authentication status with derived booleans:
+
+```tsx
+const { isAuthenticated, isLoading, status } = useAuthStatus();
+```
+
+`isLoading` is true on first mount until the provider resolves the user.
+
+### `useHasRole(role)`
+
+Returns `true` if the current user has the role; `false` when unauthenticated.
+
+```tsx
+const isAdmin = useHasRole('admin');
+```
+
+### `useHasPermission(permission)`
+
+Same shape, for permissions.
+
+```tsx
+const canEdit = useHasPermission('orders.write');
+```
+
+## Guards (conditional render)
+
+Guard components render their children only when an auth condition holds — ideal for navigators and screens.
+
+### `<AuthGuard>`
+
+Renders children only when authenticated. Provide a `fallback` for the unauthenticated case.
+
+```tsx
+import { AuthGuard } from '@ackplus/nest-auth-react-native';
+
+<AuthGuard fallback={<LoginScreen />}>
+  <Dashboard />
+</AuthGuard>
+```
+
+### `<GuestGuard>`
+
+The opposite — renders children only when **not** authenticated. Use it to keep already-signed-in users off the login and signup screens.
+
+```tsx
+import { GuestGuard } from '@ackplus/nest-auth-react-native';
+
+<GuestGuard>
+  <SignInForm />
+</GuestGuard>
+```
+
+### `<RequireRole>`
+
+Renders children only if the user has the given role.
+
+```tsx
+import { RequireRole } from '@ackplus/nest-auth-react-native';
+
+<RequireRole role="admin" fallback={<NotAuthorized />}>
+  <AdminPanel />
+</RequireRole>
+```
+
+### `<RequirePermission>`
+
+Same shape, for permissions.
+
+```tsx
+import { RequirePermission } from '@ackplus/nest-auth-react-native';
+
+<RequirePermission permission="orders.read" fallback={<NotAuthorized />}>
+  <OrdersTable />
+</RequirePermission>
+```
+
+Guards compose — nest them to require auth *and* a role:
+
+```tsx
+<AuthGuard fallback={<LoginScreen />}>
+  <RequireRole role="admin" fallback={<NotAuthorized />}>
+    <AdminDashboard />
+  </RequireRole>
+</AuthGuard>
+```
+
+> See the [React guards reference](/docs/react/guards) for the complete prop tables (`loadingFallback`, `onUnauthenticated`, `matchAll`, and the HOC variants), which apply unchanged on RN.
+
+## Calling your own API
+
+To hit your *own* backend with the current access token, use `useAuthHeaderFn()`. It returns a stable async function that reads the live token on demand and resolves to a headers object you spread onto a request:
+
+```tsx
+import { useAuthHeaderFn } from '@ackplus/nest-auth-react-native';
+
+export function useOrders() {
+  const getAuthHeader = useAuthHeaderFn();
+
+  const fetchOrders = async () => {
+    const res = await fetch('https://api.example.com/orders', {
+      headers: { ...(await getAuthHeader()) },
+    });
+    return res.json();
+  };
+
+  return { fetchOrders };
+}
+```
+
+It works the same with axios:
+
+```tsx
+const getAuthHeader = useAuthHeaderFn();
+
+await axios.get('https://api.example.com/orders', {
+  headers: await getAuthHeader(),
+});
+```
+
+Because the function reads the token at call time, it always sends the freshest token — including one the client just auto-refreshed.
+
+## Related
+
+- [Authentication](/docs/react-native/auth) — the action methods in depth.
+- [MFA & tenancy](/docs/react-native/mfa-and-tenancy).
+- [React hooks](/docs/react/hooks) and [React guards](/docs/react/guards) — the shared source of these APIs.
