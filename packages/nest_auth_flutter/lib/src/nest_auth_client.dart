@@ -34,6 +34,19 @@ class NestAuthClient {
   static const _logoutPath = '/auth/logout';
   static const _refreshPath = '/auth/refresh-token';
   static const _mePath = '/auth/me';
+  static const _passwordlessSendPath = '/auth/passwordless/send';
+  static const _forgotPasswordPath = '/auth/forgot-password';
+  static const _verifyForgotPasswordOtpPath = '/auth/verify-forgot-password-otp';
+  static const _resetPasswordPath = '/auth/reset-password';
+  static const _changePasswordPath = '/auth/change-password';
+  static const _sendEmailVerificationPath = '/auth/send-email-verification';
+  static const _verifyEmailPath = '/auth/verify-email';
+  static const _sendPhoneVerificationPath = '/auth/send-phone-verification';
+  static const _verifyPhonePath = '/auth/verify-phone';
+  static const _switchTenantPath = '/auth/switch-tenant';
+  static const _mfaChallengePath = '/auth/mfa/challenge';
+  static const _mfaVerifyPath = '/auth/mfa/verify';
+  static const _mfaStatusPath = '/auth/mfa/status';
 
   NestAuthClient({
     required String baseUrl,
@@ -145,6 +158,159 @@ class NestAuthClient {
     await storage.delete(_accessKey);
     await storage.delete(_refreshKey);
   }
+
+  // --- Passwordless ----------------------------------------------------------
+
+  /// Send a passwordless login code. `channel` is `'email'` or `'sms'`,
+  /// `identifier` is the matching email / phone.
+  Future<Map<String, dynamic>> passwordlessSend({
+    required String identifier,
+    required String channel,
+    String? tenantId,
+  }) =>
+      _send('POST', _passwordlessSendPath, auth: false, body: {
+        'identifier': identifier,
+        'channel': channel,
+        if (tenantId != null) 'tenantId': tenantId,
+      });
+
+  /// Complete a passwordless login with the received `code`. Persists tokens.
+  Future<AuthResponse> passwordlessLogin({
+    required String identifier,
+    required String code,
+    String channel = 'email',
+    String? tenantId,
+  }) =>
+      login(
+        providerName: 'passwordless',
+        credentials: {
+          'identifier': identifier,
+          'code': code,
+          'channels': [channel],
+        },
+        tenantId: tenantId,
+      );
+
+  // --- Password management ----------------------------------------------------
+
+  /// Request a password-reset code (sent by email or SMS).
+  Future<Map<String, dynamic>> forgotPassword({String? email, String? phone}) =>
+      _send('POST', _forgotPasswordPath, auth: false, body: {
+        if (email != null) 'email': email,
+        if (phone != null) 'phone': phone,
+      });
+
+  /// Verify the reset code; returns a `resetToken`/`token` to pass to
+  /// [resetPassword].
+  Future<Map<String, dynamic>> verifyForgotPasswordOtp({
+    String? email,
+    String? phone,
+    required String code,
+    String? tenantId,
+  }) =>
+      _send('POST', _verifyForgotPasswordOtpPath, auth: false, body: {
+        if (email != null) 'email': email,
+        if (phone != null) 'phone': phone,
+        'code': code,
+        if (tenantId != null) 'tenantId': tenantId,
+      });
+
+  /// Set a new password using the token from [verifyForgotPasswordOtp].
+  Future<Map<String, dynamic>> resetPassword({
+    required String token,
+    required String newPassword,
+  }) =>
+      _send('POST', _resetPasswordPath, auth: false, body: {
+        'token': token,
+        'newPassword': newPassword,
+      });
+
+  /// Change the password for the signed-in user.
+  Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) =>
+      _send('POST', _changePasswordPath, auth: true, body: {
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+      });
+
+  // --- Email / phone verification --------------------------------------------
+
+  /// Send an email-verification code to the signed-in user.
+  Future<Map<String, dynamic>> sendEmailVerification({String? tenantId}) =>
+      _send('POST', _sendEmailVerificationPath, auth: true, body: {
+        if (tenantId != null) 'tenantId': tenantId,
+      });
+
+  /// Verify the email with the received `code`.
+  Future<Map<String, dynamic>> verifyEmail({
+    required String code,
+    String? tenantId,
+  }) =>
+      _send('POST', _verifyEmailPath, auth: true, body: {
+        'code': code,
+        if (tenantId != null) 'tenantId': tenantId,
+      });
+
+  /// Send a phone-verification SMS to the signed-in user.
+  Future<Map<String, dynamic>> sendPhoneVerification({String? tenantId}) =>
+      _send('POST', _sendPhoneVerificationPath, auth: true, body: {
+        if (tenantId != null) 'tenantId': tenantId,
+      });
+
+  /// Verify the phone with the received `code`.
+  Future<Map<String, dynamic>> verifyPhone({
+    required String code,
+    String? tenantId,
+  }) =>
+      _send('POST', _verifyPhonePath, auth: true, body: {
+        'code': code,
+        if (tenantId != null) 'tenantId': tenantId,
+      });
+
+  // --- Multi-tenancy ----------------------------------------------------------
+
+  /// Switch the active tenant; returns fresh tokens for the new tenant and
+  /// persists them.
+  Future<AuthResponse> switchTenant(String tenantId) async {
+    final json = await _send('POST', _switchTenantPath,
+        auth: true, body: {'tenantId': tenantId});
+    final auth = AuthResponse.fromJson(json);
+    if (auth.accessToken.isNotEmpty) {
+      await _storeTokens(auth.accessToken, auth.refreshToken);
+    }
+    return auth;
+  }
+
+  // --- MFA --------------------------------------------------------------------
+
+  /// During an MFA-gated login, request an email/SMS one-time code.
+  /// `method` is `'email'` or `'phone'`.
+  Future<Map<String, dynamic>> sendMfaChallenge({String method = 'email'}) =>
+      _send('POST', _mfaChallengePath, auth: true, body: {'method': method});
+
+  /// Complete an MFA-gated login with the one-time `otp`. Persists tokens.
+  Future<AuthResponse> verifyMfa({
+    required String otp,
+    String? method,
+    bool trustDevice = false,
+  }) async {
+    final json = await _send('POST', _mfaVerifyPath, auth: true, body: {
+      'otp': otp,
+      if (method != null) 'method': method,
+      'trustDevice': trustDevice,
+    });
+    final auth = AuthResponse.fromJson(json);
+    if (auth.accessToken.isNotEmpty) {
+      await _storeTokens(auth.accessToken, auth.refreshToken);
+    }
+    return auth;
+  }
+
+  /// Fetch the current user's MFA status.
+  Future<Map<String, dynamic>> getMfaStatus() =>
+      _send('GET', _mfaStatusPath, auth: true);
 
   /// Release the underlying HTTP client.
   void close() => _http.close();

@@ -155,6 +155,61 @@ void main() {
 
     controller.client.close();
   });
+
+  test('changePassword updates the password', () async {
+    final email = 'flutter-changepw@test.local';
+    final client = NestAuthClient(baseUrl: baseUrl);
+    await client.signup(email: email, password: _password);
+
+    await client.changePassword(
+      currentPassword: _password,
+      newPassword: 'NewStrongPassword!2',
+    );
+
+    // Old password no longer works; the new one does.
+    final c2 = NestAuthClient(baseUrl: baseUrl);
+    await expectLater(
+      c2.loginWithEmail(email, _password),
+      throwsA(isA<NestAuthException>()),
+    );
+    final ok = await c2.loginWithEmail(email, 'NewStrongPassword!2');
+    expect(ok.accessToken, isNotEmpty);
+
+    client.close();
+    c2.close();
+  });
+
+  test('getMfaStatus returns a status for the signed-in user', () async {
+    final client = NestAuthClient(baseUrl: baseUrl);
+    await client.signup(email: 'flutter-mfa@test.local', password: _password);
+
+    final status = await client.getMfaStatus();
+    expect(status.containsKey('isEnabled'), isTrue);
+
+    client.close();
+  });
+
+  test('sendEmailVerification succeeds for a signed-in user', () async {
+    final client = NestAuthClient(baseUrl: baseUrl);
+    await client.signup(
+      email: 'flutter-verifyemail@test.local',
+      password: _password,
+    );
+
+    final res = await client.sendEmailVerification();
+    expect(res, isA<Map<String, dynamic>>());
+
+    client.close();
+  });
+
+  test('forgotPassword returns without leaking account existence', () async {
+    final client = NestAuthClient(baseUrl: baseUrl);
+
+    final res = await client.forgotPassword(email: 'flutter-forgot@test.local');
+    expect(res, isA<Map<String, dynamic>>());
+
+    client.close();
+  });
 }
 
 Future<int> _freePort() async {
