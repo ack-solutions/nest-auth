@@ -107,28 +107,55 @@ await login({
 
 Use `channel: 'sms'` (and `channels: ['sms']`) to deliver and verify the code by text instead.
 
-## Social login
+## Social login (native — no browser)
 
-Acquire the provider token with a native SDK (for example `@react-native-google-signin/google-signin` or Apple Authentication), then hand it to the underlying client. Reach the client via `client` from `useNestAuth()`:
+Google and Apple sign-in run through the platform's **native** flow, not a browser or webview. The SDK ships helper wrappers — `signInWithGoogle` and `signInWithApple` — that drive the native module and exchange the resulting token with your backend. You **inject** the native module, so this package carries no native dependency of its own.
+
+### Google
+
+Install and configure `@react-native-google-signin/google-signin`. Set `webClientId` to your **web** OAuth client ID so the returned ID token's audience matches the backend's `google.clientId` (or a `google.audiences` entry).
 
 ```tsx
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { useNestAuth } from '@ackplus/nest-auth-react-native';
+import { useNestAuth, signInWithGoogle } from '@ackplus/nest-auth-react-native';
+
+GoogleSignin.configure({ webClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com' });
 
 export function GoogleButton() {
   const { client } = useNestAuth();
-
-  const onPress = async () => {
-    await GoogleSignin.hasPlayServices();
-    const { idToken } = await GoogleSignin.signIn();
-    await client.socialLogin('google', idToken, { type: 'idToken' });
-  };
-
-  return <Button title="Continue with Google" onPress={onPress} />;
+  return <Button title="Continue with Google" onPress={() => signInWithGoogle(client, GoogleSignin)} />;
 }
 ```
 
-The backend verifies the token, provisions the account on first sign-in, and links the provider identity — atomically.
+### Apple
+
+Use `expo-apple-authentication` (Expo) or `@invertase/react-native-apple-authentication`. `signInWithApple` presents the native sheet, forwards the `identityToken`, and passes the user's name (Apple returns it only on the **first** sign-in) plus an optional `nonce` for replay protection.
+
+```tsx
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { useNestAuth, signInWithApple } from '@ackplus/nest-auth-react-native';
+
+export function AppleButton({ nonce }: { nonce?: string }) {
+  const { client } = useNestAuth();
+  return (
+    <AppleAuthentication.AppleAuthenticationButton
+      buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+      buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+      onPress={() => signInWithApple(client, AppleAuthentication, { nonce })}
+    />
+  );
+}
+```
+
+> **Backend config.** Native Apple identityTokens are verified against Apple's JWKS — no client secret is needed for mobile. Set `apple.audiences` to include your iOS **Bundle ID** alongside the web **Service ID** (`clientId`). For Google, add any native client IDs to `google.audiences` if your ID tokens aren't issued for the web client ID. The backend verifies the token, provisions the account on first sign-in, and links the identity atomically.
+
+If you obtain a token another way, call the client directly:
+
+```tsx
+const { client } = useNestAuth();
+await client.socialLogin('google', idToken, { type: 'idToken' });
+await client.socialLogin('apple', identityToken, { nonce, name: 'Ada Lovelace' });
+```
 
 ## Logout
 

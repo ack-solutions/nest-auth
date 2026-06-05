@@ -111,36 +111,50 @@ Future<AuthResponse> passwordlessLogin({
 })
 ```
 
-## Social login
+## Social login (native — no browser)
 
-Acquire the provider token natively first (e.g. with `google_sign_in` or `sign_in_with_apple`), then hand it to `socialLogin`. For Google, `type` is `'idToken'` or `'accessToken'`:
+Google and Apple sign-in use the platform's **native** flow. Get the token from `google_sign_in` / `sign_in_with_apple`, then exchange it with the `NativeSignIn` helpers (`signInWithGoogleIdToken` / `signInWithAppleCredential`), which handle the token type and assemble Apple's first-login name for you.
 
-```dart
-Future<AuthResponse> socialLogin(
-  String providerName,
-  String token, {
-  String? type,
-})
-```
+### Google
+
+Set `serverClientId` to your **web** OAuth client ID so the returned ID token's audience matches the backend's `google.clientId` (or a `google.audiences` entry):
 
 ```dart
 import 'package:google_sign_in/google_sign_in.dart';
 
-final account = await GoogleSignIn().signIn();
-final googleAuth = await account?.authentication;
-final idToken = googleAuth?.idToken;
+final account = await GoogleSignIn(serverClientId: webClientId).signIn();
+final googleAuth = await account!.authentication;
 
-if (idToken != null) {
-  await auth.socialLogin('google', idToken, type: 'idToken');
-}
+await auth.signInWithGoogleIdToken(googleAuth.idToken!);
 ```
 
+### Apple
+
+Apple returns the user's name only on the **first** sign-in — pass `givenName`/`familyName` so the backend can persist it. `nonce` is optional replay protection.
+
 ```dart
-// Apple, via sign_in_with_apple:
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+
 final credential = await SignInWithApple.getAppleIDCredential(
-  scopes: [AppleIDAuthorizationScopes.email],
+  scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
+  nonce: hashedNonce,
 );
-await auth.socialLogin('apple', credential.identityToken!);
+
+await auth.signInWithAppleCredential(
+  identityToken: credential.identityToken!,
+  givenName: credential.givenName,
+  familyName: credential.familyName,
+  nonce: rawNonce,
+);
+```
+
+> **Backend config.** Native Apple identityTokens are verified against Apple's JWKS — no client secret needed for mobile. Set `apple.audiences` to include your iOS **Bundle ID** alongside the web **Service ID** (`clientId`). For Google, add any native client IDs to `google.audiences`.
+
+`socialLogin` remains available for a token you obtained another way:
+
+```dart
+await auth.socialLogin('google', idToken, type: 'idToken');
+await auth.socialLogin('apple', identityToken, nonce: nonce, name: 'Ada Lovelace');
 ```
 
 ## The current session
