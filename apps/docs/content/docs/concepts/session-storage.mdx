@@ -87,6 +87,33 @@ Implement a class that satisfies the session-store contract and pass it via the 
 
 For DB-backed sessions on long retention, run a periodic cleanup of expired rows — Redis handles this automatically via key TTL.
 
+## Custom store
+
+The three built-ins (database, Redis, memory) cover most needs. For anything else — DynamoDB, Cloudflare KV, Mongo, a bespoke Redis-cluster wrapper — implement the `SessionStore` interface (or extend `BaseSessionRepository` for the shared expiry/helper logic) and pass it via `session.store`. It overrides `storageType`.
+
+```ts
+import { BaseSessionRepository, NestAuthModule } from '@ackplus/nest-auth';
+
+class DynamoSessionStore extends BaseSessionRepository {
+  constructor(private readonly db: DynamoClient) { super(); }
+  async create(session) { /* … */ }
+  async findById(id) { /* … */ }
+  // …implement the rest of the SessionStore methods
+}
+
+NestAuthModule.forRoot({
+  session: { store: new DynamoSessionStore(myDynamoClient) },
+});
+```
+
+`store` accepts a ready instance **or** a factory for async setup:
+
+```ts
+session: { store: async () => MyKvSessionStore.connect(env.KV_URL) }
+```
+
+The `SessionStore` interface is small (`create`, `findById`, `findByUserId`, `findActiveByUserId`, `update`, `delete`, `deleteByUserId`, `deleteExpired`, `countActiveByUserId`, `updateLastActive`). You control your store's own dependencies — nest-auth just calls these methods for every session operation.
+
 ## Related
 
 - [Sessions & Tokens](/docs/concepts/sessions-and-tokens) — the token pair and auto-refresh.

@@ -158,7 +158,15 @@ export class NestAuthModule {
   private static getOptions(options: IAuthModuleOptions): IAuthModuleOptions {
     // Use default options from AuthConfigService - single source of truth
     const defaultOptions = AuthConfigService.getDefaultOptions();
-    return deepmerge(defaultOptions, options);
+    const merged = deepmerge(defaultOptions, options) as IAuthModuleOptions;
+
+    // deepmerge deep-clones plain objects, which would strip the methods off a
+    // custom session-store instance. Restore it by reference so the methods work.
+    if (options.session?.store && merged.session) {
+      merged.session.store = options.session.store;
+    }
+
+    return merged;
   }
 
   configure(consumer: MiddlewareConsumer) {

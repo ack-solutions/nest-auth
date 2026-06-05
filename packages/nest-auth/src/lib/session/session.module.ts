@@ -31,8 +31,15 @@ import ms from 'ms';
         // Session Store Provider (dynamically chooses storage)
         {
             provide: SESSION_STORE,
-            useFactory: (databaseStore: DatabaseSessionStore, memoryStore: MemorySessionRepository) => {
+            useFactory: async (databaseStore: DatabaseSessionStore, memoryStore: MemorySessionRepository) => {
                 const config = AuthConfigService.getOptions();
+
+                // A consumer-supplied store overrides storageType and the built-ins.
+                const customStore = config.session?.store;
+                if (customStore) {
+                    return typeof customStore === 'function' ? await customStore() : customStore;
+                }
+
                 const storageType = SessionModule.resolveStorageType(config.session);
 
                 // Handle Redis storage

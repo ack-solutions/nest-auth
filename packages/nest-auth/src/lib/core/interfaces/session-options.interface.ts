@@ -1,11 +1,14 @@
 import { CookieOptions as ExpressCookieOptions } from 'express';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { SessionDataPayload, SessionPayload, JWTTokenPayload } from './token-payload.interface';
+import type { SessionStore } from '../../session/interfaces/session-store.interface';
 
 export enum SessionStorageType {
     REDIS = 'redis',
     DATABASE = 'database',
     MEMORY = 'memory',
+    /** A consumer-supplied store provided via `session.store`. */
+    CUSTOM = 'custom',
 }
 
 export interface RedisSessionOptions {
@@ -39,10 +42,26 @@ export interface SessionOptions {
      * Redis connection and store options.
      */
     redis?: RedisSessionOptions;
+
     /**
-     * Custom session repository implementation.
-     * Required when storageType be set to SessionStorageType.CUSTOM
+     * Plug in a custom session store. Provide a ready {@link SessionStore}
+     * instance, or a factory returning one (sync or async). When set, it
+     * overrides `storageType` and the built-in stores.
+     *
+     * Implement {@link SessionStore} directly, or extend `BaseSessionRepository`
+     * for the shared expiry/helper logic.
+     *
+     * @example
+     * ```ts
+     * // an instance you constructed (with its own deps):
+     * session: { store: new MyDynamoSessionStore(dynamoClient) }
+     *
+     * // or a factory for async setup:
+     * session: { store: async () => MyKvSessionStore.connect(env.KV_URL) }
+     * ```
      */
+    store?: SessionStore | (() => SessionStore | Promise<SessionStore>);
+
     accessTokenValidity?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
     refreshTokenValidity?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
 
