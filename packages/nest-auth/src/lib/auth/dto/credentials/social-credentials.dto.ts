@@ -26,4 +26,23 @@ export class SocialCredentialsDto {
     @IsString()
     @IsEnum(['idToken', 'accessToken'])
     type?: 'idToken' | 'accessToken';
+
+    @ApiProperty({
+        description:
+            "Display name from the provider. Apple only returns the user's name on the FIRST native sign-in, so pass it here to persist it (ignored by other providers).",
+        required: false,
+        example: 'Ada Lovelace',
+    })
+    @IsOptional()
+    @IsString()
+    name?: string;
+
+    @ApiProperty({
+        description:
+            'Nonce used for native sign-in replay protection. When provided, it must match the `nonce` claim in the verified Apple identityToken.',
+        required: false,
+    })
+    @IsOptional()
+    @IsString()
+    nonce?: string;
 }

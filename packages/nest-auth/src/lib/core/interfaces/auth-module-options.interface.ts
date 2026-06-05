@@ -352,6 +352,13 @@ export interface IAuthModuleOptions {
          * @default false
          */
         requireVerifiedEmail?: boolean;
+        /**
+         * Additional accepted ID-token audiences (`aud`) beyond `clientId`.
+         * Use this when native iOS/Android Google Sign-In issues ID tokens
+         * whose audience differs from your web client ID. The token is accepted
+         * if its `aud` matches `clientId` OR any entry here.
+         */
+        audiences?: string[];
     };
     facebook?: {
         appId: string;
@@ -365,6 +372,20 @@ export interface IAuthModuleOptions {
         privateKey: string;
         privateKeyMethod?: string;
         redirectUri: string;
+        /**
+         * Accepted audiences (`aud`) when verifying a **native** Apple
+         * identityToken. Native "Sign in with Apple" on iOS issues tokens whose
+         * audience is your app's **Bundle ID**, while the web flow uses the
+         * **Service ID** in `clientId`. List every audience you accept here
+         * (e.g. `['com.acme.service', 'com.acme.app']`). Defaults to `[clientId]`.
+         */
+        audiences?: string[];
+        /**
+         * Apple JWKS endpoint used to verify native identityToken signatures.
+         * Defaults to `https://appleid.apple.com/auth/keys`. Override only for
+         * testing.
+         */
+        jwksUrl?: string;
     };
     github?: {
         clientId: string;

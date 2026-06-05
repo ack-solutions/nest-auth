@@ -71,7 +71,10 @@ export class GoogleAuthProvider extends BaseAuthProvider {
             try {
                 const ticket = await client.verifyIdToken({
                     idToken: token,
-                    audience: currentConfig.clientId,
+                    // Accept the web client ID plus any extra audiences (e.g. the
+                    // native iOS/Android client IDs) so one backend serves every
+                    // platform's Google Sign-In.
+                    audience: [currentConfig.clientId, ...(currentConfig.audiences ?? [])],
                 });
 
                 payload = ticket.getPayload();
