@@ -70,6 +70,28 @@ This is deliberate: an ops person should not gain a logged-in user session just 
 
 Out of scope for the library — the console UI is fixed. If you need a custom admin experience, use the public services (`UserService`, `RoleService`, `TenantService`, `AccessKeyService`) and build your own screens.
 
+## Customizing paths
+
+All auth routes share a base prefix, `auth` by default (`POST /auth/login`). Change it with `routePrefix`, and relocate the dashboard with `adminConsole.path`:
+
+```ts
+NestAuthModule.forRoot({
+  routePrefix: 'account',                 // → /account/login, /account/mfa/...
+  adminConsole: {
+    enabled: true,
+    secretKey: env.ADMIN_SECRET,
+    path: 'manage',                       // → dashboard at /account/manage
+    // basePath is the SPA / cookie base. It defaults to `/<routePrefix>/<path>`
+    // (here `/account/manage`). Set it explicitly to include a global prefix:
+    basePath: '/api/account/manage',
+  },
+});
+```
+
+> If you change `routePrefix`, point your client SDK's endpoints at the new paths (the client defaults to `/auth/...`). `routePrefix` is honored by `forRoot`; with `forRootAsync` the prefix stays at the default `auth`.
+
+> Using `app.setGlobalPrefix('api')`? Routes become `/api/auth/...` automatically — set `adminConsole.basePath` to `/api/auth/admin` (include the global prefix) so the dashboard's API calls and cookie resolve.
+
 ## Disabling
 
 ```ts
