@@ -35,7 +35,7 @@ import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { mapRoleToResponse } from '../../role/utils/role-mapper.util';
 import { NestAuthTrustedDevice } from '../../auth/entities/trusted-device.entity';
 
-@Controller('auth/admin/api/users')
+@Controller('api/users')
 @UseFilters(AuthExceptionFilter)
 @UseGuards(AdminSessionGuard)
 @ApiTags('Admin · Users')

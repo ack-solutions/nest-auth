@@ -37,7 +37,7 @@ import { IsNull, Not, Repository } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { MoreThanOrEqual } from 'typeorm';
 
-@Controller('auth/admin')
+@Controller()
 @UseFilters(AuthExceptionFilter)
 @ApiTags('Admin · Console')
 @ApiValidationError()

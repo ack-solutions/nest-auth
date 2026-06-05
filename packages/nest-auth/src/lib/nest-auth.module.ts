@@ -1,4 +1,5 @@
 import { Module, DynamicModule, MiddlewareConsumer, Provider } from '@nestjs/common';
+import { RouterModule } from '@nestjs/core';
 import { IAuthModuleAsyncOptions, IAuthModuleOptions, IAuthModuleOptionsFactory } from './core/interfaces/auth-module-options.interface';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { RequestContextMiddleware } from './request-context/request-context.middleware';
@@ -40,6 +41,16 @@ export class NestAuthModule {
         PermissionModule,
         SessionModule,
         AdminConsoleModule,
+        // Mount the HTTP controllers under the configurable prefix (default
+        // 'auth') and admin sub-path (default 'admin'). Controllers use paths
+        // relative to these.
+        RouterModule.register([
+          { path: mergedOptions.routePrefix || 'auth', module: AuthModule },
+          {
+            path: `${mergedOptions.routePrefix || 'auth'}/${mergedOptions.adminConsole?.path || 'admin'}`,
+            module: AdminConsoleModule,
+          },
+        ]),
       ],
       providers,
       exports: [
@@ -76,6 +87,13 @@ export class NestAuthModule {
         PermissionModule,
         SessionModule,
         AdminConsoleModule,
+        // Async options resolve after routing is set up, so the prefix uses the
+        // defaults here. To customise routePrefix / adminConsole.path, use the
+        // synchronous forRoot().
+        RouterModule.register([
+          { path: 'auth', module: AuthModule },
+          { path: 'auth/admin', module: AdminConsoleModule },
+        ]),
         ...(options.imports || []),
       ],
       providers,

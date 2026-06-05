@@ -24,7 +24,7 @@ import { MFA_ERROR_CODES, ERROR_CODES } from '../../auth.constants';
 @ApiValidationError('Invalid or expired code.') // 400 — all routes
 @ApiUnauthorized() //                               401 — all routes
 @ApiForbidden() //                                  403 — all routes
-@Controller('auth/mfa')
+@Controller('mfa')
 export class MfaController {
     constructor(
         private readonly mfaService: MfaService,

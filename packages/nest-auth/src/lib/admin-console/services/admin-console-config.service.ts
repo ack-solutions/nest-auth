@@ -10,12 +10,20 @@ export class AdminConsoleConfigService {
 
   getConfig(): IAdminConsoleOptions {
     const authConfig = this.authConfigService.getConfig();
-    return {
+    const routePrefix = authConfig.routePrefix || 'auth';
+    const merged: IAdminConsoleOptions = {
       enabled: true,
-      basePath: '/auth/admin',
       sessionCookieName: 'nest_auth_admin',
       sessionDuration: '2h',
-      ...authConfig.adminConsole
+      ...authConfig.adminConsole,
+    };
+    const adminPath = merged.path || 'admin';
+    return {
+      ...merged,
+      path: adminPath,
+      // SPA base / cookie path. Defaults to the served route (`/<prefix>/<path>`);
+      // set explicitly to include a global prefix (e.g. `/api/auth/admin`).
+      basePath: merged.basePath || `/${routePrefix}/${adminPath}`,
     };
   }
 
@@ -30,7 +38,7 @@ export class AdminConsoleConfigService {
   }
 
   getBasePath(): string {
-    return this.getConfig().basePath || '/auth/admin';
+    return this.getConfig().basePath!;
   }
 
   getSessionSecret(): string {

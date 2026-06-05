@@ -327,6 +327,14 @@ export interface IAuthModuleOptions {
     isGlobal?: boolean;
     appName: string;
     /**
+     * Base path segment for all auth routes. Defaults to `'auth'` (e.g.
+     * `POST /auth/login`). Set to `'account'` to serve `POST /account/login`,
+     * etc. This is in addition to any NestJS global prefix you set.
+     *
+     * If you change this, configure your client SDK's endpoints to match.
+     */
+    routePrefix?: string;
+    /**
      * Enable automatic token refresh via global interceptor.
      * When enabled, expired access tokens are automatically refreshed using refresh tokens.
      *
@@ -587,7 +595,22 @@ export interface IAuthModuleOptions {
 export interface IAdminConsoleOptions {
     /** Enable or disable the embedded admin console (default: true) */
     enabled?: boolean;
-    /** Base path where the console is served (default: /auth/admin) */
+    /**
+     * Route sub-path for the admin dashboard, mounted under the auth
+     * `routePrefix`. Default `'admin'` → the dashboard is served at
+     * `<routePrefix>/admin` (e.g. `/auth/admin`). Set to e.g. `'manage'` to
+     * serve it at `<routePrefix>/manage`.
+     *
+     * When you change this (or use a global prefix), set {@link basePath} to the
+     * matching full URL so the dashboard's API calls and session cookie resolve.
+     */
+    path?: string;
+    /**
+     * Full URL path the dashboard SPA is served from — used for the SPA's API
+     * base and the admin session cookie path. Defaults to `/<routePrefix>/<path>`
+     * (e.g. `/auth/admin`). Set this to include your global prefix, e.g.
+     * `/api/auth/admin`.
+     */
     basePath?: string;
     /**
      * Nest Auth Admin Console Secret Key used for security operations.

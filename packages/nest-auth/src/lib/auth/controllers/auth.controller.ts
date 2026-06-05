@@ -52,7 +52,7 @@ import { CookieHelper } from '../../utils/cookie.helper';
 @ApiBearerAuth('access-token')
 @ApiValidationError() // 400 — applies to every route in this controller
 @ApiUnauthorized() //   401 — applies to every route in this controller
-@Controller('auth')
+@Controller()
 @UseFilters(AuthExceptionFilter)
 export class AuthController {
     constructor(

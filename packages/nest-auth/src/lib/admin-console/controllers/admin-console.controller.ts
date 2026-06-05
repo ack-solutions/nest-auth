@@ -28,7 +28,7 @@ function resolveStaticRoot(): string | null {
 }
 
 @ApiExcludeController() // serves the admin SPA HTML, not an API endpoint
-@Controller('auth/admin')
+@Controller()
 export class AdminConsoleController implements OnModuleInit {
   private readonly logger = new Logger(AdminConsoleController.name);
   private cachedIndexHtml: string | null = null;

@@ -17,7 +17,7 @@ import { TenantService } from '../../tenant/services/tenant.service';
 import { AdminCreateTenantDto, AdminUpdateTenantDto } from '../dto/admin-tenant.dto';
 import { NestAuthTenant } from '../../tenant/entities/tenant.entity';
 
-@Controller('auth/admin/api/tenants')
+@Controller('api/tenants')
 @UseFilters(AuthExceptionFilter)
 @UseGuards(AdminSessionGuard)
 @ApiTags('Admin · Tenants')

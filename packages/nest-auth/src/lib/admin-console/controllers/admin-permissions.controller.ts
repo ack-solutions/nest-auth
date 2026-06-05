@@ -19,7 +19,7 @@ import { AdminCreatePermissionDto, AdminUpdatePermissionDto } from '../dto/admin
 import { PermissionService } from '../../permission/services/permission.service';
 import { NestAuthPermission } from '../../permission/entities/permission.entity';
 
-@Controller('auth/admin/api/permissions')
+@Controller('api/permissions')
 @UseFilters(AuthExceptionFilter)
 @UseGuards(AdminSessionGuard)
 @ApiTags('Admin · Permissions')

@@ -20,7 +20,7 @@ import { AdminCreateRoleDto, AdminUpdateRoleDto } from '../dto/admin-role.dto';
 import { DEFAULT_GUARD_NAME } from '../../auth.constants';
 import { mapRoleToResponse } from '../../role/utils/role-mapper.util';
 
-@Controller('auth/admin/api/roles')
+@Controller('api/roles')
 @UseFilters(AuthExceptionFilter)
 @UseGuards(AdminSessionGuard)
 @ApiTags('Admin · Roles')
