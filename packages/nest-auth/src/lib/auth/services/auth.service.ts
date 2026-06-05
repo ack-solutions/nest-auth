@@ -28,6 +28,7 @@ import { INestAuthUser, ISessionUserData, NestAuthMFAMethodEnum, NestAuthOTPType
 import { JWTTokenPayload, SessionDataPayload, SessionPayload } from '../../core/interfaces/token-payload.interface';
 import { UserRegisteredEvent } from '../events/user-registered.event';
 import { UserCreatedEvent } from '../../user/events/user-created.event';
+import { hmacSha256Hex, timingSafeEqualHex } from '../../utils/has-token';
 import { UserLoggedInEvent } from '../events/user-logged-in.event';
 import { LoginFailedEvent } from '../events/login-failed.event';
 import { User2faVerifiedEvent } from '../events/user-2fa-verified.event';
@@ -914,6 +915,22 @@ export class AuthService {
                     message: 'Invalid refresh token',
                     code: ERROR_CODES.REFRESH_TOKEN_INVALID,
                 });
+            }
+
+            // Rotation / reuse detection: the session stores a hash of the
+            // CURRENT refresh token. A token that doesn't match has already been
+            // rotated (replayed) and is rejected. Legacy sessions created before
+            // rotation have an empty hash — we skip the check and this refresh
+            // populates it going forward.
+            const storedRefreshHash = (session as any).refreshToken as string | undefined;
+            if (storedRefreshHash) {
+                const secret = this.authConfig.session?.jwt?.secret ?? '';
+                if (!timingSafeEqualHex(storedRefreshHash, hmacSha256Hex(secret, refreshToken))) {
+                    throw new UnauthorizedException({
+                        message: 'Refresh token is no longer valid (rotated or replayed)',
+                        code: ERROR_CODES.REFRESH_TOKEN_INVALID,
+                    });
+                }
             }
 
             const { user, userAccess, platformAccess } = await this.getUserWithAccess(session.userId!, session.data?.tenantId ?? null, isPlatformAccess);

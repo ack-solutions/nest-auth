@@ -10,6 +10,8 @@ import { AuthConfigService } from '../../core/services/auth-config.service';
 import { UserService } from '../../user/services/user.service';
 import { TenantService } from '../../tenant/services/tenant.service';
 import { MfaService } from './mfa.service';
+import { SessionManagerService } from '../../session/services/session-manager.service';
+import { hmacSha256Hex } from '../../utils/has-token';
 import { JWTTokenPayload, SessionPayload } from '../../core/interfaces/token-payload.interface';
 import { AuthResponseDto, AuthTokensResponseDto } from '../dto/responses/auth.response.dto';
 
@@ -34,7 +36,13 @@ export class SessionTokenService {
         private readonly userService: UserService,
         private readonly tenantService: TenantService,
         private readonly mfaService: MfaService,
+        private readonly sessionManager: SessionManagerService,
     ) {}
+
+    /** Secret used to HMAC-hash refresh tokens for rotation/reuse detection. */
+    private getRefreshHashSecret(): string {
+        return this.authConfigService.getConfig().session?.jwt?.secret ?? '';
+    }
 
     getUserWithRoles(userId: string, relations: string[] = []): Promise<NestAuthUser> {
         return this.userRepository.findOne({
@@ -103,7 +111,19 @@ export class SessionTokenService {
 
     async generateTokensFromSession(session: NestAuthSession): Promise<AuthTokensResponseDto> {
         const payload = await this.generateTokensPayload(session as unknown as SessionPayload);
-        return this.jwtService.generateTokens(payload);
+        const tokens = await this.jwtService.generateTokens(payload);
+
+        // Rotation: persist a hash of the just-issued refresh token on the
+        // session. A later refresh re-hashes the presented token and compares —
+        // so an old (already-rotated) refresh token is rejected. Awaited so we
+        // never hand out a refresh token whose hash we failed to record.
+        if (session?.id && tokens.refreshToken) {
+            await this.sessionManager.updateSession(session.id, {
+                refreshToken: hmacSha256Hex(this.getRefreshHashSecret(), tokens.refreshToken),
+            });
+        }
+
+        return tokens;
     }
 
     async generateAuthResponse(

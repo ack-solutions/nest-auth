@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import * as jwt from 'jsonwebtoken';
 import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
 import { JWTTokenPayload } from '../interfaces/token-payload.interface';
@@ -48,6 +49,9 @@ export class JwtService {
                 {
                     ...payload,
                     type: 'refresh',
+                    // Unique per issuance so each rotation yields a distinct
+                    // token (enables refresh-token reuse detection).
+                    jti: randomUUID(),
                 },
                 jwtSecret,
                 {
