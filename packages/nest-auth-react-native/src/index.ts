@@ -16,6 +16,8 @@ export { SecureStoreAdapter } from './storage/secure-store.adapter';
 export type { SecureStoreLike } from './storage/secure-store.adapter';
 export { createNestAuthClient } from './create-client';
 export type { NestAuthRNConfig } from './create-client';
+export { signInWithGoogle, signInWithApple } from './native-signin';
+export type { GoogleSigninLike, AppleAuthLike } from './native-signin';
 
 // --- Core client (framework-agnostic) ---------------------------------------
 export {

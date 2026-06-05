@@ -52,6 +52,8 @@
   "devDependencies": {
     "typescript": "^5.7.3",
     "@types/react": "^18.0.0",
-    "vitest": "^3.0.0"
+    "vitest": "^3.0.0",
+    "jsonwebtoken": "^9.0.0",
+    "@types/jsonwebtoken": "^9.0.5"
   }
 }

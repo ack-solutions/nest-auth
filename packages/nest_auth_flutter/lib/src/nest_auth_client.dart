@@ -113,14 +113,25 @@ class NestAuthClient {
       login(credentials: {'email': email, 'password': password});
 
   /// Social login — acquire the provider token natively first.
+  ///
+  /// - `type`: for Google, `'idToken'` (default) or `'accessToken'`.
+  /// - `nonce`: native replay-protection nonce; must match the token's nonce.
+  /// - `name`: Apple only returns the name on the first sign-in — pass it here.
   Future<AuthResponse> socialLogin(
     String providerName,
     String token, {
     String? type,
+    String? nonce,
+    String? name,
   }) =>
       login(
         providerName: providerName,
-        credentials: {'token': token, if (type != null) 'type': type},
+        credentials: {
+          'token': token,
+          if (type != null) 'type': type,
+          if (nonce != null) 'nonce': nonce,
+          if (name != null) 'name': name,
+        },
         createUserIfNotExists: true,
       );
 

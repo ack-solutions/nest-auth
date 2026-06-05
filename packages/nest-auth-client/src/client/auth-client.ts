@@ -493,7 +493,18 @@ export class AuthClient {
             type?: 'idToken' | 'accessToken';
             createUserIfNotExists?: boolean;
             tenantId?: string;
-            /** Extra credential fields some providers need (e.g. Apple first-sign-in name/email). */
+            /**
+             * Nonce for native sign-in replay protection — pass the same nonce
+             * you handed to the native Apple/Google SDK. The backend checks it
+             * against the verified token.
+             */
+            nonce?: string;
+            /**
+             * Display name. Apple only returns the user's name on the FIRST
+             * native sign-in, so pass it here to persist it.
+             */
+            name?: string;
+            /** Extra credential fields some providers need. */
             extraCredentials?: Record<string, unknown>;
         },
         options?: RequestOptions,
@@ -503,6 +514,8 @@ export class AuthClient {
             credentials: {
                 token,
                 ...(opts?.type ? { type: opts.type } : {}),
+                ...(opts?.nonce ? { nonce: opts.nonce } : {}),
+                ...(opts?.name ? { name: opts.name } : {}),
                 ...(opts?.extraCredentials ?? {}),
             } as ILoginRequest['credentials'],
             createUserIfNotExists: opts?.createUserIfNotExists ?? true,

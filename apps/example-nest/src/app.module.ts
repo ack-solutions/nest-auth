@@ -115,6 +115,22 @@ function buildTenantConfig() {
           }
         : {}),
 
+      // Apple — native "Sign in with Apple" verifies an identityToken against
+      // Apple's JWKS. APPLE_AUDIENCES is a comma-separated list (web Service ID
+      // + iOS Bundle ID). APPLE_JWKS_URL is for tests only.
+      ...(process.env.APPLE_CLIENT_ID
+        ? {
+            apple: {
+              clientId: process.env.APPLE_CLIENT_ID,
+              audiences: (process.env.APPLE_AUDIENCES || process.env.APPLE_CLIENT_ID)
+                .split(',')
+                .map((a) => a.trim())
+                .filter(Boolean),
+              ...(process.env.APPLE_JWKS_URL ? { jwksUrl: process.env.APPLE_JWKS_URL } : {}),
+            } as any,
+          }
+        : {}),
+
       passwordless: {
         enabled: true,
         allowSignUp: true,

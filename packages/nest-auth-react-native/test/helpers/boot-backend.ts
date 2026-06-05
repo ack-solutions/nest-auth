@@ -48,7 +48,7 @@ async function waitForReady(baseUrl: string, getLog: () => string, timeoutMs = 4
     throw new Error(`example-nest backend did not become ready in ${timeoutMs}ms.\n--- server log ---\n${getLog()}`);
 }
 
-export async function bootBackend(): Promise<BackendHandle> {
+export async function bootBackend(extraEnv: Record<string, string> = {}): Promise<BackendHandle> {
     const port = await getFreePort();
     let log = '';
 
@@ -63,6 +63,7 @@ export async function bootBackend(): Promise<BackendHandle> {
             TRUSTED_DEVICE_SECRET: 'rn-sdk-test-trusted-device-secret',
             ADMIN_CONSOLE_SECRET_KEY: 'rn-sdk-test-admin-secret',
             TENANT_MODE: 'disabled',
+            ...extraEnv,
         },
         stdio: ['ignore', 'pipe', 'pipe'],
     });
