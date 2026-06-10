@@ -1,6 +1,6 @@
 {
   "name": "@ackplus/vitest-preset",
-  "version": "0.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "description": "Shared Vitest config + real-test helpers (Testcontainers Postgres/Redis, OAuth stub server, email/SMS capture transports). Internal package, never published.",
@@ -15,7 +15,10 @@
     "./helpers/sms-capture": "./helpers/sms-capture.transport.js",
     "./helpers/boot-test-app": "./helpers/boot-test-app.js"
   },
-  "files": ["index.js", "helpers/"],
+  "files": [
+    "index.js",
+    "helpers/"
+  ],
   "dependencies": {
     "vitest": "^3.0.0",
     "@vitest/coverage-v8": "^3.0.0",
