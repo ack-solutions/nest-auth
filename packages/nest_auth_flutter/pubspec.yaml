@@ -2,6 +2,14 @@ name: nest_auth_flutter
 description: "Flutter / Dart SDK for NestJS authentication with @ackplus/nest-auth — HTTP client, secure token storage, and automatic refresh."
 version: 2.0.0
 repository: https://github.com/ack-solutions/nest-auth
+homepage: https://github.com/ack-solutions/nest-auth
+issue_tracker: https://github.com/ack-solutions/nest-auth/issues
+topics:
+  - authentication
+  - auth
+  - jwt
+  - nestjs
+  - oauth
 
 environment:
   sdk: ">=3.0.0 <4.0.0"

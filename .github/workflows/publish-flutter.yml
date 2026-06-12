@@ -1,0 +1,55 @@
+name: Publish nest_auth_flutter (tag)
+
+# Triggers on a Flutter-specific tag, e.g. `nest_auth_flutter-v2.0.1`, so it
+# never collides with the npm release workflow (which uses `*.*.*` tags).
+on:
+  push:
+    tags:
+      - "nest_auth_flutter-v*"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      # Required for pub.dev's OIDC authentication — no PUB_TOKEN secret needed.
+      id-token: write
+    defaults:
+      run:
+        working-directory: packages/nest_auth_flutter
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # setup-dart performs the pub.dev OIDC token exchange when `id-token: write`
+      # is granted, writing a short-lived credential pub honors.
+      - name: Set up Dart (OIDC for pub.dev)
+        uses: dart-lang/setup-dart@v1
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Verify the tag matches pubspec version
+        shell: bash
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#nest_auth_flutter-v}"
+          PUBSPEC_VERSION="$(grep '^version:' pubspec.yaml | awk '{print $2}')"
+          echo "tag=$TAG_VERSION pubspec=$PUBSPEC_VERSION"
+          if [ "${{ github.event_name }}" = "push" ] && [ "$TAG_VERSION" != "$PUBSPEC_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match pubspec version ($PUBSPEC_VERSION)."
+            exit 1
+          fi
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Validate package (dry run)
+        run: flutter pub publish --dry-run
+
+      - name: Publish to pub.dev
+        run: flutter pub publish --force
