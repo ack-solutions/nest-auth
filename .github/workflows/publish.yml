@@ -82,12 +82,15 @@ jobs:
           fi
 
       - name: Build packages
-        run: pnpm build
+        # Build only the publishable libraries (+ admin UI bundle), NOT the
+        # example apps / docs site — those are private and not needed to publish.
+        run: pnpm exec turbo run build --filter="./packages/*"
 
       - name: Publish packages
         shell: bash
         run: |
           pnpm -r publish \
+            --filter "./packages/*" \
             --access public \
             --no-git-checks \
             --provenance \
@@ -95,7 +98,24 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # ---- Flutter / Dart package → pub.dev (same tag, OIDC, no secret) ----
+  # Flutter / Dart package → pub.dev on the same tag (OIDC — no secret). A
+  # separate job so the npm release isn't blocked if pub.dev automated
+  # publishing isn't configured yet. It checks out main, which already has the
+  # version bump the release job pushed.
+  publish-flutter:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    defaults:
+      run:
+        working-directory: packages/nest_auth_flutter
+    steps:
+      - name: Checkout main (with the release version bump)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
       - name: Set up Dart (OIDC for pub.dev)
         uses: dart-lang/setup-dart@v1
 
@@ -104,8 +124,8 @@ jobs:
         with:
           channel: stable
 
-      - name: Publish nest_auth_flutter to pub.dev
-        working-directory: packages/nest_auth_flutter
-        run: |
-          flutter pub get
-          flutter pub publish --force
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Publish to pub.dev
+        run: flutter pub publish --force
