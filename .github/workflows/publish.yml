@@ -63,6 +63,12 @@ jobs:
         run: |
           pnpm -r exec npm version "${{ steps.version.outputs.version }}" --no-git-tag-version
 
+      - name: Bump Flutter pubspec version
+        shell: bash
+        run: |
+          sed -i -E "s/^version: .*/version: ${{ steps.version.outputs.version }}/" \
+            packages/nest_auth_flutter/pubspec.yaml
+
       - name: Commit & push version changes
         shell: bash
         run: |
@@ -88,3 +94,18 @@ jobs:
             --tag "${{ steps.version.outputs.dist_tag }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # ---- Flutter / Dart package → pub.dev (same tag, OIDC, no secret) ----
+      - name: Set up Dart (OIDC for pub.dev)
+        uses: dart-lang/setup-dart@v1
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Publish nest_auth_flutter to pub.dev
+        working-directory: packages/nest_auth_flutter
+        run: |
+          flutter pub get
+          flutter pub publish --force
