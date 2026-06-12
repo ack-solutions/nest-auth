@@ -61,7 +61,8 @@ jobs:
       - name: Bump all workspace package versions
         shell: bash
         run: |
-          pnpm -r exec npm version "${{ steps.version.outputs.version }}" --no-git-tag-version
+          pnpm -r exec npm version "${{ steps.version.outputs.version }}" \
+            --no-git-tag-version --allow-same-version
 
       - name: Bump Flutter pubspec version
         shell: bash
