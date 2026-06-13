@@ -2,6 +2,8 @@
 
 Flutter / Dart SDK for [`@ackplus/nest-auth`](https://github.com/ack-solutions/nest-auth).
 
+> 📚 **Full documentation: [ack-solutions.github.io/nest-auth](https://ack-solutions.github.io/nest-auth/)**
+
 A small, dependency-light client: HTTP auth flows, secure token storage, and transparent token refresh. The core (`NestAuthClient`) is pure Dart; `SecureTokenStorage` wraps `flutter_secure_storage` for production apps.
 
 ## Install
