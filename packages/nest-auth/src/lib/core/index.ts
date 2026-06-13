@@ -4,6 +4,8 @@ export * from './decorators/role.decorator';
 export * from './decorators/permissions.decorator';
 export * from './decorators/skip-mfa.decorator';
 export * from './decorators/auth.decorator';
+export * from './decorators/public.decorator';
+export * from './decorators/current-user.decorator';
 
 // Swagger / OpenAPI helpers
 export * from './swagger/api-responses.decorator';

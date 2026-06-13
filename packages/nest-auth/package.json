@@ -1,10 +1,19 @@
 {
   "name": "@ackplus/nest-auth",
-  "version": "2.0.1",
-  "description": "Powerful CRUD operations for NestJS with TypeORM - automatic REST endpoints, advanced filtering, relations, pagination, and more",
+  "version": "2.0.2",
+  "description": "Authentication & authorization for NestJS — JWT/cookie sessions, refresh-token rotation, RBAC, multi-tenancy, MFA, OAuth/social login, passwordless, API keys, and a built-in admin console.",
   "type": "commonjs",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "clean": "rm -rf dist tsconfig.build.tsbuildinfo",
     "generate:swagger": "node script/generate-nest-auth-swagger.mjs",
@@ -23,16 +32,17 @@
   ],
   "keywords": [
     "nestjs",
-    "crud",
-    "typeorm",
-    "rest",
-    "api",
-    "query-builder",
-    "filtering",
-    "pagination",
-    "relations",
-    "nestjs-crud",
-    "nestjs-typeorm"
+    "auth",
+    "authentication",
+    "authorization",
+    "jwt",
+    "rbac",
+    "multi-tenancy",
+    "mfa",
+    "oauth",
+    "passwordless",
+    "session",
+    "typeorm"
   ],
   "repository": {
     "type": "git",

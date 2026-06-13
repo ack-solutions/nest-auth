@@ -33,6 +33,7 @@ export type { DebugLogOptions } from './lib/core/services/debug-logger.service';
 
 // Admin console exports
 export { NestAuthAdminUser } from './lib/admin-console/entities/admin-user.entity';
+export { CurrentAdmin } from './lib/admin-console/decorators/current-admin.decorator';
 
 // Utils (for consistent email/phone normalization when integrating)
 export { normalizedEmail, normalizedPhone } from './lib/utils';

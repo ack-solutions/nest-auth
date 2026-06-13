@@ -1,6 +1,8 @@
 // Guards
 export * from './guards/auth.guard';
 
+// Filters
+export * from './filters/auth-exception.filter';
 
 // Interceptors
 export * from './interceptors/token-response.interceptor';
