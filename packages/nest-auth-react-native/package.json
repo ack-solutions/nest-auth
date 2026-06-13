@@ -1,6 +1,6 @@
 {
   "name": "@ackplus/nest-auth-react-native",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "React Native / Expo SDK for NestJS authentication - hooks, guards, and secure token storage",
   "type": "module",
   "main": "./dist/index.js",
