@@ -1,308 +1,372 @@
 ---
 title: Migration (v1 → v2)
-description: Upgrade an existing @ackplus/nest-auth v1.x app to v2.0 — every breaking change, with before/after code.
+description: Exhaustive upgrade guide from @ackplus/nest-auth v1.x to v2 — every breaking change, config rename, schema change, SDK change, and behavior change, with before/after code.
 ---
 
-This guide takes an existing **v1.x** app to **v2.0**. It lists every breaking change across the four published packages, with copy-paste before/after snippets. A typical app upgrades in **under an hour**; allow more if you have many custom hooks or a hand-managed database schema.
+This guide takes an existing **v1.x** app (baseline `1.1.69-beta.x`) to **v2** (`2.0.1`). It is exhaustive — every change a consumer can observe is listed, grouped so you can jump to what you use. A typical app upgrades in **1–2 hours**; longer if you have many custom hooks or a hand-managed database schema.
+
+> Every item below was verified against the actual v1 and v2 source. If something here doesn't match your code, file an issue — don't guess.
 
 ## The good news first
 
-v2 is a focused release, **not** an architectural rewrite. These did **not** change, so you don't have to touch them:
+These did **not** change, so you don't have to touch them:
 
-- **Module wiring** — still `NestAuthModule.forRoot(options)` and `NestAuthModule.forRootAsync(...)`. No rename, no plugin system. Configuration is still a single flat options object (`IAuthModuleOptions`).
-- **Tenancy** — `TenantModeEnum` is unchanged (`ISOLATED = 'isolated'`, `SHARED = 'shared'`), and the `tenant: { enabled, mode }` shape is identical.
-- **Database tables** — no tables were renamed or dropped. v2 adds one table and two columns (see [Schema changes](#schema-changes)).
-- **Core React hooks** — `useNestAuth`, `useSession`, `useAccessToken`, `useAuthStatus`, the route guards, and the Next.js helpers keep the same names and signatures.
+- **Module wiring** — still `NestAuthModule.forRoot(options)` / `forRootAsync(...)`. No plugin system; config is still one flat `IAuthModuleOptions` object.
+- **Tenancy** — `TenantModeEnum` is unchanged (`ISOLATED = 'isolated'`, `SHARED = 'shared'`); `tenant: { enabled, mode }` is identical.
+- **Event keys** — no event was removed or renamed; every existing `NestAuthEvents.*` string is byte-identical. v1 listeners keep working (v2 only *adds* new events).
+- **Default route paths** — `/auth/...` is still the default (now configurable, see below). Most routes are unchanged.
 
-Everything below is the part that **did** change.
+Everything else is below.
 
 ---
 
-## ⚠️ Do this first: regenerate API keys
+## ⚠️ Do this first: stored secrets that v2 re-hashes
 
-This is the only change that touches stored data, so plan for it up front.
+v2 stores several secrets **hashed at rest** that v1 stored in plaintext. Existing rows silently stop validating after upgrade (they fail closed — no crash). Plan these before cutover:
 
-In v1, programmatic API-key secrets (`AccessKeyService` / the `nest_auth_access_keys` table) were stored **in plaintext** and compared with `===`. v2 stores only a domain-separated SHA-256 **hash** of the secret and verifies it with a constant-time compare.
+| Secret (table) | v1 | v2 | Action |
+| --- | --- | --- | --- |
+| **API keys** (`nest_auth_access_keys.privateKey`) | plaintext, compared with `===` | domain-separated SHA-256 hash, constant-time compare | **Regenerate every key.** Capture the new plaintext once (it's never recoverable). |
+| **MFA recovery codes** (`nest_auth_users.mfaRecoveryCode`) | plaintext (speakeasy base32) | HMAC-SHA256 of a random code | **Have users regenerate** their recovery code; old ones won't validate. |
+| **OTP codes** (`nest_auth_otps.code`) | plaintext | HMAC-SHA256, `select: false` | In-flight OTPs (reset/verify codes) issued before upgrade won't validate — users just request a new code. No action needed. |
+| **Trusted-device tokens** (`nest_auth_trusted_devices`) | plaintext `token` column (indexed) | `tokenHash` (`text`, `select: false`) | Existing trusted devices simply re-prompt for MFA once; the user re-trusts the device. |
 
-**Consequence:** every API key created under v1 will **fail validation** after you upgrade. Validation fails gracefully — `validateAccessKey()` returns `false`, nothing crashes — but the old keys stop working.
-
-There is no automatic re-hash, because the only value that could be re-hashed is the original plaintext secret, and storing that was the vulnerability. The fix is rotation:
-
-1. Before cutover, notify anyone holding an API key that it must be rotated.
-2. After upgrade, create a replacement for each key (`AccessKeyService.createAccessKey(...)` or the admin dashboard). **Capture the plaintext secret once** — it is never recoverable from the database again.
-3. Deactivate or delete the old keys.
-
-If you don't use programmatic API keys, skip this section.
+There's no automatic re-hash for any of these — the only value that could be re-hashed is the plaintext, and storing it was the weakness. Rotation is the path.
 
 ---
 
 ## Pre-upgrade checklist
 
-1. **Pin v1 so you can roll back.** Note your current versions before bumping (e.g. `"@ackplus/nest-auth": "1.1.69-beta.9"`).
-2. **Snapshot your database.** The schema changes are additive, but a snapshot is your safety net.
-3. **Inventory your customizations.** Grep your app for the symbols this guide renames so you know your blast radius:
+1. **Pin v1 so you can roll back** (e.g. `"@ackplus/nest-auth": "1.1.69-beta.9"`).
+2. **Snapshot your database.** Schema changes are additive *plus a few column drops* (below) — a snapshot is your safety net.
+3. **Inventory your blast radius** — grep for the renamed symbols:
    ```bash
-   grep -rn "accessTokenExpiresIn\|refreshTokenExpiresIn\|passwordResetOtpExpiresIn" src/   # backend config
-   grep -rn "\.getUser(\|isAuthenticated(\|resendVerification(\|onAuthStateChange" src/      # client SDK
-   grep -rn "\.user\b\|autoLoadMe\|resendVerification" src/                                  # react
-   grep -rn "serialize\s*:" src/                                                              # user hook rename
+   # backend config
+   grep -rn "jwt:\|accessTokenExpiresIn\|refreshTokenExpiresIn\|sessionExpiry\|refreshTokenExpiry\|accessTokenType\|cookieOptions\|passwordResetTokenExpiresIn\|passwordResetOtpExpiresIn\|otpLength\|otpExpiresIn\|defaultOtp\|slidingExpiration\|serialize" src/
+   # client SDK
+   grep -rn "\.getUser(\|getUserAccesses\|getTenantMemberships\|\.isAuthenticated(\|onAuthStateChange\|resendVerification\|\.refresh(" src/
+   # react
+   grep -rn "\.user\b\|autoLoadMe\|resendVerification\|from '@ackplus/nest-auth-react'" src/
+   # contracts / data shape
+   grep -rn "IAuthUser\|isVerified\|\.otp\b\|\.used\b\|\.token\b" src/
    ```
-4. **Confirm your tenant mode and Node version.** v2 targets Node ≥ 20.
+4. **Confirm Node ≥ 20** (v2 declares `engines.node >= 20`).
 
 ---
 
 ## Step 1 — Bump versions
 
-The four published packages release together at the same version. Upgrade them in lockstep:
+There are now **five npm packages** (the React Native SDK is new) plus a Flutter package. Upgrade the npm ones in lockstep:
 
 ```bash
 pnpm add @ackplus/nest-auth@2 \
          @ackplus/nest-auth-client@2 \
          @ackplus/nest-auth-react@2 \
          @ackplus/nest-auth-contracts@2
+# new in v2 (optional, only if you build a mobile app):
+pnpm add @ackplus/nest-auth-react-native@2     # React Native / Expo
+# Flutter (pub.dev): add `nest_auth_flutter: ^2.0.0` to pubspec.yaml
 ```
 
-> **The admin dashboard is *not* a separate install.** The admin console (REST API **and** the dashboard UI served at `/auth/admin`) ships inside `@ackplus/nest-auth`. You enable it with the `adminConsole` option — there is no `@ackplus/nest-auth-admin` package to add.
+> The admin dashboard still ships **inside** `@ackplus/nest-auth` (enable with `adminConsole`) — there's no separate package to install.
 
 ---
 
-## Step 2 — Schema changes
+## Step 2 — Database schema
 
-v2 adds **one table** and **two columns**. Nothing is dropped or renamed.
+v2 **adds** tables/columns and **drops** a few. With `synchronize: true` most of this applies automatically; with migrations, generate one and review it.
 
-| Change | Table | Detail |
+### Added
+
+| Change | Table / column | Notes |
 | --- | --- | --- |
-| New table | `nest_auth_platform_accesses` | Backs the new platform-admin feature (one row per platform super-admin). |
-| New column | `nest_auth_trusted_devices.tokenHash` | `text`, not selected by default — trusted-device tokens are now stored hashed. |
-| New column | `nest_auth_trusted_devices.revokedAt` | `datetime`, nullable — supports explicit device revocation. |
+| New table | `nest_auth_platform_accesses` | One row per platform super-admin (the new platform-admin feature). |
+| New join table | `nest_auth_platform_access_roles` | M2M linking platform accesses → roles. |
+| New column | `nest_auth_trusted_devices.revokedAt` | `datetime`, nullable — explicit device revocation. |
+| New (relation only, no column on users) | `NestAuthUser.platformAccess` (OneToOne) | FK lives on `nest_auth_platform_accesses.userId`. |
 
-How to apply it depends on how you manage schema:
+### Changed
 
-- **`synchronize: true`** — applied automatically on the next boot. Nothing to do.
-- **Migrations** — generate one against the v2 entities and review it before running:
-  ```bash
-  npx typeorm migration:generate ./migrations/UpgradeNestAuthV2 -d ./your-data-source.ts
-  ```
+| Change | Column | Detail |
+| --- | --- | --- |
+| Renamed + retyped | `nest_auth_trusted_devices.token` → `tokenHash` | was indexed `varchar`; now `text`, `select: false`. Stores an HMAC, not the raw token. |
+| Now hashed + hidden | `nest_auth_otps.code` | same `varchar` column, but values are HMAC-SHA256 and `select: false`. |
+| Now hidden | `nest_auth_users.passwordHash` | `select: false` — no longer returned by default `find()`. If you relied on it being populated, `addSelect` it explicitly. |
 
-Existing trusted devices have a `NULL` `tokenHash` and simply won't match until the user marks the device trusted again — expected and safe. The `nest_auth_access_keys` table is **unchanged in shape**; only what's stored in its `privateKey` column changed (see [Do this first](#️-do-this-first-regenerate-api-keys)).
+### Dropped (review before upgrading)
+
+| Removed | Where | What to do |
+| --- | --- | --- |
+| Column `isVerified` | `nest_auth_users` | Use `emailVerifiedAt` / `phoneVerifiedAt` (timestamps) instead. Drop the column or leave it orphaned. |
+| Column `used` | `nest_auth_otps` | v2 **deletes** consumed OTP rows instead of marking `used`. Drop the column. |
+| Join table `nest_auth_role_nest_auth_users` | direct user↔role M2M | The direct `NestAuthUser.roles` / `NestAuthRole.users` link is gone — roles are now reached **through `userAccesses`** (`user.userAccesses[].roles`). Migrate any direct queries. |
+
+Apply with `synchronize: true` (next boot) or a reviewed migration:
+```bash
+npx typeorm migration:generate ./migrations/UpgradeNestAuthV2 -d ./your-data-source.ts
+```
 
 ---
 
-## Step 3 — Backend config & hooks
+## Step 3 — Backend config (`IAuthModuleOptions`)
 
-### Token TTLs moved out of `jwt` and were renamed
+The biggest change: **JWT and several token/cookie options moved under `session`**, and token-TTL keys were renamed to `*Validity`.
 
-The JWT block now holds only `secret` (and the optional `validateToken`). Token lifetimes moved up to `session` and were renamed to `*Validity`.
+### `jwt` moved to `session.jwt` (and lost its TTL fields)
+
+In v1, `jwt` was a **required top-level** object that also held the token TTLs. In v2 there is no root `jwt`; it lives at `session.jwt` and holds only `secret` (+ optional `validateToken`). The TTLs became `session.accessTokenValidity` / `session.refreshTokenValidity`.
 
 ```ts
 // v1
 NestAuthModule.forRoot({
-  session: {
-    jwt: {
-      secret: env.JWT_SECRET,
-      accessTokenExpiresIn: '15m',     // ← removed
-      refreshTokenExpiresIn: '30d',    // ← removed
-    },
+  jwt: {
+    secret: env.JWT_SECRET,
+    accessTokenExpiresIn: '15m',     // ← gone
+    refreshTokenExpiresIn: '30d',    // ← gone
+    validateToken: (p, s) => true,
   },
 });
 
 // v2
 NestAuthModule.forRoot({
   session: {
-    jwt: { secret: env.JWT_SECRET },
-    accessTokenValidity: '15m',        // ← renamed + moved up to session
-    refreshTokenValidity: '30d',       // ← renamed + moved up to session
+    jwt: { secret: env.JWT_SECRET, validateToken: (p, s) => true },
+    accessTokenValidity: '15m',      // ← renamed + moved under session
+    refreshTokenValidity: '30d',     // ← renamed + moved under session
   },
 });
 ```
 
-### `passwordResetOtpExpiresIn` was removed
+> If you don't move it, JWT signing throws **`Missing session.jwt.secret`** at runtime.
 
-The root-level `passwordResetOtpExpiresIn` is gone. Verification/OTP code lifetime is now configured under `otp`, and the password-reset **token** lifetime lives under `password`.
+### Other token-TTL renames (under `session`)
+
+| v1 | v2 |
+| --- | --- |
+| `session.sessionExpiry` | `session.accessTokenValidity` |
+| `session.refreshTokenExpiry` | `session.refreshTokenValidity` |
+| `jwt.accessTokenExpiresIn` | `session.accessTokenValidity` |
+| `jwt.refreshTokenExpiresIn` | `session.refreshTokenValidity` |
+
+### Options that moved from root → nested
+
+| v1 (root) | v2 |
+| --- | --- |
+| `accessTokenType` | `session.accessTokenType` (now also allows `null`) |
+| `cookieOptions` | `session.cookieOptions` |
+| `passwordResetTokenExpiresIn` | `password.passwordResetTokenExpiresIn` |
+
+### Options removed (with replacement)
+
+| v1 | v2 |
+| --- | --- |
+| `passwordResetOtpExpiresIn` (root) | removed → use `otp.codeExpiresIn` (default `30m`) |
+| `mfa.otpLength` | removed → `mfa.otp.length` |
+| `mfa.otpExpiresIn` | removed (no replacement on `mfa`) |
+| `mfa.defaultOtp` (fixed dev/test code) | removed — no replacement |
+
+### Behavior default change: `slidingExpiration`
+
+`session.slidingExpiration` now defaults to **`false`** (was `true`). Sessions are no longer extended on activity unless you set it explicitly:
 
 ```ts
-// v1
-NestAuthModule.forRoot({
-  passwordResetOtpExpiresIn: '10m',    // ← removed
-});
-
-// v2
-NestAuthModule.forRoot({
-  otp: { codeExpiresIn: '10m' },                       // email/phone verification & reset codes
-  password: { passwordResetTokenExpiresIn: '1h' },     // reset-token TTL (was already available)
-});
+session: { slidingExpiration: true }   // restore v1 behavior
 ```
+
+---
+
+## Step 4 — Backend hooks
 
 ### `user.serialize` → `user.getSessionUserData`
 
-The hook that shapes the user object in API responses was renamed.
+Renamed; the return type widened to `any` and it may be async.
 
 ```ts
 // v1
-user: {
-  serialize: (user) => ({ id: user.id, email: user.email }),
-}
-
+user: { serialize: (user) => ({ id: user.id, email: user.email }) }
 // v2
-user: {
-  getSessionUserData: (user) => ({ id: user.id, email: user.email }),
-}
+user: { getSessionUserData: (user) => ({ id: user.id, email: user.email }) }
 ```
-
-### `onSignup` / `onLogin` no longer return the user
-
-These hooks now return `void`. Mutate the passed-in `user` in place (and persist it yourself if you need the change in the same transaction) — don't return it.
-
-```ts
-// v1
-registrationHooks: {
-  onSignup: async (user, input, ctx) => {
-    user.userAccesses = [defaultAccess];
-    return user;                       // ← return value was used
-  },
-}
-
-// v2
-registrationHooks: {
-  onSignup: async (user, input, ctx) => {
-    user.userAccesses = [defaultAccess];
-    // mutate in place; no return
-  },
-}
-```
-
-The same applies to `loginHooks.onLogin`.
 
 ### `password.validate` was removed
 
-The `password` option no longer accepts a `validate` callback. It now exposes `hash`, `verify`, and `argon2` tuning (plus `passwordResetTokenExpiresIn`). Enforce password policy in a `registrationHooks.beforeSignup` hook or a DTO validator instead.
+The `IPasswordHooks` interface is gone; `password` is now an inline object with `hash`, `verify`, `argon2`, and `passwordResetTokenExpiresIn` — **no `validate`**. Enforce password policy in `registrationHooks.beforeSignup` or a DTO validator.
+
+### `onSignup` / `onLogin` now return `void`
+
+Both narrowed to `Promise<void> | void` — a v1 hook that **returned** the user no longer typechecks. Mutate the passed-in `user` in place. Their `context` also gained a transactional `manager` (the hook now runs inside the signup transaction; `onLogin`'s context additionally gained `userAccess` and `platformAccess`).
+
+```ts
+// v1
+registrationHooks: { onSignup: async (user, input, ctx) => { user.x = 1; return user; } }
+// v2
+registrationHooks: { onSignup: async (user, input, ctx) => { user.x = 1; /* ctx.manager available; no return */ } }
+```
 
 ### `otp.generate` gained a `format` argument
 
-If you supply a custom code generator, its signature widened from `(length?) => string` to `(length?, format?) => string`. Existing generators keep working — the second argument is optional.
+`(length?) => string` → `(length?, format?: 'numeric' | 'alphanumeric') => string`. Existing generators keep working (the new arg is optional).
+
+### New, additive hooks (nothing to change)
+
+`IUserHooks` gained transactional `beforeUpdate` / `afterUpdate` / `beforeDelete` / `afterDelete`, and `afterCreate` gained an optional `manager` third arg. See the [hooks reference](/docs/backend/hooks-reference).
 
 ---
 
-## Step 4 — Client SDK (`@ackplus/nest-auth-client`)
+## Step 5 — Client SDK (`@ackplus/nest-auth-client`)
 
-| v1 | v2 | Notes |
+| v1 | v2 | What to do |
 | --- | --- | --- |
-| `client.getUser()` *(sync)* | `await client.getSessionUserData()` *(async)* | The in-memory getter was removed; fetch session user data instead. |
-| `client.getUserAccesses()` | *removed* | Read accesses from the session user data. |
-| `client.getTenantMemberships()` | *removed* | Read memberships from the session user data. |
-| `client.isAuthenticated()` | `client.getIsAuthenticated()` | Renamed; still synchronous, still returns `boolean`. |
-| `client.resendVerification(dto)` | `client.sendEmailVerification(dto?)` / `client.sendPhoneVerification(dto?)` | Split into channel-specific methods. |
-| `client.verifyForgotPasswordOtp({ otp })` | `client.verifyForgotPasswordOtp({ code })` | The `otp` field was renamed to `code`. |
-| `client.refresh(): Promise<TokenPair>` | `client.refresh(): Promise<ITokenPair \| null>` | Now resolves `null` when there is no refreshable session — null-check the result. |
-| `config.onAuthStateChange` | *removed* | Use the existing `onTokenRefreshed` / `onLogout` callbacks. |
+| `client.getUser()` *(sync, cached)* | **removed** | Use `await client.getSessionUserData()` (async, hits `/auth/me`), or read from session events. |
+| `client.getUserAccesses()` | **removed** | Read accesses from the session user data. |
+| `client.getTenantMemberships()` | **removed** | (was a deprecated alias) — same. |
+| `client.isAuthenticated()` *(method)* | `client.getIsAuthenticated()` | Renamed; `isAuthenticated` is now a private field, not callable. |
+| `client.onAuthStateChange(cb)` (method) | **removed** | Use `onSessionVerified()` / `onRefreshSessionData()`, or `getTokenState()` / `subscribeTokenState()`. |
+| `config.onAuthStateChange` | **removed** | Same replacements. |
+| `client.resendVerification(dto)` | `sendEmailVerification(dto?)` / `sendPhoneVerification(dto?)` | Split per channel; `dto` is now optional. |
+| `client.refresh(): Promise<TokenPair>` | `client.refresh(): Promise<ITokenPair \| null>` | **Null-check the result** — cookie mode returns `null` (cookies update server-side). |
+| `config.onTokenRefreshed: (TokenPair)` | `(tokens: ITokenPair \| null)` | Callback can now receive `null` in cookie mode. |
+| `verifyForgotPasswordOtp({ otp })` | `verifyForgotPasswordOtp({ code })` | Field renamed `otp` → `code` (the param is now `IVerifyForgotPasswordOtpRequest`). |
+| `EndpointConfig` (interface, all optional) | `type EndpointConfig = typeof DEFAULT_ENDPOINTS` | All fields are now **required strings**. If you declared a partial `EndpointConfig`, spread `DEFAULT_ENDPOINTS` or use `Partial<EndpointConfig>`. |
+| `DEFAULT_ENDPOINTS.me = '/auth/user'` | `= '/auth/me'` | If you overrode `endpoints.me`, update it. |
+| `AuthState.user: IAuthUser \| null` | `: ISessionUserData \| null` | The shape changed (see contracts). |
+
+**Behavior:** `client.verifyEmail()` no longer mutates a cached user (`this.user.isVerified = true`); it emits a `refreshSessionData` event instead. Re-fetch session data if you showed a cached "verified" flag.
 
 ```ts
 // v1
 const user = client.getUser();
 if (client.isAuthenticated()) { /* ... */ }
 await client.resendVerification({ email });
+const pair = await client.refresh();          // TokenPair
 
 // v2
 const user = await client.getSessionUserData();
 if (client.getIsAuthenticated()) { /* ... */ }
 await client.sendEmailVerification({ email });
+const pair = await client.refresh();          // ITokenPair | null  ← null-check
 ```
 
 ---
 
-## Step 5 — React SDK (`@ackplus/nest-auth-react`)
+## Step 6 — React SDK (`@ackplus/nest-auth-react`)
 
-### `useNestAuth()`: `user` → `sessionData`
-
-```tsx
-// v1
-const { user } = useNestAuth();
-return <span>{user?.email}</span>;
-
-// v2
-const { sessionData } = useNestAuth();
-return <span>{sessionData?.email}</span>;
-```
-
-### `useUser()` returns the session-user shape
-
-`useUser()` now returns `ISessionUserData | null` instead of `IAuthUser | null`. Field names follow the entity — for example the verification flag is `emailVerifiedAt` (a timestamp) rather than `isVerified` (a boolean).
+### `useNestAuth()` / `useUser()`: `user` → `sessionData`
 
 ```tsx
 // v1
-const user = useUser();
-const verified = user?.isVerified;
-
+const { user } = useNestAuth();   const verified = user?.isVerified;
 // v2
-const user = useUser();
-const verified = Boolean(user?.emailVerifiedAt);
+const { sessionData } = useNestAuth();   const verified = Boolean(sessionData?.emailVerifiedAt);
 ```
+`useUser()` now returns `ISessionUserData | null` from `context.sessionData` (was `IAuthUser | null`). The verification flag changed from `isVerified` (boolean) to `emailVerifiedAt` / `phoneVerifiedAt` (timestamps).
 
-### Verification methods split
+### Method changes on the `useNestAuth()` value
 
-`resendVerification` was replaced by `sendEmailVerification` / `sendPhoneVerification` (and a new `verifyPhone`) on the `useNestAuth()` value, mirroring the client SDK.
+- `resendVerification(dto)` → **`sendEmailVerification(dto?)`** (plus new `sendPhoneVerification`, `verifyPhone`).
+- `verifyForgotPasswordOtp` param type is now `IVerifyForgotPasswordOtpRequest` (`otp` → `code`).
 
 ### `AuthProvider` props
 
-- `autoLoadMe` was removed — session user data loads through the new `getSessionData` / `isLoadingSessionData` flow.
-- `InitialAuthState.user` was removed (pass `session` / `status` only when seeding initial state).
+- **`autoLoadMe` removed** — session data now always loads on mount (via `getSessionData` / `isLoadingSessionData`).
+- **`InitialAuthState.user` removed** — SSR hydration takes `session` / `status` only.
 
-### Type re-exports moved
+### The package no longer re-exports client types
 
-`@ackplus/nest-auth-react` no longer re-exports the client's types (`AuthClient`, DTO types, `hasRole`/`hasPermission`, etc.). Import those directly from `@ackplus/nest-auth-client`:
+`@ackplus/nest-auth-react` dropped **all** client re-exports — `AuthClient`, `AuthUser`/`AuthSession`/`AuthState`/`AuthError`, the DTO aliases, and `hasRole`/`hasPermission`/`hasAnyAccess`/`hasAllAccess`. Import them from the client package:
 
 ```ts
 // v1
 import { AuthClient, hasRole } from '@ackplus/nest-auth-react';
-
 // v2
 import { AuthClient, hasRole } from '@ackplus/nest-auth-client';
 ```
 
----
+### Behavior changes to know
 
-## Step 6 — Shared contracts (`@ackplus/nest-auth-contracts`)
-
-If you import types from contracts directly:
-
-- **`IAuthUser` → `ISessionUserData`.** The interface describing the serialized session user was renamed.
-- **`IResetPasswordRequest.otp` → `code`** and **`IVerifyForgotPasswordOtpRequest.otp` → `code`.** The OTP field on these request types is now `code`. (`IChangePasswordRequest` and the token-based reset request still use `newPassword` — unchanged.)
+- **`isAuthenticated`** is now `status === 'authenticated'` only (v1 also required a non-null user). Don't assume `sessionData` is populated the instant `isAuthenticated` is true — gate on `isLoadingSessionData` / `sessionData`.
+- **`isLoading`** is now true while status is `loading` **or** session data is being fetched.
+- **`useHasRole` / `useHasPermission`** (and the `RequireRole` / `RequirePermission` guards) now evaluate against `sessionData` instead of `user`.
+- **`RequirePermission`** no longer factors authentication into the decision — it denies only on missing permission.
 
 ---
 
-## What's new in v2 (optional)
+## Step 7 — Shared contracts (`@ackplus/nest-auth-contracts`)
 
-These are additive — nothing to migrate, but worth adopting:
+### `import { IFoo }` → `import type { IFoo }` for type-only symbols
 
-- **Platform admin** — a first-class, cross-tenant super-admin (`platformAccess: { enabled, validate }`). See [Platform admin portal](/docs/recipes/platform-admin-portal).
-- **Embedded admin dashboard** — a full management UI served at `/auth/admin`, backed by a documented REST API. Enable with `adminConsole: { enabled: true, secretKey }`.
-- **Passwordless login** — email/SMS OTP via `passwordless: { enabled, allowSignUp }`, plus client/React `passwordlessSend` helpers.
-- **OTP customization** — `otp: { secret, generate, length, format, codeExpiresIn }`.
-- **Password hashing controls** — bring-your-own `password.hash` / `password.verify`, or tune the built-in Argon2 via `password.argon2`.
-- **OAuth hardening** — Google `requireVerifiedEmail`, and GitHub Enterprise endpoint overrides (`github.userApiUrl`, `github.emailsApiUrl`).
-- **Stable request-auth helpers** — React `useAuthHeaderFn` / `useAuthHeaderFnSync` for decorating outbound requests without re-rendering on every token change.
+The barrel split interfaces/type-aliases into `export type { ... }` (only the two enums remain value exports). Under `isolatedModules` / `verbatimModuleSyntax` (or esbuild ≥ 0.27), `import { ILoginRequest }` must become `import type { ILoginRequest }`.
+
+### Renamed / removed types
+
+| v1 | v2 |
+| --- | --- |
+| `IAuthUser` | **removed** → `ISessionUserData` (different shape; `isVerified` → `emailVerifiedAt`, etc.). No longer exported. |
+| `IResetPasswordRequest.otp` | `.code` |
+| `IVerifyForgotPasswordOtpRequest.otp` | `.code` |
+| `IVerifyEmailRequest.otp` | `.code` (+ new `tenantId?`) |
+| `INestAuthUser.isVerified` | **removed** → `emailVerifiedAt` / `phoneVerifiedAt` |
+| `IUserResponse.isVerified` | **removed** → `emailVerifiedAt?` / `phoneVerifiedAt?` |
+| `INestAuthOTP.used` | **removed** |
+| `IAuthResponse.user` | **removed** (login/signup response no longer embeds the user) |
+| `IVerify2faResponse.user` | **removed** |
+| `INestAuthTrustedDevice.token` | `tokenHash` (+ new `revokedAt?`) |
+
+### Enum change
+
+`NestAuthOTPTypeEnum` lost `VERIFICATION = 'verification'` and gained `PASSWORDLESS_LOGIN`, `MAGIC_LINK_LOGIN`, `EMAIL_VERIFICATION`, `PHONE_VERIFICATION`. Code comparing against `VERIFICATION` / the string `'verification'` breaks — use `EMAIL_VERIFICATION` / `PHONE_VERIFICATION`.
+
+---
+
+## Step 8 — Behavior changes (same API, new runtime behavior)
+
+Even where the API didn't change, these runtime behaviors did — worth knowing before you ship:
+
+- **Refresh-token rotation + reuse detection.** Each refresh issues a *new* token (unique `jti`) and stores its HMAC on the session; a replayed/old refresh token is now rejected. Existing sessions (empty stored hash) are handled gracefully — the first refresh populates it, no forced re-login.
+- **Refresh hardening.** Refresh now re-validates the user (active? has tenant/platform access?) and **revokes the session** (reason `security`) if not — and re-resolves roles/permissions on every refresh. v1 only checked the token signature + session id.
+- **JWT algorithm pinning.** Signing/verification are pinned to `HS256` (prevents algorithm-confusion). No action unless you somehow issued non-HS256 tokens.
+- **Password-reset token lifetime fix.** v1 had a unit bug (added `ms()` *milliseconds* to a *seconds* exp claim → tokens lived ~41 days). v2 computes seconds correctly, so `'1h'` now genuinely means one hour.
+- **Atomic user mutations.** `createUser` / `updateUser` / `deleteUser` each run in a single transaction; the user hooks run *inside* it (a throwing hook rolls the whole thing back — no partial users).
+- **MFA verification side-effect.** A successful email/SMS MFA verification now stamps `emailVerifiedAt` / `phoneVerifiedAt` (only when null).
+- **Google sign-in:** verifies against **multiple audiences** (`google.audiences` + `clientId`) for native iOS/Android id-tokens, and rejects `email_verified === false` when `google.requireVerifiedEmail` is on.
+- **API-key lookup** no longer throws on unknown/inactive/expired keys — `validateAccessKey()` returns `false` (constant-time). Roles are eager-loaded via `user.userAccesses[].roles` (not `user.roles`).
+
+---
+
+## What's new in v2 (additive — nothing to migrate)
+
+A condensed list; see the [changelog](/docs/changelog) for detail:
+
+- **New SDKs:** `@ackplus/nest-auth-react-native` (npm) and `nest_auth_flutter` (pub.dev).
+- **Platform admin** (`platformAccess`), **passwordless login** (`passwordless`), **phone verification** routes.
+- **Custom session store** (`session.store` + `SessionStorageType.CUSTOM`).
+- **Configurable routes** (`routePrefix`, `adminConsole.path`).
+- **Role/permission lifecycle events** (`ROLE_*`, `PERMISSION_*`) and new `LOGIN_FAILED`, passwordless, and verification events.
+- **OAuth hardening:** Google `requireVerifiedEmail` / `audiences`, Apple native `audiences` / `jwksUrl`, GitHub Enterprise endpoint overrides.
+- **OTP customization** (`otp.secret` / `codeExpiresIn` / `generate`), Argon2 tuning (`password.argon2`), trusted-device HMAC secret (`mfa.trustedDeviceSecret`).
+- **Client:** `getSessionUserData`, `socialLogin`, `passwordlessSend`, `getAuthHeaders(Sync)`, `getTokenState` / `subscribeTokenState`, `skipAuthHeader` request option.
+- **React:** `useAuthHeaderFn` / `useAuthHeaderFnSync`, `isLoadingSessionData`, `getSessionData`, `passwordlessSend`, `verifyPhone`.
 
 ---
 
 ## Verify
 
-After the changes compile, sanity-check the critical paths:
+After it compiles, exercise the paths the breaking changes touch:
 
 1. Sign up → log in → call a guarded endpoint.
-2. Refresh a token (and confirm your code handles a `null` result from `client.refresh()`).
-3. Trigger email/phone verification and password reset (the `code` field rename).
-4. If you use them: rotate and exercise a new API key, and open `/auth/admin`.
+2. **Refresh twice** with the same token (the second must be rejected — rotation), and confirm your code handles a `null` from `client.refresh()`.
+3. Trigger password reset + email/phone verification (the `otp` → `code` rename).
+4. Rotate and use a **new API key**; have a user regenerate an **MFA recovery code**.
+5. Read a user object and confirm you read `emailVerifiedAt` (not `isVerified`).
 
 ---
 
 ## Rollback
 
-If you need to revert within your snapshot window:
+1. Re-pin the packages to your v1 version and reinstall.
+2. Restore the database snapshot from the [checklist](#pre-upgrade-checklist) — v2 drops a few columns/tables, so a snapshot is the clean revert.
 
-1. Re-pin the four packages to your previous v1 version and reinstall.
-2. Restore the database snapshot you took in the [pre-upgrade checklist](#pre-upgrade-checklist). The added column/table are additive, so v1 tolerates them, but restoring the snapshot is the clean path.
-
-Keep all four packages on the same major version — don't mix v1 and v2 across them.
+Keep all packages on the same major — don't mix v1 and v2.
 
 ---
 
