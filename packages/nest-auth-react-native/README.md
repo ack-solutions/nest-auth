@@ -2,6 +2,8 @@
 
 React Native / Expo SDK for [`@ackplus/nest-auth`](https://github.com/ack-solutions/nest-auth).
 
+> 📚 **Full documentation: [ack-solutions.github.io/nest-auth](https://ack-solutions.github.io/nest-auth/)**
+
 It adds the two things React Native needs on top of the React SDK:
 
 1. **Native token storage** — `AsyncStorageAdapter` and `SecureStoreAdapter` so sessions survive app restarts.

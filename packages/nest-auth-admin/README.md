@@ -2,6 +2,8 @@
 
 Beautiful Tailwind CSS admin dashboard for `@ackplus/nest-auth`
 
+> 📚 **Full documentation: [ack-solutions.github.io/nest-auth](https://ack-solutions.github.io/nest-auth/)**
+
 ## 🚀 Quick Start
 
 ### 1. Install Dependencies
