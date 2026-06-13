@@ -540,7 +540,7 @@ export class MfaService {
             userAgent,
             ipAddress,
             expiresAt: new Date(Date.now() + expiresAtMs),
-            revokedAt: null,
+            // revokedAt is left unset → stored as NULL (nullable column).
         });
         await device.setTrustToken(secret, plainToken);
         await this.trustedDeviceRepository.save(device);

@@ -1,4 +1,9 @@
-import AppleAuth from 'apple-auth';
+// `import type` is fully erased at compile time, so it does NOT emit a
+// top-level `require('apple-auth')`. The optional `apple-auth` peer is only
+// pulled in lazily (see the constructor) when the web authorization-code flow
+// is actually configured — apps using native identityToken verification, or no
+// Apple at all, can boot without the package installed.
+import type AppleAuth from 'apple-auth';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -58,7 +63,19 @@ export class AppleAuthProvider extends BaseAuthProvider {
             this.appleConfig?.teamId &&
             this.appleConfig?.keyId
         ) {
-            this.appleAuth = new AppleAuth(
+            // Lazy-load the optional `apple-auth` peer only now that the web
+            // authorization-code flow is confirmed configured.
+            let AppleAuthCtor: any;
+            try {
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const mod = require('apple-auth');
+                AppleAuthCtor = mod?.default ?? mod;
+            } catch {
+                throw new Error(
+                    'Apple "Sign in with Apple JS" authorization-code exchange requires the optional "apple-auth" package. Install it (e.g. `npm i apple-auth`), or send a native identityToken instead.',
+                );
+            }
+            this.appleAuth = new AppleAuthCtor(
                 {
                     scope: 'email name',
                     redirect_uri: this.appleConfig.redirectUri,
