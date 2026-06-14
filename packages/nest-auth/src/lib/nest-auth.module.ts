@@ -174,6 +174,26 @@ export class NestAuthModule {
     // `RequestContext.currentUser()/currentSession()/currentTenantId()` too.
     // Previously scoped to `auth/*`, which made RequestContext silently return
     // null inside any consumer-owned route (e.g. a /profile or /sessions controller).
-    consumer.apply(RequestContextMiddleware).forRoutes('*');
+    consumer.apply(RequestContextMiddleware).forRoutes(allRoutesWildcard());
   }
+}
+
+/**
+ * Wildcard path matching every route, in a form the installed router accepts.
+ * Express 5 (path-to-regexp v8) rejects a bare `*` and logs
+ * `LegacyRouteConverter: Unsupported route path` — it needs a NAMED wildcard.
+ * Express 4 only understands `*`. Detect by the installed Express major so we
+ * silence the warning on Express 5 without breaking Express 4.
+ */
+function allRoutesWildcard(): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const expressVersion: string = require('express/package.json').version;
+    if (parseInt(String(expressVersion).split('.')[0], 10) >= 5) {
+      return '{*splat}';
+    }
+  } catch {
+    /* fall through to the legacy wildcard */
+  }
+  return '*';
 }

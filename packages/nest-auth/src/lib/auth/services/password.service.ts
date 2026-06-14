@@ -187,7 +187,10 @@ export class PasswordService {
                 });
             }
 
-            const identity = await provider.findIdentity(email || phone);
+            // Scope by the resolved tenant — in ISOLATED mode the same email is a
+            // distinct account per tenant, so an unscoped lookup could target the
+            // wrong account.
+            const identity = await provider.findIdentity(email || phone, tenantId ?? undefined);
 
             if (!identity) {
                 return { message: 'If the account exists, a password reset code has been sent' };
@@ -230,6 +233,10 @@ export class PasswordService {
         this.debugLogger.logFunctionEntry('verifyForgotPasswordOtp', 'PasswordService');
         try {
             const { email, phone, code, tenantId } = input;
+            // Resolve to the concrete tenant so the lookup is correct in ISOLATED
+            // mode (same email = distinct account per tenant) and so the reset
+            // token carries the right tenantId.
+            const resolvedTenantId = await this.tenantService.resolveTenantId(tenantId ?? null);
 
             if (!email && !phone) {
                 throw new BadRequestException({
@@ -249,7 +256,7 @@ export class PasswordService {
                 });
             }
 
-            const identity = await provider.findIdentity((email || phone)!);
+            const identity = await provider.findIdentity((email || phone)!, resolvedTenantId ?? undefined);
 
             if (!identity) {
                 throw new BadRequestException({
@@ -284,7 +291,7 @@ export class PasswordService {
             const resetToken = await this.jwtService.generatePasswordResetToken({
                 userId: user.id,
                 passwordHashPrefix,
-                tenantId: tenantId,
+                tenantId: resolvedTenantId,
                 type: 'password-reset'
             });
 

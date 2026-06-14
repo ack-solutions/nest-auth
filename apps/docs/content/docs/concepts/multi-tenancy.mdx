@@ -23,7 +23,7 @@ NestAuthModule.forRoot({
 | --- | --- | --- | --- |
 | `false` (default) | — | Single database, no `tenantId` column | Solo apps, internal tools, MVPs |
 | `true` | `SHARED` | Single database, every row carries `tenantId` | SaaS where tenants are cheap to spin up |
-| `true` | `ISOLATED` | Per-tenant database (or schema) | Enterprise / compliance-heavy customers |
+| `true` | `ISOLATED` | Single database; **identity is scoped per tenant** (the same email is a *separate account* per tenant) | Apps where each tenant is a distinct org/"property" and accounts must never cross tenants |
 
 ## SHARED mode
 
@@ -70,41 +70,46 @@ The `tenantId` decorator reads from the AsyncLocalStorage-backed [request contex
 
 ## ISOLATED mode
 
-Each tenant has its own database (or schema). The library still tracks tenants in a "control plane" database, but tenant data lives elsewhere.
+> **What ISOLATED actually does:** it scopes **identity** per tenant, in a single database. The **same email is a distinct account per tenant** — `alice@x` in tenant A and `alice@x` in tenant B are two different users with two different password hashes, sessions, and role sets. Account uniqueness is `(user, tenantId)`; the library looks users up as `getUserByEmail(email, tenantId)`. Because an account belongs to exactly one tenant, **`switchTenant` is disabled in ISOLATED mode** — to act as a different tenant you sign in to that tenant directly.
 
 ```
-        ┌───────────────────┐  ┌─────────────────────┐
-        │   Control DB      │  │ Tenant A DB          │
-        │ nest_auth_tenants │  │ orders, invoices …   │
-        │ nest_auth_users   │  └─────────────────────┘
-        │ user_accesses     │
-        │                   │  ┌─────────────────────┐
-        │                   │  │ Tenant B DB          │
-        │                   │  │ orders, invoices …   │
-        └───────────────────┘  └─────────────────────┘
+              ┌───────────────────────────────────────┐
+              │            Postgres / MySQL            │
+              ├───────────────────────────────────────┤
+              │ nest_auth_tenants                      │
+              │ nest_auth_users     (alice@x in A)     │  ← two DISTINCT
+              │ nest_auth_users     (alice@x in B)     │     user rows
+              │ nest_auth_user_accesses (user×tenant)  │
+  Tenant A ──▶│ orders   tenantId='A' …                │
+  Tenant B ──▶│ orders   tenantId='B' …                │
+              └───────────────────────────────────────┘
 ```
+
+This is **logical** isolation (one database, tenant-scoped identity), which is what most "each customer is a separate org/property" apps need. Contrast with SHARED, where the **same email is the same user** who can belong to many tenants via `nest_auth_user_accesses`.
+
+**Logging in requires a `tenantId`** — see [Logging in under a tenant (ISOLATED)](/docs/recipes/tenant-login-isolated). And because the same email can be several accounts on one device, ISOLATED pairs naturally with the [account switcher](/docs/recipes/multi-account-switching).
+
+> **The library does NOT switch databases for you.** There is no per-tenant data-source/connection routing built in — `IsolatedTenantContextService` only resolves the active `tenantId`; it does not select a TypeORM `DataSource`. If you need **physical** per-tenant databases (separate connections/schemas for compliance), you wire that yourself (e.g. a request-scoped `DataSource` keyed by `tenantId`); the library gives you the tenant id on the [request context](/docs/concepts/request-context) to drive it.
 
 **Pros**
 
-- Hard isolation — a query in Tenant A *cannot* read Tenant B because it's literally a different database.
-- Per-tenant restore: trivial.
-- Per-tenant performance tuning, scaling, and per-region deployment all become possible.
+- Strong logical separation — accounts and identities never cross tenants; the same email in two tenants is genuinely two accounts.
+- Simple ops — still one database and one connection pool.
 
 **Cons**
 
-- More expensive: one connection pool per tenant.
-- Spin-up cost: provisioning a new database is slower than an `INSERT`.
-- Cross-tenant queries (super-admin "all tenants" views) require fan-out.
-
-In ISOLATED mode the library wires you to the right per-tenant data source automatically based on `request.tenantId`. Your own services just inject `Repository<...>` and the right connection is selected behind the scenes.
+- Not *physical* isolation by itself — if you need separate databases for compliance, you add the data-source routing.
+- A new account must be created per tenant (no implicit cross-tenant membership; that's SHARED's model).
 
 ## Tenant context — how it gets resolved
 
 Every authenticated request carries an active tenant. The library resolves it in this order:
 
 1. **JWT claim** — the access token carries `tenantId` (set when the session was created).
-2. **`switchTenant` action** — explicit tenant switch via `POST /auth/switch-tenant` rotates the session.
+2. **`switchTenant` action** *(SHARED only)* — explicit tenant switch via `POST /auth/switch-tenant` rotates the session. Disabled in ISOLATED.
 3. **Default tenant fallback** — if `defaultTenantOptions` is configured and the user has no other tenant, the library puts them in the default.
+
+**At login** the tenant is resolved differently — *before* there's a session: in ISOLATED you pass `tenantId` on the login/signup/forgot-password request (it's how the same email is disambiguated; the lookup is tenant-scoped). Use [`GET /auth/tenants/lookup?slug=`](/docs/recipes/tenant-login-isolated) to turn a human-friendly slug into the `tenantId` for the login form. See [Logging in under a tenant (ISOLATED)](/docs/recipes/tenant-login-isolated).
 
 The resolved value lands on the [request context](/docs/concepts/request-context) and is what every `@CurrentTenantId()`-style decorator reads.
 
@@ -223,7 +228,7 @@ This is documented in detail in the [multi-platform login recipe](/docs/recipes/
 | `nest_auth_tenants` | One row per tenant (`name`, `slug`, `isActive`, `metadata`) |
 | `nest_auth_user_accesses` | Many-to-many between users and tenants, with per-tenant roles |
 | `nest_auth_platform_accesses` | Cross-tenant roles for staff (no tenant column) |
-| Your tenant-scoped tables (`orders`, `invoices`, …) | Carry a `tenantId` column in SHARED mode; live in a per-tenant DB in ISOLATED mode |
+| Your tenant-scoped tables (`orders`, `invoices`, …) | Carry a `tenantId` column. (If you add *physical* per-tenant databases on top of ISOLATED, you route the connection yourself — see ISOLATED mode above.) |
 
 ## Decorators
 
@@ -238,6 +243,8 @@ This is documented in detail in the [multi-platform login recipe](/docs/recipes/
 
 - [User Access & Platform Access](/docs/concepts/user-access-and-platform-access) — per-tenant vs cross-tenant roles.
 - [RBAC](/docs/concepts/rbac) — roles, permissions, multiple guards.
-- [Tenant switcher recipe](/docs/recipes/tenant-switcher).
+- [Logging in under a tenant (ISOLATED)](/docs/recipes/tenant-login-isolated) — slug → tenantId, the login DTO, password reset.
+- [Multi-account login & switching](/docs/recipes/multi-account-switching) — several ISOLATED accounts on one device.
+- [Tenant switcher recipe](/docs/recipes/tenant-switcher) — SHARED-mode tenant switching.
 - [Multi-platform login recipe](/docs/recipes/multi-platform-login).
 - [`TenantService`](/docs/backend/services) reference.

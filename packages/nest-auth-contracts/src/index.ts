@@ -75,8 +75,6 @@ export type { PasswordlessChannel, IPasswordlessSendRequest } from './passwordle
 
 // Admin — all types
 export type {
-    IInitializeAdminRequest,
-    IInitializeAdminResponse,
     IAdminUser,
 } from './admin';
 

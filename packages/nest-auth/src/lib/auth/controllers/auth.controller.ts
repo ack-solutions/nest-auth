@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, UseGuards, Res, HttpCode, Query, Param, UnauthorizedException, Req, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Res, HttpCode, Query, Param, UnauthorizedException, Req, BadRequestException, NotFoundException } from '@nestjs/common';
 import { AuthService } from '../services/auth.service';
 import { NestAuthVerify2faRequestDto } from '../dto/requests/verify-2fa.request.dto';
 import { NestAuthRefreshTokenRequestDto } from '../dto/requests/refresh-token.request.dto';
@@ -425,6 +425,26 @@ export class AuthController {
             });
 
         return { accounts };
+    }
+
+    @ApiOperation({
+        summary: 'Resolve a tenant by slug (public)',
+        description:
+            'ISOLATED-mode login helper: resolve a tenant slug to its id so the login form can supply the right tenantId (the same email is a distinct account per tenant). Returns minimal public fields; 404 if not found. Broader name search/autocomplete is intentionally left to your app to avoid tenant enumeration.',
+    })
+    @ApiResponse({ status: 200, description: 'The resolved tenant: { id, slug, name }' })
+    @Public()
+    @Get('tenants/lookup')
+    async lookupTenant(@Query('slug') slug?: string) {
+        const config = this.authConfigService.getConfig();
+        if (!config.tenant?.enabled || !slug) {
+            throw new NotFoundException({ message: 'Tenant not found', code: 'TENANT_NOT_FOUND' });
+        }
+        const tenant = await this.tenantService.getTenantBySlug(slug);
+        if (!tenant || tenant.isActive === false) {
+            throw new NotFoundException({ message: 'Tenant not found', code: 'TENANT_NOT_FOUND' });
+        }
+        return { id: tenant.id, slug: tenant.slug, name: tenant.name };
     }
 
     @ApiOperation({ summary: 'Get Logged In User' })

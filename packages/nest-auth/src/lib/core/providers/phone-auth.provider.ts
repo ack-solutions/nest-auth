@@ -32,8 +32,11 @@ export class PhoneAuthProvider extends BaseAuthProvider {
         return super.findIdentity(providerUserId, tenantId);
     }
 
-    async validate(credentials: PhoneCredentialsDto) {
-        const identity = await this.findIdentity(credentials.phone);
+    async validate(credentials: PhoneCredentialsDto, tenantId?: string) {
+        // Scope by tenant (parity with EmailAuthProvider) so ISOLATED-mode logins
+        // resolve the correct per-tenant account when the same phone exists in
+        // more than one tenant.
+        const identity = await this.findIdentity(credentials.phone, tenantId);
 
         if (!identity?.user) {
             throw new UnauthorizedException('Invalid credentials');

@@ -868,6 +868,56 @@
         ]
       }
     },
+    "/auth/tenants/lookup": {
+      "get": {
+        "description": "ISOLATED-mode login helper: resolve a tenant slug to its id so the login form can supply the right tenantId (the same email is a distinct account per tenant). Returns minimal public fields; 404 if not found. Broader name search/autocomplete is intentionally left to your app to avoid tenant enumeration.",
+        "operationId": "AuthController_lookupTenant",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The resolved tenant: { id, slug, name }"
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Resolve a tenant by slug (public)",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
     "/auth/user": {
       "get": {
         "operationId": "AuthController_getUser",
@@ -4005,7 +4055,7 @@
   "info": {
     "title": "@ackplus/nest-auth API",
     "description": "Authentication & authorization API for **@ackplus/nest-auth**.\n\n### Conventions\n- **Base URL** — routes are shown relative to your app’s global prefix. The reference example app uses `/api`, so a route like `POST /auth/login` is called at `POST /api/auth/login`.\n- **Auth** — most endpoints require a Bearer access token: `Authorization: Bearer <accessToken>`. The **Admin** endpoints use an httpOnly session cookie set by `POST /auth/admin/login`.\n- **Token modes** — in *header* mode (default) tokens are returned in the response body; in *cookie* mode they are set as httpOnly cookies. Controlled by `accessTokenType`.\n- **Errors** — failures return `{ statusCode, error, message, code }`; the machine-readable `code` is the value to branch on.\n\nBrowse by section in the sidebar: **Authentication**, **Password**, **Verification**, **Passwordless**, **MFA**, and the **Admin** groups.",
-    "version": "2.0.4",
+    "version": "2.1.0",
     "contact": {}
   },
   "tags": [

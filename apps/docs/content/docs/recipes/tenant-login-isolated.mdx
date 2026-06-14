@@ -1,0 +1,73 @@
+---
+title: Logging in under a tenant (ISOLATED)
+description: How login resolves the tenant in ISOLATED mode — slug → tenantId, the login DTO, password reset, and the invite pattern.
+---
+
+In [ISOLATED mode](/docs/concepts/multi-tenancy#isolated-mode) the **same email is a distinct account per tenant**, so authentication needs to know *which* tenant before it can find the account. This recipe covers how that resolution works end to end.
+
+## 1. Resolve a tenant by slug (the property-picker)
+
+A user knows their **property/org name or slug**, not a UUID. Turn a slug into a `tenantId` with the public endpoint:
+
+```
+GET /auth/tenants/lookup?slug=acme   →   200 { "id": "…uuid…", "slug": "acme", "name": "Acme Inc" }
+                                          404 if not found / tenancy disabled
+```
+
+```ts
+// From the client SDK (no auth required)
+const res = await fetch(`${baseUrl}/auth/tenants/lookup?slug=${slug}`);
+const tenant = res.ok ? await res.json() : null;   // { id, slug, name } | null
+```
+
+Use it to power a slug field or a "find your workspace" step, then carry `tenant.id` into the login form.
+
+> **Enumeration:** the endpoint resolves an **exact slug** only — it deliberately does not list or fuzzy-search tenants, so it can't be used to enumerate your customer directory. If you want a name autocomplete, build it against your own data with your own authorization (you own the tenant/property records).
+
+`GET /auth/client-config` also returns the active tenant's mode, so the UI can decide whether to show the tenant step at all.
+
+## 2. Log in with the tenant
+
+Pass `tenantId` on the login (and signup) request. Without it, ISOLATED can't disambiguate a shared email.
+
+```ts
+await client.login({
+  providerName: 'email',
+  credentials: { email: 'alice@acme.test', password },
+  tenantId: tenant.id,        // ← required in ISOLATED
+});
+```
+
+The lookup is tenant-scoped: the account in *that* tenant is found (or login fails), never a same-email account in a different tenant.
+
+> `switchTenant` is **disabled** in ISOLATED — to act under a different tenant, log in to it directly. To keep several tenants signed in at once and flip between them, use the [account switcher](/docs/recipes/multi-account-switching).
+
+## 3. Password reset & verification carry the tenant
+
+`forgot-password`, `verify-forgot-password-otp`, `reset-password`, and the `verify-*` requests all accept `tenantId`, and the flow is tenant-correct end to end:
+
+- **forgot-password** scopes the account lookup by the resolved `tenantId`, so the reset code goes to the right same-email account.
+- the **reset token** issued by `verify-forgot-password-otp` embeds the `tenantId` (and is bound to that user), so the reset lands in the correct isolated tenant even though the email link is opened later in a fresh browser.
+
+So your reset email link should round-trip the tenant (e.g. include the slug/`tenantId`) so the reset form can re-supply it:
+
+```
+https://app.example.com/reset?tenant=acme&token=…
+```
+
+## 4. Invite a member (the intended pattern)
+
+There is **no first-class `invite` / `acceptInvite` / magic-link** primitive. The intended flow composes existing pieces:
+
+1. An admin **creates the user in the target tenant** (admin console, or `UserService` with the tenant's `tenantId`) — optionally with no password.
+2. Issue a **set-password token**: trigger `forgot-password` for that user/tenant (or generate a reset token), which is tenant-scoped per §3.
+3. **Send your own email** with a link that carries the tenant + token (you own the email templates and branding).
+4. The member opens the link, sets a password via `reset-password`, and lands authenticated in the right tenant.
+
+This keeps invitations fully in your control (copy, expiry, re-send) while reusing the tenant-correct token machinery. If a dedicated invite endpoint would help your flow, open an issue — it's a candidate for a future first-class feature.
+
+## Related
+
+- [Multi-tenancy](/docs/concepts/multi-tenancy) — SHARED vs ISOLATED, what isolation means here.
+- [Multi-account login & switching](/docs/recipes/multi-account-switching) — several ISOLATED accounts on one device.
+- [Extra signup fields](/docs/recipes/extra-signup-fields).
