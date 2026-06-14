@@ -3,13 +3,61 @@ title: Changelog
 description: What's new in each release of @ackplus/nest-auth.
 ---
 
-All four packages (`@ackplus/nest-auth`, `-client`, `-react`, `-contracts`) release together at the same version. Upgrading from v1? Follow the **[v1 → v2 migration guide](/docs/migration)**.
+All packages release together at the same version: the five npm packages
+(`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
+`nest_auth_flutter` on pub.dev. **Current stable: `2.2.0`.**
+
+- Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
+- Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/changelog/migrations#upgrading-within-v2-20x--22x)**. Bump every package to the same version.
 
 ---
 
-## 2.0.0 — What's new
+## 2.2.0 — ISOLATED fixes, tenant lookup, cleanup
 
-v2 is a major release: the same `NestAuthModule.forRoot()` wiring and flat config, but a substantially hardened core, several new capabilities, and complete docs. Highlights below; see the [migration guide](/docs/migration) for the breaking changes and how to upgrade.
+- **Fixed (ISOLATED tenant scoping):** `forgot-password`, `verify-forgot-password-otp`, and **phone login** now scope the account lookup by the resolved `tenantId`. Previously, when the same email existed in multiple tenants, a reset/login could resolve the wrong account. Reset/verify tokens round-trip the tenant, so links land in the correct isolated tenant.
+- **Added:** `GET /auth/tenants/lookup?slug=` (public) — resolve a tenant **slug → id** so an ISOLATED login form can supply the right `tenantId`. Exact-slug only (no enumeration). See [Logging in under a tenant (ISOLATED)](/docs/recipes/tenant-login-isolated).
+- **Fixed:** the request-context middleware wildcard now uses the named form (`{*splat}`) on **Express 5 / path-to-regexp v8**, silencing the `LegacyRouteConverter` warning; Express 4 is unaffected.
+- **Removed:** dangling `InitializeAdmin` request/response DTOs and the `IInitializeAdminRequest` / `IInitializeAdminResponse` contracts (no route consumed them).
+- **Docs:** corrected the [multi-tenancy](/docs/concepts/multi-tenancy) page — ISOLATED is **logical identity isolation in one database** (same email = a separate account per tenant; `switchTenant` disabled; login needs a `tenantId`). The library does **not** switch data sources per tenant. New [ISOLATED login recipe](/docs/recipes/tenant-login-isolated).
+
+## 2.1.1 — client-config hooks
+
+- **Added:** `AuthClient.getClientConfig()` (+ the `IClientConfig` type) — fetch the backend's public config with no auth.
+- **Added (React):** `useClientConfig()` and `useMultiAccountEnabled()` — gate UI (e.g. the account switcher) on what the backend actually enables.
+- **Docs:** multi-account integrated into the config / client / React reference pages.
+
+## 2.1.0 — Multi-account login & switching
+
+Log into several accounts on one client and switch the active one (Gmail/Slack-style). Especially natural in ISOLATED mode, where the same email is a distinct account per tenant.
+
+- **Backend:** opt-in `session.allowMultipleAccounts` (default `false`), surfaced on `GET /auth/client-config`. Cookie mode gains per-account cookies + a non-httpOnly active-account selector and a `GET /auth/accounts` listing endpoint. The backend was already multi-session; switching is client-side.
+- **Client SDK:** `AccountManager` (header mode — one client per account, namespaced storage) and `CookieAccountManager` (cookie mode), behind a shared `IAccountSwitcher` interface.
+- **React SDK:** `AccountSwitcherProvider` (separate from `AuthProvider`) + `useAccountSwitcher` / `useAccounts` / `useActiveAccount`.
+- **Recipe:** [Multi-account login & switching](/docs/recipes/multi-account-switching).
+
+## 2.0.4 — `@Public()` works under a global guard
+
+- **Fixed:** `NestAuthAuthGuard` now honours `@Public()` (`IS_PUBLIC_KEY`) — previously a silent no-op. The documented **global `APP_GUARD` + `@Public()`** pattern works; the library's own public routes (`/auth/login`, `/auth/signup`, refresh, password reset, SSO callback, `client-config`) and the admin console are pre-marked, so a global guard no longer 401s login. See [Guards](/docs/backend/guards).
+
+## 2.0.3 — Postgres portability & optional peers
+
+- **Fixed:** `nest_auth_trusted_devices.revokedAt` used `datetime`, which **Postgres rejects** (the app couldn't boot). It now uses an inferred, portable type (boots on Postgres, MySQL, SQLite).
+- **Fixed:** the optional `apple-auth` peer is now **lazy-loaded** — apps that don't install it (or use native Apple sign-in) boot fine. (`google-auth-library` / `fb` were already lazy.)
+
+## 2.0.2 — public-barrel exports
+
+- **Fixed:** `Public` / `IS_PUBLIC_KEY` and `AuthExceptionFilter` are now exported from the package barrel (they were defined but unreachable), plus a new `@CurrentUser()` decorator and a re-exported `CurrentAdmin`.
+- **Added:** a package `exports` map; corrected npm description/keywords.
+
+## 2.0.1 — first stable v2
+
+The first stable release of v2 (the `2.0.0-beta.*` line preceded it). See the overview below and the **[v1 → v2 migration guide](/docs/migration)**.
+
+---
+
+## 2.0.0 — What's new (v2 overview)
+
+v2 is a major release: the same `NestAuthModule.forRoot()` wiring and flat config, but a substantially hardened core, several new capabilities, and complete docs. See the [migration guide](/docs/migration) for breaking changes and how to upgrade.
 
 ### New capabilities
 
@@ -28,12 +76,13 @@ v2 is a major release: the same `NestAuthModule.forRoot()` wiring and flat confi
 ### Security hardening
 
 - **Secrets hashed at rest** — API-key secrets, MFA recovery codes, OTP codes, and trusted-device tokens are now stored hashed (and verified with constant-time comparisons). Trusted devices also support explicit revocation. _Existing API keys must be regenerated — see the [migration guide](/docs/migration)._
+- **Refresh-token rotation + reuse detection** — each refresh issues a new token and rejects a replayed/old one.
 - **Configurable password hashing** — bring-your-own `password.hash` / `password.verify`, or tune the built-in Argon2 (`password.argon2`).
-- **OAuth hardening** — Google `requireVerifiedEmail`, and GitHub Enterprise endpoint overrides (`github.userApiUrl` / `emailsApiUrl`).
+- **OAuth hardening** — Google `requireVerifiedEmail` / multi-audience native id-tokens, Apple native identityToken verification, and GitHub Enterprise endpoint overrides.
 
 ### Developer experience
 
-- **Complete API reference** — a generated OpenAPI 3.0 spec (every endpoint documented with summaries, examples, and error codes) rendered in the admin console and the docs site.
+- **Complete API reference** — a generated OpenAPI 3.0 spec rendered in the admin console and the docs site.
 - **Real-database tests** — the suite runs against a real database with no mocks.
 - **Lighter & modern** — dropped the `moment` dependency; requires Node ≥ 20 and pnpm ≥ 10.
 
@@ -43,8 +92,4 @@ A focused set: token-TTL config renamed, a few hook/SDK method renames, and the 
 
 ---
 
-## Beta releases (`2.0.0-beta.*`)
-
-The current line is `2.0.0-beta.*`. Betas follow [semver pre-release](https://semver.org/#spec-item-9) semantics — we avoid breaking changes between betas but reserve the right to make one when an API decision turns out wrong before stable. Any beta that does will call it out here.
-
-See the [release process](/docs/changelog/release-process) for how versions are cut and how the full per-release history is wired up by CI at launch.
+See the [release process](/docs/changelog/release-process) for how versions are cut and published.

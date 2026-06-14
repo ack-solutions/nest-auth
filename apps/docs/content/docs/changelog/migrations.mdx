@@ -1,6 +1,6 @@
 ---
 title: Migration Guides
-description: How to upgrade between major versions.
+description: How to upgrade — across the v1 → v2 major, and within the v2 line.
 ---
 
 ## v1 → v2
@@ -9,11 +9,38 @@ The complete, verified upgrade guide lives here:
 
 **→ [v1 → v2 migration guide](/docs/migration)**
 
-It covers every breaking change with before/after code: the API-key rehash, token-TTL config renames, hook/SDK method renames, and the schema additions.
+It covers every breaking change with before/after code: the API-key rehash, token-TTL config renames, hook/SDK method renames, and the schema changes.
+
+## Upgrading within v2 (2.0.x → 2.2.x)
+
+Within the v2 line, upgrades are **additive and non-breaking** — new features are opt-in and don't change existing behaviour. To upgrade, bump **every** package to the same version:
+
+```bash
+pnpm add @ackplus/nest-auth@2.2.0 \
+         @ackplus/nest-auth-client@2.2.0 \
+         @ackplus/nest-auth-react@2.2.0 \
+         @ackplus/nest-auth-contracts@2.2.0 \
+         @ackplus/nest-auth-react-native@2.2.0   # if used
+# Flutter: nest_auth_flutter: ^2.2.0
+```
+
+No code changes are required. The notes below are things you *may* want to act on:
+
+| If you… | Then on ≥ this version |
+| --- | --- |
+| run on **Postgres** | **`2.0.3`** — `2.0.0`–`2.0.2` couldn't boot on Postgres (a `datetime` column). Jump to `2.0.3`+. |
+| don't install the optional **`apple-auth`** peer | **`2.0.3`** — it's lazy-loaded now; boot no longer requires it. |
+| use a global **`APP_GUARD` + `@Public()`** | **`2.0.4`** — `@Public()` is now honoured (it was a no-op). You can drop any opt-in-per-route workaround; the library's own public routes + admin console are pre-marked. |
+| want a **multi-account** account switcher | **`2.1.0`** — opt in with `session.allowMultipleAccounts`, then use `AccountManager` / `AccountSwitcherProvider`. Off by default, so nothing changes until you enable it. See [Multi-account](/docs/recipes/multi-account-switching). |
+| use **ISOLATED** tenant mode | **`2.2.0`** — password-reset / phone login are now correctly tenant-scoped (a real fix when the same email exists in multiple tenants). Also new: `GET /auth/tenants/lookup?slug=`. See [ISOLATED login](/docs/recipes/tenant-login-isolated). |
+
+**One removal to be aware of (`2.2.0`):** the unused `IInitializeAdminRequest` / `IInitializeAdminResponse` contract types were deleted (no endpoint ever used them). This only affects code that imported those dead types — extremely unlikely. Nothing else was removed.
+
+> Rule of thumb: keep all `@ackplus/nest-auth-*` packages on the **same** version. Mixing versions (e.g. an old `-contracts` with a new core) is the only thing that bites within v2.
 
 ## Beta → beta
 
-Beta releases follow [semver pre-release](https://semver.org/#spec-item-9) semantics. We try not to break beta-to-beta, but reserve the right when an API decision turns out wrong before stable. Any beta that contains a breaking change calls it out in the [changelog](/docs/changelog).
+Beta releases (`2.0.0-beta.*`, now superseded by stable `2.x`) followed [semver pre-release](https://semver.org/#spec-item-9) semantics. If you're still on a beta, upgrade straight to the latest `2.x` stable.
 
 ## Related
 

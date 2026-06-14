@@ -3,7 +3,9 @@ title: Migration (v1 → v2)
 description: Exhaustive upgrade guide from @ackplus/nest-auth v1.x to v2 — every breaking change, config rename, schema change, SDK change, and behavior change, with before/after code.
 ---
 
-This guide takes an existing **v1.x** app (baseline `1.1.69-beta.x`) to **v2** (`2.0.1`). It is exhaustive — every change a consumer can observe is listed, grouped so you can jump to what you use. A typical app upgrades in **1–2 hours**; longer if you have many custom hooks or a hand-managed database schema.
+This guide takes an existing **v1.x** app (baseline `1.1.69-beta.x`) to **v2**. Install the current stable, **`2.2.0`** (all packages on the same version). It is exhaustive — every v1→v2 change a consumer can observe is listed, grouped so you can jump to what you use. A typical app upgrades in **1–2 hours**; longer if you have many custom hooks or a hand-managed database schema.
+
+> Already on v2 and just bumping a minor (e.g. `2.0.x → 2.2.x`)? That's additive/non-breaking — see **[Upgrading within v2](/docs/changelog/migrations#upgrading-within-v2-20x--22x)** instead; this page is only for the v1 → v2 jump.
 
 > Every item below was verified against the actual v1 and v2 source. If something here doesn't match your code, file an issue — don't guess.
 
