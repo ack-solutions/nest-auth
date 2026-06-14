@@ -7,14 +7,14 @@
  */
 import { createContext } from 'react';
 import type {
-    AccountManager,
+    IAccountSwitcher,
     AccountSnapshot,
     ILoginRequest,
 } from '@ackplus/nest-auth-client';
 
 export interface AccountSwitcherContextValue {
     /** The underlying manager (escape hatch for advanced flows, e.g. MFA via commitAccount). */
-    manager: AccountManager;
+    manager: IAccountSwitcher;
     /** All logged-in accounts. */
     accounts: AccountSnapshot[];
     /** The active account id, or null when none. */

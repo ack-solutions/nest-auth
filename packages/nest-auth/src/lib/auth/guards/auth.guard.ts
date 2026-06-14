@@ -1,5 +1,5 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, ForbiddenException } from '@nestjs/common';
-import { ERROR_CODES, OPTIONAL_AUTH_KEY } from '../../auth.constants';
+import { ERROR_CODES, OPTIONAL_AUTH_KEY, ACCESS_TOKEN_COOKIE_NAME, ACTIVE_ACCOUNT_COOKIE_NAME, accountAccessCookieName } from '../../auth.constants';
 import { Reflector } from '@nestjs/core';
 import { Request, Response } from 'express';
 import { JwtService } from '../../core/services/jwt.service';
@@ -174,8 +174,20 @@ export class NestAuthAuthGuard implements CanActivate {
 
         // Try cookies (if allowed)
         if (checkCookie) {
+            // Multi-account (cookie mode): the non-httpOnly selector cookie names
+            // which per-account access cookie is active. Pick that one; fall back
+            // to the legacy single-account cookie when there's no selector.
+            if (config.session?.allowMultipleAccounts === true) {
+                const activeAccount = CookieHelper.get(request, ACTIVE_ACCOUNT_COOKIE_NAME);
+                if (activeAccount) {
+                    const perAccountToken = CookieHelper.get(request, accountAccessCookieName(activeAccount));
+                    if (perAccountToken) {
+                        return { token: perAccountToken, authType: 'bearer' };
+                    }
+                }
+            }
             // Use CookieHelper for robust cookie parsing (works even without cookie-parser middleware)
-            const cookieToken = CookieHelper.get(request, 'accessToken');
+            const cookieToken = CookieHelper.get(request, ACCESS_TOKEN_COOKIE_NAME);
             if (cookieToken) {
                 return { token: cookieToken, authType: 'bearer' };
             }

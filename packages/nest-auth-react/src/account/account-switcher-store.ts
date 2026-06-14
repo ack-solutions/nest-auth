@@ -3,7 +3,7 @@
  * React's `useSyncExternalStore`. Kept separate from the hook so the reactive
  * core (referential stability + notify-on-change) is testable without a DOM.
  */
-import type { AccountManager, AccountSnapshot } from '@ackplus/nest-auth-client';
+import type { IAccountSwitcher, AccountSnapshot } from '@ackplus/nest-auth-client';
 
 export interface AccountSwitcherSnapshot {
     accounts: AccountSnapshot[];
@@ -39,7 +39,7 @@ function snapshotsEqual(
     return true;
 }
 
-export function createAccountSwitcherStore(manager: AccountManager): AccountSwitcherStore {
+export function createAccountSwitcherStore(manager: IAccountSwitcher): AccountSwitcherStore {
     let cache: AccountSwitcherSnapshot | null = null;
 
     const getSnapshot = (): AccountSwitcherSnapshot => {

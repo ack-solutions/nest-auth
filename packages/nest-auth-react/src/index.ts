@@ -51,8 +51,9 @@ export { AccountSwitcherProvider, AccountSwitcherProviderProps } from './account
 export { AccountSwitcherContext, AccountSwitcherContextValue } from './account/account-switcher-context';
 export { useAccountSwitcher, useAccounts, useActiveAccount } from './account/use-account-switcher';
 export { createAccountSwitcherStore, AccountSwitcherStore, AccountSwitcherSnapshot } from './account/account-switcher-store';
-// Re-export the manager types for convenience (canonical home is @ackplus/nest-auth-client).
-export type { AccountManager, AccountSnapshot, AccountManagerConfig } from '@ackplus/nest-auth-client';
+// Re-export the manager API for convenience (canonical home is @ackplus/nest-auth-client).
+export { AccountManager, CookieAccountManager, AccountMfaRequiredError, ACTIVE_ACCOUNT_COOKIE_NAME } from '@ackplus/nest-auth-client';
+export type { AccountSnapshot, AccountManagerConfig, IAccountSwitcher } from '@ackplus/nest-auth-client';
 
 // Cross-tab sync
 export { CrossTabSync, createCrossTabSync, SyncEvent, SyncEventType, SyncHandler } from './sync/cross-tab-sync';

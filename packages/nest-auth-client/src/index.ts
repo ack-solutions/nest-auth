@@ -59,7 +59,8 @@ export type { AxiosLikeInstance, AttachOptions } from './client/http-attach';
 
 // Multi-account (account switcher)
 export { AccountManager, AccountMfaRequiredError } from './account/account-manager';
-export type { AccountSnapshot, AccountManagerConfig } from './account/account-manager';
+export type { AccountSnapshot, AccountManagerConfig, IAccountSwitcher } from './account/account-manager';
+export { CookieAccountManager, ACTIVE_ACCOUNT_COOKIE_NAME } from './account/cookie-account-manager';
 
 // Utilities
 export { hasRole, hasPermission, hasAnyAccess, hasAllAccess } from './utils/role-utils';

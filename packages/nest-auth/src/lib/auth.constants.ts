@@ -174,6 +174,33 @@ export type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES];
 export const ACCESS_TOKEN_COOKIE_NAME = 'accessToken';
 export const REFRESH_TOKEN_COOKIE_NAME = 'refreshToken';
 
+// Multi-account (cookie mode): non-httpOnly selector cookie naming which of the
+// per-account token cookies is "active". Non-httpOnly so the browser SDK can set
+// it to switch accounts client-side; the server reads it to pick the cookie.
+export const ACTIVE_ACCOUNT_COOKIE_NAME = 'nest_auth_active_account';
+
+/** Per-account access-token cookie name. `accountKey` is the user id (cookie-safe). */
+export const accountAccessCookieName = (accountKey: string): string =>
+    `${ACCESS_TOKEN_COOKIE_NAME}_${accountKey}`;
+/** Per-account refresh-token cookie name. */
+export const accountRefreshCookieName = (accountKey: string): string =>
+    `${REFRESH_TOKEN_COOKIE_NAME}_${accountKey}`;
+
+/** Decode (without verifying) a JWT's payload. Used only to key/label per-account cookies. */
+export const jwtPayload = (token: string): any | undefined => {
+    try {
+        return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
+    } catch {
+        return undefined;
+    }
+};
+
+/** Decode (without verifying) the `sub` (user id) from a JWT — used to key per-account cookies. */
+export const userIdFromJwt = (token: string): string | undefined => {
+    const payload = jwtPayload(token);
+    return payload?.sub ?? payload?.id ?? undefined;
+};
+
 export const NEST_AUTH_TRUST_DEVICE_KEY = 'nest_auth_device_trust';
 
 // Default values

@@ -827,6 +827,47 @@
         ]
       }
     },
+    "/auth/accounts": {
+      "get": {
+        "description": "Cookie-mode account switcher: lists the accounts this browser is logged into, derived from the per-account token cookies it holds (httpOnly tokens are never returned — only id/email/tenant + which is active). Empty unless session.allowMultipleAccounts is enabled.",
+        "operationId": "AuthController_listAccounts",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Logged-in accounts for this browser"
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "List logged-in accounts (cookie multi-account)",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
     "/auth/user": {
       "get": {
         "operationId": "AuthController_getUser",
@@ -3964,7 +4005,7 @@
   "info": {
     "title": "@ackplus/nest-auth API",
     "description": "Authentication & authorization API for **@ackplus/nest-auth**.\n\n### Conventions\n- **Base URL** — routes are shown relative to your app’s global prefix. The reference example app uses `/api`, so a route like `POST /auth/login` is called at `POST /api/auth/login`.\n- **Auth** — most endpoints require a Bearer access token: `Authorization: Bearer <accessToken>`. The **Admin** endpoints use an httpOnly session cookie set by `POST /auth/admin/login`.\n- **Token modes** — in *header* mode (default) tokens are returned in the response body; in *cookie* mode they are set as httpOnly cookies. Controlled by `accessTokenType`.\n- **Errors** — failures return `{ statusCode, error, message, code }`; the machine-readable `code` is the value to branch on.\n\nBrowse by section in the sidebar: **Authentication**, **Password**, **Verification**, **Passwordless**, **MFA**, and the **Admin** groups.",
-    "version": "2.0.0-beta.26",
+    "version": "2.0.4",
     "contact": {}
   },
   "tags": [

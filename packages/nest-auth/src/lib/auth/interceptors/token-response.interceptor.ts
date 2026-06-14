@@ -3,7 +3,15 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Request, Response } from 'express';
 import { AuthConfigService } from '../../core/services/auth-config.service';
-import { ACCESS_TOKEN_COOKIE_NAME, NEST_AUTH_TRUST_DEVICE_KEY, REFRESH_TOKEN_COOKIE_NAME } from '../../auth.constants';
+import {
+    ACCESS_TOKEN_COOKIE_NAME,
+    NEST_AUTH_TRUST_DEVICE_KEY,
+    REFRESH_TOKEN_COOKIE_NAME,
+    ACTIVE_ACCOUNT_COOKIE_NAME,
+    accountAccessCookieName,
+    accountRefreshCookieName,
+    userIdFromJwt,
+} from '../../auth.constants';
 import { IAuthModuleOptions } from '../../core/interfaces/auth-module-options.interface';
 import ms from 'ms';
 import { omit } from 'lodash';
@@ -96,13 +104,33 @@ export class TokenResponseInterceptor implements NestInterceptor {
         const accessDuration =  this.options.session?.accessTokenValidity;
         const refreshDuration = this.options.session?.refreshTokenValidity;
 
+        // Multi-account (cookie mode): write per-account cookies keyed by the
+        // user id, plus a non-httpOnly selector naming the active account. This
+        // lets one browser hold several accounts' httpOnly tokens at once and
+        // switch which is active client-side. Single-account mode is unchanged.
+        const multiAccount = this.options.session?.allowMultipleAccounts === true;
+        const accountKey = multiAccount
+            ? userIdFromJwt(tokens.accessToken || tokens.refreshToken || '')
+            : undefined;
+        const accessName = accountKey ? accountAccessCookieName(accountKey) : ACCESS_TOKEN_COOKIE_NAME;
+        const refreshName = accountKey ? accountRefreshCookieName(accountKey) : REFRESH_TOKEN_COOKIE_NAME;
+
         if (tokens.accessToken) {
-            this.setCookie(response, ACCESS_TOKEN_COOKIE_NAME, tokens.accessToken, {
+            this.setCookie(response, accessName, tokens.accessToken, {
                 maxAge: ms(accessDuration),
             });
         }
         if (tokens.refreshToken) {
-            this.setCookie(response, REFRESH_TOKEN_COOKIE_NAME, tokens.refreshToken, {
+            this.setCookie(response, refreshName, tokens.refreshToken, {
+                maxAge: ms(refreshDuration),
+            });
+        }
+        if (accountKey) {
+            // The selector is readable by JS so the SDK can switch accounts
+            // without a round-trip; it only NAMES which of the user's own token
+            // cookies to use (not a credential), so httpOnly is intentionally off.
+            this.setCookie(response, ACTIVE_ACCOUNT_COOKIE_NAME, accountKey, {
+                httpOnly: false,
                 maxAge: ms(refreshDuration),
             });
         }

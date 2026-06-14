@@ -33,7 +33,7 @@ import { NestAuthVerifyEmailRequestDto } from '../dto/requests/verify-email.requ
 import { NestAuthSendPhoneVerificationRequestDto } from '../dto/requests/send-phone-verification.request.dto';
 import { NestAuthVerifyPhoneRequestDto } from '../dto/requests/verify-phone.request.dto';
 import { NestAuthSwitchTenantRequestDto } from '../dto/requests/switch-tenant.request.dto';
-import { ACCESS_TOKEN_COOKIE_NAME, REFRESH_TOKEN_COOKIE_NAME } from '../../auth.constants';
+import { ACCESS_TOKEN_COOKIE_NAME, REFRESH_TOKEN_COOKIE_NAME, ACTIVE_ACCOUNT_COOKIE_NAME, accountAccessCookieName, accountRefreshCookieName, jwtPayload } from '../../auth.constants';
 
 import { UseInterceptors, UseFilters } from '@nestjs/common';
 import { PasswordService } from '../services/password.service';
@@ -137,7 +137,17 @@ export class AuthController {
         const isCookieMode = accessTokenType === 'cookie' || (!accessTokenType && headerTokenType === 'cookie');
 
 
-        const refreshToken = input.refreshToken || (isCookieMode ? CookieHelper.get(req, REFRESH_TOKEN_COOKIE_NAME) : undefined);
+        let refreshToken = input.refreshToken;
+        if (!refreshToken && isCookieMode) {
+            // Multi-account: refresh the ACTIVE account (named by the selector cookie).
+            if (AuthConfigService.getOptions().session?.allowMultipleAccounts === true) {
+                const activeAccount = CookieHelper.get(req, ACTIVE_ACCOUNT_COOKIE_NAME);
+                if (activeAccount) {
+                    refreshToken = CookieHelper.get(req, accountRefreshCookieName(activeAccount));
+                }
+            }
+            refreshToken = refreshToken || CookieHelper.get(req, REFRESH_TOKEN_COOKIE_NAME);
+        }
 
         if (!refreshToken) {
             throw new BadRequestException('refreshToken is required');
@@ -204,6 +214,11 @@ export class AuthController {
             // Ignore session revocation errors if user not found/invalid
         }
 
+        // Multi-account (cookie mode): clear just the active account's cookies and
+        // promote another logged-in account, so logging out of one account doesn't
+        // sign the others out. No-op in single-account mode.
+        this.clearActiveAccountCookies(req, res);
+
         // Clear cookies with the same options they were set with (especially path)
         // Cookies must be cleared with matching path option, otherwise browser won't remove them
         res.clearCookie(ACCESS_TOKEN_COOKIE_NAME, { path: '/' });
@@ -212,18 +227,49 @@ export class AuthController {
         return { message: 'Logged out successfully' };
     }
 
+    /**
+     * Multi-account cookie cleanup for logout: clears the active account's
+     * per-account cookies and repoints the selector to another logged-in account
+     * (or drops it). No-op unless `session.allowMultipleAccounts` and a selector
+     * cookie are present.
+     */
+    private clearActiveAccountCookies(req: Request, res: Response): void {
+        if (this.authConfigService.getConfig().session?.allowMultipleAccounts !== true) return;
+        const activeAccount = CookieHelper.get(req, ACTIVE_ACCOUNT_COOKIE_NAME);
+        if (!activeAccount) return;
+
+        res.clearCookie(accountAccessCookieName(activeAccount), { path: '/' });
+        res.clearCookie(accountRefreshCookieName(activeAccount), { path: '/' });
+
+        const prefix = `${REFRESH_TOKEN_COOKIE_NAME}_`;
+        const others = Object.keys(CookieHelper.getAll(req))
+            .filter((n) => n.startsWith(prefix))
+            .map((n) => n.slice(prefix.length))
+            .filter((k) => k && k !== activeAccount);
+
+        if (others.length > 0) {
+            res.cookie(ACTIVE_ACCOUNT_COOKIE_NAME, others[0], { path: '/', httpOnly: false, sameSite: 'lax' });
+        } else {
+            res.clearCookie(ACTIVE_ACCOUNT_COOKIE_NAME, { path: '/' });
+        }
+    }
+
     @ApiOperation({ summary: 'Logout All' })
     @ApiResponse({ status: 200, type: NestAuthLogoutAllResponseDto })
     @HttpCode(200)
     @Post('logout-all')
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
-    async logoutAll(@Res({ passthrough: true }) res: Response): Promise<NestAuthLogoutAllResponseDto> {
+    async logoutAll(@Res({ passthrough: true }) res: Response, @Req() req: Request): Promise<NestAuthLogoutAllResponseDto> {
         const user = await RequestContext.currentUser();
         if (!user) {
             throw new UnauthorizedException('User not found');
         }
         await this.authService.logoutAll(user.id!);
+
+        // Multi-account: this revokes the active account's sessions everywhere;
+        // on THIS device clear just that account's cookies (other accounts stay).
+        this.clearActiveAccountCookies(req, res);
 
         // Clear cookies for the current device as well
         res.clearCookie(ACCESS_TOKEN_COOKIE_NAME, { path: '/' });
@@ -346,6 +392,39 @@ export class AuthController {
             });
         }
         return defaultResponse;
+    }
+
+    @ApiOperation({
+        summary: 'List logged-in accounts (cookie multi-account)',
+        description:
+            'Cookie-mode account switcher: lists the accounts this browser is logged into, derived from the per-account token cookies it holds (httpOnly tokens are never returned — only id/email/tenant + which is active). Empty unless session.allowMultipleAccounts is enabled.',
+    })
+    @ApiResponse({ status: 200, description: 'Logged-in accounts for this browser' })
+    @Public()
+    @Get('accounts')
+    async listAccounts(@Req() req: Request) {
+        if (this.authConfigService.getConfig().session?.allowMultipleAccounts !== true) {
+            return { accounts: [] };
+        }
+        const all = CookieHelper.getAll(req);
+        const prefix = `${REFRESH_TOKEN_COOKIE_NAME}_`;
+        const active = CookieHelper.get(req, ACTIVE_ACCOUNT_COOKIE_NAME) || undefined;
+
+        const accounts = Object.keys(all)
+            .filter((name) => name.startsWith(prefix))
+            .map((name) => {
+                const accountId = name.slice(prefix.length);
+                const payload = jwtPayload(all[name]) || {};
+                return {
+                    accountId,
+                    email: payload.email,
+                    phone: payload.phone,
+                    tenantId: payload.tenantId,
+                    isActive: accountId === active,
+                };
+            });
+
+        return { accounts };
     }
 
     @ApiOperation({ summary: 'Get Logged In User' })

@@ -56,6 +56,22 @@ interface AccountsIndex {
     activeAccountId: string | null;
 }
 
+/**
+ * Common surface implemented by both the header-mode {@link AccountManager} and
+ * the cookie-mode `CookieAccountManager`, so UIs (e.g. the React
+ * AccountSwitcherProvider) can drive either transparently.
+ */
+export interface IAccountSwitcher {
+    ready(): Promise<void>;
+    listAccounts(): AccountSnapshot[];
+    getActiveAccountId(): string | null;
+    getActiveClient(): AuthClient | null;
+    addAccount(dto: ILoginRequest): Promise<AccountSnapshot>;
+    switchAccount(accountId: string): Promise<AccountSnapshot>;
+    removeAccount(accountId: string): Promise<void>;
+    subscribe(listener: () => void): () => void;
+}
+
 export interface AccountManagerConfig extends Omit<AuthClientConfig, 'storage'> {
     /**
      * Factory that builds a namespaced storage adapter for the given key prefix.
@@ -80,7 +96,7 @@ export class AccountMfaRequiredError extends Error {
     }
 }
 
-export class AccountManager {
+export class AccountManager implements IAccountSwitcher {
     private readonly storageFactory: (ns: string) => StorageAdapter;
     private readonly baseNs: string;
     private readonly indexStorage: StorageAdapter;

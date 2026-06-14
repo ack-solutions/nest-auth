@@ -1,0 +1,127 @@
+---
+title: Multi-account login & switching
+description: Let one client log into several accounts at once and switch the active one — Gmail/Slack-style — in header or cookie mode.
+---
+
+nest-auth is **multi-session by design**: every login mints an independent session, and a JWT carries its own `sessionId`. Logging into a second account never disturbs the first. So "multiple accounts on one device, switch the active one" is mostly a **client** concern — hold several token sets and choose which to send.
+
+This is especially natural in **ISOLATED** tenant mode, where the *same email* in two tenants is two distinct accounts: you sign in to each tenant separately and switch between the resulting sessions. (`switch-tenant` is a different thing — it re-scopes one session and is disabled in ISOLATED mode.)
+
+## 1. Enable it on the backend
+
+```ts
+NestAuthModule.forRoot({
+  session: {
+    allowMultipleAccounts: true,
+    // header/bearer is the simplest mode; cookie mode is also supported (below)
+    accessTokenType: 'header',
+  },
+});
+```
+
+This is an opt-in **capability flag** — it doesn't change how sessions are created (they're already concurrent). It's surfaced on `GET /auth/client-config` as `{ multipleAccounts: { enabled: true } }` so your UI only shows an account switcher when the backend supports it.
+
+> Header/bearer (or native secure storage) is the recommended mode. Cookie mode works too but needs the per-account cookie scheme described below.
+
+## 2. Header mode — `AccountManager`
+
+`AccountManager` holds one `AuthClient` per account, each with its **own namespaced storage** (so tokens never collide), plus an `activeAccountId`. Switching is a pure client-side repoint — **no server call**.
+
+```ts
+import { AccountManager } from '@ackplus/nest-auth-client';
+
+const accounts = new AccountManager({
+  baseUrl: 'https://api.example.com',
+  accessTokenType: 'header',
+});
+
+// Add accounts (each is an independent login; the others are untouched)
+await accounts.addAccount({ providerName: 'email', credentials: { email: 'me@acme.test', password } });
+await accounts.addAccount({ providerName: 'email', credentials: { email: 'me@globex.test', password } });
+
+accounts.listAccounts();        // [{ accountId, email, isActive }, …]
+await accounts.switchAccount(idA); // repoint active — no network
+await accounts.getAuthHeaders();   // Authorization header for the ACTIVE account
+await accounts.removeAccount(idB); // revokes that session server-side + drops it
+```
+
+Point your shared HTTP client at the **active** account:
+
+```ts
+import axios from 'axios';
+axios.interceptors.request.use(async (config) => {
+  Object.assign(config.headers, await accounts.getAuthHeaders());
+  return config;
+});
+```
+
+### React
+
+`AccountSwitcherProvider` wraps a manager and is **separate from `AuthProvider`** (your single-account setup is untouched). It reacts via `useSyncExternalStore`, so a switch re-renders instantly with no server call.
+
+```tsx
+import { AccountSwitcherProvider, useAccountSwitcher } from '@ackplus/nest-auth-react';
+
+<AccountSwitcherProvider config={{ baseUrl, accessTokenType: 'header' }}>
+  <App />
+</AccountSwitcherProvider>;
+
+function Switcher() {
+  const { accounts, addAccount, switchAccount, removeAccount } = useAccountSwitcher();
+  return (
+    <ul>
+      {accounts.map((a) => (
+        <li key={a.accountId}>
+          <button onClick={() => switchAccount(a.accountId)}>
+            {a.label ?? a.email}{a.isActive ? ' ✓' : ''}
+          </button>
+          <button onClick={() => removeAccount(a.accountId)}>sign out</button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+> If a login needs MFA, `addAccount` throws `AccountMfaRequiredError` carrying the pending client — complete `verify2fa` on it, then `manager.commitAccount(client)`.
+
+## 3. Cookie mode — `CookieAccountManager`
+
+In cookie mode the JS never sees the tokens (httpOnly). The server holds one set of **per-account cookies** (`accessToken_<userId>` / `refreshToken_<userId>`) plus a **non-httpOnly selector cookie** (`nest_auth_active_account`) naming the active account. The guard reads the selector to pick the active token.
+
+```ts
+NestAuthModule.forRoot({
+  session: { allowMultipleAccounts: true, accessTokenType: 'cookie' },
+});
+```
+
+```ts
+import { CookieAccountManager } from '@ackplus/nest-auth-client';
+
+const accounts = new CookieAccountManager({ baseUrl: 'https://api.example.com' });
+await accounts.ready();                  // GET /auth/accounts
+await accounts.addAccount(loginDto);     // server appends this account's cookies + selector
+await accounts.switchAccount(idA);       // rewrites the selector cookie — no server call
+await accounts.removeAccount(idB);       // makes it active, then logs it out (server clears + promotes)
+```
+
+The same `<AccountSwitcherProvider config={{ baseUrl, accessTokenType: 'cookie' }}>` automatically uses `CookieAccountManager` — your switcher component is identical.
+
+How it works under the hood:
+
+- **List** — `GET /auth/accounts` returns the accounts this browser holds cookies for (id/email/tenant + which is active). httpOnly tokens are never returned.
+- **Switch** — set `nest_auth_active_account=<id>` (the SDK does this via `document.cookie`); the guard then resolves that account's cookie on the next request.
+- **Add** — a normal login; the server writes the new account's per-account cookies and points the selector at it.
+- **Logout** — clears just the active account's cookies and promotes another, so signing out of one account doesn't sign the others out.
+
+### Security notes
+
+- The selector is **not a credential** — it only *names* which of the user's own already-authenticated cookies to use. Forging it can at most make a request act as one of *your own* logged-in accounts (no cross-user escalation). The real auth is still the httpOnly token cookie.
+- Keep `cookieOptions.sameSite` at `lax`/`strict` and `secure: true` in production, as for single-account cookie auth.
+- Each account keeps its **own** rotating refresh token; refresh and reuse-detection are per-session, so holding several accounts never trips the reuse detector.
+
+## Notes & limits
+
+- `maxSessionsPerUser` (default 10) is **per user** — many tenants for the *same* user could FIFO-evict that user's oldest sessions; raise it if needed.
+- Always surface the active account's identity in your UI (`activeAccount`) so a wrong-token bug can't silently act as the wrong account.
+- Server-side, there is intentionally **no** "switch account" endpoint that mutates a session — each account stays on its own session; switching only chooses which one is active.

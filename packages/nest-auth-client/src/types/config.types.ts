@@ -110,6 +110,7 @@ export const DEFAULT_ENDPOINTS = {
     verify2fa: '/auth/mfa/verify',
     verifySession: '/auth/verify-session',
     me: '/auth/me',
+    accounts: '/auth/accounts',
     switchTenant: '/auth/switch-tenant',
     setupTotp: '/auth/mfa/setup-totp',
     verifyTotpSetup: '/auth/mfa/verify-totp-setup',
