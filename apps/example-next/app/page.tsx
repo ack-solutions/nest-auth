@@ -5,7 +5,7 @@ import { useNestAuth } from '@ackplus/nest-auth-react';
 import { Loader2, ShieldCheck, LayoutDashboard, LogIn, UserPlus } from 'lucide-react';
 
 export default function Home() {
-  const { user, status } = useNestAuth();
+  const { sessionData: user, status } = useNestAuth();
   const isLoading = status === 'loading';
 
   return (

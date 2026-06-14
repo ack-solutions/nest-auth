@@ -43,7 +43,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build packages (so contracts/types resolve)
-        run: pnpm build
+        # Only the publishable libraries — NOT the example apps. The docs site
+        # doesn't need them, and a stray type error in an example must never
+        # block the docs deploy (it silently froze the published docs before).
+        run: pnpm exec turbo run build --filter="./packages/*"
 
       - name: Build docs site (static export)
         run: pnpm --filter @ackplus/nest-auth-docs build

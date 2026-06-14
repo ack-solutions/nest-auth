@@ -11,7 +11,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { logout, user } = useNestAuth();
+  const { logout, sessionData: user } = useNestAuth();
   const router = useRouter();
 
   const handleLogout = async () => {

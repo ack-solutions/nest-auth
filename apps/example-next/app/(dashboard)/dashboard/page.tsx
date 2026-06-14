@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react';
 import { ApiCallDemo } from '@/components/demo/api-call';
 
 export default function DashboardPage() {
-  const { user, status } = useNestAuth();
+  const { sessionData: user, status } = useNestAuth();
 
   if (status === 'loading') {
     return (

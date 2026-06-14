@@ -3,7 +3,7 @@
 import { useNestAuth } from '@ackplus/nest-auth-react';
 
 export default function ProfilePage() {
-  const { user } = useNestAuth();
+  const { sessionData: user } = useNestAuth();
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
