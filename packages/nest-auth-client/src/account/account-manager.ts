@@ -300,6 +300,9 @@ export class AccountManager {
         } catch {
             /* start empty */
         }
+        // Notify any subscribers that attached before the async restore finished
+        // (e.g. a React store) so they re-read the now-loaded account list.
+        this.notify();
     }
 
     private async persist(): Promise<void> {

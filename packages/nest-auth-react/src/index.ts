@@ -46,5 +46,13 @@ export { createNextAuthHelpers, NextAuthHelpers, NextAuthHelpersConfig, ServerAu
 export { NextAuthProvider, NextAuthProviderProps } from './next/next-auth-provider';
 
 
+// Multi-account switcher
+export { AccountSwitcherProvider, AccountSwitcherProviderProps } from './account/account-switcher-provider';
+export { AccountSwitcherContext, AccountSwitcherContextValue } from './account/account-switcher-context';
+export { useAccountSwitcher, useAccounts, useActiveAccount } from './account/use-account-switcher';
+export { createAccountSwitcherStore, AccountSwitcherStore, AccountSwitcherSnapshot } from './account/account-switcher-store';
+// Re-export the manager types for convenience (canonical home is @ackplus/nest-auth-client).
+export type { AccountManager, AccountSnapshot, AccountManagerConfig } from '@ackplus/nest-auth-client';
+
 // Cross-tab sync
 export { CrossTabSync, createCrossTabSync, SyncEvent, SyncEventType, SyncHandler } from './sync/cross-tab-sync';

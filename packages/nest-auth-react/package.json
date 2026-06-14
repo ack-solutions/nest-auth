@@ -17,6 +17,7 @@
     "clean": "rm -rf dist tsconfig.build.tsbuildinfo",
     "watch": "pnpm -C ../.. exec tsc -p packages/nest-auth-react/tsconfig.build.json -w",
     "build": "pnpm clean && tsc -p tsconfig.build.json",
+    "test": "vitest run",
     "format": "prettier --write \"src/**/*.ts\" \"src/**/*.tsx\"",
     "lint": "eslint \"src/**/*.ts\" \"src/**/*.tsx\" --fix"
   },
@@ -49,6 +50,9 @@
   },
   "devDependencies": {
     "typescript": "^5.7.3",
-    "@types/react": "^18.0.0"
+    "@types/react": "^18.0.0",
+    "@types/node": "^22.0.0",
+    "react": "^18.0.0",
+    "vitest": "^3.0.0"
   }
 }
