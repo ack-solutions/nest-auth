@@ -12,7 +12,7 @@ import {
 import { AdminSessionGuard } from '../guards/admin-session.guard';
 import { AuthExceptionFilter } from '../../auth/filters/auth-exception.filter';
 import { ApiTags, ApiCookieAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
-import { ApiUnauthorized, ApiForbidden, ApiValidationError, ApiNotFoundError } from '../../core';
+import { ApiUnauthorized, ApiForbidden, ApiValidationError, ApiNotFoundError, Public } from '../../core';
 import { TenantService } from '../../tenant/services/tenant.service';
 import { AdminCreateTenantDto, AdminUpdateTenantDto } from '../dto/admin-tenant.dto';
 import { NestAuthTenant } from '../../tenant/entities/tenant.entity';
@@ -26,6 +26,7 @@ import { NestAuthTenant } from '../../tenant/entities/tenant.entity';
 @ApiForbidden()
 @ApiValidationError()
 @ApiNotFoundError('Tenant not found.')
+@Public() // exempt from a consumer's global APP_GUARD; AdminSessionGuard is the real guard
 export class AdminTenantsController {
   constructor(private readonly tenants: TenantService) { }
 

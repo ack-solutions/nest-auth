@@ -7,6 +7,7 @@ import { SessionManagerService } from '../../session/services/session-manager.se
 import { AccessKeyService } from '../../user/services/access-key.service';
 import { JWTTokenPayload } from '../../core/interfaces/token-payload.interface';
 import { SKIP_MFA_KEY } from '../../core/decorators/skip-mfa.decorator';
+import { IS_PUBLIC_KEY } from '../../core/decorators/public.decorator';
 import { PERMISSIONS_KEY, PERMISSIONS_REQUIRE_ALL_KEY } from '../../core/decorators/permissions.decorator';
 import { ROLES_KEY, GUARD_KEY } from '../../core/decorators/role.decorator';
 import { AuthConfigService } from '../../core/services/auth-config.service';
@@ -45,6 +46,17 @@ export class NestAuthAuthGuard implements CanActivate {
     async canActivate(context: ExecutionContext): Promise<boolean> {
         const request = context.switchToHttp().getRequest<Request>() as any;
 
+        // Routes (or controllers) marked @Public() bypass authentication entirely.
+        // This is what makes an app-wide global guard (APP_GUARD: NestAuthAuthGuard)
+        // usable — open routes such as /auth/login opt out via @Public(). Without
+        // this check @Public() is a silent no-op.
+        const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+            context.getHandler(),
+            context.getClass(),
+        ]);
+        if (isPublic) {
+            return true;
+        }
 
         // Check if authentication is optional
         const isOptional = this.reflector.getAllAndOverride<boolean>(OPTIONAL_AUTH_KEY, [

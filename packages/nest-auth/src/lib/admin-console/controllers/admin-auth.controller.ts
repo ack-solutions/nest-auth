@@ -23,7 +23,7 @@ import { AdminSignupDto } from '../dto/signup.dto';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
 import { AuthExceptionFilter } from '../../auth/filters/auth-exception.filter';
 import { ApiTags, ApiCookieAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
-import { ApiUnauthorized, ApiForbidden, ApiValidationError } from '../../core';
+import { ApiUnauthorized, ApiForbidden, ApiValidationError, Public } from '../../core';
 import { CurrentAdmin } from '../decorators/current-admin.decorator';
 import { NestAuthAdminUser } from '../entities/admin-user.entity';
 import { CreateDashboardAdminDto, UpdateDashboardAdminDto } from '../dto/create-dashboard-admin.dto';
@@ -42,6 +42,11 @@ import { MoreThanOrEqual } from 'typeorm';
 @ApiTags('Admin · Console')
 @ApiValidationError()
 @ApiUnauthorized()
+// Exempt the admin console from a consumer's app-wide global guard
+// (APP_GUARD: NestAuthAuthGuard). The admin console authenticates with its own
+// cookie-based AdminSessionGuard, not NestAuth JWTs, so a global NestAuth guard
+// must not gate it. AdminSessionGuard remains the real guard on protected routes.
+@Public()
 export class AdminAuthController {
   constructor(
     private readonly adminAuth: AdminAuthService,

@@ -4,6 +4,7 @@ import { Response } from 'express';
 import { join } from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { AdminConsoleConfigService } from '../services/admin-console-config.service';
+import { Public } from '../../core/decorators/public.decorator';
 
 const candidateStaticRoots = [
   // Primary — relative to THIS compiled module. Works for both the published
@@ -28,6 +29,7 @@ function resolveStaticRoot(): string | null {
 }
 
 @ApiExcludeController() // serves the admin SPA HTML, not an API endpoint
+@Public() // public SPA shell; must load even under a consumer's global APP_GUARD
 @Controller()
 export class AdminConsoleController implements OnModuleInit {
   private readonly logger = new Logger(AdminConsoleController.name);

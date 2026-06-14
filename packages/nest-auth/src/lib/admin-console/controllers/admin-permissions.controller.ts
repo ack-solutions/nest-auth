@@ -14,7 +14,7 @@ import { NotFoundException } from '@nestjs/common';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
 import { AuthExceptionFilter } from '../../auth/filters/auth-exception.filter';
 import { ApiTags, ApiCookieAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
-import { ApiUnauthorized, ApiForbidden, ApiValidationError, ApiNotFoundError } from '../../core';
+import { ApiUnauthorized, ApiForbidden, ApiValidationError, ApiNotFoundError, Public } from '../../core';
 import { AdminCreatePermissionDto, AdminUpdatePermissionDto } from '../dto/admin-permission.dto';
 import { PermissionService } from '../../permission/services/permission.service';
 import { NestAuthPermission } from '../../permission/entities/permission.entity';
@@ -28,6 +28,7 @@ import { NestAuthPermission } from '../../permission/entities/permission.entity'
 @ApiForbidden()
 @ApiValidationError()
 @ApiNotFoundError('Permission not found.')
+@Public() // exempt from a consumer's global APP_GUARD; AdminSessionGuard is the real guard
 export class AdminPermissionsController {
     constructor(
         private readonly permissionService: PermissionService,

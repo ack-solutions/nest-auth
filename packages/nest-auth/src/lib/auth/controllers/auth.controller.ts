@@ -20,7 +20,7 @@ import {
 } from '../dto/responses/auth-messages.response.dto';
 import { NestAuthLoginRequestDto } from '../dto/requests/login.request.dto';
 import { RequestContext } from '../../request-context/request-context';
-import { MessageResponseDto, SkipMfa, ApiValidationError, ApiUnauthorized, ApiConflictError } from '../../core';
+import { MessageResponseDto, SkipMfa, Public, ApiValidationError, ApiUnauthorized, ApiConflictError } from '../../core';
 import { ISessionUserData, NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
 import { NestAuthForgotPasswordRequestDto } from '../dto/requests/forgot-password.request.dto';
 import { NestAuthAuthGuard } from '../guards/auth.guard';
@@ -75,6 +75,7 @@ export class AuthController {
     @ApiResponse({ status: 200, type: AuthCookieResponseDto, description: 'Cookie mode: Returns message only, tokens in cookies' })
     @ApiConflictError('A user with this email or phone already exists.')
     @HttpCode(200)
+    @Public()
     @Post('signup')
     @UseInterceptors(TokenResponseInterceptor)
     async signup(@Body() input: NestAuthSignupRequestDto): Promise<AuthWithTokensResponseDto> {
@@ -94,6 +95,7 @@ export class AuthController {
     @ApiResponse({ status: 200, type: AuthWithTokensResponseDto, description: 'Header mode: Returns message + tokens in body' })
     @ApiResponse({ status: 200, type: AuthCookieResponseDto, description: 'Cookie mode: Returns message only, tokens in cookies' })
     @HttpCode(200)
+    @Public()
     @Post('login')
     @UseInterceptors(TokenResponseInterceptor)
     async login(@Body() input: NestAuthLoginRequestDto): Promise<AuthWithTokensResponseDto> {
@@ -107,6 +109,7 @@ export class AuthController {
     @ApiOperation({ summary: 'Passwordless — send login code (email or SMS)' })
     @ApiResponse({ status: 200, type: MessageResponseDto })
     @HttpCode(200)
+    @Public()
     @Post('passwordless/send')
     @SkipMfa()
     async passwordlessSend(@Body() input: NestAuthPasswordlessSendRequestDto): Promise<MessageResponseDto> {
@@ -122,6 +125,7 @@ export class AuthController {
     @ApiResponse({ status: 200, type: AuthWithTokensResponseDto, description: 'Header mode: Returns message + tokens in body' })
     @ApiResponse({ status: 200, type: AuthCookieResponseDto, description: 'Cookie mode: Returns message only, tokens in cookies' })
     @HttpCode(200)
+    @Public()
     @Post('refresh-token')
     @UseInterceptors(TokenResponseInterceptor)
     async refreshToken(
@@ -268,6 +272,7 @@ export class AuthController {
     @ApiOperation({ summary: 'Forgot password' })
     @ApiResponse({ status: 200, type: NestAuthPasswordResetLinkSentResponseDto })
     @HttpCode(200)
+    @Public()
     @Post('forgot-password')
     @SkipMfa()
     async forgotPassword(@Body() input: NestAuthForgotPasswordRequestDto): Promise<NestAuthPasswordResetLinkSentResponseDto> {
@@ -278,6 +283,7 @@ export class AuthController {
     @ApiOperation({ summary: 'Verify Forgot Password OTP and get reset token' })
     @ApiResponse({ status: 200, type: VerifyOtpResponseDto })
     @HttpCode(200)
+    @Public()
     @Post('verify-forgot-password-otp')
     @SkipMfa()
     async verifyForgotPasswordOtp(@Body() input: NestAuthVerifyForgotPasswordOtpRequestDto): Promise<VerifyOtpResponseDto> {
@@ -287,6 +293,7 @@ export class AuthController {
     @ApiOperation({ summary: 'Reset password' })
     @ApiResponse({ status: 200, type: NestAuthPasswordResetResponseDto })
     @HttpCode(200)
+    @Public()
     @Post('reset-password')
     @SkipMfa()
     async resetPassword(@Body() input: NestAuthResetPasswordWithTokenRequestDto): Promise<NestAuthPasswordResetResponseDto> {
@@ -299,6 +306,7 @@ export class AuthController {
         description: 'Public configuration for clients (tenant mode, auth methods, registration, MFA, etc.). No auth required.',
     })
     @ApiResponse({ status: 200, description: 'Client configuration' })
+    @Public()
     @Get('client-config')
     async getClientConfig() {
         const config = this.authConfigService.getConfig();
@@ -422,6 +430,7 @@ export class AuthController {
         summary: 'SSO Callback',
         description: 'OAuth callback endpoint for SSO providers. Exchanges authorization code for access token and returns raw SSO user info. Returns HTML page that posts SSO data to parent window and auto-closes.',
     })
+    @Public()
     @Get('callback/:provider')
     async ssoCallback(
         @Param('provider') provider: string,

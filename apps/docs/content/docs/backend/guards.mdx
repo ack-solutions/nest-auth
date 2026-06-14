@@ -5,7 +5,17 @@ description: NestAuthAuthGuard and AdminSessionGuard.
 
 ## `NestAuthAuthGuard`
 
-The main guard. Apply it once globally and let decorators (`@Auth`, `@Public`, `@NestAuthRoles`, `@NestAuthPermissions`, `@SkipMfa`) opt routes in and out.
+The main guard. There are two ways to apply it — pick one:
+
+**Opt-in (recommended for most apps)** — put `@Auth()` (or `@UseGuards(NestAuthAuthGuard)`) on the specific routes/controllers you want protected. Everything else stays open. Nothing else to configure.
+
+```ts
+@Get('profile')
+@Auth()
+getProfile(@CurrentUser() user) { … }
+```
+
+**Global guard + `@Public()` opt-out** — apply the guard app-wide and mark open routes `@Public()`. Good when "secure by default, list the exceptions" fits your app better.
 
 ```ts
 import { APP_GUARD } from '@nestjs/core';
@@ -18,6 +28,14 @@ import { NestAuthAuthGuard } from '@ackplus/nest-auth';
 })
 export class AppModule {}
 ```
+
+```ts
+@Public()           // opts this route out of the global guard
+@Get('health')
+health() { return { ok: true }; }
+```
+
+> Both modes work out of the box. The library's **own** public endpoints (`/auth/login`, `/auth/signup`, `/auth/refresh-token`, `/auth/forgot-password`, `/auth/reset-password`, the SSO callback, `client-config`, …) are already marked `@Public()`, so a global guard never blocks login. The **admin console** is likewise exempt — it authenticates with its own cookie-based `AdminSessionGuard`, not NestAuth JWTs, so a global `NestAuthAuthGuard` is not applied to it.
 
 What it does, in order, on every request:
 

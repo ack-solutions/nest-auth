@@ -14,7 +14,7 @@ import {
 import { AdminSessionGuard } from '../guards/admin-session.guard';
 import { AuthExceptionFilter } from '../../auth/filters/auth-exception.filter';
 import { ApiTags, ApiCookieAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
-import { ApiUnauthorized, ApiForbidden, ApiValidationError, ApiNotFoundError } from '../../core';
+import { ApiUnauthorized, ApiForbidden, ApiValidationError, ApiNotFoundError, Public } from '../../core';
 import { RoleService } from '../../role/services/role.service';
 import { AdminCreateRoleDto, AdminUpdateRoleDto } from '../dto/admin-role.dto';
 import { DEFAULT_GUARD_NAME } from '../../auth.constants';
@@ -29,6 +29,7 @@ import { mapRoleToResponse } from '../../role/utils/role-mapper.util';
 @ApiForbidden()
 @ApiValidationError()
 @ApiNotFoundError('Role not found.')
+@Public() // exempt from a consumer's global APP_GUARD; AdminSessionGuard is the real guard
 export class AdminRolesController {
   constructor(private readonly roles: RoleService) { }
 

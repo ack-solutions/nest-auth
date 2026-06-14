@@ -17,7 +17,7 @@ import { IsNull, Not, Repository } from 'typeorm';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
 import { AuthExceptionFilter } from '../../auth/filters/auth-exception.filter';
 import { ApiTags, ApiCookieAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
-import { ApiUnauthorized, ApiForbidden, ApiValidationError, ApiNotFoundError } from '../../core';
+import { ApiUnauthorized, ApiForbidden, ApiValidationError, ApiNotFoundError, Public } from '../../core';
 import { AdminCreateUserDto, AdminUpdateUserDto } from '../dto/admin-user.dto';
 import { UserService } from '../../user/services/user.service';
 import { AdminUserManagementService } from '../services/admin-user-management.service';
@@ -44,6 +44,7 @@ import { NestAuthTrustedDevice } from '../../auth/entities/trusted-device.entity
 @ApiForbidden()
 @ApiValidationError()
 @ApiNotFoundError('User not found.')
+@Public() // exempt from a consumer's global APP_GUARD; AdminSessionGuard is the real guard
 export class AdminUsersController {
   constructor(
     private readonly users: UserService,
