@@ -1,0 +1,9 @@
+{
+  "title": "Admin-tenants",
+  "pages": [
+    "get-auth-admin-api-tenants",
+    "post-auth-admin-api-tenants",
+    "patch-auth-admin-api-tenants-id",
+    "delete-auth-admin-api-tenants-id"
+  ]
+}

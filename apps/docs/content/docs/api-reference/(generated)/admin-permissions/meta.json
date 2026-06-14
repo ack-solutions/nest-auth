@@ -1,0 +1,13 @@
+{
+  "title": "Admin-permissions",
+  "pages": [
+    "get-auth-admin-api-permissions",
+    "get-auth-admin-api-permissions-id",
+    "get-auth-admin-api-permissions-categories",
+    "get-auth-admin-api-permissions-guards",
+    "get-auth-admin-api-permissions-search",
+    "post-auth-admin-api-permissions",
+    "patch-auth-admin-api-permissions-id",
+    "delete-auth-admin-api-permissions-id"
+  ]
+}

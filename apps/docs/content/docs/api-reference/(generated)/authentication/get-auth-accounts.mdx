@@ -1,0 +1,10 @@
+---
+title: 'GET /auth/accounts'
+description: 'Cookie-mode account switcher: lists the accounts this browser is logged into, derived from the per-account token cookies it holds (httpOnly tokens are never returned — only id/email/tenant + which ...'
+---
+
+import { EndpointDocs } from '@/components/endpoint-docs';
+
+# List logged-in accounts (cookie multi-account)
+
+<EndpointDocs method="get" path="/auth/accounts" />

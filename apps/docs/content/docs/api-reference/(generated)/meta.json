@@ -1,7 +1,12 @@
 {
   "title": "Endpoints",
   "pages": [
-    "auth",
+    "admin-console",
+    "admin-permissions",
+    "admin-roles",
+    "admin-tenants",
+    "admin-users",
+    "authentication",
     "mfa"
   ]
 }

@@ -3,31 +3,84 @@ title: All Endpoints
 description: Generated reference for every operation in the OpenAPI spec.
 ---
 
-The library exposes 30 endpoints, grouped below by tag. Each page documents the request body, query / path parameters, every response status code, and a copy-pasteable curl example.
+The library exposes 68 endpoints, grouped below by tag. Each page documents the request body, query / path parameters, every response status code, and a copy-pasteable curl example.
 
-## Auth
+## Admin-console
 
-- [`GET /auth/callback/{provider}`](/docs/api-reference/auth/get-auth-callback-provider) — SSO Callback
-- [`GET /auth/client-config`](/docs/api-reference/auth/get-auth-client-config) — Client config
-- [`GET /auth/me`](/docs/api-reference/auth/get-auth-me) — Get Session User Data and menage extra user data from config
-- [`GET /auth/user`](/docs/api-reference/auth/get-auth-user) — Get Logged In User
-- [`GET /auth/verify-session`](/docs/api-reference/auth/get-auth-verify-session) — Verify Session
-- [`POST /auth/change-password`](/docs/api-reference/auth/post-auth-change-password) — Change Password
-- [`POST /auth/forgot-password`](/docs/api-reference/auth/post-auth-forgot-password) — Forgot password
-- [`POST /auth/login`](/docs/api-reference/auth/post-auth-login) — Login
-- [`POST /auth/logout`](/docs/api-reference/auth/post-auth-logout) — Logout
-- [`POST /auth/logout-all`](/docs/api-reference/auth/post-auth-logout-all) — Logout All
-- [`POST /auth/mfa/verify`](/docs/api-reference/auth/post-auth-mfa-verify) — Verify MFA
-- [`POST /auth/passwordless/send`](/docs/api-reference/auth/post-auth-passwordless-send) — Passwordless — send login code (email or SMS)
-- [`POST /auth/refresh-token`](/docs/api-reference/auth/post-auth-refresh-token) — Refresh Token
-- [`POST /auth/reset-password`](/docs/api-reference/auth/post-auth-reset-password) — Reset password
-- [`POST /auth/send-email-verification`](/docs/api-reference/auth/post-auth-send-email-verification) — Send email verification
-- [`POST /auth/send-phone-verification`](/docs/api-reference/auth/post-auth-send-phone-verification) — Send phone verification (SMS OTP)
-- [`POST /auth/signup`](/docs/api-reference/auth/post-auth-signup) — Signup
-- [`POST /auth/switch-tenant`](/docs/api-reference/auth/post-auth-switch-tenant) — Switch Active Tenant
-- [`POST /auth/verify-email`](/docs/api-reference/auth/post-auth-verify-email) — Verify Email
-- [`POST /auth/verify-forgot-password-otp`](/docs/api-reference/auth/post-auth-verify-forgot-password-otp) — Verify Forgot Password OTP and get reset token
-- [`POST /auth/verify-phone`](/docs/api-reference/auth/post-auth-verify-phone) — Verify phone number with OTP
+- [`GET /auth/admin/admins`](/docs/api-reference/admin-console/get-auth-admin-admins) — List admins
+- [`GET /auth/admin/api/stats`](/docs/api-reference/admin-console/get-auth-admin-api-stats) — Dashboard stats
+- [`GET /auth/admin/config`](/docs/api-reference/admin-console/get-auth-admin-config) — Public admin-console config
+- [`GET /auth/admin/me`](/docs/api-reference/admin-console/get-auth-admin-me) — Current admin
+- [`POST /auth/admin/admins`](/docs/api-reference/admin-console/post-auth-admin-admins) — Create an admin
+- [`POST /auth/admin/login`](/docs/api-reference/admin-console/post-auth-admin-login) — Admin login (sets the session cookie)
+- [`POST /auth/admin/logout`](/docs/api-reference/admin-console/post-auth-admin-logout) — Admin logout
+- [`POST /auth/admin/reset-password`](/docs/api-reference/admin-console/post-auth-admin-reset-password) — Reset an admin's password
+- [`POST /auth/admin/signup`](/docs/api-reference/admin-console/post-auth-admin-signup) — Create an admin (secret-key gated)
+- [`PATCH /auth/admin/admins/{id}`](/docs/api-reference/admin-console/patch-auth-admin-admins-id) — Update an admin
+- [`DELETE /auth/admin/admins/{id}`](/docs/api-reference/admin-console/delete-auth-admin-admins-id) — Delete an admin
+
+## Admin-permissions
+
+- [`GET /auth/admin/api/permissions`](/docs/api-reference/admin-permissions/get-auth-admin-api-permissions) — List permissions
+- [`GET /auth/admin/api/permissions/{id}`](/docs/api-reference/admin-permissions/get-auth-admin-api-permissions-id) — Get a permission
+- [`GET /auth/admin/api/permissions/categories`](/docs/api-reference/admin-permissions/get-auth-admin-api-permissions-categories) — List permission categories
+- [`GET /auth/admin/api/permissions/guards`](/docs/api-reference/admin-permissions/get-auth-admin-api-permissions-guards) — List guard namespaces
+- [`GET /auth/admin/api/permissions/search`](/docs/api-reference/admin-permissions/get-auth-admin-api-permissions-search) — Search permissions
+- [`POST /auth/admin/api/permissions`](/docs/api-reference/admin-permissions/post-auth-admin-api-permissions) — Create a permission
+- [`PATCH /auth/admin/api/permissions/{id}`](/docs/api-reference/admin-permissions/patch-auth-admin-api-permissions-id) — Update a permission
+- [`DELETE /auth/admin/api/permissions/{id}`](/docs/api-reference/admin-permissions/delete-auth-admin-api-permissions-id) — Delete a permission
+
+## Admin-roles
+
+- [`GET /auth/admin/api/roles`](/docs/api-reference/admin-roles/get-auth-admin-api-roles) — List roles
+- [`POST /auth/admin/api/roles`](/docs/api-reference/admin-roles/post-auth-admin-api-roles) — Create a role
+- [`PATCH /auth/admin/api/roles/{id}`](/docs/api-reference/admin-roles/patch-auth-admin-api-roles-id) — Update a role
+- [`DELETE /auth/admin/api/roles/{id}`](/docs/api-reference/admin-roles/delete-auth-admin-api-roles-id) — Delete a role
+
+## Admin-tenants
+
+- [`GET /auth/admin/api/tenants`](/docs/api-reference/admin-tenants/get-auth-admin-api-tenants) — List tenants
+- [`POST /auth/admin/api/tenants`](/docs/api-reference/admin-tenants/post-auth-admin-api-tenants) — Create a tenant
+- [`PATCH /auth/admin/api/tenants/{id}`](/docs/api-reference/admin-tenants/patch-auth-admin-api-tenants-id) — Update a tenant
+- [`DELETE /auth/admin/api/tenants/{id}`](/docs/api-reference/admin-tenants/delete-auth-admin-api-tenants-id) — Delete a tenant
+
+## Admin-users
+
+- [`GET /auth/admin/api/users`](/docs/api-reference/admin-users/get-auth-admin-api-users) — List users (paginated, cross-tenant; filter by status/tenant/role/search)
+- [`GET /auth/admin/api/users/{id}`](/docs/api-reference/admin-users/get-auth-admin-api-users-id) — Get a user (with roles, sessions, identities)
+- [`GET /auth/admin/api/users/{id}/sessions`](/docs/api-reference/admin-users/get-auth-admin-api-users-id-sessions) — List a user's active sessions
+- [`POST /auth/admin/api/users`](/docs/api-reference/admin-users/post-auth-admin-api-users) — Create a user
+- [`PATCH /auth/admin/api/users/{id}`](/docs/api-reference/admin-users/patch-auth-admin-api-users-id) — Update a user
+- [`DELETE /auth/admin/api/users/{id}`](/docs/api-reference/admin-users/delete-auth-admin-api-users-id) — Delete a user
+- [`DELETE /auth/admin/api/users/{id}/sessions`](/docs/api-reference/admin-users/delete-auth-admin-api-users-id-sessions) — Revoke all of a user's sessions
+- [`DELETE /auth/admin/api/users/{id}/sessions/{sessionId}`](/docs/api-reference/admin-users/delete-auth-admin-api-users-id-sessions-sessionid) — Revoke a single user session
+- [`DELETE /auth/admin/api/users/{id}/totp-devices/{deviceId}`](/docs/api-reference/admin-users/delete-auth-admin-api-users-id-totp-devices-deviceid) — Remove a user's TOTP device
+
+## Authentication
+
+- [`GET /auth/accounts`](/docs/api-reference/authentication/get-auth-accounts) — List logged-in accounts (cookie multi-account)
+- [`GET /auth/callback/{provider}`](/docs/api-reference/authentication/get-auth-callback-provider) — SSO Callback
+- [`GET /auth/client-config`](/docs/api-reference/authentication/get-auth-client-config) — Client config
+- [`GET /auth/me`](/docs/api-reference/authentication/get-auth-me) — Get Session User Data and menage extra user data from config
+- [`GET /auth/tenants/lookup`](/docs/api-reference/authentication/get-auth-tenants-lookup) — Resolve a tenant by slug (public)
+- [`GET /auth/user`](/docs/api-reference/authentication/get-auth-user) — Get Logged In User
+- [`GET /auth/verify-session`](/docs/api-reference/authentication/get-auth-verify-session) — Verify Session
+- [`POST /auth/change-password`](/docs/api-reference/authentication/post-auth-change-password) — Change Password
+- [`POST /auth/forgot-password`](/docs/api-reference/authentication/post-auth-forgot-password) — Forgot password
+- [`POST /auth/login`](/docs/api-reference/authentication/post-auth-login) — Login
+- [`POST /auth/logout`](/docs/api-reference/authentication/post-auth-logout) — Logout
+- [`POST /auth/logout-all`](/docs/api-reference/authentication/post-auth-logout-all) — Logout All
+- [`POST /auth/mfa/verify`](/docs/api-reference/authentication/post-auth-mfa-verify) — Verify MFA
+- [`POST /auth/passwordless/send`](/docs/api-reference/authentication/post-auth-passwordless-send) — Passwordless — send login code (email or SMS)
+- [`POST /auth/refresh-token`](/docs/api-reference/authentication/post-auth-refresh-token) — Refresh Token
+- [`POST /auth/reset-password`](/docs/api-reference/authentication/post-auth-reset-password) — Reset password
+- [`POST /auth/send-email-verification`](/docs/api-reference/authentication/post-auth-send-email-verification) — Send email verification
+- [`POST /auth/send-phone-verification`](/docs/api-reference/authentication/post-auth-send-phone-verification) — Send phone verification (SMS OTP)
+- [`POST /auth/signup`](/docs/api-reference/authentication/post-auth-signup) — Signup
+- [`POST /auth/switch-tenant`](/docs/api-reference/authentication/post-auth-switch-tenant) — Switch Active Tenant
+- [`POST /auth/verify-email`](/docs/api-reference/authentication/post-auth-verify-email) — Verify Email
+- [`POST /auth/verify-forgot-password-otp`](/docs/api-reference/authentication/post-auth-verify-forgot-password-otp) — Verify Forgot Password OTP and get reset token
+- [`POST /auth/verify-phone`](/docs/api-reference/authentication/post-auth-verify-phone) — Verify phone number with OTP
 
 ## Mfa
 

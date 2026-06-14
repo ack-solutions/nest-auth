@@ -1,0 +1,14 @@
+{
+  "title": "Admin-users",
+  "pages": [
+    "get-auth-admin-api-users",
+    "get-auth-admin-api-users-id",
+    "get-auth-admin-api-users-id-sessions",
+    "post-auth-admin-api-users",
+    "patch-auth-admin-api-users-id",
+    "delete-auth-admin-api-users-id",
+    "delete-auth-admin-api-users-id-sessions",
+    "delete-auth-admin-api-users-id-sessions-sessionid",
+    "delete-auth-admin-api-users-id-totp-devices-deviceid"
+  ]
+}

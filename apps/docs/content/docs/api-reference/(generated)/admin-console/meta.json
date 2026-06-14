@@ -1,0 +1,16 @@
+{
+  "title": "Admin-console",
+  "pages": [
+    "get-auth-admin-admins",
+    "get-auth-admin-api-stats",
+    "get-auth-admin-config",
+    "get-auth-admin-me",
+    "post-auth-admin-admins",
+    "post-auth-admin-login",
+    "post-auth-admin-logout",
+    "post-auth-admin-reset-password",
+    "post-auth-admin-signup",
+    "patch-auth-admin-admins-id",
+    "delete-auth-admin-admins-id"
+  ]
+}

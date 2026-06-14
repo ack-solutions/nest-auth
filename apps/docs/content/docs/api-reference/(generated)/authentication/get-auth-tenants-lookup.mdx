@@ -1,0 +1,10 @@
+---
+title: 'GET /auth/tenants/lookup'
+description: 'ISOLATED-mode login helper: resolve a tenant slug to its id so the login form can supply the right tenantId (the same email is a distinct account per tenant). Returns minimal public fields; 404 if ...'
+---
+
+import { EndpointDocs } from '@/components/endpoint-docs';
+
+# Resolve a tenant by slug (public)
+
+<EndpointDocs method="get" path="/auth/tenants/lookup" />

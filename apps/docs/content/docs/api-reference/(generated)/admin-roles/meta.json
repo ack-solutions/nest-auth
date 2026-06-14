@@ -1,0 +1,9 @@
+{
+  "title": "Admin-roles",
+  "pages": [
+    "get-auth-admin-api-roles",
+    "post-auth-admin-api-roles",
+    "patch-auth-admin-api-roles-id",
+    "delete-auth-admin-api-roles-id"
+  ]
+}

@@ -1,9 +1,11 @@
 {
-  "title": "Auth",
+  "title": "Authentication",
   "pages": [
+    "get-auth-accounts",
     "get-auth-callback-provider",
     "get-auth-client-config",
     "get-auth-me",
+    "get-auth-tenants-lookup",
     "get-auth-user",
     "get-auth-verify-session",
     "post-auth-change-password",
