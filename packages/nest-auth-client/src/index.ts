@@ -57,5 +57,9 @@ export { RefreshQueue, RetryTracker } from './client/refresh-queue';
 export { attachToAxios, attachToFetch } from './client/http-attach';
 export type { AxiosLikeInstance, AttachOptions } from './client/http-attach';
 
+// Multi-account (account switcher)
+export { AccountManager, AccountMfaRequiredError } from './account/account-manager';
+export type { AccountSnapshot, AccountManagerConfig } from './account/account-manager';
+
 // Utilities
 export { hasRole, hasPermission, hasAnyAccess, hasAllAccess } from './utils/role-utils';

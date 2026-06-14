@@ -98,6 +98,22 @@ export interface SessionOptions {
     slidingExpiration?: boolean; // Whether to extend session on activity (default: false)
 
     /**
+     * Allow one client to be logged into MULTIPLE accounts at once and switch
+     * the active one (Gmail/Slack-style account switcher). Default: `false`.
+     *
+     * The backend is already multi-session (every login mints an independent
+     * session; nothing revokes the others), so this flag does NOT change session
+     * creation. It is an opt-in capability signal: it is surfaced on
+     * `GET <prefix>/client-config` so SDKs/UIs can enable their account
+     * switcher only when you intend to support it.
+     *
+     * Multi-account requires header/bearer token delivery (or native secure
+     * storage): in `accessTokenType: 'cookie'` mode a single cookie name can
+     * only hold one account's tokens. See the multi-account guide.
+     */
+    allowMultipleAccounts?: boolean;
+
+    /**
      * How frequently a session row's `lastActive` should be touched while a
      * user is active. Pass an `ms` string (e.g. `'5m'`, `'30s'`) or a number
      * of milliseconds. Lower = more accurate "last seen" but more DB writes.

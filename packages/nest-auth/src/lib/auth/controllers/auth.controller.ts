@@ -316,6 +316,11 @@ export class AuthController {
                 enabled: config.tenant?.enabled,
                 mode: config.tenant!.mode ?? TenantModeEnum.ISOLATED,
             },
+            // Opt-in capability flag so clients enable their account switcher
+            // only when the backend intends to support multiple concurrent logins.
+            multipleAccounts: {
+                enabled: config.session?.allowMultipleAccounts === true,
+            },
             roleGuards: this.authConfigService.getRoleGuards(),
             emailAuth: { enabled: config.emailAuth?.enabled !== false },
             phoneAuth: { enabled: config.phoneAuth?.enabled === true },
