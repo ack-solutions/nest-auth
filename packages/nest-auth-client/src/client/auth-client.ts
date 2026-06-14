@@ -37,6 +37,7 @@ import {
     RequestOptions,
     GetAuthHeadersOptions,
     DEFAULT_ENDPOINTS,
+    IClientConfig,
 } from '../types/config.types';
 import { ClientSession, TokenState } from '../types/auth.types';
 import { AuthError } from '../types/auth.types';
@@ -708,6 +709,24 @@ export class AuthClient {
      async getSessionUserData(): Promise<ISessionUserData> {
         const endpoint = this.getEndpoint('me');
         const response = await this.request<ISessionUserData>('GET', endpoint, undefined);
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+        return response.data;
+    }
+
+    /**
+     * Fetch the backend's PUBLIC client configuration (no auth required): tenant
+     * mode, enabled auth methods, registration/MFA options, and whether
+     * multi-account is enabled (`multipleAccounts.enabled`). Use it to drive
+     * conditional UI — e.g. only show an account switcher when it's enabled.
+     */
+    async getClientConfig(options?: RequestOptions): Promise<IClientConfig> {
+        const endpoint = this.getEndpoint('clientConfig');
+        const response = await this.request<IClientConfig>('GET', endpoint, undefined, {
+            skipAuthHeader: true,
+            ...options,
+        });
         if (!response.ok) {
             throw this.handleError(response);
         }

@@ -7,7 +7,7 @@
  * active one purely client-side. The server, DB, tokens, and HTTP are all real.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { AccountManager } from '../../src';
+import { AccountManager, AuthClient } from '../../src';
 import type { StorageAdapter } from '../../src';
 import { bootBackend, type BackendHandle } from '../helpers/boot-backend';
 
@@ -117,5 +117,16 @@ describe('AccountManager — real backend multi-account (header mode)', () => {
     it('rejects multi-account in cookie mode (single cookie cannot hold N accounts)', () => {
         const m = new AccountManager({ baseUrl, accessTokenType: 'cookie', storageFactory: memoryStorageFactory() });
         expect(() => m.createPendingClient()).toThrow(/header/i);
+    });
+
+    it('getClientConfig() returns the public config (incl. multipleAccounts flag) without auth', async () => {
+        const client = new AuthClient({ baseUrl, accessTokenType: 'header' });
+        const cfg = await client.getClientConfig();
+        // The capability flag a UI uses to decide whether to show an account switcher.
+        expect(cfg.multipleAccounts).toBeDefined();
+        expect(typeof cfg.multipleAccounts?.enabled).toBe('boolean');
+        // Other public config a UI commonly needs is present too.
+        expect(cfg.tenants).toBeDefined();
+        expect(cfg.registration).toBeDefined();
     });
 });

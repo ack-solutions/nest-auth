@@ -111,6 +111,7 @@ export const DEFAULT_ENDPOINTS = {
     verifySession: '/auth/verify-session',
     me: '/auth/me',
     accounts: '/auth/accounts',
+    clientConfig: '/auth/client-config',
     switchTenant: '/auth/switch-tenant',
     setupTotp: '/auth/mfa/setup-totp',
     verifyTotpSetup: '/auth/mfa/verify-totp-setup',
@@ -123,6 +124,23 @@ export const DEFAULT_ENDPOINTS = {
 };
 
 export type EndpointConfig = typeof DEFAULT_ENDPOINTS;
+
+/**
+ * Public client configuration returned by `GET /auth/client-config`. Lets a UI
+ * adapt to the backend's setup (tenant mode, which auth methods are on, whether
+ * multi-account is enabled, MFA options, …) without hardcoding it. Shape may be
+ * extended by the backend's `clientConfig.factory`, so extra fields are allowed.
+ */
+export interface IClientConfig {
+    tenants?: { enabled?: boolean; mode?: string };
+    multipleAccounts?: { enabled?: boolean };
+    roleGuards?: string[];
+    emailAuth?: { enabled?: boolean };
+    phoneAuth?: { enabled?: boolean };
+    registration?: { enabled?: boolean; requireInvitation?: boolean; collectProfileFields?: unknown };
+    mfa?: { enabled?: boolean; methods?: unknown; allowUserToggle?: boolean; allowMethodSelection?: boolean };
+    [key: string]: unknown;
+}
 
 /**
  * Token mode for auth client

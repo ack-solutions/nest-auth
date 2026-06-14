@@ -30,6 +30,7 @@ export {
     AuthClientConfig,
     RequestOptions,
     GetAuthHeadersOptions,
+    IClientConfig,
 } from './types/config.types';
 
 export { DEFAULT_ENDPOINTS } from './types/config.types';

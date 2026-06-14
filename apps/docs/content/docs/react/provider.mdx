@@ -74,6 +74,24 @@ Don't. The provider holds singletons (token state, refresh queue, event subscrip
 
 If you need per-tenant clients, switch tenant on the existing client instead of remounting.
 
+## `<AccountSwitcherProvider>`
+
+A **separate** provider for the multi-account switcher (logging into several accounts on one client and switching the active one). It does not replace `AuthProvider` — the single-account path is untouched; mount it alongside (or nested) when you want a switcher.
+
+```tsx
+import { AccountSwitcherProvider, useAccountSwitcher } from '@ackplus/nest-auth-react';
+
+<AccountSwitcherProvider config={{ baseUrl, accessTokenType: 'header' }}>
+  <App />
+</AccountSwitcherProvider>;
+```
+
+- Provide `config` (a manager is built for you — `accessTokenType: 'cookie'` picks the cookie-mode manager automatically) **or** a pre-built `manager`.
+- Drives reactivity via `useSyncExternalStore`, so `switchAccount` (a pure client-side repoint) re-renders instantly with no server call.
+- Consume it with [`useAccountSwitcher` / `useAccounts` / `useActiveAccount`](/docs/react/hooks#multi-account-hooks).
+
+Requires `session.allowMultipleAccounts` on the backend — gate the UI with [`useMultiAccountEnabled()`](/docs/react/hooks#useclientconfig--usemultiaccountenabled). Full walkthrough: [Multi-account login & switching](/docs/recipes/multi-account-switching).
+
 ## Related
 
 - [Hooks](/docs/react/hooks).

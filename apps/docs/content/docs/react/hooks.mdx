@@ -100,6 +100,36 @@ const handleSave = async () => {
 
 You can also reach `client` from anywhere in the tree — there's no need to keep it as state.
 
+## `useClientConfig()` / `useMultiAccountEnabled()`
+
+Read the backend's public client config (tenant mode, enabled auth methods, registration/MFA options, and whether multi-account is on) so the UI can adapt without hardcoding it.
+
+```tsx
+const { config, isLoading } = useClientConfig();
+// e.g. only show the social buttons the backend actually has, or:
+const multi = useMultiAccountEnabled();            // boolean | null (null while loading)
+if (multi) return <AccountSwitcher />;
+```
+
+## Multi-account hooks
+
+For logging into several accounts on one client and switching the active one. These live under an [`<AccountSwitcherProvider>`](/docs/react/provider#accountswitcherprovider) (separate from `AuthProvider`).
+
+```tsx
+const {
+  accounts,        // AccountSnapshot[] — { accountId, email, label, isActive }
+  activeAccount,   // the active one, or null
+  addAccount,      // (loginDto) => Promise — log in a new account, keep the others
+  switchAccount,   // (accountId) => Promise — repoint active (no server call)
+  removeAccount,   // (accountId) => Promise — sign that account out
+} = useAccountSwitcher();
+
+const accounts = useAccounts();         // just the list
+const active = useActiveAccount();      // just the active account
+```
+
+See the [Multi-account login & switching](/docs/recipes/multi-account-switching) recipe for the full walkthrough (header and cookie modes).
+
 ## Related
 
 - [Provider](/docs/react/provider).

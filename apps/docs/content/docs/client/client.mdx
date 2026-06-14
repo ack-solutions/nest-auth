@@ -80,6 +80,15 @@ Lightweight session check — useful in `<AuthGuard>`-style components or middle
 
 Returns the full user data (the same payload `useUser()` exposes in React).
 
+### `getClientConfig(options?) => Promise<IClientConfig>`
+
+Fetch the backend's **public** config (no auth): tenant mode, enabled auth methods, registration/MFA options, and `multipleAccounts.enabled`. Use it to adapt the UI to the backend — e.g. whether to show an account switcher.
+
+```ts
+const cfg = await auth.getClientConfig();
+if (cfg.multipleAccounts?.enabled) { /* show switcher */ }
+```
+
 ### `switchTenant(dto, options?) => Promise<IAuthResponse>`
 
 Swap the active tenant. Returns a fresh session bound to the new tenant.
@@ -155,6 +164,27 @@ Every method below returns an unsubscribe function:
 | `onError(cb)` | Any auth error |
 | `onSessionVerified(cb)` | A `verifySession` call succeeded |
 | `onRefreshSessionData(cb)` | The session data should be refetched |
+
+## Multi-account (account switcher)
+
+For logging into several accounts on one client and switching the active one (requires `session.allowMultipleAccounts` on the backend). Two managers, one shared `IAccountSwitcher` interface:
+
+| Class | Mode | How it works |
+|---|---|---|
+| `AccountManager` | **header** | One `AuthClient` per account with its own namespaced storage; switch = repoint active (no server call) |
+| `CookieAccountManager` | **cookie** | Server holds per-account httpOnly cookies + a non-httpOnly selector; switch = rewrite the selector cookie (browser-only) |
+
+```ts
+import { AccountManager } from '@ackplus/nest-auth-client';
+
+const accounts = new AccountManager({ baseUrl, accessTokenType: 'header' });
+await accounts.addAccount({ providerName: 'email', credentials: { email, password } });
+await accounts.switchAccount(id);          // no network
+const headers = await accounts.getAuthHeaders();   // for the ACTIVE account
+accounts.listAccounts();                   // [{ accountId, email, isActive }, …]
+```
+
+Common surface: `ready()`, `listAccounts()`, `getActiveAccountId()`, `getActiveClient()`, `addAccount()`, `switchAccount()`, `removeAccount()`, `subscribe()`. Full walkthrough (incl. cookie mode + React): [Multi-account login & switching](/docs/recipes/multi-account-switching).
 
 ## Related
 

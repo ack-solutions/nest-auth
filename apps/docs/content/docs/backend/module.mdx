@@ -100,6 +100,7 @@ session?: {
   jwt?: { secret: string; validateToken?: (payload, session) => boolean };
   maxSessionsPerUser?: number;                 // default: 10
   slidingExpiration?: boolean;                 // default: false
+  allowMultipleAccounts?: boolean;             // default: false — enable the account switcher
   customizeSessionData?: (defaultData, user) => SessionDataPayload;
   customizeTokenPayload?: (defaultPayload, session) => JWTTokenPayload;
   onCreated?:  (session, user)        => void;
@@ -107,6 +108,8 @@ session?: {
   onRevoked?:  (session, reason)      => void;
 };
 ```
+
+> **`allowMultipleAccounts`** turns on logging into several accounts on one client and switching the active one (Gmail/Slack-style). The backend is already multi-session, so this only opts in the capability — it's surfaced on `GET /auth/client-config` (`{ multipleAccounts: { enabled } }`) and, in cookie mode, switches the server to per-account cookies + an active-account selector. See the [Multi-account login & switching](/docs/recipes/multi-account-switching) recipe.
 
 ### MFA
 
