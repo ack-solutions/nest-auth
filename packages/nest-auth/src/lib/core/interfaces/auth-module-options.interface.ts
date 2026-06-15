@@ -6,6 +6,7 @@ import { DebugLogOptions } from '../services/debug-logger.service';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { SessionPayload, JWTTokenPayload } from './token-payload.interface';
 import { NestAuthSignupRequestDto } from '../../auth/dto/requests/signup.request.dto';
+import { NestAuthLoginRequestDto } from '../../auth/dto/requests/login.request.dto';
 import { INestAuthTenantOptions, TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { Request } from 'express';
 import { EntityManager } from 'typeorm';
@@ -153,6 +154,42 @@ export interface IAuthHooks {
  * Registration lifecycle hooks for signup flow
  * Called after user is created but BEFORE session is generated
  */
+/**
+ * Per-request context passed to {@link IRegistrationHooks.beforeSignup}.
+ */
+export interface IBeforeSignupContext {
+    /** The raw Express request — read origin, IP, or custom headers (e.g. to derive tenantId/guard). */
+    request: Request;
+}
+
+/**
+ * Context passed to {@link IRegistrationHooks.onSignup}. Runs INSIDE the signup
+ * transaction, so use `manager` for related writes that must commit atomically
+ * with the new user.
+ */
+export interface IOnSignupContext {
+    /** The raw Express request (present for request-initiated signups). */
+    request?: Request;
+    /** The transactional `EntityManager` for the in-flight signup. */
+    manager?: EntityManager;
+}
+
+/**
+ * Context passed to {@link ILoginHooks.onLogin}.
+ */
+export interface IOnLoginContext {
+    /** The user's access row for the active tenant (tenant-scoped roles), if resolved. */
+    userAccess?: NestAuthUserAccess;
+    /** The user's platform (cross-tenant) access row, if any. */
+    platformAccess?: NestAuthPlatformAccess;
+    /** The raw Express request. */
+    request?: Request;
+    /** The auth provider that validated the credentials (email / phone / social / …). */
+    provider?: BaseAuthProvider;
+    /** The transactional `EntityManager`, if the login runs in a transaction. */
+    manager?: EntityManager;
+}
+
 export interface IRegistrationHooks {
     /**
      * Called before user is created.
@@ -176,7 +213,7 @@ export interface IRegistrationHooks {
      * }
      * ```
      */
-    beforeSignup?: (input: NestAuthSignupRequestDto, context: { request: any }) => Promise<NestAuthSignupRequestDto> | NestAuthSignupRequestDto;
+    beforeSignup?: (input: NestAuthSignupRequestDto, context: IBeforeSignupContext) => Promise<NestAuthSignupRequestDto> | NestAuthSignupRequestDto;
     /**
      * Called after user is created but BEFORE session is created.
      * Use this to assign roles, create related records, etc.
@@ -198,7 +235,7 @@ export interface IRegistrationHooks {
      * }
      * ```
      */
-    onSignup?: (user: NestAuthUser, input: any, context?: { request?: any; manager?: EntityManager }) => Promise<void> | void;
+    onSignup?: (user: NestAuthUser, input: NestAuthSignupRequestDto, context?: IOnSignupContext) => Promise<void> | void;
 }
 
 /**
@@ -227,7 +264,7 @@ export interface ILoginHooks {
      * }
      * ```
      */
-    onLogin?: (user: NestAuthUser, input: any, context?: { userAccess?: NestAuthUserAccess; platformAccess?: NestAuthPlatformAccess; request?: any; provider?: any; manager?: EntityManager }) => Promise<void> | void;
+    onLogin?: (user: NestAuthUser, input: NestAuthLoginRequestDto, context?: IOnLoginContext) => Promise<void> | void;
 }
 
 /**

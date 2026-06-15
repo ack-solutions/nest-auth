@@ -190,6 +190,8 @@ List of `NestAuthUser` fields to never serialize into responses (e.g., `'metadat
 
 `ctx` carries `request`, `userAccess`, `platformAccess`, and (when the login auto-creates a user) `manager`. Useful for syncing external systems on every login. `registrationHooks.onSignup` likewise receives `{ request, manager }` so its writes can join the signup transaction.
 
+> These hooks are **fully typed** — `input` is the `NestAuthSignupRequestDto` / `NestAuthLoginRequestDto`, and `ctx.request` is the Express `Request` (no more `any`). When you can't rely on contextual typing, annotate explicitly with the exported context interfaces: `IBeforeSignupContext`, `IOnSignupContext`, `IOnLoginContext`.
+
 ### `session.customizeSessionData(default, user) => SessionDataPayload`
 
 Reshape the snapshot stored on the session row. Don't bloat — this is loaded on every refresh.
