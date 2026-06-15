@@ -109,6 +109,12 @@ export interface ILoginRequest {
     tenantId?: string;
     createUserIfNotExists?: boolean;
     guard?: string;
+    /**
+     * "Remember me". In cookie mode, `false` issues session cookies that clear
+     * when the browser closes (good for shared devices); default keeps the
+     * persistent cookies. Sticky across token refresh.
+     */
+    rememberMe?: boolean;
 }
 
 export interface ISignupRequest {

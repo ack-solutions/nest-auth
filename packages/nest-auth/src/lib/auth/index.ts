@@ -21,9 +21,15 @@ export * from './events/email-verification-requested.event';
 export * from './events/phone-verification-requested.event';
 export * from './events/passwordless-code-requested.event';
 
-// Services
+// Services — every provider AuthModule `exports` should be importable so
+// consumers can inject it with a typed token (no deep imports).
 export * from './services/auth.service';
 export * from './services/mfa.service';
+export * from './services/password.service';
+export * from './services/verification.service';
+export * from './services/otp-flow.service';
+export * from './services/logout.service';
+export * from './services/session-token.service';
 
 // Controllers
 export * from './controllers/auth.controller';

@@ -45,6 +45,13 @@ Set `session.slidingExpiration: true` and a session's expiry rolls forward on ev
 
 The trade-off is write amplification — every refresh is a session-row update. For Redis-backed sessions this is negligible; for SQL it's worth measuring on high-traffic tenants. See [Scaling](/docs/production/scaling).
 
+## "Remember me"
+
+Pass `rememberMe: false` on `POST /auth/login` to make a session non-persistent — useful for a shared-device "uncheck remember me" flow.
+
+- **Cookie mode:** the auth cookies are written as **session cookies** (no `Max-Age`), so they're cleared when the browser closes. The choice is **sticky across token refresh** (via a session-scoped marker cookie), so the first refresh doesn't silently upgrade them to persistent. Omitting `rememberMe` (or `true`) keeps the normal persistent cookies.
+- **Header mode:** the backend doesn't manage storage — the client decides persistence by its storage adapter. Construct the `AuthClient` with `SessionStorageAdapter` (cleared on tab close) instead of the default `LocalStorageAdapter` when the box is unchecked.
+
 ## Password-hash prefix in the JWT
 
 Every access token Nest Auth issues includes a short prefix of the user's password hash as a claim. On every authenticated request the guard compares that prefix against the current user record. If the user resets their password (or an admin does it on their behalf), every outstanding access token across every device becomes invalid **the next time it hits a guarded endpoint** — without any explicit revocation step or session sweep.

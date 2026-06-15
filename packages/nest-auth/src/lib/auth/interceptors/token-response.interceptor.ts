@@ -8,6 +8,7 @@ import {
     NEST_AUTH_TRUST_DEVICE_KEY,
     REFRESH_TOKEN_COOKIE_NAME,
     ACTIVE_ACCOUNT_COOKIE_NAME,
+    REMEMBER_COOKIE_NAME,
     accountAccessCookieName,
     accountRefreshCookieName,
     userIdFromJwt,
@@ -77,7 +78,7 @@ export class TokenResponseInterceptor implements NestInterceptor {
                 }
 
                 if (isUsingCookies) {
-                    this.setTokens(res, data);
+                    this.setTokens(res, data, this.resolvePersistent(req));
                     // Remove tokens from response body
                     return omit(data, ['accessToken', 'refreshToken', 'trustToken']);
                 }
@@ -96,13 +97,32 @@ export class TokenResponseInterceptor implements NestInterceptor {
         );
     }
 
+    /**
+     * Whether the cookies for this response should persist across browser close.
+     * Honours an explicit `rememberMe` on the login body, then falls back to the
+     * sticky marker cookie (set on a prior non-persistent login) so token
+     * refreshes don't silently upgrade a "don't remember me" session. Default: persist.
+     */
+    private resolvePersistent(req: Request): boolean {
+        const body = (req as any).body;
+        if (body && typeof body.rememberMe === 'boolean') {
+            return body.rememberMe;
+        }
+        return CookieHelper.get(req, REMEMBER_COOKIE_NAME) !== '0';
+    }
+
     setTokens(response: Response, tokens: {
         accessToken?: string,
         refreshToken?: string,
         trustToken?: string
-    }): void {
+    }, persistent: boolean = true): void {
         const accessDuration =  this.options.session?.accessTokenValidity;
         const refreshDuration = this.options.session?.refreshTokenValidity;
+        // "Remember me": when NOT persistent, omit maxAge so the auth cookies are
+        // SESSION cookies (cleared when the browser closes). The choice is made
+        // sticky across token refresh by the marker cookie written below.
+        const accessMaxAge = persistent ? ms(accessDuration) : undefined;
+        const refreshMaxAge = persistent ? ms(refreshDuration) : undefined;
 
         // Multi-account (cookie mode): write per-account cookies keyed by the
         // user id, plus a non-httpOnly selector naming the active account. This
@@ -117,12 +137,12 @@ export class TokenResponseInterceptor implements NestInterceptor {
 
         if (tokens.accessToken) {
             this.setCookie(response, accessName, tokens.accessToken, {
-                maxAge: ms(accessDuration),
+                maxAge: accessMaxAge,
             });
         }
         if (tokens.refreshToken) {
             this.setCookie(response, refreshName, tokens.refreshToken, {
-                maxAge: ms(refreshDuration),
+                maxAge: refreshMaxAge,
             });
         }
         if (accountKey) {
@@ -131,7 +151,7 @@ export class TokenResponseInterceptor implements NestInterceptor {
             // cookies to use (not a credential), so httpOnly is intentionally off.
             this.setCookie(response, ACTIVE_ACCOUNT_COOKIE_NAME, accountKey, {
                 httpOnly: false,
-                maxAge: ms(refreshDuration),
+                maxAge: refreshMaxAge,
             });
         }
         if (tokens.trustToken) {
@@ -140,6 +160,15 @@ export class TokenResponseInterceptor implements NestInterceptor {
             this.setCookie(response, trustCookieName, tokens.trustToken, {
                 maxAge: ms(duration),
             });
+        }
+
+        // Make the "remember me" choice sticky across refresh: when the login
+        // opted out of persistence, drop a SESSION-scoped marker so the next
+        // /refresh-token keeps issuing session cookies; otherwise clear it.
+        if (persistent) {
+            CookieHelper.delete(response, REMEMBER_COOKIE_NAME, { path: '/' });
+        } else {
+            this.setCookie(response, REMEMBER_COOKIE_NAME, '0', { maxAge: undefined });
         }
 
         // Do NOT log raw token values, even at debug level.

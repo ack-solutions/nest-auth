@@ -179,6 +179,11 @@ export const REFRESH_TOKEN_COOKIE_NAME = 'refreshToken';
 // it to switch accounts client-side; the server reads it to pick the cookie.
 export const ACTIVE_ACCOUNT_COOKIE_NAME = 'nest_auth_active_account';
 
+// "Remember me" (cookie mode): a session-scoped marker the server writes when a
+// login opted OUT of persistence, so subsequent token refreshes keep issuing
+// session cookies (sticky across refresh) instead of upgrading to persistent.
+export const REMEMBER_COOKIE_NAME = 'nest_auth_remember';
+
 /** Per-account access-token cookie name. `accountKey` is the user id (cookie-safe). */
 export const accountAccessCookieName = (accountKey: string): string =>
     `${ACCESS_TOKEN_COOKIE_NAME}_${accountKey}`;

@@ -94,4 +94,13 @@ export class NestAuthLoginRequestDto implements ILoginRequest {
     @IsBoolean()
     @IsOptional()
     createUserIfNotExists?: boolean;
+
+    @ApiPropertyOptional({
+        description:
+            '"Remember me". In cookie mode, `false` issues SESSION cookies that clear when the browser closes (good for shared devices); `true`/omitted keeps the persistent cookies. The choice is sticky across token refresh. In header mode the client decides persistence by its storage adapter.',
+        default: true,
+    })
+    @IsBoolean()
+    @IsOptional()
+    rememberMe?: boolean;
 }

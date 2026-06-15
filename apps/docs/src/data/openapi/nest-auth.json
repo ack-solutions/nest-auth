@@ -4434,6 +4434,11 @@
             "type": "boolean",
             "description": "Auto-create user if not exists (for social auth)",
             "default": false
+          },
+          "rememberMe": {
+            "type": "boolean",
+            "description": "\"Remember me\". In cookie mode, `false` issues SESSION cookies that clear when the browser closes (good for shared devices); `true`/omitted keeps the persistent cookies. The choice is sticky across token refresh. In header mode the client decides persistence by its storage adapter.",
+            "default": true
           }
         },
         "required": [
