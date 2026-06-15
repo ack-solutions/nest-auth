@@ -156,6 +156,8 @@ export interface IAuthResponse extends ITokenPair {
     isRequiresMfa?: boolean;
     mfaMethods?: NestAuthMFAMethodEnum[];
     defaultMfaMethod?: NestAuthMFAMethodEnum;
+    /** True when the user must set a new password before using the app (admin-set temporary password). */
+    mustChangePassword?: boolean;
 }
 
 export interface IAuthSession {

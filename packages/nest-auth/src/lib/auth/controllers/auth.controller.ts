@@ -20,7 +20,7 @@ import {
 } from '../dto/responses/auth-messages.response.dto';
 import { NestAuthLoginRequestDto } from '../dto/requests/login.request.dto';
 import { RequestContext } from '../../request-context/request-context';
-import { MessageResponseDto, SkipMfa, Public, NestAuthPermissions, ApiValidationError, ApiUnauthorized, ApiConflictError } from '../../core';
+import { MessageResponseDto, SkipMfa, Public, NestAuthPermissions, SkipMustChangePassword, ApiValidationError, ApiUnauthorized, ApiConflictError } from '../../core';
 import { InviteService } from '../services/invite.service';
 import { NestAuthInviteRequestDto } from '../dto/requests/invite.request.dto';
 import { ISessionUserData, NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
@@ -189,6 +189,7 @@ export class AuthController {
     @ApiOperation({ summary: 'Send MFA Code' })
     @ApiResponse({ status: 200, type: NestAuthMfaCodeSentResponseDto })
     @HttpCode(200)
+    @SkipMustChangePassword()
     @Post('mfa/challenge')
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
@@ -210,6 +211,7 @@ export class AuthController {
     @ApiResponse({ status: 200, type: Verify2faWithTokensResponseDto, description: 'Header mode: Returns message + tokens in body' })
     @ApiResponse({ status: 200, type: AuthCookieResponseDto, description: 'Cookie mode: Returns message only, tokens in cookies' })
     @HttpCode(200)
+    @SkipMustChangePassword()
     @Post('mfa/verify')
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
@@ -227,6 +229,7 @@ export class AuthController {
     @HttpCode(200)
     @Post('logout')
     @SkipMfa()
+    @SkipMustChangePassword()
     @Auth(true)
     async logout(@Res({ passthrough: true }) res: Response, @Req() req: Request): Promise<NestAuthLogoutResponseDto> {
         // Try safe logout if user is present
@@ -331,6 +334,7 @@ export class AuthController {
     @ApiOperation({ summary: 'Change Password' })
     @ApiResponse({ status: 200, type: MessageResponseDto })
     @HttpCode(200)
+    @SkipMustChangePassword()
     @Post('change-password')
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
@@ -474,6 +478,7 @@ export class AuthController {
     @ApiOperation({ summary: 'Get Logged In User' })
     @ApiResponse({ status: 200, type: UserResponseDto })
     @UseGuards(NestAuthAuthGuard)
+    @SkipMustChangePassword()
     @Get('user')
     async getUser() {
         const user = await RequestContext.currentUser();
@@ -499,6 +504,7 @@ export class AuthController {
     })
     @UseGuards(NestAuthAuthGuard)
     @SkipMfa()
+    @SkipMustChangePassword()
     @Get('verify-session')
     async verifySession() {
         const userId = await RequestContext.currentUserId();
@@ -515,6 +521,7 @@ export class AuthController {
     @HttpCode(200)
     @Post('send-email-verification')
     @SkipMfa()
+    @SkipMustChangePassword()
     @UseGuards(NestAuthAuthGuard)
     async sendEmailVerification(@Body() input: NestAuthSendEmailVerificationRequestDto): Promise<NestAuthEmailVerificationSentResponseDto> {
         await this.verificationService.sendEmailVerification(input);
@@ -526,6 +533,7 @@ export class AuthController {
     @HttpCode(200)
     @Post('verify-email')
     @SkipMfa()
+    @SkipMustChangePassword()
     @UseGuards(NestAuthAuthGuard)
     async verifyEmail(@Body() input: NestAuthVerifyEmailRequestDto): Promise<NestAuthEmailVerifiedResponseDto> {
         await this.verificationService.verifyEmail(input);
@@ -537,6 +545,7 @@ export class AuthController {
     @HttpCode(200)
     @Post('send-phone-verification')
     @SkipMfa()
+    @SkipMustChangePassword()
     @UseGuards(NestAuthAuthGuard)
     async sendPhoneVerification(@Body() input: NestAuthSendPhoneVerificationRequestDto): Promise<NestAuthPhoneVerificationSentResponseDto> {
         await this.verificationService.sendPhoneVerification(input);
@@ -548,6 +557,7 @@ export class AuthController {
     @HttpCode(200)
     @Post('verify-phone')
     @SkipMfa()
+    @SkipMustChangePassword()
     @UseGuards(NestAuthAuthGuard)
     async verifyPhone(@Body() input: NestAuthVerifyPhoneRequestDto): Promise<NestAuthPhoneVerifiedResponseDto> {
         await this.verificationService.verifyPhone(input);

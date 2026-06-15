@@ -23,6 +23,7 @@ The `errorCode` field is what your frontend should branch on — never the human
 | `PHONE_ALREADY_EXISTS` | 409 | Signup with a phone that's already registered |
 | `INVALID_CREDENTIALS` | 401 | Wrong email/password |
 | `ACCOUNT_INACTIVE` | 403 | `isActive: false` (admin-disabled or self-deactivated) |
+| `MUST_CHANGE_PASSWORD` | 403 | `mustChangePassword.enforce` is on and the user must set a new password — route to change-password. See the [force-password-change recipe](/docs/recipes/force-password-change) |
 | `ACCOUNT_SUSPENDED` | 403 | Suspended via metadata flag (compliance / fraud) |
 | `EMAIL_NOT_VERIFIED` | 403 | Login policy requires email verification |
 | `PHONE_NOT_VERIFIED` | 403 | Login policy requires phone verification |

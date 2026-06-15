@@ -798,7 +798,7 @@ export class AuthService {
         } 
         
         return {
-            ...pick(user, ['id', 'email', 'phone', 'emailVerifiedAt', 'phoneVerifiedAt','isMfaEnabled', 'metadata']),
+            ...pick(user, ['id', 'email', 'phone', 'emailVerifiedAt', 'phoneVerifiedAt','isMfaEnabled', 'metadata', 'mustChangePassword']),
             ...(serializedUser || {}),
             roles: userRoles,
             permissions,

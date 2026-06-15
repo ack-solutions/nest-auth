@@ -8,6 +8,7 @@ import { AccessKeyService } from '../../user/services/access-key.service';
 import { JWTTokenPayload } from '../../core/interfaces/token-payload.interface';
 import { SKIP_MFA_KEY } from '../../core/decorators/skip-mfa.decorator';
 import { IS_PUBLIC_KEY } from '../../core/decorators/public.decorator';
+import { SKIP_MUST_CHANGE_PASSWORD_KEY } from '../../core/decorators/must-change-password.decorator';
 import { PERMISSIONS_KEY, PERMISSIONS_REQUIRE_ALL_KEY } from '../../core/decorators/permissions.decorator';
 import { ROLES_KEY, GUARD_KEY } from '../../core/decorators/role.decorator';
 import { AuthConfigService } from '../../core/services/auth-config.service';
@@ -137,9 +138,35 @@ export class NestAuthAuthGuard implements CanActivate {
         // exist but no principal was established — so role/permission checks can
         // never be silently skipped.
         if (isAuthenticated) {
+            this.checkMustChangePassword(context, request);
             await this.checkAuthorization(context, request);
         }
         return true;
+    }
+
+    /**
+     * Hard-block (opt-in): a user flagged `mustChangePassword` may only reach an
+     * allowlist of routes until they rotate their password. The allowlist is
+     * routes carrying `@SkipMustChangePassword()` — the library marks its own
+     * change-password / logout / current-user / verification / MFA routes. Every
+     * other guarded route gets `403 MUST_CHANGE_PASSWORD` so a direct API call
+     * can't bypass the change with the temporary credential.
+     */
+    private checkMustChangePassword(context: ExecutionContext, request: any): void {
+        if (this.authConfigService.getConfig().mustChangePassword?.enforce !== true) return;
+        if (request.mustChangePassword !== true) return;
+
+        const exempt = this.reflector.getAllAndOverride<boolean>(SKIP_MUST_CHANGE_PASSWORD_KEY, [
+            context.getHandler(),
+            context.getClass(),
+        ]);
+        if (exempt) return;
+
+        this.debugLogger.warn('Blocked: password change required', 'AuthGuard');
+        throw new ForbiddenException({
+            message: 'You must change your password before continuing',
+            code: ERROR_CODES.MUST_CHANGE_PASSWORD,
+        });
     }
 
     /**
@@ -253,8 +280,13 @@ export class NestAuthAuthGuard implements CanActivate {
 
             const user = await NestAuthUser.findOne({
                 where: { id: session.userId },
-                select: ['id', 'isActive'],
+                select: ['id', 'isActive', 'mustChangePassword'],
             });
+
+            // Surface the force-change-password flag to the request so
+            // checkMustChangePassword() can enforce it (JWT auth only — API keys
+            // are a separate credential and aren't subject to it).
+            request.mustChangePassword = user?.mustChangePassword === true;
 
             if (!user || user.isActive === false) {
                 if (isOptional) {

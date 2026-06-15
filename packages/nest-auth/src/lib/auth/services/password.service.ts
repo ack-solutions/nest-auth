@@ -129,6 +129,7 @@ export class PasswordService {
             }
 
             await user.setPassword(input.newPassword);
+            user.mustChangePassword = false; // a successful change clears the force-change flag
             await this.userRepository.save(user);
 
             await this.sessionManager.revokeAllUserSessions(user.id);
@@ -356,6 +357,7 @@ export class PasswordService {
             }
 
             await user.setPassword(newPassword);
+            user.mustChangePassword = false; // setting a new password clears the force-change flag
             await this.userRepository.save(user);
 
             // Invalidate all existing sessions after a password reset — account

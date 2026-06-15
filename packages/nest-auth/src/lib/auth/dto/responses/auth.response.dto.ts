@@ -113,6 +113,12 @@ export class AuthWithTokensResponseDto extends AuthTokensResponseDto implements 
     isRequiresMfa: boolean;
 
     @ApiPropertyOptional({
+        description: 'True when the user must set a new password before using the app (e.g. an admin-set temporary password). Route them to the change-password screen.',
+        example: false,
+    })
+    mustChangePassword?: boolean;
+
+    @ApiPropertyOptional({
         description: 'Available MFA methods when isRequiresMfa is true',
         example: ['email', 'totp'],
         enum: NestAuthMFAMethodEnum,

@@ -150,6 +150,12 @@ export class SessionTokenService {
             isRequiresMfa: isRequiresMfa,
         };
 
+        // Surface the force-change-password flag so the client can route straight
+        // to the change-password screen (the guard is the actual enforcement).
+        if (user?.mustChangePassword) {
+            response.mustChangePassword = true;
+        }
+
         if (isRequiresMfa) {
             const enabledMethods = await this.mfaService.getEnabledMethods(user.id);
             response.mfaMethods = enabledMethods;

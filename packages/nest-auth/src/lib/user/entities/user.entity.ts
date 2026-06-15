@@ -52,6 +52,16 @@ export class NestAuthUser extends BaseEntity {
     @Column({ default: true })
     isActive: boolean;
 
+    /**
+     * When true, the user must set a new password before they can use the app —
+     * set it when an admin assigns a TEMPORARY password (not on self-service /
+     * invite set-password). Surfaced on login + /auth/me and, when
+     * `mustChangePassword.enforce` is on, enforced by the guard. Cleared
+     * automatically on a successful password change.
+     */
+    @Column({ default: false })
+    mustChangePassword: boolean;
+
     @Column({ type: 'simple-json', nullable: true, default: '{}' })
     metadata?: Record<string, any>;
 

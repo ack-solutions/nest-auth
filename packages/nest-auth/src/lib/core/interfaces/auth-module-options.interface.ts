@@ -484,6 +484,23 @@ export interface IAuthModuleOptions {
     };
     mfa?: MFAOptions;
     session?: SessionOptions;
+
+    /**
+     * Force-password-change ("must change password") enforcement.
+     *
+     * The `mustChangePassword` flag on a user is always surfaced (login response
+     * + `/auth/me`) and cleared on a successful password change. Set
+     * `enforce: true` to ALSO hard-block at the guard: a user with the flag set
+     * is rejected with `403 MUST_CHANGE_PASSWORD` on every guarded route except
+     * change-password, logout, the current-user/session endpoints, and the
+     * MFA/verification routes (so a 2FA user can still finish signing in and
+     * reach the change-password screen). Exempt your own routes with
+     * `@SkipMustChangePassword()`. Default: surface-only (no hard-block).
+     */
+    mustChangePassword?: {
+        enforce?: boolean;
+    };
+
     customAuthProviders?: BaseAuthProvider[];
    
     /**

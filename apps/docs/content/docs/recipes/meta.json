@@ -23,6 +23,7 @@
     "external-role-resolver",
     "per-request-config",
     "account-suspension",
+    "force-password-change",
     "ip-allowlist-guard",
     "per-flow-error-transform",
     "mfa-recovery-codes",
