@@ -20,7 +20,9 @@ import {
 } from '../dto/responses/auth-messages.response.dto';
 import { NestAuthLoginRequestDto } from '../dto/requests/login.request.dto';
 import { RequestContext } from '../../request-context/request-context';
-import { MessageResponseDto, SkipMfa, Public, ApiValidationError, ApiUnauthorized, ApiConflictError } from '../../core';
+import { MessageResponseDto, SkipMfa, Public, NestAuthPermissions, ApiValidationError, ApiUnauthorized, ApiConflictError } from '../../core';
+import { InviteService } from '../services/invite.service';
+import { NestAuthInviteRequestDto } from '../dto/requests/invite.request.dto';
 import { ISessionUserData, NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
 import { NestAuthForgotPasswordRequestDto } from '../dto/requests/forgot-password.request.dto';
 import { NestAuthAuthGuard } from '../guards/auth.guard';
@@ -61,6 +63,7 @@ export class AuthController {
         private readonly verificationService: VerificationService,
         private readonly authConfigService: AuthConfigService,
         private readonly tenantService: TenantService,
+        private readonly inviteService: InviteService,
     ) { }
 
     // Helper methods for response handling are now handled by TokenResponseInterceptor
@@ -84,6 +87,27 @@ export class AuthController {
             ...response,
             message: 'Signup successful',
         };
+    }
+
+    @ApiOperation({
+        summary: 'Invite a member (admin)',
+        description:
+            'Create-or-link a user in the tenant and emit a `nest_auth.user_invited` event carrying a single-use set-password token, so YOUR listener can email the invite link (the token is intentionally NEVER returned in the response — that would leak a working credential). The member sets their password via POST /auth/reset-password { token, newPassword }, then signs in. Guarded by the `users.invite` permission — assign it to your admin roles, or call InviteService.inviteUser() directly from your own guarded controller.',
+    })
+    @ApiResponse({ status: 201, description: 'Invitation issued: { message, userId, isNewUser }' })
+    @Auth()
+    @NestAuthPermissions(['users.invite'])
+    @Post('invite')
+    async invite(@Body() input: NestAuthInviteRequestDto) {
+        const invitedBy = await RequestContext.currentUserId();
+        const { user, isNewUser } = await this.inviteService.inviteUser({
+            email: input.email,
+            phone: input.phone,
+            tenantId: input.tenantId,
+            metadata: input.metadata,
+            invitedBy: invitedBy ?? undefined,
+        });
+        return { message: 'Invitation sent', userId: user.id, isNewUser };
     }
 
     @ApiOperation({

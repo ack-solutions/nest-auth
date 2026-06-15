@@ -55,16 +55,34 @@ So your reset email link should round-trip the tenant (e.g. include the slug/`te
 https://app.example.com/reset?tenant=acme&token=…
 ```
 
-## 4. Invite a member (the intended pattern)
+## 4. Invite a member (first-class, since 2.5.0)
 
-There is **no first-class `invite` / `acceptInvite` / magic-link** primitive. The intended flow composes existing pieces:
+Inviting a member is a single call. It **creates-or-links** the user in the tenant, mints a **single-use, tenant-scoped set-password token**, and **emits a `nest_auth.user_invited` event carrying that token** — so you send the email, exactly like the password-reset / signup events. The token is **never returned in the response** (that would leak a working credential into logs / the network tab).
 
-1. An admin **creates the user in the target tenant** (admin console, or `UserService` with the tenant's `tenantId`) — optionally with no password.
-2. Issue a **set-password token**: trigger `forgot-password` for that user/tenant (or generate a reset token), which is tenant-scoped per §3.
-3. **Send your own email** with a link that carries the tenant + token (you own the email templates and branding).
-4. The member opens the link, sets a password via `reset-password`, and lands authenticated in the right tenant.
+```ts
+// From your own admin-guarded controller / service:
+const { user, isNewUser } = await this.inviteService.inviteUser({
+  email: 'member@acme.test',
+  tenantId,                 // ISOLATED: invite into the right tenant
+  metadata: { name: 'Pat' }, // echoed on the event for your email template
+});
+```
 
-This keeps invitations fully in your control (copy, expiry, re-send) while reusing the tenant-correct token machinery. If a dedicated invite endpoint would help your flow, open an issue — it's a candidate for a future first-class feature.
+Listen for the event and send the email:
+
+```ts
+@OnEvent(NestAuthEvents.USER_INVITED)
+async onInvited({ payload }: UserInvitedEvent) {
+  const link = `https://app.example.com/set-password?token=${payload.token}&tenant=${tenantSlug}`;
+  await this.mailer.sendInvite(payload.user.email, link, payload.metadata);
+}
+```
+
+The member opens the link and sets their password via `POST /auth/reset-password { token, newPassword }`, then signs in normally. The token is **single-use** — once the password is set it can't be replayed.
+
+There's also a guarded HTTP endpoint, **`POST /auth/invite`** (body: `{ email?, phone?, tenantId?, metadata? }`), protected by the `users.invite` permission — assign it to your admin roles, or just call `InviteService.inviteUser()` from your own guarded controller (more flexible, you own the authorization).
+
+> Why an event and not a token in the response? Returning a set-password/invite token is a credential leak (logs, browser network tab, anywhere the admin response is seen). Emitting it on an event keeps it on the server side, consistent with every other email the library triggers.
 
 ## Related
 

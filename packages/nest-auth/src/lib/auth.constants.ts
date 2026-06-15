@@ -226,6 +226,7 @@ export const NestAuthEvents = {
     /** Magic link URL built — send email in listener */
     MAGIC_LINK_REQUESTED: 'nest_auth.passwordless.magic_link.requested',
     REGISTERED: 'nest_auth.registered',
+    USER_INVITED: 'nest_auth.user_invited',
     TWO_FACTOR_VERIFIED: 'nest_auth.two_factor_verified',
     TWO_FACTOR_CODE_SENT: 'nest_auth.two_factor_code_sent',
     REFRESH_TOKEN: 'nest_auth.refresh_token',

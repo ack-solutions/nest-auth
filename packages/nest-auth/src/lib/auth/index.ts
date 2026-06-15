@@ -16,6 +16,7 @@ export * from './events/user-2fa-verified.event';
 export * from './events/user-logged-in.event';
 export * from './events/user-refresh-token.event';
 export * from './events/user-registered.event';
+export * from './events/user-invited.event';
 export * from './events/two-factor-code-sent.event';
 export * from './events/email-verification-requested.event';
 export * from './events/phone-verification-requested.event';
@@ -30,6 +31,7 @@ export * from './services/verification.service';
 export * from './services/otp-flow.service';
 export * from './services/logout.service';
 export * from './services/session-token.service';
+export * from './services/invite.service';
 
 // Controllers
 export * from './controllers/auth.controller';

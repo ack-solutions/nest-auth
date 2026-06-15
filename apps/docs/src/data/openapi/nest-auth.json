@@ -69,6 +69,57 @@
         ]
       }
     },
+    "/auth/invite": {
+      "post": {
+        "description": "Create-or-link a user in the tenant and emit a `nest_auth.user_invited` event carrying a single-use set-password token, so YOUR listener can email the invite link (the token is intentionally NEVER returned in the response — that would leak a working credential). The member sets their password via POST /auth/reset-password { token, newPassword }, then signs in. Guarded by the `users.invite` permission — assign it to your admin roles, or call InviteService.inviteUser() directly from your own guarded controller.",
+        "operationId": "AuthController_invite",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthInviteRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Invitation issued: { message, userId, isNewUser }"
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Invite a member (admin)",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
     "/auth/login": {
       "post": {
         "description": "Authenticate user. Response format depends on accessTokenType configuration:\n- Header mode (default): Returns tokens in response body\n- Cookie mode: Sets tokens in HTTP-only cookies and returns success message",
@@ -4055,7 +4106,7 @@
   "info": {
     "title": "@ackplus/nest-auth API",
     "description": "Authentication & authorization API for **@ackplus/nest-auth**.\n\n### Conventions\n- **Base URL** — routes are shown relative to your app’s global prefix. The reference example app uses `/api`, so a route like `POST /auth/login` is called at `POST /api/auth/login`.\n- **Auth** — most endpoints require a Bearer access token: `Authorization: Bearer <accessToken>`. The **Admin** endpoints use an httpOnly session cookie set by `POST /auth/admin/login`.\n- **Token modes** — in *header* mode (default) tokens are returned in the response body; in *cookie* mode they are set as httpOnly cookies. Controlled by `accessTokenType`.\n- **Errors** — failures return `{ statusCode, error, message, code }`; the machine-readable `code` is the value to branch on.\n\nBrowse by section in the sidebar: **Authentication**, **Password**, **Verification**, **Passwordless**, **MFA**, and the **Admin** groups.",
-    "version": "2.2.0",
+    "version": "2.3.0",
     "contact": {}
   },
   "tags": [
@@ -4239,6 +4290,30 @@
           "refreshToken",
           "isRequiresMfa"
         ]
+      },
+      "NestAuthInviteRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email address to invite",
+            "example": "member@acme.test"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Phone number to invite",
+            "example": "+15551234567"
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant to invite the member into (ISOLATED: the same email is a distinct account per tenant).",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Optional metadata stored on a new user and echoed on the invite event for your email template."
+          }
+        }
       },
       "EmailCredentialsDto": {
         "type": "object",

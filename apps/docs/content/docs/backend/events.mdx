@@ -44,6 +44,7 @@ export class AuthEventsListener {
 | Event | Constant | Payload fields |
 |---|---|---|
 | `UserRegisteredEvent` | `NestAuthEvents.REGISTERED` | `user`, `payload` (the original signup body — open-ended), `request` |
+| `UserInvitedEvent` | `NestAuthEvents.USER_INVITED` | `user`, `tenantId`, `token` (single-use set-password token — for the invite email; never logged/returned), `isNewUser`, `invitedBy`, `metadata` |
 | `UserLoggedInEvent` | `NestAuthEvents.LOGGED_IN` | `user`, `session`, `provider`, `request` |
 | `UserRefreshTokenEvent` | `NestAuthEvents.REFRESH_TOKEN` | `user`, `oldSession`, `newSession` |
 | `LoggedOutEvent` | `NestAuthEvents.LOGGED_OUT` | `user`, `session`, `reason` |
