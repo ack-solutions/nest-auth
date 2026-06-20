@@ -21,8 +21,8 @@
     "@ackplus/eslint-config",
     "@ackplus/prettier-config",
     "@ackplus/vitest-preset",
-    "example-app",
-    "example-react",
-    "examples-next"
+    "example-nest",
+    "example-next",
+    "example-react"
   ]
 }

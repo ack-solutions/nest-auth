@@ -1,6 +1,6 @@
 {
   "name": "@ackplus/nest-auth-client",
-  "version": "2.5.1",
+  "version": "2.5.2",
   "description": "NestJS authentication for REST APIs",
   "type": "module",
   "main": "./dist/index.js",
