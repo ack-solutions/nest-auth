@@ -41,6 +41,12 @@ unaffected — only requests coming through the portal get platform access.
 Idempotent boot seeder: create the platform role, the first admin user, and grant it via
 `PlatformAccess`. In production, prefer a migration or a one-time secret over env defaults.
 
+A platform admin is **tenant-less** — so provision and look it up with `createPlatformUser` /
+`getPlatformUserByEmail`, **not** `createUser` / `getUserByEmail`. The latter require a
+`tenantId` under `TENANT_MODE=isolated` (they throw `TENANT_ID_REQUIRED` without one), which
+would break this seeder on every boot. The platform helpers work in every tenant mode, never
+require a tenant, and `createPlatformUser` establishes the `PlatformAccess` marker atomically.
+
 ```ts
 @Injectable()
 export class PlatformAdminSeeder implements OnModuleInit {
@@ -51,20 +57,28 @@ export class PlatformAdminSeeder implements OnModuleInit {
     let role = await this.roles.getRoleByName('super_admin', 'platform').catch(() => null);
     if (!role) role = await this.roles.createRole('super_admin', 'platform', null, false);
 
-    // a normal nest-auth user (social/MFA/etc. all work)
-    let user = await this.users.getUserByEmail(process.env.PLATFORM_ADMIN_EMAIL!).catch(() => null);
+    // a normal nest-auth user (social/MFA/etc. all work), but tenant-less —
+    // getPlatformUserByEmail returns null (no throw) when none exists yet.
+    let user = await this.users.getPlatformUserByEmail(process.env.PLATFORM_ADMIN_EMAIL!);
     if (!user) {
-      user = await this.users.createUser({ email: process.env.PLATFORM_ADMIN_EMAIL! });
-      await user.setPassword(process.env.PLATFORM_ADMIN_PASSWORD!);
-      await user.save();
+      user = await this.users.createPlatformUser({
+        email: process.env.PLATFORM_ADMIN_EMAIL!,
+        password: process.env.PLATFORM_ADMIN_PASSWORD!,
+        isActive: true,
+      });
     }
 
-    // grant the platform role via the dedicated PlatformAccess (cross-tenant)
+    // createPlatformUser already established the PlatformAccess marker;
+    // getPlatformAccess(true) returns it — just attach the role (cross-tenant).
     const platformAccess = await user.getPlatformAccess(true);
     await platformAccess.assignRoles([role.id]);
   }
 }
 ```
+
+> **Run the seeder single-flight.** The duplicate guard is a best-effort read-then-write
+> (there is no DB unique constraint on email), so concurrent boots across multiple instances
+> could create duplicate admins. Run it from one instance, a migration, or a one-time job.
 
 ## 3. The cross-tenant management controller
 
@@ -89,7 +103,9 @@ export class PlatformAdminController {
 
   @Post('grant-admin')                  // mint another platform admin
   async grant(@Body() { email }: { email: string }) {
-    const target = await this.users.getUserByEmail(email);
+    // tenant-less get-or-create — safe under ISOLATED (no tenantId needed)
+    let target = await this.users.getPlatformUserByEmail(email);
+    if (!target) target = await this.users.createPlatformUser({ email });
     const role = await this.roles.getRoleByName('super_admin', 'platform');
     const access = await target.getPlatformAccess(true);
     await access.assignRoles([role!.id]);

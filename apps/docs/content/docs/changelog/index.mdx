@@ -5,12 +5,19 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.2.0`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.5.2`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/changelog/migrations#upgrading-within-v2-20x--22x)**. Bump every package to the same version.
 
 ---
+
+## 2.5.2 — tenant-less platform-user provisioning
+
+- **Fixed (ISOLATED):** provisioning a platform (super-admin) user no longer throws `TENANT_ID_REQUIRED` under `TENANT_MODE=isolated`. `UserService.createUser` / `getUserByEmail` require a `tenantId` there, which broke admin/platform-admin bootstrap on boot — platform admins are tenant-less.
+- **Added:** first-class `UserService.createPlatformUser(data)` and `getPlatformUserByEmail(email)` — tenant-less provisioning + lookup that work in every tenant mode. A platform user is identified by the `PlatformAccess` marker (the same row the login path enforces), so the lookup never returns a regular tenant account, and `createPlatformUser` establishes that marker atomically. See [Platform admin portal](/docs/recipes/platform-admin-portal).
+
+> **Note:** entries for 2.3.0 – 2.5.1 are not yet backfilled on this page; see each package's `CHANGELOG.md` / the GitHub releases for the interim versions.
 
 ## 2.2.0 — ISOLATED fixes, tenant lookup, cleanup
 

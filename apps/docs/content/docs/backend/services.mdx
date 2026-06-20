@@ -41,9 +41,13 @@ The main facade for auth flows.
 
 | Method | Purpose |
 |---|---|
-| `findById(id)` / `findByEmail(email)` / `findByPhone(phone)` | Lookups |
-| `create(input)` / `update(id, input)` / `delete(id)` | CRUD |
-| `setActive(id, isActive)` | Suspend/reactivate an account |
+| `getUserById(id)` / `getUserByEmail(email, tenantId?)` / `getUserByPhone(phone, tenantId?)` | Lookups (tenant-scoped under ISOLATED) |
+| `createUser(input, tenantId?)` / `updateUser(id, input)` / `deleteUser(id)` | CRUD |
+| `updateUserStatus(id, isActive)` | Suspend/reactivate an account |
+| `createPlatformUser(data)` | Provision a **tenant-less** platform (super-admin) user **+ its `PlatformAccess` marker**, atomically. Works in every tenant mode |
+| `getPlatformUserByEmail(email)` | Look up a platform user, tenant-less (keyed on the `PlatformAccess` marker) |
+
+> **ISOLATED mode:** `getUserByEmail` / `createUser` **require** a `tenantId` there (they throw `TENANT_ID_REQUIRED` without one). Platform super-admins are tenant-less, so provision and look them up with `createPlatformUser` / `getPlatformUserByEmail` instead — they never require a tenant and identify the user by the `PlatformAccess` marker (the same row the login path enforces), so they never return a regular tenant account. Grant roles with `user.getPlatformAccess(true)` then `assignRoles(...)`. See the [platform-admin portal recipe](/docs/recipes/platform-admin-portal).
 
 ## `RoleService`
 
