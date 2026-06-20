@@ -200,13 +200,24 @@ export class TenantService {
         return updatedTenant;
     }
 
-    async checkRequiredTenant(inputTenantId: string | null, throwError: boolean = true): Promise<boolean> {
+    async checkRequiredTenant(inputTenantId: string | null, throwError: boolean = true, platform: boolean = false): Promise<boolean> {
         const config = this.authConfigService.getConfig();
-        return requiredTenant(config?.tenant ?? {}, inputTenantId, throwError);
+        return requiredTenant(config?.tenant ?? {}, inputTenantId, throwError, platform);
     }
 
 
-    async resolveTenantId(inputTenantId?: string | null): Promise<string | null> {
+    /**
+     * Resolve the effective tenant id for an operation.
+     *
+     * Pass `platform = true` for a platform (super-admin) context: the operation
+     * is tenant-less, so this returns `null` without requiring or validating a
+     * tenant — even under ISOLATED. This is the request-independent opt-in for
+     * provisioning/looking up platform users (e.g. during boot).
+     */
+    async resolveTenantId(inputTenantId?: string | null, platform: boolean = false): Promise<string | null> {
+        if (platform) {
+            return null;
+        }
         const config = this.authConfigService.getConfig();
         if (config.tenant?.enabled) {
             const mode = config.tenant?.mode ?? TenantModeEnum.ISOLATED;

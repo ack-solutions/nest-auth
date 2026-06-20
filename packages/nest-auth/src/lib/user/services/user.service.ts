@@ -94,20 +94,20 @@ export class UserService {
      *                   you got from {@link runInTransaction}. When omitted,
      *                   each statement uses the default datasource.
      */
-    async createUser(data: Partial<NestAuthUser>, tenantId?: string, context?: any, manager?: EntityManager): Promise<NestAuthUser> {
+    async createUser(data: Partial<NestAuthUser>, tenantId?: string, context?: any, manager?: EntityManager, platform: boolean = false): Promise<NestAuthUser> {
         // When the caller supplies its own transactional manager, participate in
         // that transaction and let the caller emit USER_CREATED after it commits
         // (so the event reflects committed state and a later rollback can't leave
         // listeners acting on a phantom user).
         if (manager) {
-            return this.createUserCore(data, tenantId, context, manager);
+            return this.createUserCore(data, tenantId, context, manager, platform);
         }
 
         // Otherwise own the transaction so the whole create — user row + default
         // access + identities + the user.afterCreate hook — is atomic. A throw
         // anywhere (validation, conflict, or a failing afterCreate hook) rolls the
         // partial user back. USER_CREATED fires only after a successful commit.
-        const created = await this.runInTransaction((m) => this.createUserCore(data, tenantId, context, m));
+        const created = await this.runInTransaction((m) => this.createUserCore(data, tenantId, context, m, platform));
 
         await this.eventEmitter.emitAsync(
             NestAuthEvents.USER_CREATED,
@@ -126,7 +126,7 @@ export class UserService {
      * `manager` and runs the beforeCreate/afterCreate hooks, but does NOT emit
      * lifecycle events (the transactional boundary owner does that post-commit).
      */
-    private async createUserCore(data: Partial<NestAuthUser>, tenantId: string | undefined, context: any, manager: EntityManager): Promise<NestAuthUser> {
+    private async createUserCore(data: Partial<NestAuthUser>, tenantId: string | undefined, context: any, manager: EntityManager, platform: boolean = false): Promise<NestAuthUser> {
         const config = this.authConfigService.getConfig();
         const userRepo = this.getUserRepo(manager);
 
@@ -134,11 +134,12 @@ export class UserService {
             const email = normalizedEmail(data.email);
             const phone = normalizedPhone(data.phone);
 
-            await this.tenantService.resolveTenantId(tenantId);
+            await this.tenantService.resolveTenantId(tenantId, platform);
 
-            // Check if user already exists (by email in same tenant context)
+            // Check if user already exists (by email in same tenant context — or,
+            // for a platform user, in the tenant-less platform scope).
             if (email) {
-                const existingUser = await this.getUserByEmail(email, tenantId, undefined, manager);
+                const existingUser = await this.getUserByEmail(email, tenantId, undefined, manager, platform);
                 if (existingUser) {
                     throw new ConflictException({
                         message: 'User with this email already exists',
@@ -148,7 +149,7 @@ export class UserService {
             }
 
             if (phone) {
-                const existingUser = await this.getUserByPhone(phone, tenantId, undefined, manager);
+                const existingUser = await this.getUserByPhone(phone, tenantId, undefined, manager, platform);
                 if (existingUser) {
                     throw new ConflictException({
                         message: 'User with this phone number already exists',
@@ -177,6 +178,15 @@ export class UserService {
             await userRepo.save(user);
 
             await this.ensureUserAccess(user.id, tenantId, manager);
+
+            // Platform (super-admin) users are identified by a NestAuthPlatformAccess
+            // row (the marker the login path enforces) — establish it now, in the
+            // same transaction, so a created platform user is immediately a real
+            // platform user with no partial state. Roles are attached by the caller
+            // via user.getPlatformAccess(true).assignRoles(...).
+            if (platform) {
+                await user.getPlatformAccess(true, manager);
+            }
 
             this.debugLogger.info('User created successfully', 'UserService', { userId: user.id });
 
@@ -223,8 +233,8 @@ export class UserService {
         return user;
     }
 
-    async getUserByEmail(email: string, tenantId?: string, options?: FindOneOptions<NestAuthUser>, manager?: EntityManager): Promise<NestAuthUser> {
-        this.debugLogger.debug('Getting user by email', 'UserService', { email: !!email, tenantId });
+    async getUserByEmail(email: string, tenantId?: string, options?: FindOneOptions<NestAuthUser>, manager?: EntityManager, platform: boolean = false): Promise<NestAuthUser> {
+        this.debugLogger.debug('Getting user by email', 'UserService', { email: !!email, tenantId, platform });
 
         const emailNorm = normalizedEmail(email);
         if (!emailNorm) {
@@ -232,21 +242,34 @@ export class UserService {
             return null;
         }
 
-        const tenantRequired = await this.tenantService.checkRequiredTenant(tenantId);
+        // Platform (super-admin) lookups are tenant-less (never require a tenant)
+        // and are identified by the NestAuthPlatformAccess marker — the same row
+        // the login path enforces — NOT merely a tenant-less userAccess, which a
+        // regular user can also hold in SHARED/DISABLED. This keeps the lookup
+        // correct (no same-email collision) in every tenant mode. Marker presence
+        // is matched regardless of isActive (a dedup lookup should surface any
+        // existing platform row to reuse, not create a duplicate).
+        const tenantRequired = await this.tenantService.checkRequiredTenant(tenantId, true, platform);
 
         const user = await this.getUserRepo(manager).findOne({
             ...(options ? options : {}),
-            relations: ['userAccesses', ...(Array.isArray(options?.relations) ? options.relations : [])],
+            relations: [
+                'userAccesses',
+                ...(platform ? ['platformAccess'] : []),
+                ...(Array.isArray(options?.relations) ? options.relations : []),
+            ],
             where: {
                 email: emailNorm,
-                ...(tenantRequired ? { userAccesses: { tenantId: tenantId } } : {}),
+                ...(platform
+                    ? { platformAccess: { id: Not(IsNull()) } }
+                    : (tenantRequired ? { userAccesses: { tenantId: tenantId } } : {})),
             },
         });
         return user;
     }
 
-    async getUserByPhone(phone: string, tenantId?: string, options?: FindOneOptions<NestAuthUser>, manager?: EntityManager): Promise<NestAuthUser> {
-        this.debugLogger.debug('Getting user by phone', 'UserService', { phone: !!phone, tenantId });
+    async getUserByPhone(phone: string, tenantId?: string, options?: FindOneOptions<NestAuthUser>, manager?: EntityManager, platform: boolean = false): Promise<NestAuthUser> {
+        this.debugLogger.debug('Getting user by phone', 'UserService', { phone: !!phone, tenantId, platform });
 
         const phoneNorm = normalizedPhone(phone);
         if (!phoneNorm) {
@@ -254,14 +277,22 @@ export class UserService {
             return null;
         }
 
-        const tenantRequired = await this.tenantService.checkRequiredTenant(tenantId);
+        // Platform (super-admin) lookups are tenant-less and identified by the
+        // NestAuthPlatformAccess marker — see getUserByEmail.
+        const tenantRequired = await this.tenantService.checkRequiredTenant(tenantId, true, platform);
 
         const user = await this.getUserRepo(manager).findOne({
             ...(options ? options : {}),
-            relations: ['userAccesses', ...(Array.isArray(options?.relations) ? options.relations : [])],
+            relations: [
+                'userAccesses',
+                ...(platform ? ['platformAccess'] : []),
+                ...(Array.isArray(options?.relations) ? options.relations : []),
+            ],
             where: {
                 phone: phoneNorm,
-                ...(tenantRequired ? { userAccesses: { tenantId: tenantId } } : {}),
+                ...(platform
+                    ? { platformAccess: { id: Not(IsNull()) } }
+                    : (tenantRequired ? { userAccesses: { tenantId: tenantId } } : {})),
             },
         });
         return user;
@@ -269,6 +300,53 @@ export class UserService {
 
     async getUsers(options?: FindManyOptions<NestAuthUser>, manager?: EntityManager): Promise<NestAuthUser[]> {
         return this.getUserRepo(manager).find(options);
+    }
+
+    /**
+     * Provision a platform (super-admin) user — a tenant-less account that is
+     * NOT scoped to any tenant. Works in every tenant mode, including ISOLATED
+     * where a plain {@link createUser} requires a `tenantId`.
+     *
+     * Atomically creates the user, a tenant-less `userAccess` (tenantId = NULL),
+     * AND its `NestAuthPlatformAccess` row — the marker the login path enforces —
+     * so the returned user is immediately a real platform user (consistent with
+     * {@link getPlatformUserByEmail}, which keys off that same marker). To grant
+     * platform-wide roles, call `user.getPlatformAccess(true)` (it returns the
+     * row created here) then `assignRoles(...)`. Pass `manager` to participate in
+     * a transaction.
+     *
+     * The duplicate-email/phone guard is a best-effort read-then-write check
+     * (the same pattern as {@link createUser}; there is no DB unique constraint
+     * on email/phone), so it is not safe against two concurrent provisioning
+     * calls for the same email — run bootstrap single-flight.
+     *
+     * Note: this covers provisioning + lookup. Mutating a platform user's
+     * email/phone via {@link updateUser} under ISOLATED is not yet supported
+     * (it derives a NULL tenantId and throws TENANT_ID_REQUIRED) — out of scope
+     * for the bootstrap flow.
+     *
+     * @example
+     * ```ts
+     * let user = await userService.getPlatformUserByEmail(email);
+     * if (!user) user = await userService.createPlatformUser({ email, isActive: true });
+     * const access = await user.getPlatformAccess(true);
+     * await access.assignRoles(superAdminRoleIds);
+     * ```
+     */
+    async createPlatformUser(data: Partial<NestAuthUser>, context?: any, manager?: EntityManager): Promise<NestAuthUser> {
+        return this.createUser(data, undefined, context, manager, true);
+    }
+
+    /**
+     * Look up a platform (super-admin) user by email — tenant-less, identified
+     * by the `NestAuthPlatformAccess` marker (NOT merely a tenant-less
+     * `userAccess`, which a regular user can also hold in SHARED/DISABLED mode).
+     * Unlike {@link getUserByEmail}, this never requires a `tenantId` under
+     * ISOLATED and never returns a non-platform account. Returns `null` if no
+     * platform user with that email exists.
+     */
+    async getPlatformUserByEmail(email: string, options?: FindOneOptions<NestAuthUser>, manager?: EntityManager): Promise<NestAuthUser> {
+        return this.getUserByEmail(email, undefined, options, manager, true);
     }
 
     /**
