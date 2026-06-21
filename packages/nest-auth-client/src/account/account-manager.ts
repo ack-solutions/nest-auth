@@ -27,6 +27,13 @@ import {
 } from '../types/config.types';
 import { LocalStorageAdapter } from '../storage/local.storage';
 import { AuthClient } from '../client/auth-client';
+import {
+    attachToAxios,
+    attachToFetch,
+    type AuthHeaderProvider,
+    type AttachOptions,
+    type AxiosLikeInstance,
+} from '../client/http-attach';
 
 /** A logged-in account as seen by a switcher UI. */
 export interface AccountSnapshot {
@@ -37,8 +44,30 @@ export interface AccountSnapshot {
     email?: string;
     /** Display label (name or email), best-effort. */
     label?: string;
+    /**
+     * Human-readable tenant/property name for the switcher UI, when the caller
+     * supplied it (via `addAccount`/`commitAccount` meta or `setAccountMeta`).
+     * Lets a switcher show "Green Valley" vs "Sunrise" instead of an identical
+     * shared-owner email on every row. The server session does not carry a
+     * tenant display name, so this is app-supplied.
+     */
+    tenantName?: string;
     /** Whether this is the currently-active account. */
     isActive: boolean;
+}
+
+/** App-supplied display metadata for an account (not derivable from the session). */
+export interface AccountMeta {
+    /** Override the display label (otherwise best-effort from the user's name/email). */
+    label?: string;
+    /** Human-readable tenant/property name for the switcher UI. */
+    tenantName?: string;
+}
+
+/** Options for `addAccount`: request options plus optional display {@link AccountMeta}. */
+export interface AddAccountOptions extends RequestOptions {
+    /** Display metadata to stamp on the new account (label / tenantName). */
+    meta?: AccountMeta;
 }
 
 interface StoredAccount {
@@ -49,6 +78,7 @@ interface StoredAccount {
     tenantId?: string;
     email?: string;
     label?: string;
+    tenantName?: string;
 }
 
 interface AccountsIndex {
@@ -61,15 +91,27 @@ interface AccountsIndex {
  * the cookie-mode `CookieAccountManager`, so UIs (e.g. the React
  * AccountSwitcherProvider) can drive either transparently.
  */
-export interface IAccountSwitcher {
+export interface IAccountSwitcher extends AuthHeaderProvider {
     ready(): Promise<void>;
     listAccounts(): AccountSnapshot[];
     getActiveAccountId(): string | null;
     getActiveClient(): AuthClient | null;
-    addAccount(dto: ILoginRequest): Promise<AccountSnapshot>;
+    addAccount(dto: ILoginRequest, options?: AddAccountOptions): Promise<AccountSnapshot>;
+    /**
+     * Register an already-authenticated pending client (after `login`/`verify2fa`)
+     * as an account and make it active — the completion step for the
+     * {@link AccountMfaRequiredError} flow.
+     */
+    commitAccount(client: AuthClient, meta?: AccountMeta): Promise<AccountSnapshot>;
     switchAccount(accountId: string): Promise<AccountSnapshot>;
     removeAccount(accountId: string): Promise<void>;
+    /** Update an account's app-supplied display metadata (label / tenantName). */
+    setAccountMeta(accountId: string, meta: AccountMeta): Promise<AccountSnapshot>;
     subscribe(listener: () => void): () => void;
+    /** Wire a shared axios instance to follow the ACTIVE account (no re-attach on switch). */
+    attachToAxios(instance: AxiosLikeInstance, opts?: AttachOptions): () => void;
+    /** Wrap fetch so calls follow the ACTIVE account. */
+    attachToFetch(baseFetch?: typeof globalThis.fetch, opts?: AttachOptions): typeof globalThis.fetch;
 }
 
 export interface AccountManagerConfig extends Omit<AuthClientConfig, 'storage'> {
@@ -134,10 +176,11 @@ export class AccountManager implements IAccountSwitcher {
      * it and make it active. Throws {@link AccountMfaRequiredError} if the login
      * needs an MFA challenge first.
      */
-    async addAccount(dto: ILoginRequest, options?: RequestOptions): Promise<AccountSnapshot> {
+    async addAccount(dto: ILoginRequest, options?: AddAccountOptions): Promise<AccountSnapshot> {
         await this.ready();
+        const { meta, ...reqOpts } = options ?? {};
         const client = this.createPendingClient();
-        const res = await client.login(dto, options);
+        const res = await client.login(dto, reqOpts);
         if ((res as any)?.isRequiresMfa) {
             throw new AccountMfaRequiredError(
                 'Login requires MFA. Complete it on the returned client (verify2fa), then call commitAccount(client).',
@@ -145,14 +188,14 @@ export class AccountManager implements IAccountSwitcher {
                 res,
             );
         }
-        return this.commitAccount(client);
+        return this.commitAccount(client, meta);
     }
 
     /**
      * Register a client that has finished authenticating (after `login`/`verify2fa`)
      * as an account, and make it active. Re-committing the same account replaces it.
      */
-    async commitAccount(client: AuthClient): Promise<AccountSnapshot> {
+    async commitAccount(client: AuthClient, meta?: AccountMeta): Promise<AccountSnapshot> {
         await this.ready();
         const ns = this.nsOf.get(client);
         if (!ns) throw new Error('commitAccount: client was not created by this AccountManager.');
@@ -180,7 +223,19 @@ export class AccountManager implements IAccountSwitcher {
             /* labels are optional; identity still works */
         }
 
-        const entry: StoredAccount = { accountId, ns, userId: session.userId, tenantId: session.tenantId, email, label };
+        // Caller-supplied meta wins over the best-effort label and carries the
+        // tenant display name the session can't provide. On a re-login (same
+        // accountId), fall back to the previously-stamped meta so a meta-less
+        // re-login doesn't silently wipe a name set earlier via addAccount/setAccountMeta.
+        const entry: StoredAccount = {
+            accountId,
+            ns,
+            userId: session.userId,
+            tenantId: session.tenantId,
+            email,
+            label: meta?.label ?? prior?.label ?? label,
+            tenantName: meta?.tenantName ?? prior?.tenantName,
+        };
         this.index.accounts = this.index.accounts.filter((a) => a.accountId !== accountId).concat(entry);
         this.clients.set(accountId, client);
         this.index.activeAccountId = accountId;
@@ -196,6 +251,22 @@ export class AccountManager implements IAccountSwitcher {
         if (!acct) throw new Error(`switchAccount: unknown account '${accountId}'.`);
         this.index.activeAccountId = accountId;
         this.getClient(accountId); // ensure the client is instantiated
+        await this.persist();
+        this.notify();
+        return this.snapshotOf(acct);
+    }
+
+    /**
+     * Update an account's app-supplied display metadata (label / tenantName).
+     * Use it to stamp the property name after the app resolves it post-login.
+     * Unknown keys are left unchanged; passing `undefined` for a key keeps it.
+     */
+    async setAccountMeta(accountId: string, meta: AccountMeta): Promise<AccountSnapshot> {
+        await this.ready();
+        const acct = this.index.accounts.find((a) => a.accountId === accountId);
+        if (!acct) throw new Error(`setAccountMeta: unknown account '${accountId}'.`);
+        if (meta.label !== undefined) acct.label = meta.label;
+        if (meta.tenantName !== undefined) acct.tenantName = meta.tenantName;
         await this.persist();
         this.notify();
         return this.snapshotOf(acct);
@@ -253,6 +324,32 @@ export class AccountManager implements IAccountSwitcher {
         return c ? c.getAuthHeadersSync(opts) : {};
     }
 
+    /** Whether the ACTIVE account's transport sends cookies (delegate for the attach helpers). */
+    shouldSendCookies(): boolean {
+        const c = this.getActiveClient();
+        return c ? c.shouldSendCookies() : false;
+    }
+
+    /** Refresh the ACTIVE account's tokens (delegate for the attach helpers' 401 retry). */
+    async refresh(): Promise<unknown> {
+        const c = this.getActiveClient();
+        return c ? c.refresh() : null;
+    }
+
+    /**
+     * Wire a shared axios instance to follow the ACTIVE account. Because headers
+     * are read from the active client on every request, switching accounts needs
+     * NO re-attach — the same instance just starts sending the new bearer.
+     */
+    attachToAxios(instance: AxiosLikeInstance, opts?: AttachOptions): () => void {
+        return attachToAxios(this, instance, opts);
+    }
+
+    /** Wrap fetch so calls follow the ACTIVE account (see {@link attachToAxios}). */
+    attachToFetch(baseFetch: typeof globalThis.fetch = globalThis.fetch, opts?: AttachOptions): typeof globalThis.fetch {
+        return attachToFetch(this, baseFetch, opts);
+    }
+
     /** Subscribe to account-list / active-account changes (for React/Vue stores). */
     subscribe(listener: () => void): () => void {
         this.listeners.add(listener);
@@ -270,6 +367,7 @@ export class AccountManager implements IAccountSwitcher {
             tenantId: a.tenantId,
             email: a.email,
             label: a.label,
+            tenantName: a.tenantName,
             isActive: a.accountId === this.index.activeAccountId,
         };
     }

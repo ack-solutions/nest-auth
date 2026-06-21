@@ -10,8 +10,20 @@
  * (axios, redaxios, etc.).
  */
 
-import type { AuthClient } from './auth-client';
 import type { GetAuthHeadersOptions } from '../types/config.types';
+
+/**
+ * Minimal auth surface the attach helpers need. Implemented by {@link AuthClient}
+ * AND by the multi-account managers (`AccountManager` / `CookieAccountManager`),
+ * which delegate to whichever account is currently active. Attaching to a manager
+ * means a single shared axios/fetch instance always uses the ACTIVE account's
+ * bearer with no re-attach on switch.
+ */
+export interface AuthHeaderProvider {
+  getAuthHeaders(opts?: GetAuthHeadersOptions): Promise<Record<string, string>>;
+  shouldSendCookies(): boolean;
+  refresh(...args: any[]): Promise<unknown>;
+}
 
 // ─── Minimal axios-shape (structural) ─────────────────────────────────────────
 
@@ -127,9 +139,14 @@ function urlMatchesSkip(url: string | undefined, skipPaths?: AttachOptions['skip
  * // ... later:
  * unsubscribe();
  * ```
+ *
+ * The first argument can be an `AuthClient` OR an account manager
+ * (`AccountManager` / `CookieAccountManager`) — anything matching
+ * {@link AuthHeaderProvider}. Pass a manager to have the shared instance follow
+ * the active account automatically (no re-attach on switch).
  */
 export function attachToAxios(
-  client: AuthClient,
+  client: AuthHeaderProvider,
   instance: AxiosLikeInstance,
   opts: AttachOptions = {},
 ): () => void {
@@ -202,7 +219,7 @@ export function attachToAxios(
  * ```
  */
 export function attachToFetch(
-  client: AuthClient,
+  client: AuthHeaderProvider,
   baseFetch: typeof globalThis.fetch = globalThis.fetch,
   opts: AttachOptions = {},
 ): typeof globalThis.fetch {

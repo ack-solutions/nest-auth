@@ -95,4 +95,19 @@ describe('account-switcher store — real backend reactivity', () => {
 
         unsub();
     });
+
+    it('setAccountMeta(tenantName) carries the name and yields a NEW snapshot (so the switcher re-renders)', async () => {
+        const manager = new AccountManager({ baseUrl, accessTokenType: 'header', storageFactory: memoryStorageFactory() });
+        await manager.ready();
+        const store = createAccountSwitcherStore(manager);
+
+        const a = await manager.addAccount(loginDto(EMAIL_A), { meta: { tenantName: 'Green Valley' } });
+        expect(store.getSnapshot().accounts.find((x) => x.accountId === a.accountId)?.tenantName).toBe('Green Valley');
+
+        const before = store.getSnapshot();
+        await manager.setAccountMeta(a.accountId, { tenantName: 'Sunrise' });
+        const after = store.getSnapshot();
+        expect(after).not.toBe(before); // tenantName change → new identity → React re-renders
+        expect(after.accounts.find((x) => x.accountId === a.accountId)?.tenantName).toBe('Sunrise');
+    });
 });

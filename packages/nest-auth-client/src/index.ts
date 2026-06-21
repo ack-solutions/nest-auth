@@ -56,11 +56,11 @@ export { EventEmitter, createAuthEventEmitter } from './client/event-emitter';
 export type { AuthEvents } from './client/event-emitter';
 export { RefreshQueue, RetryTracker } from './client/refresh-queue';
 export { attachToAxios, attachToFetch } from './client/http-attach';
-export type { AxiosLikeInstance, AttachOptions } from './client/http-attach';
+export type { AxiosLikeInstance, AttachOptions, AuthHeaderProvider } from './client/http-attach';
 
 // Multi-account (account switcher)
 export { AccountManager, AccountMfaRequiredError } from './account/account-manager';
-export type { AccountSnapshot, AccountManagerConfig, IAccountSwitcher } from './account/account-manager';
+export type { AccountSnapshot, AccountMeta, AddAccountOptions, AccountManagerConfig, IAccountSwitcher } from './account/account-manager';
 export { CookieAccountManager, ACTIVE_ACCOUNT_COOKIE_NAME } from './account/cookie-account-manager';
 
 // Utilities

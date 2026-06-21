@@ -10,6 +10,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { AccountManager, AuthClient } from '../../src';
 import type { StorageAdapter } from '../../src';
 import { bootBackend, type BackendHandle } from '../helpers/boot-backend';
+import { FakeAxios } from '../fixtures/fake-axios';
 
 const PASSWORD = 'MultiAcct!1';
 const EMAIL_A = 'mgr-a@test.local';
@@ -128,5 +129,81 @@ describe('AccountManager — real backend multi-account (header mode)', () => {
         // Other public config a UI commonly needs is present too.
         expect(cfg.tenants).toBeDefined();
         expect(cfg.registration).toBeDefined();
+    });
+
+    // ---- 2.5.x DX additions -------------------------------------------------
+
+    it('attachToAxios on the MANAGER follows the ACTIVE account — no re-attach on switch', async () => {
+        const m = newManager();
+        const a = await m.addAccount(loginDto(EMAIL_A));
+        await m.addAccount(loginDto(EMAIL_B)); // active = b
+
+        const seen: Array<string | undefined> = [];
+        const axios = new FakeAxios(async (config) => {
+            seen.push(config.headers?.Authorization);
+            return { status: 200, config };
+        });
+        const detach = m.attachToAxios(axios);
+
+        await axios.request({ url: '/api/me' }); // active = b
+        await m.switchAccount(a.accountId); // pure client switch, NO re-attach
+        await axios.request({ url: '/api/me' }); // active = a
+
+        expect(seen[0]).toBeTruthy();
+        expect(seen[1]).toBeTruthy();
+        expect(seen[0]).not.toBe(seen[1]); // the shared instance picked up the new bearer
+
+        // Each captured bearer resolves to its own identity on the real server.
+        const me0 = await fetch(`${baseUrl}/auth/user`, { headers: { Authorization: seen[0]! } }).then((r) => r.json());
+        const me1 = await fetch(`${baseUrl}/auth/user`, { headers: { Authorization: seen[1]! } }).then((r) => r.json());
+        expect(me0.email).toBe(EMAIL_B);
+        expect(me1.email).toBe(EMAIL_A);
+        detach();
+    });
+
+    it('addAccount meta + setAccountMeta carry a tenant display name on the snapshot', async () => {
+        const m = newManager();
+        const a = await m.addAccount(loginDto(EMAIL_A), { meta: { tenantName: 'Green Valley' } });
+        expect(a.tenantName).toBe('Green Valley');
+        expect(m.listAccounts().find((x) => x.accountId === a.accountId)?.tenantName).toBe('Green Valley');
+
+        const updated = await m.setAccountMeta(a.accountId, { tenantName: 'Sunrise', label: 'Sunrise HQ' });
+        expect(updated.tenantName).toBe('Sunrise');
+        expect(updated.label).toBe('Sunrise HQ');
+        expect(m.listAccounts().find((x) => x.accountId === a.accountId)?.tenantName).toBe('Sunrise');
+    });
+
+    it('commitAccount registers a pending client with meta (the MFA-completion building block)', async () => {
+        const m = newManager();
+        const client = m.createPendingClient();
+        await client.login(loginDto(EMAIL_A)); // this user has no MFA → completes immediately
+        const snap = await m.commitAccount(client, { tenantName: 'Acme Co' });
+        expect(snap.tenantName).toBe('Acme Co');
+        expect(m.getActiveAccountId()).toBe(snap.accountId);
+        expect(m.getActiveClient()!.getIsAuthenticated()).toBe(true);
+    });
+
+    it('re-login WITHOUT meta keeps a previously-set tenantName/label (no silent wipe)', async () => {
+        const m = newManager();
+        const a = await m.addAccount(loginDto(EMAIL_A), { meta: { tenantName: 'Green Valley', label: 'GV' } });
+        expect(a.tenantName).toBe('Green Valley');
+
+        // Re-login the SAME account with NO meta — the prior name must survive.
+        const a2 = await m.addAccount(loginDto(EMAIL_A));
+        expect(a2.accountId).toBe(a.accountId);
+        expect(a2.tenantName).toBe('Green Valley');
+        expect(a2.label).toBe('GV');
+    });
+
+    it('tenantName persists across a fresh AccountManager over the SAME storage (reload)', async () => {
+        const sharedFactory = memoryStorageFactory(); // one shared store set across both managers
+        const m1 = new AccountManager({ baseUrl, accessTokenType: 'header', storageFactory: sharedFactory });
+        const a = await m1.addAccount(loginDto(EMAIL_A), { meta: { tenantName: 'Sunrise' } });
+        expect(a.tenantName).toBe('Sunrise');
+
+        // Simulate a page reload: a brand-new manager reading the SAME persisted index.
+        const m2 = new AccountManager({ baseUrl, accessTokenType: 'header', storageFactory: sharedFactory });
+        await m2.ready();
+        expect(m2.listAccounts().find((x) => x.accountId === a.accountId)?.tenantName).toBe('Sunrise');
     });
 });

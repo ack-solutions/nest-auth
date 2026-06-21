@@ -13,6 +13,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { AuthClient } from '../../src/client/auth-client';
 import { MemoryStorage } from '../../src/storage/memory.storage';
+import { attachToAxios, type AuthHeaderProvider } from '../../src/client/http-attach';
 import { FakeAxios, makeAxiosError } from '../fixtures/fake-axios';
 import { makeValidJwt } from '../fixtures/jwt.fixtures';
 
@@ -251,5 +252,34 @@ describe('attachToFetch — T-167c', () => {
     await myFetch('/api/me', { headers: { 'X-Trace-Id': 'fetch-trace' } });
     expect((seen as any)['X-Trace-Id']).toBe('fetch-trace');
     expect((seen as any).Authorization).toBe(`Bearer ${token}`);
+  });
+});
+
+describe('attachToAxios — AuthHeaderProvider (account-manager-like) support', () => {
+  it('accepts any AuthHeaderProvider and reads headers fresh per request (follows the active account)', async () => {
+    // A minimal provider standing in for an AccountManager whose active account
+    // changes. attachToAxios must read headers on EVERY request, so a single
+    // shared instance follows the switch with no re-attach.
+    let activeToken = 'token-A';
+    const provider: AuthHeaderProvider = {
+      getAuthHeaders: async () => ({ Authorization: `Bearer ${activeToken}` }),
+      shouldSendCookies: () => false,
+      refresh: async () => null,
+    };
+
+    const seen: Array<string | undefined> = [];
+    const axios = new FakeAxios(async (config) => {
+      seen.push(config.headers?.Authorization);
+      return { status: 200, config };
+    });
+
+    attachToAxios(provider, axios);
+
+    await axios.request({ url: '/api/me' });
+    activeToken = 'token-B'; // simulate switchAccount() — no re-attach
+    await axios.request({ url: '/api/me' });
+
+    expect(seen[0]).toBe('Bearer token-A');
+    expect(seen[1]).toBe('Bearer token-B');
   });
 });

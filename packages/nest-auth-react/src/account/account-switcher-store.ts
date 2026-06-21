@@ -31,7 +31,8 @@ function snapshotsEqual(
             a.accountId !== b.accountId ||
             a.isActive !== b.isActive ||
             a.label !== b.label ||
-            a.email !== b.email
+            a.email !== b.email ||
+            a.tenantName !== b.tenantName
         ) {
             return false;
         }

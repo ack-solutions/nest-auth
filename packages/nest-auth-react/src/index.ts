@@ -24,6 +24,7 @@ export { useClientConfig, useMultiAccountEnabled, UseClientConfigResult } from '
 // Guards
 export { AuthGuard, AuthGuardProps } from './guards/auth-guard';
 export { GuestGuard, GuestGuardProps } from './guards/guest-guard';
+export { AddAccountGuard, AddAccountGuardProps } from './guards/add-account-guard';
 export { RequireRole, RequireRoleProps } from './guards/require-role';
 export { RequirePermission, RequirePermissionProps } from './guards/require-permission';
 
@@ -54,7 +55,7 @@ export { useAccountSwitcher, useAccounts, useActiveAccount } from './account/use
 export { createAccountSwitcherStore, AccountSwitcherStore, AccountSwitcherSnapshot } from './account/account-switcher-store';
 // Re-export the manager API for convenience (canonical home is @ackplus/nest-auth-client).
 export { AccountManager, CookieAccountManager, AccountMfaRequiredError, ACTIVE_ACCOUNT_COOKIE_NAME } from '@ackplus/nest-auth-client';
-export type { AccountSnapshot, AccountManagerConfig, IAccountSwitcher, IClientConfig } from '@ackplus/nest-auth-client';
+export type { AccountSnapshot, AccountMeta, AddAccountOptions, AccountManagerConfig, IAccountSwitcher, IClientConfig } from '@ackplus/nest-auth-client';
 
 // Cross-tab sync
 export { CrossTabSync, createCrossTabSync, SyncEvent, SyncEventType, SyncHandler } from './sync/cross-tab-sync';

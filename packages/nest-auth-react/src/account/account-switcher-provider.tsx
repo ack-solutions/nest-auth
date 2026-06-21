@@ -81,9 +81,14 @@ export function AccountSwitcherProvider({ manager: managerProp, config, children
             accounts: snapshot.accounts,
             activeAccountId: snapshot.activeAccountId,
             activeAccount: snapshot.activeAccount,
-            addAccount: (dto) => manager.addAccount(dto),
+            addAccount: (dto, options) => manager.addAccount(dto, options),
+            completeMfa: async (error, verifyDto, options) => {
+                await error.client.verify2fa(verifyDto);
+                return manager.commitAccount(error.client, options?.meta);
+            },
             switchAccount: (accountId) => manager.switchAccount(accountId),
             removeAccount: (accountId) => manager.removeAccount(accountId),
+            setAccountMeta: (accountId, meta) => manager.setAccountMeta(accountId, meta),
         }),
         [manager, snapshot],
     );
