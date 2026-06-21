@@ -1,5 +1,31 @@
 # @ackplus/nest-auth-client
 
+## 2.7.0
+
+### Minor Changes
+
+- feat: platform-user listing + passwordless login completion
+  - **List platform users without scanning every tenant.** `UserService` gains
+    `getPlatformUsers(options?)`, `getPlatformUsersAndCount(options?)`, and
+    `getPlatformUsersByRole(roleName, guard?)` — the list analog of
+    `getPlatformUserByEmail`. They scope to the `NestAuthPlatformAccess` marker
+    (caller `where`/`relations`/`skip`/`take`/`order` are honored), so an admin
+    "Platform Users" screen no longer has to fetch all users and filter client-side.
+  - **Complete a passwordless sign-in from the client.** `AuthClient.passwordlessLogin(dto)`
+    and the React `useNestAuth().passwordlessLogin(dto)` exchange the emailed/texted
+    code for a session (the completion step for `passwordlessSend`), returning a
+    normal auth response. New `IPasswordlessLoginRequest` type (`{ identifier, code,
+channel?, tenantId?, rememberMe? }`); `channel` defaults to trying both email and
+    SMS. Wraps `POST /auth/login` with the existing passwordless provider — no backend
+    change.
+
+  Both additions are backward-compatible (new methods/types only). React Native
+  consumers get `passwordlessLogin` for free via the shared `AuthClient`.
+
+### Patch Changes
+
+- @ackplus/nest-auth-contracts@2.7.0
+
 ## 2.6.0
 
 ### Minor Changes
