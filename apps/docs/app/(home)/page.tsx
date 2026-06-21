@@ -28,7 +28,7 @@ function Hero() {
     <section className={styles.hero}>
       <div className={styles.pill}>
         <span className={styles.pillDot} />
-        v2.0.0-beta · MIT licensed · works with NestJS 10 &amp; 11
+        v2.6.0 · MIT licensed · works with NestJS 10 &amp; 11
       </div>
 
       <h1 className={styles.headline}>
@@ -260,9 +260,9 @@ function PackagesSection() {
   return (
     <section className={styles.section}>
       <div className={styles.sectionHeading}>
-        <h2 className={styles.sectionTitle}>Four packages, one version</h2>
+        <h2 className={styles.sectionTitle}>One core, every platform</h2>
         <p className={styles.sectionLead}>
-          Pick the layer you need; types are shared across all of them.
+          Backend, web, and mobile SDKs — released together at one version, with types shared across all of them.
         </p>
       </div>
 
@@ -471,7 +471,7 @@ const FEATURES = [
 const STATS = [
   { value: '9',       label: 'Auth methods' },
   { value: '14',      label: 'Entities included' },
-  { value: '12',      label: 'Doc sections' },
+  { value: '5',       label: 'Platform SDKs' },
   { value: '<10 min', label: 'To first login' },
 ];
 
@@ -479,7 +479,9 @@ const PACKAGES = [
   { name: '@ackplus/nest-auth',           desc: 'NestJS backend module — controllers, guards, decorators, services.', href: '/docs/backend',              icon: <NestIcon /> },
   { name: '@ackplus/nest-auth-client',    desc: 'Framework-agnostic JS/TS client. Works in browsers, Node, RN.',     href: '/docs/client',               icon: <PackageIcon /> },
   { name: '@ackplus/nest-auth-react',     desc: 'React provider, hooks, guards, and Next.js App Router helpers.',     href: '/docs/react',                icon: <ReactIcon /> },
-  { name: '@ackplus/nest-auth-contracts', desc: 'Shared TS types — consumed by all three packages.',                  href: '/docs/api-reference/types',  icon: <TypesIcon /> },
+  { name: '@ackplus/nest-auth-react-native', desc: 'React Native SDK — native Google/Apple sign-in, secure storage.', href: '/docs/react-native',         icon: <ReactIcon /> },
+  { name: 'nest_auth_flutter',            desc: 'Flutter / Dart client on pub.dev — auth, MFA, and tenancy.',         href: '/docs/flutter',              icon: <PackageIcon /> },
+  { name: '@ackplus/nest-auth-contracts', desc: 'Shared TS types — consumed by all the JS/TS packages.',              href: '/docs/api-reference/types',  icon: <TypesIcon /> },
 ];
 
 const PROVIDERS = [

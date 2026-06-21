@@ -20,9 +20,12 @@ const SECTION_TAG_MAP: Record<string, { tag: string; label: string }> = {
   backend:         { tag: 'backend',       label: 'Backend'           },
   client:          { tag: 'client',        label: 'JS Client'         },
   react:           { tag: 'react',         label: 'React'             },
+  'react-native':  { tag: 'react-native',  label: 'React Native'      },
+  flutter:         { tag: 'flutter',       label: 'Flutter'           },
   production:      { tag: 'prod',          label: 'Production'        },
   recipes:         { tag: 'recipes',       label: 'Recipes'           },
   'api-reference': { tag: 'api',           label: 'API Reference'     },
+  migration:       { tag: 'migration',     label: 'Migration'         },
   changelog:       { tag: 'changelog',     label: 'Changelog'         },
   faq:             { tag: 'faq',           label: 'FAQ'               },
 };

@@ -3,7 +3,7 @@ title: Guards
 description: Components and HOCs that protect routes and UI.
 ---
 
-The React layer ships four guard components and two HOCs. They're thin — under the hood they all call `useAuthStatus`, `useHasRole`, or `useHasPermission` and decide what to render.
+The React layer ships five guard components and two HOCs. They're thin — under the hood they all call `useAuthStatus`, `useHasRole`, or `useHasPermission` and decide what to render.
 
 ## `<AuthGuard>`
 
@@ -34,6 +34,50 @@ The opposite of `<AuthGuard>`. Renders children only when the user is **not** au
   <SignInForm />
 </GuestGuard>
 ```
+
+| Prop | Type | Notes |
+|---|---|---|
+| `loadingFallback` | `ReactNode?` | While auth state loads |
+| `fallback` | `ReactNode?` | Rendered when authenticated (and no `onAuthenticated`) |
+| `onAuthenticated` | `() => void?` | Called when authenticated — use for navigation |
+| `allowWhenAddingAccount` | `boolean?` | Render `children` even when authenticated (default `false`) |
+
+> **Adding another account:** set `allowWhenAddingAccount` to render the login form to a user who is *already* signed in — the Gmail-style "Add another account" flow. With it on, the `onAuthenticated` redirect and `fallback` are skipped, so the login form shows. Drive it from your own signal (e.g. a `?add=1` query param). For a ready-made wrapper, prefer [`<AddAccountGuard>`](#addaccountguard).
+
+```tsx
+const adding = new URLSearchParams(location.search).get('add') === '1';
+
+<GuestGuard allowWhenAddingAccount={adding} onAuthenticated={() => navigate('/')}>
+  <SignInForm />
+</GuestGuard>
+```
+
+## `<AddAccountGuard>`
+
+A `GuestGuard` that *also* renders its children while an already-authenticated user is adding another account. A plain `<GuestGuard>` redirects every authenticated user away from the login form — which makes "Add another account" impossible, since the user is authenticated by definition. `<AddAccountGuard>` renders the login form when the app is in add-account mode, and otherwise behaves exactly like `<GuestGuard>` (redirect/fallback when authenticated).
+
+```tsx
+import { AddAccountGuard } from '@ackplus/nest-auth-react';
+
+// Dedicated /add-account route — always shows the login form:
+<AddAccountGuard>
+  <SignInForm onSuccess={(dto) => addAccount(dto)} />
+</AddAccountGuard>
+
+// Shared /login route — only bypass the guard when ?add=1:
+const adding = new URLSearchParams(location.search).get('add') === '1';
+<AddAccountGuard adding={adding} onAuthenticated={() => navigate('/dashboard')}>
+  <SignInForm />
+</AddAccountGuard>
+```
+
+`AddAccountGuardProps` extends `GuestGuardProps` (minus `allowWhenAddingAccount`) and adds:
+
+| Prop | Type | Notes |
+|---|---|---|
+| `adding` | `boolean?` | Whether the app is in add-account mode (default `true`). When `true`, the login form renders even if a user is already signed in. |
+
+> Pair this with the switcher's `addAccount` from [`useAccountSwitcher`](/docs/react/hooks#multi-account-hooks). See the [Multi-account login & switching](/docs/recipes/multi-account-switching) recipe.
 
 ## `<RequireRole>`
 

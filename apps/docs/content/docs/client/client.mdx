@@ -137,6 +137,22 @@ await auth.switchTenant({ tenantId: 'tenant-acme' });
 | `getMode()` | Read the current mode |
 | `getAccessToken()` | Read the current access token (header mode only) |
 
+## HTTP-client wiring
+
+Make your **own** axios/fetch share this client's auth state — attach auth headers automatically and retry once on 401 after refresh.
+
+| Method | Purpose |
+|---|---|
+| `attachToAxios(instance, opts?)` | Wire an axios instance; returns an unsubscribe to eject the interceptors |
+| `attachToFetch(baseFetch?, opts?)` | Wrap a `fetch` (defaults to `globalThis.fetch`); returns a new fetch-shaped function |
+
+```ts
+const detach = auth.attachToAxios(api);
+const myFetch = auth.attachToFetch();
+```
+
+Options (`retryOn401`, `skipPaths`, `onRefreshFailed`) and the active-account-following pattern are in [HTTP adapters](/docs/client/http-adapters).
+
 ## Tenant helpers
 
 | Method | Purpose |

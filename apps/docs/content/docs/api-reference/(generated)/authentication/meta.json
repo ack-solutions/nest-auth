@@ -10,6 +10,7 @@
     "get-auth-verify-session",
     "post-auth-change-password",
     "post-auth-forgot-password",
+    "post-auth-invite",
     "post-auth-login",
     "post-auth-logout",
     "post-auth-logout-all",

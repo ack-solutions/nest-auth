@@ -55,6 +55,8 @@ axios.interceptors.request.use(async (config) => {
 });
 ```
 
+> The manager also implements the same `attachToAxios` / `attachToFetch` helpers as the single-account client, so a wired instance follows the **active** account with no re-attach on switch. See [HTTP adapters](/docs/client/http-adapters).
+
 ### React
 
 `AccountSwitcherProvider` wraps a manager and is **separate from `AuthProvider`** (your single-account setup is untouched). It reacts via `useSyncExternalStore`, so a switch re-renders instantly with no server call.
@@ -67,13 +69,14 @@ import { AccountSwitcherProvider, useAccountSwitcher } from '@ackplus/nest-auth-
 </AccountSwitcherProvider>;
 
 function Switcher() {
-  const { accounts, addAccount, switchAccount, removeAccount } = useAccountSwitcher();
+  const { accounts, switchAccount, removeAccount } = useAccountSwitcher();
   return (
     <ul>
       {accounts.map((a) => (
         <li key={a.accountId}>
           <button onClick={() => switchAccount(a.accountId)}>
-            {a.label ?? a.email}{a.isActive ? ' ✓' : ''}
+            {/* prefer the app-supplied tenantName so identical shared-owner emails are distinguishable */}
+            {a.tenantName ?? a.label ?? a.email}{a.isActive ? ' ✓' : ''}
           </button>
           <button onClick={() => removeAccount(a.accountId)}>sign out</button>
         </li>
@@ -83,7 +86,72 @@ function Switcher() {
 }
 ```
 
-> If a login needs MFA, `addAccount` throws `AccountMfaRequiredError` carrying the pending client — complete `verify2fa` on it, then `manager.commitAccount(client)`.
+See [Multi-account hooks](/docs/react/hooks#multi-account-hooks) for the full context value (`completeMfa`, `setAccountMeta`, `activeAccountId`, `manager`) and the [`AccountSnapshot`](/docs/react/hooks#accountsnapshot) shape.
+
+#### Naming accounts (`meta` / `tenantName` / `setAccountMeta`)
+
+The server session has no tenant **display name**, so a switcher of several accounts under one shared-owner email all looks the same. Stamp an app-supplied name when you add the account, or later:
+
+```tsx
+const { addAccount, setAccountMeta } = useAccountSwitcher();
+
+// at add time
+await addAccount(loginDto, { meta: { tenantName: 'Green Valley', label: 'Work' } });
+
+// or update it afterwards
+await setAccountMeta(accountId, { tenantName: 'Sunrise' });
+```
+
+`tenantName` and `label` land on each [`AccountSnapshot`](/docs/react/hooks#accountsnapshot); render whichever you prefer in the switcher.
+
+#### MFA on add (`completeMfa`)
+
+If a login needs a second factor, `addAccount` throws `AccountMfaRequiredError` (carrying the pending client). Catch it, show your OTP UI, then call `completeMfa(error, verifyDto)` — it verifies the challenge on that client and registers the account:
+
+```tsx
+import { AccountMfaRequiredError } from '@ackplus/nest-auth-client';
+import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
+
+function AddAccountForm() {
+  const { addAccount, completeMfa } = useAccountSwitcher();
+  const [pending, setPending] = useState<AccountMfaRequiredError | null>(null);
+
+  async function start(dto) {
+    try {
+      await addAccount(dto, { meta: { tenantName: 'Green Valley' } });
+    } catch (err) {
+      if (err instanceof AccountMfaRequiredError) setPending(err); // show OTP UI
+      else throw err;
+    }
+  }
+
+  async function verify(otp: string) {
+    if (!pending) return;
+    // verifyDto: { method, otp, trustDevice? }
+    await completeMfa(pending, { method: NestAuthMFAMethodEnum.TOTP, otp });
+    setPending(null);
+  }
+
+  return pending ? <OtpForm onSubmit={verify} /> : <LoginForm onSubmit={start} />;
+}
+```
+
+> **One-shot:** `verify2fa` consumes the code. If verification succeeds but the commit step throws, do **not** call `completeMfa` again (the code is spent) — recover with `manager.commitAccount(pending.client, meta)` (the `manager` escape hatch is on the context value). Equivalently in the vanilla client: complete `verify2fa` on `error.client`, then `manager.commitAccount(error.client)`.
+
+#### The add-account route — `<AddAccountGuard>`
+
+A plain [`<GuestGuard>`](/docs/react/guards#guestguard) redirects every authenticated user away from the login form, which makes "Add another account" impossible. Wrap the add-account route in [`<AddAccountGuard>`](/docs/react/guards#addaccountguard) (or set `allowWhenAddingAccount` on `<GuestGuard>`) so the form renders even while signed in:
+
+```tsx
+import { AddAccountGuard } from '@ackplus/nest-auth-react';
+
+// /add-account — always shows the login form
+<AddAccountGuard>
+  <LoginForm onSubmit={(dto) => addAccount(dto, { meta: { tenantName } })} />
+</AddAccountGuard>
+```
+
+Wire the switcher's "Add another account" button to navigate here (or to `/login?add=1`, gating with `<AddAccountGuard adding={...}>`).
 
 ## 3. Cookie mode — `CookieAccountManager`
 

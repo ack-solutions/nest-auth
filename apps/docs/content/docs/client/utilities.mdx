@@ -73,6 +73,52 @@ Re-exported from `@ackplus/nest-auth-client` for advanced cases:
 - `EventEmitter` — generic typed emitter.
 - `createAuthEventEmitter()` — returns an emitter typed for `AuthEvents`.
 
+## Account display metadata
+
+The multi-account managers (`AccountManager` / `CookieAccountManager`) hold app-supplied display data the server session can't provide — a label and a human-readable tenant/property name — so a switcher UI can show "Green Valley" vs "Sunrise" instead of an identical shared-owner email on every row.
+
+```ts
+interface AccountMeta {
+  label?: string;        // override the best-effort name/email label
+  tenantName?: string;   // human-readable tenant/property name for the UI
+}
+
+interface AddAccountOptions extends RequestOptions {
+  meta?: AccountMeta;    // stamp display meta on the new account
+}
+```
+
+Stamp it at login time, or update it later once the app resolves the name:
+
+```ts
+// At add time:
+await accounts.addAccount(
+  { providerName: 'email', credentials: { email, password } },
+  { meta: { tenantName: 'Green Valley' } },
+);
+
+// Later — passing undefined for a key leaves it unchanged:
+await accounts.setAccountMeta(accountId, { tenantName: 'Green Valley' });
+```
+
+Both `addAccount(dto, { meta })` and `setAccountMeta(accountId, meta)` return an `AccountSnapshot`. The snapshot carries the stamped name as `tenantName`:
+
+```ts
+interface AccountSnapshot {
+  accountId: string;
+  userId?: string;
+  tenantId?: string;
+  email?: string;
+  label?: string;
+  tenantName?: string;   // app-supplied; not derived from the session
+  isActive: boolean;
+}
+```
+
+> **Cookie-mode caveat:** in `CookieAccountManager` the meta overlay is in-memory and **session-scoped** — the server's `/auth/accounts` payload doesn't carry `tenantName`, and the overlay isn't persisted, so it is **lost on a full page reload**. Re-stamp it via `setAccountMeta` after `ready()` if you need it to survive reloads. In header-mode `AccountManager` the meta is persisted with the account index, so it survives reloads. A meta-less re-login of the same account also keeps the previously-stamped name.
+
+See [Multi-account login & switching](/docs/recipes/multi-account-switching) for the full flow.
+
 ## Identifier normalization
 
 For consistent lookups across email/phone shapes, the **server** exports `normalizedEmail` and `normalizedPhone`. They're not on the client SDK — keep normalization on the server side so the source of truth is the database, not the form.

@@ -1,0 +1,10 @@
+---
+title: 'POST /auth/invite'
+description: 'Create-or-link a user in the tenant and emit a `nest_auth.user_invited` event carrying a single-use set-password token, so YOUR listener can email the invite link (the token is intentionally NEVER ...'
+---
+
+import { EndpointDocs } from '@/components/endpoint-docs';
+
+# Invite a member (admin)
+
+<EndpointDocs method="post" path="/auth/invite" />

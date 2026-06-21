@@ -9,9 +9,16 @@ Two views into the same source of truth.
 
 Browse every REST endpoint with full request/response shapes, examples, and a copy-pasteable curl call.
 
-- [All Endpoints](/docs/api-reference/(generated)) — index across every tag.
-- [Auth endpoints](/docs/api-reference/(generated)/auth) — sign-up, login, sessions, password & verification.
-- [MFA endpoints](/docs/api-reference/(generated)/mfa) — TOTP, email/SMS challenge, recovery codes.
+- [Authentication endpoints](/docs/api-reference/authentication/post-auth-login) — sign-up, login, sessions, password & verification.
+- [MFA endpoints](/docs/api-reference/mfa/get-auth-mfa-status) — TOTP, email/SMS challenge, recovery codes.
+
+Admin REST surface (tenant-scoped management):
+
+- [Admin Console endpoints](/docs/api-reference/admin-console/get-auth-admin-config) — dashboard stats, audit log, console-level operations.
+- [Admin Users endpoints](/docs/api-reference/admin-users/get-auth-admin-api-users) — list, create, update, suspend & manage users.
+- [Admin Roles endpoints](/docs/api-reference/admin-roles/get-auth-admin-api-roles) — define roles and assign them to users.
+- [Admin Permissions endpoints](/docs/api-reference/admin-permissions/get-auth-admin-api-permissions) — manage the permission catalogue.
+- [Admin Tenants endpoints](/docs/api-reference/admin-tenants/get-auth-admin-api-tenants) — create and administer tenants.
 
 Pages are generated from the OpenAPI spec on every docs build, so they can never disagree with the running NestJS app.
 

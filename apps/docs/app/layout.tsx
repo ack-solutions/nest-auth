@@ -32,9 +32,12 @@ const TAGS = [
   { name: 'Backend',         value: 'backend' },
   { name: 'JS Client',       value: 'client' },
   { name: 'React',           value: 'react' },
+  { name: 'React Native',    value: 'react-native' },
+  { name: 'Flutter',         value: 'flutter' },
   { name: 'Production',      value: 'prod' },
   { name: 'Recipes',         value: 'recipes' },
   { name: 'API Reference',   value: 'api' },
+  { name: 'Migration',       value: 'migration' },
   { name: 'FAQ',             value: 'faq' },
 ];
 

@@ -11,41 +11,63 @@ The main facade for auth flows.
 
 | Method | Purpose |
 |---|---|
-| `signup(payload)` | Create a user (the same flow `/auth/signup` triggers) |
-| `login(payload)` | Validate credentials and create a session |
-| `refresh(token)` | Mint a new access token |
-| `logout(sessionId)` / `logoutAll(userId)` | Revoke sessions |
-| `forgotPassword(email)` / `resetPassword(token, newPassword)` | Password reset |
-| `changePassword(userId, current, next)` | Authenticated password change |
+| `signup(input)` | Create a user (the same flow `/auth/signup` triggers); `input: NestAuthSignupRequestDto` |
+| `login(input)` | Validate credentials and create a session; `input: NestAuthLoginRequestDto` |
+| `refreshToken(refreshToken)` | Verify a refresh token, rotate it, and mint a fresh access/refresh pair |
+| `logout(logoutType?, reason?)` | Revoke the current request's session (`logoutType: 'user' \| 'admin' \| 'system'`) |
+| `logoutAll(userId, logoutType?, reason?)` | Revoke every session for a user |
+| `verify2fa(input)` | Verify an MFA challenge against the in-flight session; `input: NestAuthVerify2faRequestDto` |
+| `switchTenant(tenantId?)` | Rebind the current session to another tenant (SHARED mode only) |
+| `getSessionUserData()` | The current user's serialized profile + roles/permissions (powers `/auth/me`) |
+| `send2faCode(userId, method)` | Trigger an email/SMS MFA code (`method: NestAuthMFAMethodEnum`) |
+| `passwordlessSend({ identifier, channel, tenantId? })` | Send a passwordless login code (`channel: 'email' \| 'sms'`) |
+
+> **Password methods moved.** `forgotPassword`, `verifyForgotPasswordOtp`, `resetPasswordWithToken`, and `changePassword` live on [`PasswordService`](#passwordservice), not `AuthService`.
 
 ## `MfaService`
 
 | Method | Purpose |
 |---|---|
-| `setupTotp(userId)` | Generate a TOTP secret and QR code |
-| `verifyTotpSetup(userId, secret, code)` | Confirm and persist a TOTP device |
-| `send2fa(userId, method)` | Trigger an email/SMS code |
-| `verify2fa(userId, otp, method, trustDevice?)` | Verify an MFA challenge |
-| `getStatus(userId)` | MFA-status response (configured methods, recovery codes, devices) |
-| `listDevices(userId)`, `removeDevice(userId, deviceId)` | TOTP device management |
-| `toggle(userId, enabled)` | Enable/disable MFA per user |
-| `generateRecoveryCode(userId)` / `resetMfa(userId, recoveryCode)` | Recovery |
+| `setupTotpDevice(userId, deviceName?)` | Generate a TOTP secret + QR code and persist an unverified device |
+| `verifyTotpSetup(userId, secret, inputOtp)` | Confirm the code and mark the TOTP device verified |
+| `sendMfaCode(userId, method)` | Trigger an email/SMS code (`method: NestAuthMFAMethodEnum`) |
+| `verifyMfa(userId, inputOtp, method)` | Verify a TOTP / email / SMS challenge |
+| `getTotpDevices(userId)` / `removeTotpDevice(deviceId)` / `removeDevice(deviceId)` | TOTP device management |
+| `enableMFA(userId)` / `disableMFA(userId)` | Toggle MFA per user (requires `mfa.allowUserToggle`) |
+| `getVerifiedMethods(userId)` / `getEnabledMethods(userId)` / `getAvailableMethods()` | Inspect configured/verified methods |
+| `isRequiresMfa(userId)` / `isMfaEnabled(userId)` / `hasRecoveryCode(userId)` | Per-user MFA status flags |
+| `generateRecoveryCode(userId)` / `resetMfa(userId, code)` | Recovery |
+| `createTrustedDevice(userId, userAgent, ipAddress)` / `validateTrustedDevice(userId, token)` | Trusted-device tokens |
 
 ## `PasswordService`
 
+Backs the password endpoints. All four methods take their request DTO and read the current user / tenant from the request context.
+
 | Method | Purpose |
 |---|---|
-| `hash(password)` / `verify(password, hash)` | Argon2 hashing primitives — respect the `password.hash`/`password.verify` hooks |
+| `changePassword(input)` | Authenticated change; `input: NestAuthChangePasswordRequestDto` (`currentPassword`, `newPassword`). Clears `mustChangePassword` and revokes all sessions |
+| `forgotPassword(input)` | Start a reset; `input: NestAuthForgotPasswordRequestDto` (`email`/`phone`, `tenantId?`). Emits `PasswordResetRequestedEvent` |
+| `verifyForgotPasswordOtp(input)` | Verify the reset OTP and mint a reset token; `input: NestAuthVerifyForgotPasswordOtpRequestDto` |
+| `resetPasswordWithToken(input)` | Complete the reset; `input: NestAuthResetPasswordWithTokenRequestDto` (`token`, `newPassword`) |
+
+> **Hashing is config-driven.** Argon2 hash/verify run on the `NestAuthUser` entity (`setPassword` / `validatePassword`) and honour the `password.hash` / `password.verify` hooks — there is no standalone `hash()` / `verify()` method on this service.
 
 ## `UserService`
 
 | Method | Purpose |
 |---|---|
-| `getUserById(id)` / `getUserByEmail(email, tenantId?)` / `getUserByPhone(phone, tenantId?)` | Lookups (tenant-scoped under ISOLATED) |
-| `createUser(input, tenantId?)` / `updateUser(id, input)` / `deleteUser(id)` | CRUD |
-| `updateUserStatus(id, isActive)` | Suspend/reactivate an account |
-| `createPlatformUser(data)` | Provision a **tenant-less** platform (super-admin) user **+ its `PlatformAccess` marker**, atomically. Works in every tenant mode |
-| `getPlatformUserByEmail(email)` | Look up a platform user, tenant-less (keyed on the `PlatformAccess` marker) |
+| `getUserById(id, options?)` / `getUserByEmail(email, tenantId?, options?)` / `getUserByPhone(phone, tenantId?, options?)` | Lookups (tenant-scoped under ISOLATED) |
+| `getUsers(options?)` / `getUsersAndCount(options?)` / `countUsers(options?)` | List / count with TypeORM `FindManyOptions` |
+| `createUser(data, tenantId?, context?, manager?)` / `updateUser(id, data, manager?)` / `deleteUser(id, manager?)` | CRUD |
+| `updateUserStatus(id, isActive)` | Suspend/reactivate an account (emits `UserUpdatedEvent`) |
+| `updateUserMetadata(id, metadata)` | Merge into `user.metadata` |
+| `verifyUser(id, type?)` / `unverifyUser(id, type?)` | Stamp/clear `emailVerifiedAt` / `phoneVerifiedAt` (`type: 'email' \| 'phone' \| 'none'`) |
+| `setUserAccessRoles(userId, tenantId, roleIds, manager?)` | Replace the roles on a user's tenant membership |
+| `ensureUserAccess(userId, tenantId, manager?)` / `deleteUserAccess(userId, tenantId, manager?)` | Create / remove a membership row |
+| `isUserInTenant(userId, tenantId)` / `getUserTenants(userId)` / `getUsersByRole(roleName, guard, tenantId?)` | Membership queries |
+| `runInTransaction(fn)` | Run `fn(manager)` in a TypeORM transaction — pass `manager` into the tx-aware methods above |
+| `createPlatformUser(data, context?, manager?)` | Provision a **tenant-less** platform (super-admin) user **+ its `PlatformAccess` marker**, atomically. Works in every tenant mode |
+| `getPlatformUserByEmail(email, options?)` | Look up a platform user, tenant-less (keyed on the `PlatformAccess` marker) |
 
 > **ISOLATED mode:** `getUserByEmail` / `createUser` **require** a `tenantId` there (they throw `TENANT_ID_REQUIRED` without one). Platform super-admins are tenant-less, so provision and look them up with `createPlatformUser` / `getPlatformUserByEmail` instead — they never require a tenant and identify the user by the `PlatformAccess` marker (the same row the login path enforces), so they never return a regular tenant account. Grant roles with `user.getPlatformAccess(true)` then `assignRoles(...)`. See the [platform-admin portal recipe](/docs/recipes/platform-admin-portal).
 
@@ -53,16 +75,18 @@ The main facade for auth flows.
 
 Manage roles. A "role" is a named bucket — `admin`, `member`, `owner` — scoped to a guard (`web`, `api`, `mobile`, …). It maps many-to-many to permissions.
 
+Permissions are bound to roles by **name** (scoped to the role's guard), not by ID.
+
 | Method | Purpose |
 | --- | --- |
-| `create(input)` | Create a role on a guard. `input: { name, guard, tenantId?, isSystem?, isActive?, permissions: string[] }` |
-| `update(id, input)` | Update name / `isActive` / permissions. `guard`, `tenantId`, `isSystem` are read-only after creation |
-| `delete(id)` | Delete (rejected if `isSystem: true`) |
-| `findById(id)` | Fetch a role with its permissions |
-| `findOne(where)` | Lookup by `{ name, guard, tenantId? }` |
-| `findAll(query?)` | List, paginated; filter by `guard`, `tenantId`, `isActive`, etc. |
-| `assignPermissions(roleId, permissionIds)` | Replace the role's permission set |
-| `setActive(id, isActive)` | Toggle without deleting |
+| `createRole(name, guard?, tenantId?, isSystem?, permissionNames?, isActive?)` | Create a role on a guard. `permissionNames: string \| string[]`; `isSystem` forces `tenantId` to `null`. Emits `RoleCreatedEvent` |
+| `updateRole(id, data)` | Update `name` / `isActive` / `permissions`; `data: IUpdateRoleInput`. `guard`, `tenantId`, `isSystem` are read-only after creation |
+| `updateRolePermissions(id, permissionNames)` | Replace the role's permission set (by name) |
+| `deleteRole(id)` | Delete the role (and its permission links) |
+| `getRoleById(id, options?)` | Fetch a role with its permissions |
+| `getRoleByName(name, guard?, tenantId?, options?)` | Lookup (prefers a matching system role, else the tenant/global role) |
+| `getRoles(params?, options?)` | List; `params: { guard?, tenantId?, onlyTenantRoles?, onlySystemRoles?, includeTenant? }` |
+| `getSystemRoles(options?)` | List global system roles (`isSystem: true`, `tenantId: null`) |
 
 ```ts
 import { Injectable } from '@nestjs/common';
@@ -73,17 +97,18 @@ export class CustomRolesService {
   constructor(private readonly roles: RoleService) {}
 
   async createPortalRole(name: string, permissions: string[]) {
-    return this.roles.create({
+    return this.roles.createRole(
       name,
-      guard: 'PORTAL',
-      isSystem: false,
-      isActive: true,
+      'PORTAL',   // guard
+      null,       // tenantId
+      false,      // isSystem
       permissions,
-    });
+      true,       // isActive
+    );
   }
 
   async findPortalRole(name: string) {
-    return this.roles.findOne({ name, guard: 'PORTAL' });
+    return this.roles.getRoleByName(name, 'PORTAL');
   }
 }
 ```
@@ -92,15 +117,18 @@ For end-to-end role assignment (creating the role + attaching it to a user × te
 
 ## `PermissionService`
 
-Same shape as `RoleService` but for the per-action permissions (`orders.read`, `users.delete`, …) that roles bundle.
+The per-action permissions (`orders.read`, `users.delete`, …) that roles bundle.
 
 | Method | Purpose |
 | --- | --- |
-| `create({ name, guard, description?, category? })` | Create a permission |
-| `update(id, { name?, description?, category? })` | Edit metadata (the `guard` is read-only) |
-| `delete(id)` | Remove |
-| `findById(id)` / `findOne(where)` | Lookup |
-| `findAll(query?)` | List, optionally grouped by `category` |
+| `createPermission({ name, guard?, description?, category? })` | Create a permission |
+| `createPermissions(permissions[])` | Batch upsert (skips existing `name`+`guard` pairs) — useful for seeding |
+| `updatePermission(id, data)` | Edit metadata; `data: IUpdatePermissionInput` (the `guard` is read-only) |
+| `deletePermission(id)` | Remove |
+| `getPermissionById(id)` / `getPermissionByName(name, guard?)` | Lookup |
+| `getPermissions({ search?, category?, guard?, limit? })` | List with filters |
+| `searchPermissions(query, guard?, limit?)` | Fuzzy search by name/description |
+| `getPermissionsByGuard(guard)` / `getGuards()` / `getCategories()` | Grouping helpers |
 
 ```ts
 @Injectable()
@@ -109,7 +137,7 @@ export class PermissionsBootstrap {
 
   async seedOrders() {
     for (const action of ['read', 'write', 'delete']) {
-      await this.perms.create({
+      await this.perms.createPermission({
         name: `orders.${action}`,
         guard: 'PORTAL',
         category: 'Orders',
@@ -120,25 +148,33 @@ export class PermissionsBootstrap {
 }
 ```
 
-Permissions are referenced by **name** in `@NestAuthPermissions(...)` decorators and in `RoleService.create({ permissions: [...] })`.
+Permissions are referenced by **name** in `@NestAuthPermissions(...)` decorators and in `RoleService.createRole(name, guard, …, permissionNames)`.
 
-## `UserAccessService` & `PlatformAccessService`
+## User access & platform access
 
-Manage the actual `user × tenant × role[]` records. See [User Access & Platform Access](/docs/concepts/user-access-and-platform-access) for the conceptual split.
+The `user × tenant × role[]` records are managed through **entity methods** and `UserService` — there are no standalone `UserAccessService` / `PlatformAccessService` injectables. See [User Access & Platform Access](/docs/concepts/user-access-and-platform-access) for the conceptual split.
 
-| Method (UserAccess) | Purpose |
+Get the membership row off a `NestAuthUser` (or via `UserService`), then mutate its roles:
+
+| `NestAuthUser` method | Purpose |
 | --- | --- |
-| `assign({ userId, tenantId, roleNames?, roleIds?, isDefault? })` | Create/update the membership and roles |
-| `assignRoles(userId, tenantId, roleIds)` | Replace just the roles on an existing membership |
-| `findByUser(userId, tenantId?)` | One or all memberships for a user |
-| `setActive(id, isActive)` | Suspend a user from a single tenant |
-| `revoke(userId, tenantId)` | Remove a user from a tenant (delete the row) |
+| `getUserAccess(tenantId?, createIfNotExists?, manager?)` | Resolve the user's `NestAuthUserAccess` row for a tenant (optionally create it) |
+| `getPlatformAccess(createIfNotExists?, manager?)` | Resolve the user's `NestAuthPlatformAccess` row (optionally create it) |
 
-| Method (PlatformAccess) | Purpose |
+| `NestAuthUserAccess` / `NestAuthPlatformAccess` method | Purpose |
 | --- | --- |
-| `grant(userId, roleIds)` | Promote a user to staff (cross-tenant) |
-| `revoke(userId)` | Demote |
-| `findByUser(userId)` | Read |
+| `assignRoles(roleIds, manager?)` | Replace the row's roles (`roleIds: string \| string[]`) |
+| `getRoles(…, withPermissions?)` | The row's roles (`getRoles(tenantId?, withPermissions?)` on user-access; `getRoles(withPermissions?)` on platform-access) |
+| `getPermissions(tenantId?)` | Flattened, de-duped permission names across the row's roles (no `tenantId` arg on platform-access) |
+
+From `UserService` you can also call `setUserAccessRoles(userId, tenantId, roleIds, manager?)`, `ensureUserAccess(userId, tenantId, manager?)`, and `deleteUserAccess(userId, tenantId, manager?)`.
+
+```ts
+// Promote a user to a platform (cross-tenant) super-admin role
+const user = await this.users.getUserById(userId);
+const access = await user.getPlatformAccess(true); // create marker if missing
+await access.assignRoles(superAdminRoleIds);
+```
 
 You'll usually call these from your own admin endpoints — there's no public REST surface for them, by design.
 
@@ -148,23 +184,26 @@ Tenant lifecycle. Validates slug uniqueness, fires the `TenantCreatedEvent` / `T
 
 | Method | Purpose |
 | --- | --- |
-| `create(input)` | `{ name, slug, isActive?, metadata?, description? }` — emits `TenantCreatedEvent` |
-| `update(id, input)` | Patch metadata; emits `TenantUpdatedEvent` |
-| `delete(id)` | Soft-delete or hard-delete depending on your config; emits `TenantDeletedEvent` |
-| `findById(id)` / `findBySlug(slug)` | Lookup |
-| `findAll(query?)` | List with filters, paginated |
-| `setActive(id, isActive)` | Suspend without deleting |
+| `createTenant(data)` | `data: Partial<NestAuthTenant>` (`{ name, slug, isActive?, metadata?, description? }`) — validates slug uniqueness, emits `TenantCreatedEvent` |
+| `updateTenant(id, data)` | Patch fields; re-validates slug; emits `TenantUpdatedEvent` |
+| `deleteTenant(id)` | Remove the tenant; emits `TenantDeletedEvent` |
+| `getTenantById(id, options?)` / `getTenantBySlug(slug, options?)` | Lookup |
+| `getTenants(options?)` | List with TypeORM `FindManyOptions` |
+| `updateTenantStatus(id, isActive)` | Suspend without deleting |
+| `updateTenantMetadata(id, metadata)` | Merge into `tenant.metadata` |
+| `resolveTenantId(inputTenantId?, platform?)` / `checkRequiredTenant(inputTenantId, throwError?, platform?)` | Resolve / validate the effective tenant for an operation |
 
 ```ts
 @Injectable()
 export class OnboardingService {
   constructor(
     private readonly tenants: TenantService,
-    private readonly userAccess: UserAccessService,
+    private readonly users: UserService,
+    private readonly roles: RoleService,
   ) {}
 
   async createWorkspace(name: string, ownerId: string) {
-    const tenant = await this.tenants.create({
+    const tenant = await this.tenants.createTenant({
       name,
       slug: slugify(name),
       isActive: true,
@@ -172,35 +211,31 @@ export class OnboardingService {
     });
 
     // Owner gets the admin role on the new tenant (PORTAL guard)
-    await this.userAccess.assign({
-      userId: ownerId,
-      tenantId: tenant.id,
-      roleNames: ['admin'],
-      isDefault: true,
-    });
+    const adminRole = await this.roles.getRoleByName('admin', 'PORTAL', tenant.id);
+    await this.users.setUserAccessRoles(ownerId, tenant.id, [adminRole.id]);
 
     return tenant;
   }
 }
 ```
 
-In `ISOLATED` mode the service handles per-tenant database provisioning automatically — you call `create()` and the right schema/database is set up behind the scenes. See [Multi-tenancy](/docs/concepts/multi-tenancy).
+Tenant resolution is driven by `tenant.mode`: in `ISOLATED` mode a `tenantId` is required on signup/login and `resolveTenantId` throws `TENANT_ID_REQUIRED` without one; in `SHARED` mode it can be deferred. See [Multi-tenancy](/docs/concepts/multi-tenancy).
 
 ## `SessionManagerService`
 
-Direct session-store access. Useful for "list this user's active devices" UIs:
+Direct session-store access. Useful for "list this user's active devices" UIs. Public methods include `getSession(sessionId)`, `getUserSessions(userId)`, `getActiveSessions(userId)`, `updateSession(sessionId, updates)`, `revokeSession(sessionId, reason?)`, `revokeAllUserSessions(userId)`, and `revokeOtherSessions(userId, currentSessionId)`.
 
 ```ts
 @Auth()
 @Get('me/sessions')
 async list(@CurrentUser() user: NestAuthUser) {
-  return this.sessions.findByUser(user.id);
+  return this.sessions.getActiveSessions(user.id);
 }
 
 @Auth()
 @Delete('me/sessions/:id')
-async revoke(@Param('id') id: string, @CurrentUser() user: NestAuthUser) {
-  return this.sessions.revoke(id, user.id);
+async revoke(@Param('id') id: string) {
+  return this.sessions.revokeSession(id, 'logout');
 }
 ```
 
@@ -214,15 +249,18 @@ API key CRUD — see [API Keys](/docs/authentication/api-keys).
 
 ## `AuditService`
 
-Internal sink that calls `audit.onEvent`. Generally read-only from your code; if you need to write a custom audit event, call `audit.write(event)`.
+Internal event listener that maps the library's lifecycle events (login, logout, signup, password change, MFA enable/disable, …) onto your `audit.onEvent` callback. It has no public methods you call directly — wire `audit.onEvent` in the module config and it forwards `IAuthAuditEvent` payloads to you.
 
 ## `AuthProviderRegistryService`
 
 Read access to the registered auth providers. Use this to render a "sign in with…" button list dynamically:
 
 ```ts
-const providers = registry.list();   // [{ name: 'google', kind: 'oauth' }, …]
+const providers = registry.getAllProviders();      // BaseAuthProvider[]
+const names = providers.map(p => p.providerName);  // ['email', 'google', …]
 ```
+
+Also available: `getEnabledProviders()`, `getProvider(name)`, and `hasProvider(name)`.
 
 ## `AuthConfigService`
 
@@ -239,14 +277,15 @@ class MyService {
 }
 ```
 
-`getOptions()` returns the raw `IAuthModuleOptions` you passed in. `getConfig()` returns a normalized form with defaults filled in — use whichever is more convenient.
+`getConfig()` (instance) and the static `AuthConfigService.getOptions()` both return the resolved `IAuthModuleOptions`. `getRoleGuards()` and `isRoleGuardAllowed(guard)` are convenience accessors for the configured guards.
 
 ## `DebugLoggerService`
 
 Conditional logger gated by the `debug` config. Use it from your own services for log lines you only want when debug is on:
 
 ```ts
-this.debugLogger.log('user', `created ${user.id}`);
+// (message, context?) — also: debug / warn / error / verbose
+this.debugLogger.info(`created ${user.id}`, 'UserService');
 ```
 
 See [Logging & Debugging](/docs/production/logging-and-debugging).

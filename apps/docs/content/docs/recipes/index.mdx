@@ -5,51 +5,61 @@ description: Copy-paste solutions to common problems.
 
 Each recipe is a self-contained, runnable example. Pick one, copy the code, adapt the names — done.
 
-### Multi-platform / multi-tenant production patterns
-
-- [Multi-platform login with guards](/docs/recipes/multi-platform-login) — admin / portal / mobile served from one backend, with origin-aware login gating.
-- [Seeding roles & permissions](/docs/recipes/seeding-roles-and-permissions) — idempotent bootstrap of `isSystem` roles per guard.
-
-### Extending the auth lifecycle
+### Auth lifecycle & events
 
 - [React to a new signup with `UserRegisteredEvent`](/docs/recipes/user-registered-listener) — create your `AppUser`, link a referral, queue a welcome email.
 - [React to login with `UserLoggedInEvent`](/docs/recipes/user-logged-in-listener) — last-login tracking, role sync, audit writes.
-- [Custom OAuth provider](/docs/recipes/custom-oauth-provider) — extend `BaseAuthProvider`.
-- [Extra signup fields with `collectProfileFields`](/docs/recipes/extra-signup-fields).
-- [Pre-built React login / signup / MFA / forgot-password forms](/docs/recipes/react-auth-forms).
+- [Transactional user creation](/docs/recipes/transactional-user-creation) — wrap `NestAuthUser` + `AppUser` in one TypeORM transaction so a mid-flow failure rolls back cleanly.
+- [Custom OAuth provider](/docs/recipes/custom-oauth-provider) — extend `BaseAuthProvider` for an IDP that isn't built in.
+- [Extra signup fields with `collectProfileFields`](/docs/recipes/extra-signup-fields) — capture and persist your own fields at registration.
+- [Link multiple providers to one account](/docs/recipes/link-multiple-providers) — connect Google, Apple, password, etc. under a single identity.
+- [Normalize email & phone](/docs/recipes/normalize-email-phone) — `normalizedEmail` / `normalizedPhone` for consistent identity matching.
 
-### Schema & migration
+### Multi-tenant & multi-platform
 
-- [Migrate an existing user table](/docs/recipes/migrate-existing-users).
+- [Multi-platform login with guards](/docs/recipes/multi-platform-login) — admin / portal / mobile from one backend, with origin-aware login gating.
+- [Platform-admin portal](/docs/recipes/platform-admin-portal) — staff who manage the whole platform as full users with a cross-tenant super-admin role, origin-locked and MFA-gated.
+- [Tenant switcher](/docs/recipes/tenant-switcher) — a tenant-picker dropdown that re-scopes the active session.
+- [Logging in under a tenant (ISOLATED)](/docs/recipes/tenant-login-isolated) — slug → `tenantId` resolution, the login DTO, password reset, and the invite pattern.
+- [Per-request config (mobile vs web)](/docs/recipes/per-request-config) — vary auth behavior per incoming request.
 
-### Frontend integration
+### Multi-account switcher (v2.6)
 
-- [Next.js dashboard behind `<RequireRole>`](/docs/recipes/nextjs-protected-dashboard).
-- [Tenant-picker dropdown](/docs/recipes/tenant-switcher).
-- [Remember-this-device with trusted-device tokens](/docs/recipes/remember-this-device).
+**New in v2.6:** nest-auth is multi-session by design — each login mints an independent session, so one client can hold several account token sets at once.
+
+- [Multi-account login & switching](/docs/recipes/multi-account-switching) — Gmail/Slack-style account switching in header or cookie mode.
+
+### Roles, permissions & access control
+
+- [Seeding roles & permissions](/docs/recipes/seeding-roles-and-permissions) — idempotent bootstrap of `isSystem` roles per guard.
+- [External role resolver](/docs/recipes/external-role-resolver) — resolve roles from Okta / Auth0 / a custom IDP.
+- [IP allowlist guard](/docs/recipes/ip-allowlist-guard) — restrict auth via `guards.beforeAuth`.
+- [Account suspension and reactivation](/docs/recipes/account-suspension) — block and restore access without deleting the account.
+- [Force password change](/docs/recipes/force-password-change) — make admin-set temporary passwords genuinely temporary via `mustChangePassword`.
+
+### MFA & devices
+
+- [MFA recovery codes](/docs/recipes/mfa-recovery-codes) — generate, show, and store backup codes.
+- [Remember this device](/docs/recipes/remember-this-device) — skip MFA on trusted devices using trusted-device tokens.
+- [Custom trusted-device header](/docs/recipes/custom-trusted-device-header) — change the trusted-device header name.
 
 ### Tokens & sessions
 
-- [Custom JWT claims](/docs/recipes/custom-jwt-claims).
+- [Custom JWT claims](/docs/recipes/custom-jwt-claims) — add your own claims to issued tokens.
+
+### Frontend integration
+
+- [Pre-built React auth forms](/docs/recipes/react-auth-forms) — login / signup / MFA / forgot-password components.
+- [Next.js dashboard behind `<RequireRole>`](/docs/recipes/nextjs-protected-dashboard) — role-gated protected routes.
 
 ### Notifications
 
-- [Single notification service for email + SMS](/docs/recipes/single-notification-service).
+- [Single notification service for email + SMS](/docs/recipes/single-notification-service) — one service handles every auth notification.
 
-### Identity & accounts
+### Migration & data
 
-- [Link multiple OAuth providers to one account](/docs/recipes/link-multiple-providers).
-- [External role resolver (Okta / Auth0 / custom IDP)](/docs/recipes/external-role-resolver).
+- [Migrate an existing user table](/docs/recipes/migrate-existing-users) — move legacy users into nest-auth.
 
-### Configuration
+### Error handling & config
 
-- [Per-request config (mobile vs web)](/docs/recipes/per-request-config).
-- [Custom error transformation per flow](/docs/recipes/per-flow-error-transform).
-- [Custom trusted-device header name](/docs/recipes/custom-trusted-device-header).
-
-### Account management
-
-- [Account suspension and reactivation](/docs/recipes/account-suspension).
-- [IP allowlist via `guards.beforeAuth`](/docs/recipes/ip-allowlist-guard).
-- [MFA recovery codes — generate, show, and store](/docs/recipes/mfa-recovery-codes).
-- [`normalizedEmail` / `normalizedPhone` for consistent identity matching](/docs/recipes/normalize-email-phone).
+- [Custom error transformation per flow](/docs/recipes/per-flow-error-transform) — shape error responses per auth flow.

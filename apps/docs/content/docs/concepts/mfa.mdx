@@ -122,3 +122,9 @@ verify(@Body() dto: IVerify2faRequest) { … }
 - [Custom trusted-device header recipe](/docs/recipes/custom-trusted-device-header).
 - [Sending Emails](/docs/production/sending-emails) — wiring `TwoFactorCodeSentEvent` to your email provider.
 - [Sending SMS](/docs/production/sending-sms) — same for SMS.
+
+## See also
+
+- [Passwordless OTP](/docs/authentication/passwordless-otp) — Email/SMS OTP as a primary login factor.
+- [NestAuthModule](/docs/backend/module) — the `mfa` config block in context with every other option.
+- [`GET /auth/mfa/status`](/docs/api-reference/mfa/get-auth-mfa-status) — the generated MFA endpoint reference.

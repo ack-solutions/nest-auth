@@ -90,6 +90,81 @@ class GotAdapter implements HttpAdapter {
 }
 ```
 
+## Sharing auth with your own HTTP client
+
+`createAxiosAdapter` is for letting `AuthClient` *use* your axios instance for **its own** auth calls. The opposite direction — making **your app's** axios/fetch carry the auth token — is `attachToAxios` / `attachToFetch`.
+
+These wire interceptors that attach `getAuthHeaders()` to every outgoing request and (by default) retry once on 401 after a refresh. They exist as both standalone helpers and instance methods on `AuthClient`.
+
+```ts
+import axios from 'axios';
+
+const api = axios.create({ baseURL: 'https://api.example.com' });
+
+// Instance method (the common case):
+const detach = auth.attachToAxios(api);
+
+// ...or the standalone helper (identical behaviour):
+import { attachToAxios } from '@ackplus/nest-auth-client';
+const detach2 = attachToAxios(auth, api);
+```
+
+`attachToAxios` returns an **unsubscribe** function — call it on logout/unmount to eject the interceptors. The same instance can be re-attached afterward.
+
+For `fetch`, the wrapper returns a **new** fetch-shaped function; cleanup is just "stop calling it":
+
+```ts
+const myFetch = auth.attachToFetch();          // wraps globalThis.fetch
+const myFetch2 = auth.attachToFetch(customFetch);
+
+const res = await myFetch('/api/data');
+```
+
+In cookie mode both helpers also set `withCredentials: true` (axios) / `credentials: 'include'` (fetch) automatically, mirroring `shouldSendCookies()`.
+
+### `AttachOptions`
+
+Both helpers (and instance methods) take an optional third argument. It extends `GetAuthHeadersOptions` (so `authHeaderName`, `skipAuthHeader`, etc. are also valid) and adds:
+
+| Option | Type | Default | Purpose |
+|---|---|---|---|
+| `retryOn401` | `boolean` | `true` | Refresh + retry the request once on a 401. Set `false` for third-party APIs that shouldn't share refresh semantics. |
+| `skipPaths` | `Array<string \| RegExp \| ((url: string) => boolean)>` | `[]` | URLs to skip — no auth header, no retry. String entries match as a URL **suffix**. |
+| `onRefreshFailed` | `(error: unknown) => void \| Promise<void>` | no-op | Called when the in-interceptor refresh fails (e.g. the refresh token expired). React by redirecting to login, clearing state, etc. The original 401 still propagates. |
+
+```ts
+auth.attachToAxios(api, {
+  retryOn401: true,
+  skipPaths: ['/auth/refresh-token', /^\/public\//, (u) => u.includes('legacy')],
+  onRefreshFailed: () => { window.location.href = '/login'; },
+});
+```
+
+### Attaching to an account manager
+
+The first argument of `attachToAxios` / `attachToFetch` is anything matching `AuthHeaderProvider`:
+
+```ts
+interface AuthHeaderProvider {
+  getAuthHeaders(opts?: GetAuthHeadersOptions): Promise<Record<string, string>>;
+  shouldSendCookies(): boolean;
+  refresh(...args: any[]): Promise<unknown>;
+}
+```
+
+`AuthClient` implements it — and so do the multi-account managers (`AccountManager` / `CookieAccountManager`), which delegate to whichever account is currently **active**. That means you can attach a single shared axios/fetch instance to the **manager** and it always sends the active account's bearer — with **no re-attach when you `switchAccount()`**:
+
+```ts
+import { AccountManager } from '@ackplus/nest-auth-client';
+
+const accounts = new AccountManager({ baseUrl, accessTokenType: 'header' });
+const detach = accounts.attachToAxios(api);   // one-liner — follows the active account
+
+await accounts.switchAccount(otherId);        // api now sends the new account's token, no re-attach
+```
+
+The same one-liner works on the manager instances directly (`accounts.attachToFetch()`) or via the standalone helpers (`attachToAxios(accounts, api)`). See [Multi-account login & switching](/docs/recipes/multi-account-switching).
+
 ## Cookie mode and `credentials`
 
 When the client is in cookie mode, every request goes out with `credentials: 'include'`. Make sure your CORS config has `Access-Control-Allow-Credentials: true` and an explicit origin allowlist (`*` is forbidden with credentials).

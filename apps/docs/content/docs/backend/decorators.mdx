@@ -30,6 +30,19 @@ health() { return 'ok'; }
 
 Bypass MFA enforcement on a specific route. Used on `/auth/mfa/verify` itself (the verify endpoint can't require MFA — that's circular).
 
+### `@SkipMustChangePassword()`
+
+Exempt a route (or whole controller) from the "must change password" hard-block, so a user with `mustChangePassword: true` can still reach it. Only matters when `mustChangePassword.enforce: true` is set in the module config (see [NestAuthModule](/docs/backend/module)).
+
+```ts
+@SkipMustChangePassword()
+@Auth()
+@Get('/billing/invoices')
+invoices() { /* reachable even while a password change is pending */ }
+```
+
+The library already marks its own change-password, logout, current-user/session, verification, and MFA routes — add this to your own routes that must stay reachable while a change is pending.
+
 ## Authorization decorators
 
 ### `@NestAuthRoles(roles, guard?)`
@@ -60,8 +73,8 @@ For use in controller method signatures.
 
 | Decorator | Returns |
 |---|---|
-| `@CurrentTenantId()` | `string` — active tenant ID |
-| `@CurrentTenant()` | `NestAuthTenant` — full tenant entity |
+| `@CurrentTenantId()` | `string \| null` — active tenant ID (`null` when none is resolved; handlers must handle it) |
+| `@CurrentTenant()` | **Deprecated** — alias of `@CurrentTenantId()`, also returns `string \| null` (not a tenant entity). Slated for removal in v3 |
 | `@CurrentUserAccess()` | `NestAuthUserAccess` — current user's per-tenant membership row |
 | `@CurrentMembership()` | Alias for `@CurrentUserAccess()` |
 
@@ -69,7 +82,7 @@ For use in controller method signatures.
 @Auth()
 @Get()
 list(
-  @CurrentTenantId() tenantId: string,
+  @CurrentTenantId() tenantId: string | null,
   @CurrentUserAccess() access: NestAuthUserAccess,
 ) {
   return this.orders.find({ where: { tenantId } });

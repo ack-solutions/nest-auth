@@ -90,6 +90,14 @@ import { AccountSwitcherProvider, useAccountSwitcher } from '@ackplus/nest-auth-
 - Drives reactivity via `useSyncExternalStore`, so `switchAccount` (a pure client-side repoint) re-renders instantly with no server call.
 - Consume it with [`useAccountSwitcher` / `useAccounts` / `useActiveAccount`](/docs/react/hooks#multi-account-hooks).
 
+The context value exposes `accounts`, `activeAccount`, `activeAccountId`, and the actions `addAccount`, `switchAccount`, `removeAccount`, plus:
+
+- `completeMfa(error, verifyDto, options?)` — finish an `addAccount` that threw `AccountMfaRequiredError`: it verifies the challenge on the pending client and registers the account.
+- `setAccountMeta(accountId, meta)` — set an account's display `{ label, tenantName }` for the switcher UI.
+- `manager` — the underlying `IAccountSwitcher`, an escape hatch for advanced flows (e.g. `manager.commitAccount`).
+
+See [Multi-account hooks](/docs/react/hooks#multi-account-hooks) for the full destructure and the MFA-on-add flow.
+
 Requires `session.allowMultipleAccounts` on the backend — gate the UI with [`useMultiAccountEnabled()`](/docs/react/hooks#useclientconfig--usemultiaccountenabled). Full walkthrough: [Multi-account login & switching](/docs/recipes/multi-account-switching).
 
 ## Related

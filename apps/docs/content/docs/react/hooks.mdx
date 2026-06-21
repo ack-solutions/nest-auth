@@ -51,6 +51,28 @@ Reads the current access token. Returns `null` in cookie mode (the token is Http
 
 Use this for one-off integrations that need the raw token — websockets, third-party SDKs that take a JWT. For your own API calls, the `AuthClient` already attaches it.
 
+## `useAuthHeaderFn()` / `useAuthHeaderFnSync()`
+
+Both return a **stable** function (the reference doesn't change on token refresh, so the consumer does *not* re-render) that yields the current auth headers. Reach for these instead of `useAccessToken()` + `useEffect` when decorating requests in a fetch wrapper or a form submit handler.
+
+```tsx
+function SaveButton() {
+  const getAuthHeaders = useAuthHeaderFn(); // () => Promise<Record<string, string>>
+
+  const submit = async (data: unknown) => {
+    await fetch('/api/submit', {
+      method: 'POST',
+      headers: { ...(await getAuthHeaders()), 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  };
+
+  return <button onClick={() => submit({})}>Save</button>;
+}
+```
+
+`useAuthHeaderFnSync()` is the synchronous variant — it returns `() => Record<string, string>` reading from the in-memory token mirror (returns `{}` if it's empty: no login yet or warm-up pending). Use it where you can't await — e.g. an `axios.interceptors.request` callback — though `client.attachToAxios()` is usually cleaner for that. Both accept an optional `GetAuthHeadersOptions`.
+
 ## `useAuthStatus()`
 
 Authentication status with derived booleans:
@@ -117,16 +139,75 @@ For logging into several accounts on one client and switching the active one. Th
 
 ```tsx
 const {
-  accounts,        // AccountSnapshot[] — { accountId, email, label, isActive }
-  activeAccount,   // the active one, or null
-  addAccount,      // (loginDto) => Promise — log in a new account, keep the others
-  switchAccount,   // (accountId) => Promise — repoint active (no server call)
-  removeAccount,   // (accountId) => Promise — sign that account out
+  accounts,        // AccountSnapshot[]
+  activeAccount,   // the active snapshot, or null
+  activeAccountId, // string | null
+  addAccount,      // (dto, options?) => Promise<AccountSnapshot> — log in a new account, keep the others
+  completeMfa,     // (error, verifyDto, options?) => Promise<AccountSnapshot> — finish an MFA-gated add
+  switchAccount,   // (accountId) => Promise<AccountSnapshot> — repoint active (no server call)
+  removeAccount,   // (accountId) => Promise<void> — sign that account out
+  setAccountMeta,  // (accountId, meta) => Promise<AccountSnapshot> — rename / label for the switcher
+  manager,         // the underlying IAccountSwitcher (escape hatch for advanced flows)
 } = useAccountSwitcher();
 
 const accounts = useAccounts();         // just the list
 const active = useActiveAccount();      // just the active account
 ```
+
+### `AccountSnapshot`
+
+Each entry in `accounts` (and `activeAccount`) is an `AccountSnapshot`:
+
+| Field | Type | Notes |
+|---|---|---|
+| `accountId` | `string` | Stable logical key — `userId`, or `userId:tenantId` when tenant-scoped |
+| `userId` | `string?` | |
+| `tenantId` | `string?` | |
+| `email` | `string?` | |
+| `label` | `string?` | Display label (best-effort from name/email, or your override) |
+| `tenantName` | `string?` | App-supplied tenant/property name for the switcher UI |
+| `isActive` | `boolean` | Whether this is the active account |
+
+`tenantName` is **app-supplied** — the server session carries no tenant display name. Pass it via `addAccount`/`completeMfa` options (`{ meta: { tenantName } }`) or stamp it later with `setAccountMeta`. It lets a switcher show "Green Valley" vs "Sunrise" instead of an identical shared-owner email on every row.
+
+### Naming accounts — `setAccountMeta`
+
+```tsx
+const { setAccountMeta } = useAccountSwitcher();
+await setAccountMeta(accountId, { label: 'Work', tenantName: 'Green Valley' });
+```
+
+`AccountMeta` is `{ label?: string; tenantName?: string }` — both optional, merged over the existing snapshot.
+
+### MFA on add — `completeMfa`
+
+`addAccount` throws `AccountMfaRequiredError` when the login needs a second factor. Catch it, show your OTP UI, then hand the error and the verify DTO to `completeMfa`:
+
+```tsx
+import { AccountMfaRequiredError } from '@ackplus/nest-auth-client';
+import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
+
+const { addAccount, completeMfa } = useAccountSwitcher();
+const [pending, setPending] = useState<AccountMfaRequiredError | null>(null);
+
+async function add(dto) {
+  try {
+    await addAccount(dto, { meta: { tenantName: 'Green Valley' } });
+  } catch (err) {
+    if (err instanceof AccountMfaRequiredError) setPending(err); // show OTP UI
+    else throw err;
+  }
+}
+
+async function submitOtp(otp: string) {
+  if (!pending) return;
+  // verifyDto: { method, otp, trustDevice? }
+  await completeMfa(pending, { method: NestAuthMFAMethodEnum.TOTP, otp });
+  setPending(null);
+}
+```
+
+> **One-shot:** `verify2fa` consumes the code. If verification succeeds but the commit step throws, do **not** call `completeMfa` again (the code is spent) — recover with `manager.commitAccount(pending.client, meta)`.
 
 See the [Multi-account login & switching](/docs/recipes/multi-account-switching) recipe for the full walkthrough (header and cookie modes).
 

@@ -56,6 +56,7 @@ You can also use `useClass` or `useExisting` patterns — see [`IAuthModuleAsync
 |---|---|---|---|
 | `isGlobal` | `boolean` | `false` | Marks the module as global so you don't need to re-import it in every feature module |
 | `enableAutoRefresh` | `boolean` | `true` | Server-side support for auto-refresh on 401 |
+| `routePrefix` | `string` | `'auth'` | Base path segment for all auth routes (e.g. `'account'` serves `POST /account/login`). Applied in addition to any NestJS global prefix — update your client SDK endpoints to match |
 
 ### Authentication methods
 
@@ -176,6 +177,16 @@ otp?: {
 };
 ```
 
+### Force password change
+
+```ts
+mustChangePassword?: {
+  enforce?: boolean;                                // default: false (surface-only)
+};
+```
+
+The `mustChangePassword` flag on a user is always surfaced (login response + `/auth/me`) and cleared on a successful password change. Set `enforce: true` to additionally hard-block at the guard: a user with the flag set is rejected with `403 MUST_CHANGE_PASSWORD` on every guarded route except change-password, logout, the current-user/session endpoints, and the MFA/verification routes (so a 2FA user can still finish signing in and reach the change-password screen). Exempt your own routes with [`@SkipMustChangePassword()`](/docs/backend/decorators).
+
 ### Hooks
 
 Every config-time hook is on the [Hooks Reference page](/docs/backend/hooks-reference). The high-level groupings:
@@ -207,7 +218,8 @@ See [Admin Console](/docs/backend/admin-console).
 ```ts
 adminConsole?: {
   enabled?: boolean;
-  basePath?: string;                                // default: '/auth/admin'
+  path?: string;                                    // dashboard sub-path under routePrefix; default: 'admin'
+  basePath?: string;                                // full URL path; default: '/<routePrefix>/<path>' (e.g. '/auth/admin')
   secretKey?: string;                               // gates dashboard AND admin signup
   sessionCookieName?: string;
   sessionDuration?: string | number;
