@@ -80,3 +80,9 @@ Future<AuthResponse> switchTenant(String tenantId)
 ```
 
 > Several other methods also accept a `tenantId` to scope a single call — including [`login`](/docs/flutter/auth#log-in-with-email--password), [`signup`](/docs/flutter/auth#sign-up), `passwordlessSend`, `passwordlessLogin`, `verifyForgotPasswordOtp`, `verifyEmail`, and `verifyPhone`. Use `switchTenant` when you want to change the tenant for the whole session.
+
+## Related
+
+- [MFA](/docs/concepts/mfa) · [Multi-tenancy](/docs/concepts/multi-tenancy) — the concepts these Flutter APIs map to.
+- [Flutter — Auth flows](/docs/flutter/auth) and [Using it in your app](/docs/flutter/app).
+- [Logging in under a tenant (ISOLATED)](/docs/recipes/tenant-login-isolated).
