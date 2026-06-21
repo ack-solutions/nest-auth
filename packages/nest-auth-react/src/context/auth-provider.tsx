@@ -27,6 +27,7 @@ import {
     IToggleMfaRequest,
     ISwitchTenantRequest,
     IPasswordlessSendRequest,
+    IPasswordlessLoginRequest,
 } from '@ackplus/nest-auth-client';
 import { AuthContext, AuthContextValue } from './auth-context';
 
@@ -297,6 +298,20 @@ export function AuthProvider({
         }
     }, [client]);
 
+    const passwordlessLogin = useCallback(async (dto: IPasswordlessLoginRequest) => {
+        setError(null);
+        try {
+            const response = await client.passwordlessLogin(dto);
+            if (!response.isRequiresMfa) {
+                await getSessionData();
+            }
+            return response;
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client, getSessionData]);
+
     // Password Management
     const forgotPassword = useCallback(async (dto: IForgotPasswordRequest) => {
         setError(null);
@@ -513,6 +528,7 @@ export function AuthProvider({
         verify2fa,
         switchTenant,
         passwordlessSend,
+        passwordlessLogin,
         // Password management
         forgotPassword,
         verifyForgotPasswordOtp,
@@ -556,6 +572,7 @@ export function AuthProvider({
         verify2fa,
         switchTenant,
         passwordlessSend,
+        passwordlessLogin,
         forgotPassword,
         verifyForgotPasswordOtp,
         resetPassword,

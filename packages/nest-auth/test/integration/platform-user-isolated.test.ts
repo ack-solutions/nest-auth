@@ -147,6 +147,28 @@ describe('ISOLATED tenant — tenant-less platform (super-admin) user provisioni
       response: { code: 'USER_ALREADY_EXISTS' },
     });
   });
+
+  it('getPlatformUsers lists only platform-marker users (not tenant users) + count + by-role', async () => {
+    // By now several platform users exist (PLATFORM_EMAIL, the same-email platform
+    // account, PLATFORM_PHONE) plus one tenant user (acme, SHARED_EMAIL).
+    const platformUsers = await users.getPlatformUsers({
+      relations: ['platformAccess', 'userAccesses'],
+    });
+    expect(platformUsers.length).toBeGreaterThanOrEqual(3);
+    expect(platformUsers.every((u) => !!u.platformAccess)).toBe(true);
+    // the tenant user is NOT returned
+    expect(platformUsers.some((u) => u.id === acmeUserId)).toBe(false);
+
+    // count matches, and never includes the tenant user
+    const [, total] = await users.getPlatformUsersAndCount({ take: 100 });
+    expect(total).toBe(platformUsers.length);
+
+    // the super-admin role assigned earlier resolves via platformAccess.roles
+    const admins = await users.getPlatformUsersByRole('platform-super-admin');
+    const target = await users.getPlatformUserByEmail(PLATFORM_EMAIL);
+    expect(admins.some((u) => u.id === target?.id)).toBe(true);
+    expect(admins.every((u) => !!u.platformAccess)).toBe(true);
+  });
 });
 
 describe('SHARED tenant — getPlatformUserByEmail keys off the platform marker, not tenant-less access', () => {

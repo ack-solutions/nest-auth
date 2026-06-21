@@ -28,6 +28,8 @@ import {
     ISwitchTenantRequest,
     INestAuthUserAccess,
     IPasswordlessSendRequest,
+    IPasswordlessLoginRequest,
+    NEST_AUTH_PASSWORDLESS_PROVIDER,
     ISessionUserData,
     ILoginRequest
 } from '@ackplus/nest-auth-contracts';
@@ -551,6 +553,36 @@ export class AuthClient {
             throw this.handleError(response);
         }
         return response.data;
+    }
+
+    /**
+     * Passwordless — complete sign-in by exchanging the emailed/texted code for a
+     * session (the completion step for {@link passwordlessSend}). Returns a normal
+     * auth response and sets the session, exactly like {@link login}.
+     *
+     * `channel` defaults to trying both email and SMS; pass the one you sent to
+     * for a single-channel check. ISOLATED-ready via `tenantId`.
+     *
+     * @example
+     * ```ts
+     * await auth.passwordlessSend({ identifier: 'a@b.com', channel: 'email', tenantId });
+     * // ...user enters the code:
+     * await auth.passwordlessLogin({ identifier: 'a@b.com', code: '123456', channel: 'email', tenantId });
+     * ```
+     */
+    async passwordlessLogin(dto: IPasswordlessLoginRequest, options?: RequestOptions): Promise<IAuthResponse> {
+        const channels = dto.channel
+            ? (Array.isArray(dto.channel) ? dto.channel : [dto.channel])
+            : (['email', 'sms'] as const);
+        return this.login(
+            {
+                providerName: NEST_AUTH_PASSWORDLESS_PROVIDER,
+                credentials: { identifier: dto.identifier, code: dto.code, channels } as ILoginRequest['credentials'],
+                tenantId: dto.tenantId,
+                rememberMe: dto.rememberMe,
+            },
+            options,
+        );
     }
 
 

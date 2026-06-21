@@ -758,4 +758,71 @@ export class UserService {
         this.debugLogger.debug('Found users with role', 'UserService', { roleName, count: users.length });
         return users;
     }
+
+    /**
+     * List platform (super-admin) users — those holding a `NestAuthPlatformAccess`
+     * marker — WITHOUT scanning tenant users. The list analog of
+     * {@link getPlatformUserByEmail}. Caller `options` (where / relations / skip /
+     * take / order) are honored; the platform-marker filter and the
+     * `platformAccess` relation are merged in automatically.
+     */
+    async getPlatformUsers(options?: FindManyOptions<NestAuthUser>, manager?: EntityManager): Promise<NestAuthUser[]> {
+        return this.getUserRepo(manager).find(this.withPlatformScope(options));
+    }
+
+    /** Paginated {@link getPlatformUsers} — returns `[users, total]` for an admin list screen. */
+    async getPlatformUsersAndCount(options?: FindManyOptions<NestAuthUser>, manager?: EntityManager): Promise<[NestAuthUser[], number]> {
+        return this.getUserRepo(manager).findAndCount(this.withPlatformScope(options));
+    }
+
+    /**
+     * Platform users holding a given role on their platform access (e.g. the
+     * super-admin role). Unlike {@link getUsersByRole} (which joins tenant
+     * `userAccesses`), this joins the tenant-less `platformAccess.roles`. Pass
+     * `guard` to also scope by the role's guard namespace. Like
+     * {@link getUsersByRole}, this does not filter on `isActive`.
+     */
+    async getPlatformUsersByRole(roleName: string, guard?: string, manager?: EntityManager): Promise<NestAuthUser[]> {
+        const params: Record<string, unknown> = { roleName };
+        let condition = 'role.name = :roleName';
+        if (guard) {
+            condition += ' AND role.guard = :guard';
+            params.guard = guard;
+        }
+        return this.getUserRepo(manager)
+            .createQueryBuilder('user')
+            .innerJoinAndSelect('user.platformAccess', 'platformAccess')
+            .innerJoin('platformAccess.roles', 'role', condition, params)
+            .getMany();
+    }
+
+    /**
+     * Merge the platform-marker filter (+ `platformAccess` relation) into find
+     * options. `platformAccess` is OneToOne, so the join can't multiply rows —
+     * `getPlatformUsersAndCount` paginates/counts correctly. (Don't merge a
+     * to-many relation here without revisiting that.)
+     */
+    private withPlatformScope(options?: FindManyOptions<NestAuthUser>): FindManyOptions<NestAuthUser> {
+        const opts = options ?? {};
+        const scope = { platformAccess: { id: Not(IsNull()) } } as Record<string, unknown>;
+        const where = opts.where;
+        const mergedWhere = Array.isArray(where)
+            ? (where.length ? where.map((w) => ({ ...(w as object), ...scope })) : [scope])
+            : { ...((where as object) ?? {}), ...scope };
+        return {
+            ...opts,
+            where: mergedWhere as FindManyOptions<NestAuthUser>['where'],
+            relations: this.ensureRelation(opts.relations, 'platformAccess'),
+        };
+    }
+
+    /** Ensure a relation name is included (handles array | object | undefined relation specs). */
+    private ensureRelation(
+        relations: FindManyOptions<NestAuthUser>['relations'],
+        name: string,
+    ): FindManyOptions<NestAuthUser>['relations'] {
+        if (!relations) return [name];
+        if (Array.isArray(relations)) return relations.includes(name) ? relations : [...relations, name];
+        return { ...(relations as object), [name]: true } as FindManyOptions<NestAuthUser>['relations'];
+    }
 }

@@ -71,7 +71,7 @@ export type {
 
 // Passwordless — runtime constant + types
 export { NEST_AUTH_PASSWORDLESS_PROVIDER } from './passwordless';
-export type { PasswordlessChannel, IPasswordlessSendRequest } from './passwordless';
+export type { PasswordlessChannel, IPasswordlessSendRequest, IPasswordlessLoginRequest } from './passwordless';
 
 // Admin — all types
 export type {
