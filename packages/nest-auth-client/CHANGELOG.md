@@ -1,5 +1,19 @@
 # @ackplus/nest-auth-client
 
+## 2.7.1
+
+### Patch Changes
+
+- fix(client): prevent a refresh deadlock when one axios is shared by AuthClient + attachToAxios
+
+  Sharing a single axios instance for both `AuthClient` (`httpAdapter: createAxiosAdapter(api)`) and `attachToAxios(client, api)` could **deadlock on an expired session**: the boot `verifySession` 401 made the app interceptor start `refresh()`, and the refresh-token request went back through the same interceptor, so a nested `refresh()` parked on the refresh queue while the outer one awaited its own HTTP call. The app hung on the splash screen — tokens were never cleared and the router never redirected to login.
+  - `createAxiosAdapter` now tags every request `AuthClient` makes, and `attachToAxios` skips those tagged requests — the app interceptor never re-handles `AuthClient`'s own auth traffic (which already manages its own 401 → refresh).
+  - `attachToAxios` / `attachToFetch` now also default-skip the auth endpoints (`/auth/refresh-token`, `/auth/login`, `/auth/logout`, `/auth/logout-all`), so they are never bearer-injected or refresh-retried. Do login/logout via the `AuthClient`/`AccountManager` methods; if you renamed those endpoints, pass the custom paths in `skipPaths`.
+  - Exposes the `NEST_AUTH_ADAPTER_REQUEST` marker for custom adapters that want the same opt-out.
+
+  Sharing one instance is now safe, but two instances (a plain transport for `AuthClient` + a separate app instance with `attachToAxios` + `onRefreshFailed`) remains the recommended setup.
+  - @ackplus/nest-auth-contracts@2.7.1
+
 ## 2.7.0
 
 ### Minor Changes
