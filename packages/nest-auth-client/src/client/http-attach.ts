@@ -11,6 +11,7 @@
  */
 
 import type { GetAuthHeadersOptions } from '../types/config.types';
+import { DEFAULT_ENDPOINTS, NEST_AUTH_ADAPTER_REQUEST } from '../types/config.types';
 
 /**
  * Minimal auth surface the attach helpers need. Implemented by {@link AuthClient}
@@ -117,6 +118,27 @@ function urlMatchesSkip(url: string | undefined, skipPaths?: AttachOptions['skip
   return false;
 }
 
+/**
+ * Auth-flow endpoints the app interceptor must NEVER refresh-retry — `AuthClient`
+ * owns its own 401 → refresh, so retrying its refresh/login/logout call from here
+ * would loop or deadlock. Always merged with the caller's `skipPaths`.
+ */
+const DEFAULT_AUTH_SKIP_PATHS: string[] = [
+  DEFAULT_ENDPOINTS.refresh,
+  DEFAULT_ENDPOINTS.login,
+  DEFAULT_ENDPOINTS.logout,
+  DEFAULT_ENDPOINTS.logoutAll,
+];
+
+function withDefaultSkips(skipPaths?: AttachOptions['skipPaths']): AttachOptions['skipPaths'] {
+  return [...DEFAULT_AUTH_SKIP_PATHS, ...(skipPaths ?? [])];
+}
+
+/** True when the request was issued by `AuthClient` itself (via createAxiosAdapter). */
+function isAdapterRequest(config: unknown): boolean {
+  return !!config && !!(config as Record<string, unknown>)[NEST_AUTH_ADAPTER_REQUEST];
+}
+
 // ─── attachToAxios ────────────────────────────────────────────────────────────
 
 /**
@@ -150,8 +172,13 @@ export function attachToAxios(
   instance: AxiosLikeInstance,
   opts: AttachOptions = {},
 ): () => void {
+  const skipPaths = withDefaultSkips(opts.skipPaths);
+
   const reqId = instance.interceptors.request.use(async (config) => {
-    if (urlMatchesSkip(config.url, opts.skipPaths)) return config;
+    // AuthClient's own requests (through createAxiosAdapter) already carry auth
+    // and manage their own refresh — leave them untouched.
+    if (isAdapterRequest(config)) return config;
+    if (urlMatchesSkip(config.url, skipPaths)) return config;
 
     // Async path — handles the very first request when mirror isn't warm yet
     const headers = await client.getAuthHeaders(opts);
@@ -170,7 +197,10 @@ export function attachToAxios(
         opts.retryOn401 === false ||
         error.response?.status !== 401 ||
         !error.config ||
-        urlMatchesSkip(error.config.url, opts.skipPaths)
+        // Never refresh-retry AuthClient's own auth traffic — it self-manages
+        // 401 → refresh; re-entering here deadlocks the in-flight refresh.
+        isAdapterRequest(error.config) ||
+        urlMatchesSkip(error.config.url, skipPaths)
       ) {
         throw error;
       }
@@ -225,10 +255,11 @@ export function attachToFetch(
 ): typeof globalThis.fetch {
   // Resolve `fetch` once with `this` bound to globalThis (some envs require it)
   const fetchFn = baseFetch.bind(globalThis);
+  const skipPaths = withDefaultSkips(opts.skipPaths);
 
   return async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const url = typeof input === 'string' ? input : input.toString();
-    const isSkipped = urlMatchesSkip(url, opts.skipPaths);
+    const isSkipped = urlMatchesSkip(url, skipPaths);
 
     const buildInit = async (existing: RequestInit): Promise<RequestInit> => {
       if (isSkipped) return existing;

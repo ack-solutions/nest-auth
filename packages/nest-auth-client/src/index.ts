@@ -33,7 +33,7 @@ export {
     IClientConfig,
 } from './types/config.types';
 
-export { DEFAULT_ENDPOINTS } from './types/config.types';
+export { DEFAULT_ENDPOINTS, NEST_AUTH_ADAPTER_REQUEST } from './types/config.types';
 
 
 // Storage adapters

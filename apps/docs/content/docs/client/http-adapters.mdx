@@ -111,6 +111,23 @@ const detach2 = attachToAxios(auth, api);
 
 `attachToAxios` returns an **unsubscribe** function — call it on logout/unmount to eject the interceptors. The same instance can be re-attached afterward.
 
+> **Sharing one axios for both?** It is safe to point `AuthClient`'s `httpAdapter` at the *same* axios you `attachToAxios`: the interceptor automatically skips `AuthClient`'s own requests (`createAxiosAdapter` tags them) and never refresh-retries the auth endpoints (`/auth/refresh-token`, `/auth/login`, `/auth/logout`, `/auth/logout-all`), so an expired-session boot can't deadlock the refresh call. As a result, `attachToAxios`/`attachToFetch` never attach the bearer to — or refresh-retry — those auth paths: do login/logout via the `AuthClient`/`AccountManager` methods, and if you renamed your auth endpoints, pass the custom paths in `skipPaths`. Even so, the cleanest setup is **two instances** — a plain one as `AuthClient`'s transport, and a separate app instance with `attachToAxios` + `onRefreshFailed` for your API calls:
+
+```ts
+// Transport for AuthClient / AccountManager — no attach.
+const authApi = axios.create({ baseURL });
+const auth = new AuthClient({ baseUrl: baseURL, httpAdapter: createAxiosAdapter(authApi) });
+
+// Your app's calls — attach the active session and react when refresh finally fails.
+const api = axios.create({ baseURL });
+auth.attachToAxios(api, {
+  onRefreshFailed: () => {
+    // refresh token expired → send the user to /login (or removeAccount() in multi-account)
+    redirectToLogin();
+  },
+});
+```
+
 For `fetch`, the wrapper returns a **new** fetch-shaped function; cleanup is just "stop calling it":
 
 ```ts

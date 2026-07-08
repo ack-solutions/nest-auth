@@ -3,7 +3,7 @@
  * Use this if you prefer axios or need its features
  */
 
-import { HttpAdapter, HttpRequestOptions, HttpResponse } from '../types/config.types';
+import { HttpAdapter, HttpRequestOptions, HttpResponse, NEST_AUTH_ADAPTER_REQUEST } from '../types/config.types';
 
 /**
  * Create an Axios HTTP adapter
@@ -39,6 +39,9 @@ export function createAxiosAdapter(axiosInstance: any): HttpAdapter {
                     withCredentials: credentials === 'include',
                     timeout,
                     signal,
+                    // Tag AuthClient's own traffic so a shared axios with attachToAxios
+                    // skips it (AuthClient self-manages 401 → refresh).
+                    [NEST_AUTH_ADAPTER_REQUEST]: true,
                 });
 
                 // Convert axios headers to plain object

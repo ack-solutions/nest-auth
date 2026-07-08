@@ -88,6 +88,16 @@ export interface Logger {
 
 
 /**
+ * Marker set on every request `AuthClient` makes through `createAxiosAdapter`, so
+ * a shared axios that ALSO has `attachToAxios` can tell `AuthClient`'s own auth
+ * traffic apart from your app's requests and skip it. `AuthClient` manages its own
+ * 401 → refresh; re-handling that in the app interceptor deadlocks the refresh
+ * call. Internal — consumers never set this (custom adapters may set it to opt
+ * their own auth-client traffic out of a shared interceptor).
+ */
+export const NEST_AUTH_ADAPTER_REQUEST = '__nestAuthAdapterRequest';
+
+/**
  * Default endpoint paths
  */
 export const DEFAULT_ENDPOINTS = {
