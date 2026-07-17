@@ -1,6 +1,6 @@
 {
   "name": "@ackplus/tsconfig",
-  "version": "2.7.1",
+  "version": "2.7.2",
   "private": true,
   "description": "Shared TypeScript config presets for the nest-auth monorepo. Internal package, never published.",
   "files": [

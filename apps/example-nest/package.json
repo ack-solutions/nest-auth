@@ -1,6 +1,6 @@
 {
   "name": "example-nest",
-  "version": "2.7.1",
+  "version": "2.7.2",
   "description": "Reference NestJS app demonstrating @ackplus/nest-auth",
   "author": "Ackplus",
   "private": true,
