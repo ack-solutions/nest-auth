@@ -88,6 +88,7 @@ export function AccountSwitcherProvider({ manager: managerProp, config, children
             },
             switchAccount: (accountId) => manager.switchAccount(accountId),
             removeAccount: (accountId) => manager.removeAccount(accountId),
+            reset: () => manager.reset(),
             setAccountMeta: (accountId, meta) => manager.setAccountMeta(accountId, meta),
         }),
         [manager, snapshot],

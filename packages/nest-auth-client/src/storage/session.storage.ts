@@ -82,4 +82,19 @@ export class SessionStorageAdapter implements StorageAdapter {
             // Access denied
         }
     }
+
+    /** Keys under this adapter's prefix, prefix-stripped (for orphan-namespace GC). */
+    keys(): string[] {
+        if (!isBrowser()) return [];
+        try {
+            const out: string[] = [];
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                if (key?.startsWith(this.prefix)) out.push(key.slice(this.prefix.length));
+            }
+            return out;
+        } catch {
+            return [];
+        }
+    }
 }

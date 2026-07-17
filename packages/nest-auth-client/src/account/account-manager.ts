@@ -105,6 +105,8 @@ export interface IAccountSwitcher extends AuthHeaderProvider {
     commitAccount(client: AuthClient, meta?: AccountMeta): Promise<AccountSnapshot>;
     switchAccount(accountId: string): Promise<AccountSnapshot>;
     removeAccount(accountId: string): Promise<void>;
+    /** Remove every account (revoke sessions best-effort) and wipe their storage. */
+    reset(): Promise<void>;
     /** Update an account's app-supplied display metadata (label / tenantName). */
     setAccountMeta(accountId: string, meta: AccountMeta): Promise<AccountSnapshot>;
     subscribe(listener: () => void): () => void;
@@ -123,6 +125,19 @@ export interface AccountManagerConfig extends Omit<AuthClientConfig, 'storage'> 
     storageFactory?: (namespace: string) => StorageAdapter;
     /** Base key prefix for all account storage. Default `'nest_auth_'`. */
     storageNamespace?: string;
+    /**
+     * On `ready()`, sweep storage and drop any per-account token namespace that
+     * the account index no longer references (orphans left by an interrupted
+     * add-account flow or an index/storage desync). Default `true`. Requires the
+     * storage adapter to expose `keys()` (the built-in local/session adapters do);
+     * a no-op otherwise.
+     *
+     * Set `false` if multiple managers share one storage and you drive un-indexed
+     * pending clients across reloads — but note this **re-opens the boot-time
+     * leak**, so you must then reap manually via {@link discardPendingClient} /
+     * {@link reset}. All managers over the same storage should use the same value.
+     */
+    reapOrphanStorageOnReady?: boolean;
 }
 
 /** Thrown by `addAccount()` when the login needs an MFA step before it completes. */
@@ -144,6 +159,8 @@ export class AccountManager implements IAccountSwitcher {
     private readonly indexStorage: StorageAdapter;
     private readonly clients = new Map<string, AuthClient>();
     private readonly nsOf = new WeakMap<AuthClient, string>();
+    /** Namespaces handed out by createPendingClient() but not yet committed — protected from GC. */
+    private readonly pendingNamespaces = new Set<string>();
     private readonly listeners = new Set<() => void>();
     private index: AccountsIndex = { accounts: [], activeAccountId: null };
     private readonly loaded: Promise<void>;
@@ -168,7 +185,31 @@ export class AccountManager implements IAccountSwitcher {
      */
     createPendingClient(): AuthClient {
         this.assertHeaderMode();
-        return this.buildClient(this.genNamespace());
+        const ns = this.genNamespace();
+        this.pendingNamespaces.add(ns);
+        return this.buildClient(ns);
+    }
+
+    /**
+     * Discard a pending client (from {@link createPendingClient} / a caught
+     * {@link AccountMfaRequiredError}) that will never be committed — clears the
+     * tokens its login wrote so its namespace doesn't leak. Safe to call on any
+     * pending client; a no-op once committed.
+     */
+    async discardPendingClient(client: AuthClient): Promise<void> {
+        const ns = this.nsOf.get(client);
+        if (!ns || !this.pendingNamespaces.has(ns)) return;
+        try {
+            await Promise.resolve(client.logout());
+        } catch {
+            /* best-effort server revoke */
+        }
+        try {
+            await Promise.resolve(this.storageFactory(ns).clear?.());
+        } catch {
+            /* ignore */
+        }
+        this.pendingNamespaces.delete(ns);
     }
 
     /**
@@ -238,6 +279,7 @@ export class AccountManager implements IAccountSwitcher {
         };
         this.index.accounts = this.index.accounts.filter((a) => a.accountId !== accountId).concat(entry);
         this.clients.set(accountId, client);
+        this.pendingNamespaces.delete(ns); // now a committed account, not a pending orphan
         this.index.activeAccountId = accountId;
         await this.persist();
         this.notify();
@@ -295,6 +337,39 @@ export class AccountManager implements IAccountSwitcher {
         if (this.index.activeAccountId === accountId) {
             this.index.activeAccountId = this.index.accounts[0]?.accountId ?? null;
         }
+        await this.persist();
+        this.notify();
+    }
+
+    /**
+     * Remove every account and wipe all per-account token storage — including
+     * orphaned namespaces the index no longer references. Revokes each known
+     * account's session server-side (best-effort). Use it to implement a
+     * "plain sign-in starts a fresh single-account session" rule without
+     * reverse-engineering storage keys.
+     */
+    async reset(): Promise<void> {
+        await this.ready();
+        const accounts = [...this.index.accounts];
+        // Best-effort server revoke for each known account.
+        await Promise.allSettled(accounts.map((a) => this.getClient(a.accountId)?.logout()));
+
+        // Clear each known account's + pending client's storage DIRECTLY, so reset
+        // wipes local tokens even on a storage adapter that can't enumerate keys().
+        for (const ns of [...accounts.map((a) => a.ns), ...this.pendingNamespaces]) {
+            try {
+                await Promise.resolve(this.storageFactory(ns).clear?.());
+            } catch {
+                /* ignore */
+            }
+        }
+        this.pendingNamespaces.clear();
+
+        // Empty the index, then GC reaps any remaining orphaned namespaces
+        // (keys()-capable adapters); nothing known → nothing spared.
+        this.index = { accounts: [], activeAccountId: null };
+        this.clients.clear();
+        await this.gcOrphans();
         await this.persist();
         this.notify();
     }
@@ -408,15 +483,61 @@ export class AccountManager implements IAccountSwitcher {
     }
 
     private async loadIndex(): Promise<void> {
+        let indexTrusted = true;
         try {
             const raw = await Promise.resolve(this.indexStorage.get('index'));
             if (raw) this.index = JSON.parse(raw);
         } catch {
-            /* start empty */
+            // Index present but unparseable (or a storage read error): treat it as
+            // untrusted and do NOT reap — a transient/corrupt index must never
+            // delete still-valid token sets. (An ABSENT index is trusted-empty and
+            // still self-heals genuine orphans below.)
+            indexTrusted = false;
+        }
+        // Reap orphaned per-account namespaces left by an interrupted add-account
+        // flow or an index/storage desync (best-effort; needs adapter.keys()).
+        if (indexTrusted && this.config.reapOrphanStorageOnReady !== false) {
+            await this.gcOrphans();
         }
         // Notify any subscribers that attached before the async restore finished
         // (e.g. a React store) so they re-read the now-loaded account list.
         this.notify();
+    }
+
+    /**
+     * Drop every `<baseNs>a_<id>_*` token namespace present in storage that the
+     * account index no longer references (and that isn't a live pending client).
+     * Best-effort: needs the root storage adapter to expose `keys()`; otherwise a
+     * no-op. This is what makes the leak self-healing — orphans left by a prior
+     * session (abandoned pending client, lost index) are cleared on next boot.
+     */
+    private async gcOrphans(): Promise<void> {
+        // An empty base prefix would enumerate (and could clear) unrelated app keys.
+        if (!this.baseNs) return;
+        const root = this.storageFactory(this.baseNs);
+        if (typeof root.keys !== 'function') return;
+        let keys: string[];
+        try {
+            keys = await Promise.resolve(root.keys());
+        } catch {
+            return;
+        }
+        // Namespaces are `a_<id>_` where <id> (a UUID or base36) has no underscore.
+        const nsFragment = /^(a_[^_]+_)/;
+        const present = new Set<string>();
+        for (const k of keys) {
+            const m = nsFragment.exec(k);
+            if (m) present.add(this.baseNs + m[1]);
+        }
+        const known = new Set(this.index.accounts.map((a) => a.ns));
+        for (const ns of present) {
+            if (known.has(ns) || this.pendingNamespaces.has(ns)) continue;
+            try {
+                await Promise.resolve(this.storageFactory(ns).clear?.());
+            } catch {
+                /* ignore */
+            }
+        }
     }
 
     private async persist(): Promise<void> {

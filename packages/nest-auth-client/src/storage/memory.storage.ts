@@ -33,4 +33,8 @@ export class MemoryStorage implements StorageAdapter {
     clear(): void {
         this.store.clear();
     }
+
+    keys(): string[] {
+        return [...this.store.keys()];
+    }
 }

@@ -29,6 +29,15 @@ export interface StorageAdapter {
      * Clear all auth-related values from storage
      */
     clear?(): Promise<void> | void;
+
+    /**
+     * List the keys this adapter can see. For a prefix-namespaced adapter (the
+     * built-in local/session ones) these are the keys under its prefix, with the
+     * prefix stripped; a non-namespaced adapter (e.g. MemoryStorage) returns its
+     * own raw keys. Optional — enables `AccountManager`'s orphaned-namespace GC;
+     * adapters that can't enumerate simply omit it (GC becomes a no-op).
+     */
+    keys?(): Promise<string[]> | string[];
 }
 
 /**

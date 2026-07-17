@@ -151,6 +151,25 @@ export class CookieAccountManager implements IAccountSwitcher {
         return found;
     }
 
+    /**
+     * Remove every account: revoke each server-side session and clear the
+     * client-side display-meta overlay. (Cookie mode has no per-account local
+     * token namespaces to leak — this is provided for {@link IAccountSwitcher} parity.)
+     */
+    async reset(): Promise<void> {
+        await this.refreshAccounts();
+        for (const id of this.accounts.map((a) => a.accountId)) {
+            try {
+                await this.removeAccount(id);
+            } catch {
+                /* best-effort */
+            }
+        }
+        this.metaOverlay.clear();
+        await this.refreshAccounts();
+        this.notify();
+    }
+
     /** Make the target active, then log it out (server revokes it + promotes another). */
     async removeAccount(accountId: string): Promise<void> {
         this.setSelectorCookie(accountId);

@@ -5,12 +5,19 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.7.1`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.7.2`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/changelog/migrations#upgrading-within-v2-20x--22x)**. Bump every package to the same version.
 
 ---
+
+## 2.7.2 — multi-account storage GC + `reset()`
+
+- **Fixed (client):** `AccountManager` (header mode) no longer leaks orphaned per-account token namespaces in storage (`<prefix>a_<uuid>_access_token` / `_refresh_token` / `_session`). An interrupted add-account, an abandoned MFA/OTP pending client, or an index/storage desync previously stranded namespaces forever, because `removeAccount` can only target namespaces still in the index. On `ready()` the manager now **reaps** any namespace the index no longer references (opt out with `reapOrphanStorageOnReady: false`; a corrupt index never triggers reaping).
+- **Added:** `AccountManager.reset()` (also on `CookieAccountManager`, the `IAccountSwitcher` interface, and the React `useAccountSwitcher()`) — remove every account, revoke each session, and wipe all per-account storage. Use it for a "plain sign-in starts a fresh single-account session" rule.
+- **Added:** `AccountManager.discardPendingClient(client)` — clear an abandoned `createPendingClient()` / `AccountMfaRequiredError` pending client so its tokens don't linger.
+- **Added:** optional `StorageAdapter.keys()` (implemented by the local/session/memory adapters) that powers the GC. See [multi-account switching](/docs/recipes/multi-account-switching#cleaning-up--reset-discardpendingclient-automatic-gc).
 
 ## 2.7.1 — shared-axios refresh-deadlock fix
 

@@ -188,6 +188,32 @@ How it works under the hood:
 - Keep `cookieOptions.sameSite` at `lax`/`strict` and `secure: true` in production, as for single-account cookie auth.
 - Each account keeps its **own** rotating refresh token; refresh and reuse-detection are per-session, so holding several accounts never trips the reuse detector.
 
+## Cleaning up — reset, discardPendingClient, automatic GC
+
+In header mode each account gets its own namespaced token storage (`<prefix>a_<uuid>_*`). Three things keep it tidy:
+
+- **`manager.reset()`** (also `reset()` on the React `useAccountSwitcher()`) — remove **every** account, revoke each session server-side (best-effort), and wipe all per-account storage. Use it to enforce a "a plain sign-in starts a fresh single-account session, *Add account* accumulates" rule:
+
+```ts
+// plain sign-in (not the "add account" flow): start clean, then log in
+await manager.reset();
+await manager.addAccount(loginDto);
+```
+
+- **`manager.discardPendingClient(pendingClient)`** — if you `createPendingClient()` (or catch an `AccountMfaRequiredError`) and the user abandons the flow (cancels MFA/OTP, navigates away), discard the pending client so the tokens its login wrote don't linger:
+
+```ts
+try {
+  await manager.addAccount(dto);
+} catch (e) {
+  if (e instanceof AccountMfaRequiredError && userCancelled) {
+    await manager.discardPendingClient(e.client);
+  }
+}
+```
+
+- **Automatic orphan GC** — on `ready()` the manager sweeps storage and drops any per-account namespace the index no longer references (e.g. an interrupted add-account or a lost index), so the leak self-heals on the next boot. It needs a persistent storage adapter that exposes `keys()` (the built-in local/session adapters do). Set `reapOrphanStorageOnReady: false` only if several managers share one storage **and** you drive un-indexed pending clients across reloads — then reap manually with `discardPendingClient` / `reset`.
+
 ## Notes & limits
 
 - `maxSessionsPerUser` (default 10) is **per user** — many tenants for the *same* user could FIFO-evict that user's oldest sessions; raise it if needed.

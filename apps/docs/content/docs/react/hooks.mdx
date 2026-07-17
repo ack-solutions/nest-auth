@@ -146,6 +146,7 @@ const {
   completeMfa,     // (error, verifyDto, options?) => Promise<AccountSnapshot> — finish an MFA-gated add
   switchAccount,   // (accountId) => Promise<AccountSnapshot> — repoint active (no server call)
   removeAccount,   // (accountId) => Promise<void> — sign that account out
+  reset,           // () => Promise<void> — remove ALL accounts + wipe their storage
   setAccountMeta,  // (accountId, meta) => Promise<AccountSnapshot> — rename / label for the switcher
   manager,         // the underlying IAccountSwitcher (escape hatch for advanced flows)
 } = useAccountSwitcher();

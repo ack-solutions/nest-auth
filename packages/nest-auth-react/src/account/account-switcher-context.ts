@@ -50,6 +50,8 @@ export interface AccountSwitcherContextValue {
     switchAccount: (accountId: string) => Promise<AccountSnapshot>;
     /** Remove one account (revokes its session server-side, best-effort). */
     removeAccount: (accountId: string) => Promise<void>;
+    /** Remove every account and wipe their storage (e.g. to start a fresh single-account session). */
+    reset: () => Promise<void>;
     /** Update an account's display metadata (label / tenantName) for the switcher UI. */
     setAccountMeta: (accountId: string, meta: AccountMeta) => Promise<AccountSnapshot>;
 }
