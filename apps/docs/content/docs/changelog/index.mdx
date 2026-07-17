@@ -5,12 +5,29 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.5.2`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.7.1`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/changelog/migrations#upgrading-within-v2-20x--22x)**. Bump every package to the same version.
 
 ---
+
+## 2.7.1 — shared-axios refresh-deadlock fix
+
+- **Fixed (client):** sharing one axios for both `AuthClient` (`createAxiosAdapter`) and `attachToAxios` no longer deadlocks on an expired session. The boot `verifySession` 401 started a refresh whose refresh-token request re-entered the same interceptor and parked forever — the app hung on the splash screen and never cleared tokens or redirected to login. `createAxiosAdapter` now tags `AuthClient`'s own requests and `attachToAxios` skips them; the new `NEST_AUTH_ADAPTER_REQUEST` export lets custom adapters opt out too.
+- **Behavior:** `attachToAxios` / `attachToFetch` now default-skip the auth endpoints (`/auth/refresh-token`, `/auth/login`, `/auth/logout`, `/auth/logout-all`) — they are never bearer-injected or refresh-retried. Do login/logout via the `AuthClient` / `AccountManager` methods; if you renamed those endpoints, pass the custom paths in `skipPaths`. See [HTTP adapters](/docs/client/http-adapters).
+
+## 2.7.0 — platform-user listing + passwordless login completion
+
+- **Added (backend):** `UserService.getPlatformUsers(options?)`, `getPlatformUsersAndCount(options?)`, and `getPlatformUsersByRole(roleName, guard?)` — list super-admins by the `PlatformAccess` marker without scanning tenant users (the list analog of `getPlatformUserByEmail`). Caller `where` / `relations` / pagination are honored.
+- **Added (client + React):** `AuthClient.passwordlessLogin(dto)` and `useNestAuth().passwordlessLogin(dto)` complete a passwordless sign-in — exchange the emailed/texted code for a session (the completion step for `passwordlessSend`), returning a normal auth response. New `IPasswordlessLoginRequest` (`{ identifier, code, channel?, tenantId?, rememberMe? }`); `channel` defaults to trying both email and SMS. Wraps `POST /auth/login` — no backend change.
+
+## 2.6.0 — multi-account switcher DX
+
+- **Added:** `attachToAxios` / `attachToFetch` accept an `AccountManager` / `AuthHeaderProvider`, and the managers expose instance `attachToAxios()` / `attachToFetch()` — a shared axios/fetch follows the **active** account with no re-attach on switch.
+- **Added:** account naming — `AccountSnapshot.tenantName`, `AccountMeta`, `addAccount(dto, { meta })`, and `setAccountMeta(accountId, meta)` — so a same-email owner's accounts are distinguishable in the switcher.
+- **Added (React):** `useAccountSwitcher().completeMfa(error, verifyDto)` to finish an MFA-gated `addAccount`; `commitAccount` is now on `IAccountSwitcher`, and cookie mode surfaces `AccountMfaRequiredError` too.
+- **Added (React):** `GuestGuard.allowWhenAddingAccount` + a new `<AddAccountGuard>` for a Gmail-style "add another account" flow (render the login form while already signed in). See [multi-account switching](/docs/recipes/multi-account-switching).
 
 ## 2.5.2 — tenant-less platform-user provisioning
 
