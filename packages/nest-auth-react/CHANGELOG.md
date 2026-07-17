@@ -1,5 +1,21 @@
 # @ackplus/nest-auth-react
 
+## 2.7.2
+
+### Patch Changes
+
+- fix(client/react): reap orphaned per-account token namespaces + add reset() / discardPendingClient()
+
+  `AccountManager` (header mode) could strand per-account token namespaces in storage (`<prefix>a_<uuid>_access_token` / `_refresh_token` / `_session`) forever: `removeAccount` can only target namespaces still in the index, so any namespace written but not (or no longer) indexed — an interrupted add-account, an abandoned MFA/OTP pending client, or an index/storage desync — leaked. Now:
+  - **Automatic orphan GC** on `ready()` drops any `<prefix>a_<uuid>_*` namespace the account index no longer references, so the leak self-heals on the next boot. Needs a persistent storage adapter that exposes the new optional `StorageAdapter.keys()` (the built-in local/session/memory adapters implement it). Opt out with `reapOrphanStorageOnReady: false`. A corrupt/unparseable index never triggers destructive reaping.
+  - **`reset()`** — remove every account, revoke each session server-side (best-effort), and wipe all per-account storage (added to `AccountManager`, `CookieAccountManager`, the `IAccountSwitcher` interface, and the React `useAccountSwitcher()`). Lets an app implement "a plain sign-in starts a fresh single-account session" without reverse-engineering storage keys.
+  - **`discardPendingClient(client)`** — clear an abandoned `createPendingClient()` / `AccountMfaRequiredError` pending client so its tokens don't linger.
+
+  Note: the exported `IAccountSwitcher` interface gained `reset()` — custom in-house implementers (not users of the shipped managers) must add it.
+
+- Updated dependencies
+  - @ackplus/nest-auth-client@2.7.2
+
 ## 2.7.1
 
 ### Patch Changes
