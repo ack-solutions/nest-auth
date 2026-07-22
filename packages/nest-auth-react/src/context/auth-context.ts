@@ -4,7 +4,7 @@
  * Auth context for React
  */
 
-import { createContext } from 'react';
+import { createSingletonContext } from '../utils/singleton-context';
 import {
     AuthClient,
     ISessionUserData,
@@ -189,8 +189,12 @@ const defaultContextValue: AuthContextValue = {
 };
 
 /**
- * React context for authentication
+ * React context for authentication.
+ *
+ * A duplication-safe singleton (see {@link createSingletonContext}) so a
+ * doubly-installed `@ackplus/nest-auth-react` doesn't split providers from hooks
+ * and leave consumers stuck on the default `isLoading: true`.
  */
-export const AuthContext = createContext<AuthContextValue>(defaultContextValue);
+export const AuthContext = createSingletonContext<AuthContextValue>('AuthContext', defaultContextValue);
 
 AuthContext.displayName = 'AuthContext';

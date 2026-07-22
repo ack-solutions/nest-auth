@@ -6,6 +6,7 @@
 
 import React, { useContext, useEffect } from 'react';
 import { useAuthStatus } from '../hooks/use-auth-status';
+import { warnAuthStillLoading } from '../utils/dev-warn';
 import { useHasPermission } from '../hooks/use-has-role';
 import { AuthContext } from '../context/auth-context';
 
@@ -75,6 +76,7 @@ export function RequirePermission({
 
     // Show loading state
     if (isLoading) {
+        if (loadingFallback == null) warnAuthStillLoading();
         return React.createElement(React.Fragment, null, loadingFallback);
     }
 
