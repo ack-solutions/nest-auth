@@ -188,6 +188,35 @@ How it works under the hood:
 - Keep `cookieOptions.sameSite` at `lax`/`strict` and `secure: true` in production, as for single-account cookie auth.
 - Each account keeps its **own** rotating refresh token; refresh and reuse-detection are per-session, so holding several accounts never trips the reuse detector.
 
+## Don't let your provider and your API client diverge
+
+A manager with **no active account** resolves no auth headers, so requests through an attached axios go out **anonymous** and 401 — while an `AuthProvider` fed a separate bootstrap client still reports the user as signed in. Two token sources, silently disagreeing.
+
+Give the manager a `fallbackClient` and feed **`resolveActiveClient()`** (not `getActiveClient()`) to the provider, so both sides resolve the same client:
+
+```tsx
+const accounts = new AccountManager({
+  baseUrl,
+  accessTokenType: 'header',
+  fallbackClient: bootstrapClient,   // used whenever no account is active
+});
+
+accounts.attachToAxios(api);
+
+// Read it REACTIVELY — the account index loads asynchronously, and the active
+// account changes on switchAccount().
+const client = useSyncExternalStore(
+  (onChange) => accounts.subscribe(onChange),
+  () => accounts.resolveActiveClient() ?? bootstrapClient,
+);
+
+<AuthProvider client={client}>{children}</AuthProvider>
+```
+
+Pass `onNoActiveAccount: ({ method }) => …` if you'd rather be told (log / redirect to login) than silently send an anonymous request.
+
+> `reset()` and `removeAccount()` never touch the `fallbackClient` — it isn't a managed account, so auth keeps resolving through it afterwards. Log it out yourself if "reset" should mean *signed out everywhere*.
+
 ## Cleaning up — reset, discardPendingClient, automatic GC
 
 In header mode each account gets its own namespaced token storage (`<prefix>a_<uuid>_*`). Three things keep it tidy:

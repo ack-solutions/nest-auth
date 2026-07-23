@@ -182,6 +182,30 @@ await accounts.switchAccount(otherId);        // api now sends the new account's
 
 The same one-liner works on the manager instances directly (`accounts.attachToFetch()`) or via the standalone helpers (`attachToAxios(accounts, api)`). See [Multi-account login & switching](/docs/recipes/multi-account-switching).
 
+> **When no account is active.** A manager with no active account resolves no headers, so requests would go out **anonymous** (and 401) — while an auth provider fed a separate bootstrap client still shows the user signed in. Avoid that split-brain by giving the manager a `fallbackClient` and feeding **`resolveActiveClient()`** (not `getActiveClient()`) to your provider, so both resolve the same client. Pass `onNoActiveAccount` to be told when auth resolves to nothing instead of silently 401ing:
+
+```tsx
+const accounts = new AccountManager({
+  baseUrl,
+  accessTokenType: 'header',
+  fallbackClient: bootstrapClient,                    // used when no account is active
+  onNoActiveAccount: ({ method }) => log.warn('anonymous request', method),
+});
+
+accounts.attachToAxios(api);
+
+// Feed the SAME resolution to your provider — and read it REACTIVELY, so it
+// updates when the index finishes loading and on every switchAccount().
+const client = useSyncExternalStore(
+  (onChange) => accounts.subscribe(onChange),
+  () => accounts.resolveActiveClient() ?? bootstrapClient,
+);
+
+<AuthProvider client={client}>{children}</AuthProvider>
+```
+
+> A one-shot `accounts.resolveActiveClient()` read at render time is **not** enough: the persisted account index loads asynchronously, so an early read returns the fallback and never updates — re-introducing the very divergence this avoids.
+
 ## Cookie mode and `credentials`
 
 When the client is in cookie mode, every request goes out with `credentials: 'include'`. Make sure your CORS config has `Access-Control-Allow-Credentials: true` and an explicit origin allowlist (`*` is forbidden with credentials).

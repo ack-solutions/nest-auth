@@ -5,12 +5,18 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.7.2`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.7.3`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/changelog/migrations#upgrading-within-v2-20x--22x)**. Bump every package to the same version.
 
 ---
+
+## 2.7.3 — no silent anonymous requests when no account is active
+
+- **Fixed (client):** with no active account, `AccountManager.getAuthHeaders()` / `getAuthHeadersSync()` / `shouldSendCookies()` / `refresh()` resolved to nothing **silently**, so every request through an attached axios/fetch went out anonymous and 401'd — while an `AuthProvider` fed a separate bootstrap client still reported the user signed in. Two token sources disagreeing with no signal.
+- **Added:** `fallbackClient` on `AccountManagerConfig` — the client to use when no account is active (typically your bootstrap client) — plus a public **`resolveActiveClient()`** (also on `IAccountSwitcher`) so your auth provider and your attached HTTP client resolve the **same** client and can't diverge.
+- **Added:** `onNoActiveAccount({ method })` — fires when auth resolves to nothing, so you can log or redirect instead of silently 401ing. Defaults are unchanged (still non-fatal empty headers) when neither option is configured. See [HTTP adapters](/docs/client/http-adapters) and [multi-account switching](/docs/recipes/multi-account-switching).
 
 ## 2.7.2 — multi-account storage GC + `reset()`
 

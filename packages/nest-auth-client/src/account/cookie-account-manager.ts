@@ -59,6 +59,15 @@ export class CookieAccountManager implements IAccountSwitcher {
         return this.client;
     }
 
+    /**
+     * Cookie mode has a single client and the server picks the active account via
+     * the selector cookie, so this always resolves (never null) — no anonymous-request
+     * gap to guard against here.
+     */
+    resolveActiveClient(): AuthClient {
+        return this.client;
+    }
+
     // ---- AuthHeaderProvider (delegate to the single cookie client) -----------
 
     getAuthHeaders(opts?: GetAuthHeadersOptions): Promise<Record<string, string>> {
