@@ -5,7 +5,7 @@
  * so the single-account AuthProvider stays untouched — an app can use the
  * switcher on its own, or render a nested AuthProvider for the active account.
  */
-import { createContext } from 'react';
+import { createSingletonContext } from '../utils/singleton-context';
 import type {
     IAccountSwitcher,
     AccountSnapshot,
@@ -56,5 +56,10 @@ export interface AccountSwitcherContextValue {
     setAccountMeta: (accountId: string, meta: AccountMeta) => Promise<AccountSnapshot>;
 }
 
-export const AccountSwitcherContext = createContext<AccountSwitcherContextValue | null>(null);
+// Duplication-safe singleton (see createSingletonContext) so a doubly-installed
+// package doesn't split the provider from useAccountSwitcher.
+export const AccountSwitcherContext = createSingletonContext<AccountSwitcherContextValue | null>(
+    'AccountSwitcherContext',
+    null,
+);
 AccountSwitcherContext.displayName = 'AccountSwitcherContext';

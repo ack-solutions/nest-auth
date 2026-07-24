@@ -8,6 +8,7 @@
 import React, { ComponentType, useEffect } from 'react';
 import { useAuthStatus } from '../hooks/use-auth-status';
 import { useHasPermission } from '../hooks/use-has-role';
+import { warnAuthStillLoading } from '../utils/dev-warn';
 
 /**
  * Options for withRequirePermission HOC
@@ -109,6 +110,7 @@ export function withRequirePermission<P extends object>(
             if (LoadingComponent) {
                 return React.createElement(LoadingComponent);
             }
+            warnAuthStillLoading();
             return null;
         }
 

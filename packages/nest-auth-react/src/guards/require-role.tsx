@@ -6,6 +6,7 @@
 
 import React, { useEffect } from 'react';
 import { useAuthStatus } from '../hooks/use-auth-status';
+import { warnAuthStillLoading } from '../utils/dev-warn';
 import { useHasRole } from '../hooks/use-has-role';
 
 
@@ -75,6 +76,7 @@ export function RequireRole({
 
     // Show loading state
     if (isLoading) {
+        if (loadingFallback == null) warnAuthStillLoading();
         return React.createElement(React.Fragment, null, loadingFallback);
     }
 

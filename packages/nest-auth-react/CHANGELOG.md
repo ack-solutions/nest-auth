@@ -4,6 +4,15 @@
 
 ### Patch Changes
 
+- fix(react): make AuthContext & AccountSwitcherContext duplication-safe singletons
+
+  When `@ackplus/nest-auth-react` ends up installed twice — common in pnpm / monorepos when a peer-React version split double-installs it — each copy called `createContext()` and got its OWN context object. `<AuthProvider>` from one copy populated one context while hooks imported from the other copy read a different, still-default context: `isLoading` stayed `true` forever, so `AuthGuard`, `RequirePermission` / `RequireRole`, and the `withRequirePermission` / `withRequireRole` HOCs silently rendered a blank page for authenticated users, with no error.
+  - `AuthContext` and `AccountSwitcherContext` are now cross-realm singletons pinned on `globalThis` via `Symbol.for(...)`, so every duplicate copy of the package shares ONE context object. (Safe because React itself is a single instance via `peerDependency`; only the context _identity_ broke under duplication.)
+  - Guards no longer fail completely silently while "loading": when a guard renders nothing purely because auth is still loading and no loading UI was supplied, a one-time dev-only `console.warn` now points at a duplicate install as the likely cause. Production builds stay silent.
+  - Added a regression test asserting the contexts stay referentially identical (`===`) across a duplicate module resolution.
+
+  No API changes — a drop-in fix. The real remedy for a duplicate install is still to dedupe `@ackplus/nest-auth-react` to a single copy; this makes the app work even when you can't.
+
 - Updated dependencies
   - @ackplus/nest-auth-client@2.7.3
 
