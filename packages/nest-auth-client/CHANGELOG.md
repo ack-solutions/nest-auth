@@ -1,6 +1,6 @@
 # @ackplus/nest-auth-client
 
-## 2.7.3
+## 2.7.4
 
 ### Patch Changes
 
@@ -11,8 +11,16 @@
   - **`resolveActiveClient()`** (new, also on `IAccountSwitcher`) — the client auth actually resolves through (active account, else `fallbackClient`). Feed this to your auth provider so it and your attached HTTP client can never diverge.
   - **`onNoActiveAccount({ method })`** (new option) — fires when auth resolves to nothing, so you can log/redirect instead of silently 401ing.
 
+  Resolution is also **boot-safe**: the async resolvers await the account index before answering, and the sync ones return the neutral default until it has loaded, so a persisted active account is never briefly impersonated by the `fallbackClient`.
+
   Behaviour is unchanged when neither option is configured (still non-fatal empty headers, so genuinely public requests keep working). Note: the exported `IAccountSwitcher` interface gained `resolveActiveClient()` — custom in-house implementers (not users of the shipped managers) must add it.
-  - @ackplus/nest-auth-contracts@2.7.3
+  - @ackplus/nest-auth-contracts@2.7.4
+
+## 2.7.3
+
+### Patch Changes
+
+- @ackplus/nest-auth-contracts@2.7.3
 
 ## 2.7.2
 
