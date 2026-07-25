@@ -2,8 +2,9 @@
 
 /**
  * useClientConfig — fetch the backend's PUBLIC client configuration once and
- * cache it, so UI can adapt to the backend setup (tenant mode, enabled auth
- * methods, registration/MFA options, and `multipleAccounts.enabled`).
+ * cache it, so UI can adapt to the backend setup (tenant mode, email/phone/
+ * passwordless, OAuth client ids, registration/MFA, platform access, and
+ * `multipleAccounts.enabled`).
  *
  * Common use: decide whether to render the multi-account switcher.
  *

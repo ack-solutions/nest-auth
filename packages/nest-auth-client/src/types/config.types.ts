@@ -145,21 +145,11 @@ export const DEFAULT_ENDPOINTS = {
 export type EndpointConfig = typeof DEFAULT_ENDPOINTS;
 
 /**
- * Public client configuration returned by `GET /auth/client-config`. Lets a UI
- * adapt to the backend's setup (tenant mode, which auth methods are on, whether
- * multi-account is enabled, MFA options, …) without hardcoding it. Shape may be
- * extended by the backend's `clientConfig.factory`, so extra fields are allowed.
+ * Public client configuration returned by `GET /auth/client-config`.
+ * Canonical type lives in `@ackplus/nest-auth-contracts` — re-exported here for
+ * consumers that import config types from this package.
  */
-export interface IClientConfig {
-    tenants?: { enabled?: boolean; mode?: string };
-    multipleAccounts?: { enabled?: boolean };
-    roleGuards?: string[];
-    emailAuth?: { enabled?: boolean };
-    phoneAuth?: { enabled?: boolean };
-    registration?: { enabled?: boolean; requireInvitation?: boolean; collectProfileFields?: unknown };
-    mfa?: { enabled?: boolean; methods?: unknown; allowUserToggle?: boolean; allowMethodSelection?: boolean };
-    [key: string]: unknown;
-}
+export type { IClientConfig } from '@ackplus/nest-auth-contracts';
 
 /**
  * Token mode for auth client

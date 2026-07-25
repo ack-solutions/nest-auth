@@ -84,7 +84,7 @@ registration?: {
 };
 ```
 
-`collectProfileFields` is metadata for the public `/auth/client-config` endpoint — your signup form can render itself dynamically based on the server's policy.
+`collectProfileFields` is metadata for the public `/auth/client-config` endpoint — your signup form can render itself dynamically based on the server's policy. The same endpoint also returns passwordless flags, OAuth public client/app ids, `platformAccess.enabled`, and `accessTokenType` so login/signup UIs can adapt without hardcoding.
 
 ### Sessions & tokens
 

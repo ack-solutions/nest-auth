@@ -31,7 +31,8 @@ import {
     IPasswordlessLoginRequest,
     NEST_AUTH_PASSWORDLESS_PROVIDER,
     ISessionUserData,
-    ILoginRequest
+    ILoginRequest,
+    IClientConfig,
 } from '@ackplus/nest-auth-contracts';
 import {
     AuthClientConfig,
@@ -39,7 +40,6 @@ import {
     RequestOptions,
     GetAuthHeadersOptions,
     DEFAULT_ENDPOINTS,
-    IClientConfig,
 } from '../types/config.types';
 import { ClientSession, TokenState } from '../types/auth.types';
 import { AuthError } from '../types/auth.types';

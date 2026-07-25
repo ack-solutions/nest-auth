@@ -30,8 +30,9 @@ export {
     AuthClientConfig,
     RequestOptions,
     GetAuthHeadersOptions,
-    IClientConfig,
 } from './types/config.types';
+
+// IClientConfig is exported via `export * from '@ackplus/nest-auth-contracts'` above.
 
 export { DEFAULT_ENDPOINTS, NEST_AUTH_ADAPTER_REQUEST } from './types/config.types';
 

@@ -23,7 +23,7 @@ import { RequestContext } from '../../request-context/request-context';
 import { MessageResponseDto, SkipMfa, Public, NestAuthPermissions, SkipMustChangePassword, ApiValidationError, ApiUnauthorized, ApiConflictError } from '../../core';
 import { InviteService } from '../services/invite.service';
 import { NestAuthInviteRequestDto } from '../dto/requests/invite.request.dto';
-import { ISessionUserData, NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
+import { IClientConfig, ISessionUserData, NestAuthMFAMethodEnum, TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { NestAuthForgotPasswordRequestDto } from '../dto/requests/forgot-password.request.dto';
 import { NestAuthAuthGuard } from '../guards/auth.guard';
 import { NestAuthVerifyForgotPasswordOtpRequestDto } from '../dto/requests/verify-forgot-password-otp-request-dto';
@@ -46,9 +46,9 @@ import { AuthExceptionFilter } from '../filters/auth-exception.filter';
 import { Auth } from '../../core/decorators/auth.decorator';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { TenantService } from '../../tenant/services/tenant.service';
-import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { NestAuthPasswordlessSendRequestDto } from '../dto/requests/passwordless-send.request.dto';
 import { CookieHelper } from '../../utils/cookie.helper';
+import { ClientConfigResponseDto } from '../dto/responses/client-config.response.dto';
 
 @ApiTags('Authentication')
 @ApiBearerAuth('access-token')
@@ -377,18 +377,19 @@ export class AuthController {
 
     @ApiOperation({
         summary: 'Client config',
-        description: 'Public configuration for clients (tenant mode, auth methods, registration, MFA, etc.). No auth required.',
+        description:
+            'Public configuration for clients (tenant mode, email/phone/passwordless, OAuth client ids, registration, MFA, platform access, token mode). No auth required. Never includes secrets.',
     })
-    @ApiResponse({ status: 200, description: 'Client configuration' })
+    @ApiResponse({ status: 200, type: ClientConfigResponseDto, description: 'Client configuration' })
     @Public()
     @Get('client-config')
     async getClientConfig() {
         const config = this.authConfigService.getConfig();
 
-        const defaultResponse = {
+        const defaultResponse: IClientConfig = {
             tenants: {
                 enabled: config.tenant?.enabled,
-                mode: config.tenant!.mode ?? TenantModeEnum.ISOLATED,
+                mode: config.tenant?.mode ?? TenantModeEnum.ISOLATED,
             },
             // Opt-in capability flag so clients enable their account switcher
             // only when the backend intends to support multiple concurrent logins.
@@ -398,6 +399,24 @@ export class AuthController {
             roleGuards: this.authConfigService.getRoleGuards(),
             emailAuth: { enabled: config.emailAuth?.enabled !== false },
             phoneAuth: { enabled: config.phoneAuth?.enabled === true },
+            passwordless: {
+                enabled: config.passwordless?.enabled === true,
+                allowSignUp: config.passwordless?.allowSignUp === true,
+            },
+            // OAuth — public client/app ids only (never secrets / private keys).
+            google: config.google
+                ? { enabled: true, clientId: config.google.clientId }
+                : { enabled: false },
+            facebook: config.facebook
+                ? { enabled: true, appId: config.facebook.appId }
+                : { enabled: false },
+            apple: config.apple
+                ? { enabled: true, clientId: config.apple.clientId }
+                : { enabled: false },
+            github: config.github
+                ? { enabled: true, clientId: config.github.clientId }
+                : { enabled: false },
+            customProviders: (config.customAuthProviders ?? []).map((p) => p.providerName),
             registration: {
                 enabled: config.registration?.enabled !== false,
                 requireInvitation: config.registration?.requireInvitation ?? false,
@@ -411,6 +430,10 @@ export class AuthController {
                     allowMethodSelection: config.mfa.allowMethodSelection,
                 }
                 : { enabled: false },
+            platformAccess: {
+                enabled: config.platformAccess?.enabled === true,
+            },
+            accessTokenType: config.session?.accessTokenType ?? 'header',
         };
 
         if (config.clientConfig?.factory) {

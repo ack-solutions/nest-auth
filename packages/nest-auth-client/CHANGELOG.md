@@ -1,5 +1,14 @@
 # @ackplus/nest-auth-client
 
+## 2.7.5
+
+### Patch Changes
+
+- feat(client): `IClientConfig` now includes passwordless, OAuth public ids,
+  `platformAccess`, `accessTokenType`, and `customProviders` (canonical type
+  lives in `@ackplus/nest-auth-contracts`).
+  - @ackplus/nest-auth-contracts@2.7.5
+
 ## 2.7.4
 
 ### Patch Changes

@@ -839,12 +839,19 @@
     },
     "/auth/client-config": {
       "get": {
-        "description": "Public configuration for clients (tenant mode, auth methods, registration, MFA, etc.). No auth required.",
+        "description": "Public configuration for clients (tenant mode, email/phone/passwordless, OAuth client ids, registration, MFA, platform access, token mode). No auth required. Never includes secrets.",
         "operationId": "AuthController_getClientConfig",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "Client configuration"
+            "description": "Client configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientConfigResponseDto"
+                }
+              }
+            }
           },
           "400": {
             "description": "Validation failed (bad input).",
@@ -4106,7 +4113,7 @@
   "info": {
     "title": "@ackplus/nest-auth API",
     "description": "Authentication & authorization API for **@ackplus/nest-auth**.\n\n### Conventions\n- **Base URL** — routes are shown relative to your app’s global prefix. The reference example app uses `/api`, so a route like `POST /auth/login` is called at `POST /api/auth/login`.\n- **Auth** — most endpoints require a Bearer access token: `Authorization: Bearer <accessToken>`. The **Admin** endpoints use an httpOnly session cookie set by `POST /auth/admin/login`.\n- **Token modes** — in *header* mode (default) tokens are returned in the response body; in *cookie* mode they are set as httpOnly cookies. Controlled by `accessTokenType`.\n- **Errors** — failures return `{ statusCode, error, message, code }`; the machine-readable `code` is the value to branch on.\n\nBrowse by section in the sidebar: **Authentication**, **Password**, **Verification**, **Passwordless**, **MFA**, and the **Admin** groups.",
-    "version": "2.4.0",
+    "version": "2.7.4",
     "contact": {}
   },
   "tags": [
@@ -4902,6 +4909,374 @@
         "required": [
           "message"
         ]
+      },
+      "TenantOptionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "isActive"
+        ]
+      },
+      "TenantsConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "mode": {
+            "type": "string",
+            "example": "isolated",
+            "enum": [
+              "isolated",
+              "shared"
+            ]
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantOptionDto"
+            }
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "MultipleAccountsConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "EmailAuthConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "PhoneAuthConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "PasswordlessAuthConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": false
+          },
+          "allowSignUp": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "OAuthProviderPublicConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": false
+          },
+          "clientId": {
+            "type": "string",
+            "example": "1234567890-abcdef.apps.googleusercontent.com"
+          },
+          "appId": {
+            "type": "string",
+            "example": "123456789012345",
+            "description": "Facebook app id (when provider is Facebook)"
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "RegistrationConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether user registration is enabled"
+          },
+          "requireInvitation": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether registration requires an invitation"
+          },
+          "collectProfileFields": {
+            "type": "array",
+            "description": "Additional profile fields to collect during registration",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "text",
+                    "email",
+                    "phone",
+                    "select",
+                    "checkbox",
+                    "password"
+                  ]
+                },
+                "placeholder": {
+                  "type": "string"
+                },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "label": {
+                        "type": "string"
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "MfaConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "methods": {
+            "example": [
+              "email",
+              "totp"
+            ],
+            "type": "array",
+            "items": {
+              "type": "array"
+            }
+          },
+          "allowUserToggle": {
+            "type": "boolean",
+            "example": true
+          },
+          "allowMethodSelection": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "PlatformAccessPublicConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "SsoProviderConfigDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string"
+          },
+          "authorizationUrl": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "hint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "SsoConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": false
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SsoProviderConfigDto"
+            }
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "UiConfigDto": {
+        "type": "object",
+        "properties": {
+          "brandName": {
+            "type": "string"
+          },
+          "brandColor": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string"
+          },
+          "backgroundImageUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "ClientConfigResponseDto": {
+        "type": "object",
+        "properties": {
+          "tenants": {
+            "$ref": "#/components/schemas/TenantsConfigDto"
+          },
+          "multipleAccounts": {
+            "$ref": "#/components/schemas/MultipleAccountsConfigDto"
+          },
+          "roleGuards": {
+            "example": [
+              "web",
+              "api"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "emailAuth": {
+            "$ref": "#/components/schemas/EmailAuthConfigDto"
+          },
+          "phoneAuth": {
+            "$ref": "#/components/schemas/PhoneAuthConfigDto"
+          },
+          "passwordless": {
+            "$ref": "#/components/schemas/PasswordlessAuthConfigDto"
+          },
+          "google": {
+            "$ref": "#/components/schemas/OAuthProviderPublicConfigDto"
+          },
+          "facebook": {
+            "$ref": "#/components/schemas/OAuthProviderPublicConfigDto"
+          },
+          "apple": {
+            "$ref": "#/components/schemas/OAuthProviderPublicConfigDto"
+          },
+          "github": {
+            "$ref": "#/components/schemas/OAuthProviderPublicConfigDto"
+          },
+          "customProviders": {
+            "example": [
+              "ldap"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "registration": {
+            "$ref": "#/components/schemas/RegistrationConfigDto"
+          },
+          "mfa": {
+            "$ref": "#/components/schemas/MfaConfigDto"
+          },
+          "platformAccess": {
+            "$ref": "#/components/schemas/PlatformAccessPublicConfigDto"
+          },
+          "accessTokenType": {
+            "type": "string",
+            "enum": [
+              "header",
+              "cookie",
+              null
+            ],
+            "example": "header"
+          },
+          "sso": {
+            "$ref": "#/components/schemas/SsoConfigDto"
+          },
+          "ui": {
+            "$ref": "#/components/schemas/UiConfigDto"
+          }
+        }
       },
       "NestAuthSendEmailVerificationRequestDto": {
         "type": "object",

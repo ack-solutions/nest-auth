@@ -5,10 +5,18 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.7.4`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.7.5`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/changelog/migrations#upgrading-within-v2-20x--22x)**. Bump every package to the same version.
+
+---
+
+## 2.7.5 — richer `/auth/client-config` for login/signup UIs
+
+- **Added (backend):** `GET /auth/client-config` now returns passwordless flags, OAuth public client/app ids (`google` / `facebook` / `apple` / `github`), `customProviders`, `platformAccess.enabled`, and `accessTokenType` — so login/signup screens can render without hardcoding. Secrets (`clientSecret`, `appSecret`, private keys, JWT secrets) are never included; public OAuth client/app ids are safe to expose.
+- **Added (contracts):** `IClientConfig` (+ related public config types) is the shared response shape; `@ackplus/nest-auth-client` re-exports it.
+- **Docs:** client + hooks-reference pages updated for the expanded config.
 
 ---
 
