@@ -1,5 +1,14 @@
 # @ackplus/nest-auth
 
+## 2.7.6
+
+### Patch Changes
+
+- feat(user): `UserService.getTenantsByEmail` / `getTenantsByPhone` for
+  app-owned email/phone-first tenant pickers (cross-tenant, active-only,
+  no public HTTP endpoint).
+  - @ackplus/nest-auth-contracts@2.7.6
+
 ## 2.7.5
 
 ### Patch Changes

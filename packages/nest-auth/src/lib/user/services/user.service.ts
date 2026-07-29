@@ -553,6 +553,71 @@ export class UserService {
     }
 
     /**
+     * Find every **active** tenant that has an active membership for this email.
+     *
+     * Intended for app-owned "email-first" login pickers (especially ISOLATED
+     * mode, where the same email is a distinct account per tenant). There is
+     * **no** public HTTP endpoint for this — call it from your own controller
+     * and decide what fields to return (`id` / `slug` / `name` / …).
+     *
+     * Unlike {@link getUserByEmail}, this does **not** require a `tenantId`
+     * under ISOLATED: it deliberately searches across tenants.
+     *
+     * Inactive users, inactive memberships, and inactive tenants are omitted.
+     * Results are de-duplicated by tenant id.
+     */
+    async getTenantsByEmail(email: string, manager?: EntityManager): Promise<NestAuthTenant[]> {
+        const emailNorm = normalizedEmail(email);
+        if (!emailNorm) {
+            return [];
+        }
+        return this.findTenantsByUserField('email', emailNorm, manager);
+    }
+
+    /**
+     * Find every **active** tenant that has an active membership for this phone.
+     * Same semantics as {@link getTenantsByEmail} (cross-tenant, no public HTTP
+     * surface, de-duplicated, active-only).
+     */
+    async getTenantsByPhone(phone: string, manager?: EntityManager): Promise<NestAuthTenant[]> {
+        const phoneNorm = normalizedPhone(phone);
+        if (!phoneNorm) {
+            return [];
+        }
+        return this.findTenantsByUserField('phone', phoneNorm, manager);
+    }
+
+    /**
+     * Shared implementation for {@link getTenantsByEmail} / {@link getTenantsByPhone}.
+     */
+    private async findTenantsByUserField(
+        field: 'email' | 'phone',
+        value: string,
+        manager?: EntityManager,
+    ): Promise<NestAuthTenant[]> {
+        this.debugLogger.debug('Finding tenants by user identity', 'UserService', { field, hasValue: !!value });
+
+        const query = await this.getUserAccessRepo(manager)
+            .createQueryBuilder()
+
+        query.innerJoinAndSelect(`${query.alias}.tenant`, 'tenant')
+            .innerJoin(`${query.alias}.user`, 'user')
+            .where(`user.${field} = :value`, { value })
+            .andWhere('tenant.isActive = :active', { active: true })
+            .getMany();
+
+            const accessList = await query.getMany();
+
+        const byId = new Map<string, NestAuthTenant>();
+        for (const access of accessList) {
+            if (access.tenant?.id) {
+                byId.set(access.tenant.id, access.tenant);
+            }
+        }
+        return Array.from(byId.values());
+    }
+
+    /**
      * Remove a user's access for a tenant.
      * Pass `manager` to participate in a transaction.
      */

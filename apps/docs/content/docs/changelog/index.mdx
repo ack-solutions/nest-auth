@@ -5,10 +5,16 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.7.5`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.7.6`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/changelog/migrations#upgrading-within-v2-20x--22x)**. Bump every package to the same version.
+
+---
+
+## 2.7.6 — email/phone-first tenant picker helpers
+
+- **Added (backend):** `UserService.getTenantsByEmail(email)` / `getTenantsByPhone(phone)` — cross-tenant helpers for app-owned email/phone-first login pickers (especially ISOLATED). No public nest-auth HTTP route; call from your own controller. See [Logging in under a tenant (ISOLATED)](/docs/recipes/tenant-login-isolated#optional-emailphone-first-picker).
 
 ---
 
