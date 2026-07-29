@@ -1,6 +1,6 @@
 {
     "name": "@ackplus/nest-auth-admin",
-    "version": "2.7.5",
+    "version": "2.7.6",
     "private": true,
     "type": "module",
     "description": "Embedded admin console UI for @ackplus/nest-auth (Vite + React SPA)",
