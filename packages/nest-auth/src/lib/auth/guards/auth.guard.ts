@@ -241,6 +241,17 @@ export class NestAuthAuthGuard implements CanActivate {
             const payload = await this.jwtService.verifyToken(token);
             const config = this.authConfigService.getConfig();
 
+            // Enforce token type: only ACCESS tokens authenticate a request. This
+            // blocks a refresh token (or a password-reset token) presented as a
+            // Bearer access token. Tokens minted before `type` existed (no claim)
+            // are tolerated for backward compatibility.
+            if (payload?.type !== undefined && payload.type !== 'access') {
+                throw new UnauthorizedException({
+                    message: 'Invalid or expired token',
+                    code: ERROR_CODES.INVALID_TOKEN,
+                });
+            }
+
             if (config.guards?.beforeAuth) {
                 const result = await config.guards.beforeAuth(request, payload);
                 if (result && result.reject) {

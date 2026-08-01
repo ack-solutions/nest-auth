@@ -43,7 +43,10 @@ export class AuthProviderRegistryService {
         if (this.options.passwordless?.enabled) {
             this.registerProvider(this.passwordlessAuthProvider);
         }
-        if (this.options.session?.jwt) {
+        // The `'jwt'` login provider trusts any token signed with session.jwt.secret
+        // and mints a session for its `sub`. That is a privileged bypass primitive,
+        // so it is OPT-IN (previously it was always on whenever session.jwt existed).
+        if (this.options.session?.jwt?.enableLoginProvider === true) {
             this.registerProvider(this.jwtAuthProvider);
         }
         if (this.options.google) {

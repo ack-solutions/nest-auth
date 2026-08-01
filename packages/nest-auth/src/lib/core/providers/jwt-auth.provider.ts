@@ -26,24 +26,35 @@ export class JwtAuthProvider extends BaseAuthProvider {
         super(userRepository, authIdentityRepository);
 
         this.jwtConfig = this.options.session?.jwt;
-        this.enabled = Boolean(this.jwtConfig);
+        // Opt-in only (see AuthProviderRegistryService): a trust-any-signed-token
+        // login path must be enabled deliberately, never by the mere presence of
+        // a signing secret.
+        this.enabled = this.jwtConfig?.enableLoginProvider === true;
     }
 
     async validate(credentials: SocialCredentialsDto, _tenantId?: string) {
+        let payload;
         try {
-            const payload = await this.jwtService.verifyToken(credentials.token);
-
-            return {
-                userId: payload.sub,
-                email: payload.email,
-                phone: payload.phone,
-                metadata: {
-                    ...payload,
-                },
-            };
+            payload = await this.jwtService.verifyToken(credentials.token);
         } catch (error) {
             throw new BadRequestException('Invalid JWT token');
         }
+
+        // Defense in depth: reject SESSION tokens here so an internally-issued
+        // access/refresh token (same signing key) can't be laundered into a fresh
+        // session via this provider. A caller must mint a purpose-built token.
+        if (payload?.type === 'access' || payload?.type === 'refresh') {
+            throw new BadRequestException('Session tokens are not accepted by the jwt login provider');
+        }
+
+        return {
+            userId: payload.sub,
+            email: payload.email,
+            phone: payload.phone,
+            metadata: {
+                ...payload,
+            },
+        };
     }
 
     getRequiredFields(): string[] {

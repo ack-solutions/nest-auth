@@ -45,8 +45,10 @@ Module({
       autoLoadEntities: true,
     }),
     NestAuthModule.forRoot({
-      jwt: {
-        secret: 'swagger-secret',
+      session: {
+        jwt: {
+          secret: 'swagger-doc-signing-secret-not-for-production-use',
+        },
       },
       adminConsole: {
         enabled: true, // Enable so the admin controllers are documented

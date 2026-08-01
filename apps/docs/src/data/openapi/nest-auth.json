@@ -4106,7 +4106,7 @@
   "info": {
     "title": "@ackplus/nest-auth API",
     "description": "Authentication & authorization API for **@ackplus/nest-auth**.\n\n### Conventions\n- **Base URL** — routes are shown relative to your app’s global prefix. The reference example app uses `/api`, so a route like `POST /auth/login` is called at `POST /api/auth/login`.\n- **Auth** — most endpoints require a Bearer access token: `Authorization: Bearer <accessToken>`. The **Admin** endpoints use an httpOnly session cookie set by `POST /auth/admin/login`.\n- **Token modes** — in *header* mode (default) tokens are returned in the response body; in *cookie* mode they are set as httpOnly cookies. Controlled by `accessTokenType`.\n- **Errors** — failures return `{ statusCode, error, message, code }`; the machine-readable `code` is the value to branch on.\n\nBrowse by section in the sidebar: **Authentication**, **Password**, **Verification**, **Passwordless**, **MFA**, and the **Admin** groups.",
-    "version": "2.4.0",
+    "version": "2.7.3",
     "contact": {}
   },
   "tags": [

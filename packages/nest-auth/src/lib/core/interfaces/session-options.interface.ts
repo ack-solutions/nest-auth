@@ -84,8 +84,32 @@ export interface SessionOptions {
      * Placed under `session` so all TTL/session-related security config lives together.
      */
     jwt?: {
-        /** JWT Secret used for signing and verification */
+        /**
+         * JWT secret used for signing and verification. REQUIRED — the library no
+         * longer ships an insecure default. Use a high-entropy (32+ byte) random
+         * value from an environment variable / secrets manager, e.g.
+         * `secret: process.env.JWT_SECRET`. Boot fails if it is missing or set to
+         * a known-insecure value.
+         */
         secret: string;
+
+        /**
+         * Enforce that `secret` is at least 32 characters. Defaults to `false`
+         * (a shorter secret only logs a warning) so upgrading doesn't break
+         * existing deployments; set `true` to fail closed in production.
+         * @default false
+         */
+        validateSecretStrength?: boolean;
+
+        /**
+         * Enable the `'jwt'` login provider, which mints a session from a caller-
+         * supplied JWT signed with `secret` (`POST /auth/login { providerName: 'jwt' }`).
+         * Defaults to `false` — this is a privileged trust-any-signed-token path and
+         * must be turned on deliberately (and paired with a dedicated audience). A
+         * weak/leaked `secret` here is a full account-takeover primitive.
+         * @default false
+         */
+        enableLoginProvider?: boolean;
 
         /**
          * Optional custom access token validation.

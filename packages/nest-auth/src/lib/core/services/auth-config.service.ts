@@ -21,9 +21,9 @@ export class AuthConfigService {
             accessTokenValidity: '1h',
             refreshTokenValidity: '30d',
             slidingExpiration: false,
-            jwt: {
-                secret: 'secret',
-            },
+            // NOTE: no default `jwt.secret` — the consumer MUST provide one.
+            // A default signing secret is a full account-takeover primitive, so
+            // boot fails (see validateJwtSecret) when it's missing or insecure.
             cookieOptions: {
                 httpOnly: true,
                 secure: false,
@@ -145,11 +145,52 @@ export class AuthConfigService {
 
         this.options = mergedOptions;
 
+        // Validate the JWT signing secret (fail closed — no insecure default)
+        this.validateJwtSecret(this.options);
+
         // Validate session configuration
         this.validateSessionOptions(this.options);
 
         // Validate admin console configuration
         this.validateAdminConsoleOptions(this.options);
+    }
+
+    /**
+     * Validates the JWT signing secret. The library ships NO default secret: a
+     * shared/known signing key lets anyone forge `{ sub: <anyUser> }` and, if the
+     * `'jwt'` login provider is enabled, mint a session as any user. Boot fails
+     * when the secret is missing or a known-insecure value; a merely-short secret
+     * warns unless `session.jwt.validateSecretStrength` opts into hard enforcement.
+     */
+    private static validateJwtSecret(options: IAuthModuleOptions): void {
+        const jwtCfg = options.session?.jwt;
+        const secret = jwtCfg?.secret;
+
+        if (!secret || typeof secret !== 'string' || secret.trim() === '') {
+            throw new Error(
+                'session.jwt.secret is required. Set it to a high-entropy (32+ byte) random value ' +
+                'from an environment variable or secrets manager (e.g. secret: process.env.JWT_SECRET). ' +
+                'The library no longer ships an insecure default.',
+            );
+        }
+
+        const insecure = new Set(['secret', 'change-me', 'changeme', 'default', 'jwt-secret', 'your-secret', 'password']);
+        if (insecure.has(secret.trim().toLowerCase())) {
+            throw new Error(
+                `session.jwt.secret is set to the well-known insecure value "${secret}". ` +
+                'Use a high-entropy (32+ byte) random secret from a secrets manager. Rotate it regularly.',
+            );
+        }
+
+        if (secret.length < 32) {
+            const message =
+                'session.jwt.secret is shorter than the recommended 32 characters — use a high-entropy ' +
+                '32+ byte random value in production.';
+            if (jwtCfg?.validateSecretStrength === true) {
+                throw new Error(message);
+            }
+            console.warn(`[NestAuth] ${message} Set session.jwt.validateSecretStrength: true to enforce.`);
+        }
     }
 
     /**
