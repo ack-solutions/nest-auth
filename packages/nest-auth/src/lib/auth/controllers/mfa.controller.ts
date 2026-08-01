@@ -139,7 +139,7 @@ export class MfaController {
         }
 
         this.mfaService.requireMfaEnabledForApp(true);
-        await this.mfaService.removeTotpDevice(deviceId);
+        await this.mfaService.removeTotpDevice(deviceId, user.id);
         return { message: 'MFA device removed successfully' };
     }
 

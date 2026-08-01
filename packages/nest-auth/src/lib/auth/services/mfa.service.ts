@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NestAuthMFASecret } from '../../auth/entities/mfa-secret.entity';
@@ -413,10 +413,16 @@ export class MfaService {
         }
     }
 
-    async removeTotpDevice(deviceId: string): Promise<void> {
+    async removeTotpDevice(deviceId: string, userId: string): Promise<void> {
         this.checkIsMfaEnabledForApp(true)
 
-        await this.mfaSecretRepository.delete({ id: deviceId });
+        // Scope the delete to the OWNER. Without the userId filter any authenticated
+        // user could delete another user's TOTP device (IDOR) and downgrade them to
+        // a single factor. A non-owned / unknown id returns 404 (no cross-user probe).
+        const result = await this.mfaSecretRepository.delete({ id: deviceId, userId });
+        if (!result.affected) {
+            throw new NotFoundException('MFA device not found');
+        }
     }
 
     private getRecoveryCodeSecret(): string {

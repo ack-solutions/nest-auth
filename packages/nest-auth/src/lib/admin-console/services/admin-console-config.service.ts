@@ -62,11 +62,20 @@ export class AdminConsoleConfigService {
       path: this.getBasePath(),
     };
 
-    return {
+    const merged: CookieOptions = {
       ...base,
       ...(config.cookie ?? {}),
       path: config.cookie?.path ?? base.path,
     };
+
+    // A SameSite=None cookie is only sent cross-site over HTTPS and modern
+    // browsers reject it without Secure — force it so the admin cookie can never
+    // silently degrade to being sent in cleartext.
+    if (merged.sameSite === 'none') {
+      merged.secure = true;
+    }
+
+    return merged;
   }
 
   allowAdminManagement(): boolean {

@@ -57,7 +57,9 @@ export class AuthConfigService {
             allowAdminManagement: true,
             cookie: {
                 httpOnly: true,
-                secure: false,
+                // NOTE: no `secure` default — leaving it unset lets getCookieOptions()
+                // derive it from NODE_ENV (Secure in production). A shipped `false`
+                // here would override that gate and send the admin cookie in cleartext.
                 sameSite: 'lax' as const,
             },
         },
