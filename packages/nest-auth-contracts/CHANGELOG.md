@@ -1,4 +1,9 @@
 # @ackplus/nest-auth-contracts
+## 2.8.0
+
+### Minor Changes
+
+- Security-hardening release. New opt-in config types (CSRF, rate limiting, lockout, password policy, disposable-email) and social profile fields (`firstName` / `lastName` / `avatarUrl`); no breaking contract-shape changes.
 
 ## 2.7.6
 

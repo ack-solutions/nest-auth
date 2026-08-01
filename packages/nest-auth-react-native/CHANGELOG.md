@@ -1,4 +1,11 @@
 # @ackplus/nest-auth-react-native
+## 2.8.0
+
+### Minor Changes
+
+- Social login accepts `firstName` / `lastName` / `avatarUrl` (via the shared `AuthClient`). Part of the 2.8.0 security-hardening release.
+- Updated dependencies
+  - @ackplus/nest-auth-client@2.8.0
 
 ## 2.7.6
 

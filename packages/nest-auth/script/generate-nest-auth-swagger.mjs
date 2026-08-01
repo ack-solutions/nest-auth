@@ -52,7 +52,8 @@ Module({
       },
       adminConsole: {
         enabled: true, // Enable so the admin controllers are documented
-        secretKey: 'swagger-doc-secret',
+        // 32+ chars — the admin console fails closed on a short/weak secret.
+        secretKey: 'swagger-doc-admin-secret-not-for-production-use',
       },
     }),
   ],

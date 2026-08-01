@@ -1,4 +1,11 @@
 # @ackplus/nest-auth-client
+## 2.8.0
+
+### Minor Changes
+
+- Social login accepts `firstName` / `lastName` / `avatarUrl` credential fields. Part of the 2.8.0 security-hardening release (see `@ackplus/nest-auth`).
+- Updated dependencies
+  - @ackplus/nest-auth-contracts@2.8.0
 
 ## 2.7.6
 

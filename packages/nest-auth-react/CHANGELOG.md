@@ -1,4 +1,11 @@
 # @ackplus/nest-auth-react
+## 2.8.0
+
+### Patch Changes
+
+- 2.8.0 security-hardening release (see `@ackplus/nest-auth`).
+- Updated dependencies
+  - @ackplus/nest-auth-client@2.8.0
 
 ## 2.7.6
 
