@@ -8,12 +8,15 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   Res,
   UnauthorizedException,
   UseGuards,
   UseFilters,
 } from '@nestjs/common';
-import { Response } from 'express';
+import { Request, Response } from 'express';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { NestAuthEvents } from '../../auth.constants';
 import { AdminAuthService } from '../services/admin-auth.service';
 import { AdminSessionService } from '../services/admin-session.service';
 import { AdminConsoleConfigService } from '../services/admin-console-config.service';
@@ -56,9 +59,29 @@ export class AdminAuthController {
     private readonly userService: UserService,
     private readonly roleService: RoleService,
     private readonly tenantService: TenantService,
+    private readonly eventEmitter: EventEmitter2,
     @InjectRepository(NestAuthUser)
     private readonly userRepository: Repository<NestAuthUser>,
   ) { }
+
+  /**
+   * Best-effort out-of-band notification for a security-sensitive admin action
+   * performed via the shared secret key. A listener can email the operator.
+   * A listener failure must never break the admin operation.
+   */
+  private async emitAdminEvent(event: string, admin: NestAuthAdminUser, req: Request): Promise<void> {
+    try {
+      await this.eventEmitter.emitAsync(event, {
+        adminId: admin.id,
+        email: admin.email,
+        ip: req?.ip,
+        userAgent: req?.headers?.['user-agent'],
+        at: new Date(),
+      });
+    } catch {
+      // swallow — notifications are advisory
+    }
+  }
 
   private getCookieOptions() {
     const opts = this.config.getCookieOptions();
@@ -69,10 +92,18 @@ export class AdminAuthController {
     return opts;
   }
 
-  @ApiOperation({ summary: 'Create an admin (secret-key gated)' })
+  @ApiOperation({ summary: 'Bootstrap the first admin (secret-key gated)' })
   @Post('signup')
-  async signup(@Body() dto: AdminSignupDto) {
+  async signup(@Body() dto: AdminSignupDto, @Req() req: Request) {
     this.config.ensureEnabled();
+
+    // Respect the same management switch as every other admin-mutation route.
+    if (!this.config.allowAdminManagement()) {
+      throw new ForbiddenException({
+        message: 'Admin management is disabled',
+        code: 'ADMIN_MANAGEMENT_DISABLED',
+      });
+    }
 
     // Validate secret key using constant-time comparison to prevent timing attacks
     const secretKey = this.config.getSecretKey();
@@ -90,13 +121,28 @@ export class AdminAuthController {
       });
     }
 
-    // Create admin user - allows multiple admins (no restriction like initialize)
+    // Bootstrap-only by default: once an admin exists, this public secret-key
+    // endpoint is closed so a leaked secretKey can't mint unlimited super-admins.
+    // Create further admins while signed in via POST <admin>/admins (session-
+    // guarded). Opt out with adminConsole.allowPublicSignupAfterFirstAdmin.
+    if (!this.config.allowPublicSignupAfterFirstAdmin()) {
+      const existing = await this.adminUsers.listAdmins();
+      if (existing.length > 0) {
+        throw new ForbiddenException({
+          message: 'An admin already exists. Sign in and create additional admins from the dashboard.',
+          code: 'ADMIN_BOOTSTRAP_CLOSED',
+        });
+      }
+    }
+
     const admin = await this.adminUsers.createAdmin({
       email: dto.email,
       password: dto.password,
       name: dto.name,
       metadata: dto.metadata || {},
     });
+
+    await this.emitAdminEvent(NestAuthEvents.ADMIN_CREATED, admin, req);
 
     return {
       message: 'Admin user created successfully',
@@ -274,10 +320,18 @@ export class AdminAuthController {
     return { message: 'Admin deleted successfully' };
   }
 
-  @ApiOperation({ summary: "Reset an admin's password" })
+  @ApiOperation({ summary: "Reset an admin's password (secret-key gated recovery)" })
   @Post('reset-password')
-  async resetPassword(@Body() dto: AdminResetPasswordDto) {
+  async resetPassword(@Body() dto: AdminResetPasswordDto, @Req() req: Request) {
     this.config.ensureEnabled();
+
+    // Respect the management switch (this is an admin mutation, like the others).
+    if (!this.config.allowAdminManagement()) {
+      throw new ForbiddenException({
+        message: 'Admin management is disabled',
+        code: 'ADMIN_MANAGEMENT_DISABLED',
+      });
+    }
 
     // Validate secret key using constant-time comparison to prevent timing attacks
     const secretKey = this.config.getSecretKey();
@@ -307,6 +361,9 @@ export class AdminAuthController {
 
     // Update the password
     await this.adminUsers.updateAdmin(admin.id, { password: dto.newPassword });
+
+    // OOB-notify: a secret-key password reset is security-sensitive.
+    await this.emitAdminEvent(NestAuthEvents.ADMIN_PASSWORD_RESET, admin, req);
 
     return {
       message: 'Password reset successfully',

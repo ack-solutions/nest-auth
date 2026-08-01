@@ -196,22 +196,48 @@ export class AuthConfigService {
     }
 
     /**
-     * Validates admin console configuration options
+     * Validates admin console configuration options. When the console is enabled,
+     * both the bootstrap `secretKey` and (if set) the dedicated `sessionSecret`
+     * must be non-weak; a short (<32 char) value warns but doesn't block boot
+     * (backward compatible — a future major may make this fail closed).
      */
     private static validateAdminConsoleOptions(options: IAuthModuleOptions): void {
-        if (options.adminConsole?.enabled !== false && options.adminConsole?.secretKey) {
-            const secretKey = options.adminConsole.secretKey;
-            const weakSecrets = ['change-me-admin-secret', 'default', 'secret', ''];
+        const admin = options.adminConsole;
+        if (!admin || admin.enabled === false) {
+            return;
+        }
 
-            // Only validate if it's not auto-generated (auto-generated keys are base64, typically 44 chars)
-            if (weakSecrets.includes(secretKey)) {
+        const weakSecrets = new Set([
+            'change-me-admin-secret', 'change-me', 'changeme', 'default', 'secret',
+            'admin', 'admin123', 'password', 'jwt-secret', '',
+        ]);
+
+        const checkSecret = (value: string | undefined, label: string): void => {
+            if (!value) {
+                // secretKey being unset already forces adminConsole.enabled=false in
+                // setOptions; this guards the sessionSecret path.
+                return;
+            }
+            if (weakSecrets.has(value.trim().toLowerCase())) {
                 throw new Error(
-                    'Admin console requires a secure secretKey. ' +
-                    'Please set adminConsole.secretKey in your AuthModuleOptions (e.g., secretKey: process.env.ADMIN_CONSOLE_SESSION_SECRET) ' +
-                    'with a 32+ byte random value. Store it securely in environment variables or a secrets manager. ' +
-                    'Weak or default values are not allowed for security reasons. Rotate keys regularly.'
+                    `Admin console requires a secure adminConsole.${label}. Set it to a high-entropy ` +
+                    '32+ byte random value from an environment variable / secrets manager. Weak or default ' +
+                    'values are not allowed. Rotate keys regularly.',
                 );
             }
+            if (value.length < 32) {
+                console.warn(
+                    `[NestAuth] adminConsole.${label} is shorter than the recommended 32 characters — ` +
+                    'use a high-entropy 32+ byte random value in production.',
+                );
+            }
+        };
+
+        checkSecret(admin.secretKey, 'secretKey');
+        // The session-signing key defaults to secretKey; a dedicated one is
+        // strongly recommended (see adminConsole.sessionSecret) and must be strong.
+        if (admin.sessionSecret !== undefined) {
+            checkSecret(admin.sessionSecret, 'sessionSecret');
         }
     }
 

@@ -28,6 +28,7 @@ export class AdminSessionService {
       secret,
       {
         expiresIn,
+        algorithm: 'HS256',
       },
     );
   }
@@ -37,7 +38,8 @@ export class AdminSessionService {
       return null;
     }
     try {
-      return jwt.verify(token, this.config.getSessionSecret()) as AdminSessionPayload;
+      // Pin the algorithm — never let a token dictate its own verification alg.
+      return jwt.verify(token, this.config.getSessionSecret(), { algorithms: ['HS256'] }) as AdminSessionPayload;
     } catch (error) {
       // Log JWT verification failures for security monitoring
       console.warn('JWT verification failed:', error.message);

@@ -1868,7 +1868,7 @@
             }
           }
         },
-        "summary": "Create an admin (secret-key gated)",
+        "summary": "Bootstrap the first admin (secret-key gated)",
         "tags": [
           "Admin · Console"
         ]
@@ -2272,7 +2272,7 @@
             }
           }
         },
-        "summary": "Reset an admin's password",
+        "summary": "Reset an admin's password (secret-key gated recovery)",
         "tags": [
           "Admin · Console"
         ]

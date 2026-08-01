@@ -42,8 +42,19 @@ export class AdminConsoleConfigService {
   }
 
   getSessionSecret(): string {
-    // Use secretKey for session signing - unified key for all admin console security operations
-    return this.authConfigService.getConfig().adminConsole?.secretKey ?? 'change-me-admin-secret';
+    // Dedicated admin session-signing key, kept SEPARATE from the bootstrap
+    // `secretKey` (a low-entropy setup key must not double as the cookie signing
+    // key). Falls back to `secretKey` for backward compatibility; the boot-time
+    // validation (validateAdminConsoleOptions) enforces a 32+ char floor.
+    const admin = this.authConfigService.getConfig().adminConsole;
+    const secret = admin?.sessionSecret || admin?.secretKey;
+    if (!secret) {
+      throw new Error(
+        'Admin console session secret is not configured. Set adminConsole.sessionSecret ' +
+        '(recommended) or adminConsole.secretKey to a high-entropy 32+ character random value.',
+      );
+    }
+    return secret;
   }
 
   getSessionDuration(): string | number {
@@ -80,6 +91,14 @@ export class AdminConsoleConfigService {
 
   allowAdminManagement(): boolean {
     return this.getConfig().allowAdminManagement !== false;
+  }
+
+  /**
+   * Whether the public secret-key `signup` endpoint may create admins even after
+   * one already exists. Default false → that endpoint is bootstrap-only.
+   */
+  allowPublicSignupAfterFirstAdmin(): boolean {
+    return this.getConfig().allowPublicSignupAfterFirstAdmin === true;
   }
 
   getSecretKey(): string | undefined {

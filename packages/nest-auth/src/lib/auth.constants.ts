@@ -265,4 +265,10 @@ export const NestAuthEvents = {
     ACCESS_KEY_DELETED: 'nest_auth.access_key.deleted',
     ACCESS_KEY_UPDATED: 'nest_auth.access_key.updated',
     ACCESS_KEY_DEACTIVATED: 'nest_auth.access_key.deactivated',
+
+    // Admin-console events (listen to send an out-of-band security notification)
+    /** A dashboard admin account was created via the secret-key `signup` bootstrap. */
+    ADMIN_CREATED: 'nest_auth.admin.created',
+    /** A dashboard admin's password was reset via the secret-key `reset-password` endpoint. */
+    ADMIN_PASSWORD_RESET: 'nest_auth.admin.password_reset',
 } as const;

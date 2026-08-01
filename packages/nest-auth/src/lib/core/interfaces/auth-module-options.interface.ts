@@ -710,12 +710,19 @@ export interface IAdminConsoleOptions {
      * - Environment variable: secretKey: process.env.MY_SECRET_KEY (use any variable name)
      */
     secretKey?: string;
+    /**
+     * Secret used to SIGN admin-console session cookies (HS256). Keep this
+     * SEPARATE from `secretKey`: reusing the bootstrap/setup key as the session
+     * signing key means a low-entropy operator secret can be brute-forced offline
+     * against a captured admin cookie to forge a super-admin session. Must be a
+     * high-entropy 32+ character random value. Falls back to `secretKey` if unset
+     * (backward compatibility), but a dedicated value is strongly recommended.
+     */
+    sessionSecret?: string;
     /** Cookie name for admin dashboard sessions (default: nest_auth_admin) */
     sessionCookieName?: string;
     /** Session duration expressed in seconds or ms string (default: 2h) */
     sessionDuration?: string | number;
-    /**
-    initializeEnabled?: boolean;
     /**
      * Cookie options applied to the admin session cookie.
      * httpOnly and sameSite default to true/'lax' respectively.
@@ -725,6 +732,16 @@ export interface IAdminConsoleOptions {
      * Allow managing other dashboard admins through the console UI (default: true).
      */
     allowAdminManagement?: boolean;
+    /**
+     * By default the public, secret-key-gated `POST <admin>/signup` endpoint is
+     * BOOTSTRAP-ONLY: once at least one admin exists it is refused, and further
+     * admins must be created by a signed-in admin via the dashboard (an
+     * authenticated, session-guarded endpoint). This stops a leaked `secretKey`
+     * from minting unlimited super-admins. Set `true` to restore the legacy
+     * behaviour of creating additional admins through the shared secret key.
+     * @default false
+     */
+    allowPublicSignupAfterFirstAdmin?: boolean;
 }
 
 export interface IAuthModuleAsyncOptions {
