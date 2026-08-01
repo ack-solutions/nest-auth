@@ -3,6 +3,91 @@ title: Migration Guides
 description: How to upgrade — across the v1 → v2 major, and within the v2 line.
 ---
 
+## 2.7.x → 2.8.0 — security hardening
+
+`2.8.0` bundles the security-hardening work. Most of it is **opt-in** (default OFF — nothing changes until you enable it), but a handful of **fail-closed defaults** need action before your app will boot or behave the same. Read the "Required actions" table first; skipping it means a boot-time throw or a changed default.
+
+Bump **every** package to the same version:
+
+```bash
+pnpm add @ackplus/nest-auth@2.8.0 \
+         @ackplus/nest-auth-client@2.8.0 \
+         @ackplus/nest-auth-react@2.8.0 \
+         @ackplus/nest-auth-contracts@2.8.0 \
+         @ackplus/nest-auth-react-native@2.8.0   # if used
+# Flutter: nest_auth_flutter: ^2.8.0
+```
+
+### Required actions (or boot fails / behaviour changes)
+
+| Change | If you do nothing | Do this |
+| --- | --- | --- |
+| **`session.jwt.secret` is now required** — the insecure built-in default is gone. | Boot **throws** if it's missing/empty or a well-known value (`secret`, `change-me`, `default`, `jwt-secret`, `password`, …). A secret under 32 chars only warns. | Set `session.jwt.secret` to a high-entropy 32+ byte value from env: `secret: process.env.JWT_SECRET`. Add `session.jwt.validateSecretStrength: true` to also **throw** on `<32` chars. |
+| **The `'jwt'` login provider is now opt-in.** | `POST /auth/login { providerName: 'jwt' }` returns "unknown provider" — the trust-any-signed-token path no longer registers. | Only if you use it: set `session.jwt.enableLoginProvider: true`. Leave it off otherwise (a weak/leaked secret here is full account takeover). |
+| **Admin secret must be strong.** `adminConsole.secretKey` (and `sessionSecret` if set) must be 32+ chars and not a known-weak value. | Boot **throws** on a short/weak admin secret (previously only warned). | Set `adminConsole.secretKey: process.env.ADMIN_SECRET_KEY` to a 32+ byte random value — or disable the console with `adminConsole.enabled: false` if you can't provide one. |
+| **Admin session signing key is now derived.** When no dedicated `sessionSecret` is set, sessions are signed with `sha256("nest-auth-admin-session:" + secretKey)` instead of the raw `secretKey`. | Admin sessions minted by older versions are invalidated — **admins re-login once** after upgrade. | Nothing required; expect the one-time re-login. To pin a stable, dedicated key set `adminConsole.sessionSecret` (recommended). |
+| **Admin login is throttled by default** via `adminConsole.bruteForce.enabled` (default `true`). | Admin login returns **429** after the bucket budget (≈5/60s); the secret-key signup/reset endpoints are throttled too (≈5/15m). | Usually keep it on. Tune via `security.rateLimit.buckets.adminLogin` / `.adminReset`. Opt out with `adminConsole.bruteForce.enabled: false`. |
+| **Admin cookie is Secure unless dev/test.** `Secure` now engages unless `NODE_ENV` is **explicitly** `'development'` or `'test'` (was: only when `NODE_ENV === 'production'`). | On staging / unset / misconfigured-prod served over plain HTTP, the browser drops the admin cookie and login appears to "not stick". | Serve the console over HTTPS (proxy TLS termination is fine). For a genuinely-HTTP deployment, opt out with `adminConsole.cookie.secure: false`. |
+| **Admin input validation + password floor are always on.** A controller-scoped `ValidationPipe` and an 8-char admin-password backstop apply regardless of your global pipe. | Creating an admin/dashboard user with a `<8`-char password now fails (**400**, or throws on a direct service call); unknown fields are stripped. | Ensure admin passwords are 8+ chars. Fix any seed/automation scripts that set short admin passwords. |
+| **Social account-linking requires a verified provider email.** `social.requireVerifiedEmailForLinking` defaults to `true`. | A social login whose email matches an existing local account **won't auto-attach** unless the provider verified that email. | No action for the safe default. To restore the old link-by-email behaviour (not recommended), set `social.requireVerifiedEmailForLinking: false`. |
+| **Admin signup is bootstrap-only.** `POST <admin>/signup` is refused once the first admin exists (`allowPublicSignupAfterFirstAdmin` defaults to `false`). | Creating additional admins via the shared secret key returns `ADMIN_BOOTSTRAP_CLOSED`; make them from the dashboard instead. | No action if you manage admins from the console. To restore legacy secret-key signup, set `adminConsole.allowPublicSignupAfterFirstAdmin: true`. |
+| **Refresh-token reuse revokes the session.** A replayed (already-rotated) refresh token now kills the whole token family. | A stolen/replayed refresh token ejects the session — the legitimate user re-authenticates once (`refresh_token_reuse_detected` is emitted). | Keep it on (OAuth best practice). To only reject the replay without revoking, set `session.refreshTokenReuse.revokeSession: false`. |
+
+### Minimal before / after
+
+**Before (2.7.x — booted, but on an insecure default + weak admin secret):**
+
+```typescript
+NestAuthModule.forRoot({
+  appName: 'my-app',
+  session: {
+    // no jwt.secret — silently fell back to a built-in default
+  },
+  adminConsole: {
+    secretKey: 'AcmeAdmin2026!', // short/human-chosen — only warned
+  },
+});
+```
+
+**After (2.8.0 — fail-closed secrets):**
+
+```typescript
+NestAuthModule.forRoot({
+  appName: 'my-app',
+  session: {
+    jwt: {
+      secret: process.env.JWT_SECRET,          // REQUIRED — 32+ random bytes
+      // validateSecretStrength: true,          // optional: also throw on <32 chars
+      // enableLoginProvider: true,             // only if you use providerName:'jwt' login
+    },
+  },
+  adminConsole: {
+    secretKey: process.env.ADMIN_SECRET_KEY,           // 32+ chars, or boot throws
+    sessionSecret: process.env.ADMIN_SESSION_SECRET,   // recommended: dedicated signing key
+  },
+});
+```
+
+Generate a strong secret:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+### Opt-in — turn on if you want it
+
+Everything below defaults to **OFF**; upgrading changes nothing until you enable it.
+
+| If you want… | Turn on |
+| --- | --- |
+| **CSRF protection** for cookie-authenticated, state-changing requests (double-submit token; **required** if `cookieOptions.sameSite: 'none'`) | `security.csrf.enabled: true` (optionally `security.csrf.allowedOrigins: ['https://app.example.com']`). The admin SPA already echoes the token. |
+| **Rate limiting** on sensitive endpoints (login, signup, forgot-password, OTP send/verify, MFA verify) | `security.rateLimit.enabled: true` (tune `security.rateLimit.buckets`; supply `security.rateLimit.store` for multi-instance). |
+| **Password strength policy + HIBP breach check**, enforced at every password-set path | `password.policy.enabled: true` — add `password.policy.checkBreached: true` for the Have-I-Been-Pwned k-anonymity lookup; tune `minLength` / `blocklist` / `blockContainsIdentifier`. |
+| **Email-verification gating** — hard-block unverified users from guarded routes | `registration.requireVerifiedEmail: true` (exempt your own routes with `@SkipEmailVerification()`). |
+| **Soft account lockout** after repeated failed logins | `security.lockout.enabled: true` (tune `maxFailedAttempts` / `window` / `lockDuration`). |
+| **CAPTCHA** on abuse-prone routes (signup, forgot-password) | `security.captcha.enabled: true` **and** supply `security.captcha.verify` (Turnstile / hCaptcha / reCAPTCHA siteverify). |
+| **Disposable / throwaway email-domain blocking** at sign-up (DB-backed, ~8k default list, managed from the console) | `emailAuth.disposable.enabled: true` (`mode: 'block'` rejects, `'flag'` emits an event; add `allowlist: [...]`). Seed the list from the admin console's **Blocked Emails** page. |
+
 ## v1 → v2
 
 The complete, verified upgrade guide lives here:
@@ -13,7 +98,7 @@ It covers every breaking change with before/after code: the API-key rehash, toke
 
 ## Upgrading within v2 (2.0.x → 2.2.x)
 
-Within the v2 line, upgrades are **additive and non-breaking** — new features are opt-in and don't change existing behaviour. To upgrade, bump **every** package to the same version:
+Within the v2 line, upgrades are **additive and non-breaking** — new features are opt-in and don't change existing behaviour. (**Exception: `2.8.0`** — the security release turns on a few fail-closed defaults. See [2.7.x → 2.8.0](#27x--280--security-hardening) above.) To upgrade, bump **every** package to the same version:
 
 ```bash
 pnpm add @ackplus/nest-auth@2.2.0 \

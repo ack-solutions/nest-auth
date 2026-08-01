@@ -3,15 +3,59 @@ title: Rate Limiting
 description: Throttling auth endpoints against credential stuffing and abuse.
 ---
 
-Nest Auth doesn't ship rate limiting itself — you bring `@nestjs/throttler` (or equivalent) and apply it. The recommended thresholds are below.
+Nest Auth ships **built-in** rate limiting, soft account lockout, and a CAPTCHA hook for its sensitive endpoints. They're **opt-in** (default off, no behavior change until enabled) — except the **admin console, which is brute-force-protected by default** (see [Admin Console → Security](/docs/backend/admin-console#security)). You can also bring `@nestjs/throttler` alongside or instead (below).
 
-## Install
+## Built-in rate limiting (`security.rateLimit`)
+
+Turn it on and the library throttles its own login / signup / forgot-password / passwordless-send / verify-otp / mfa-verify / admin-login routes — no extra controllers, and it runs ahead of `NestAuthAuthGuard` so bots are rejected before any auth work:
+
+```ts
+NestAuthModule.forRoot({
+  security: {
+    rateLimit: {
+      enabled: true,        // opt-in
+      keyBy: 'both',        // 'ip' | 'identifier' | 'both' (default 'both')
+      // Per-bucket overrides (merged over the built-in defaults):
+      buckets: {
+        login: { windowMs: 60_000, max: 5 },
+        signup: { windowMs: 60_000, max: 5 },
+        adminLogin: { windowMs: 60_000, max: 5 },
+        adminReset: { windowMs: 15 * 60_000, max: 5 }, // admin secret-key endpoints
+      },
+      // store: myRedisStore,  // IRateLimitStore; defaults to in-memory (per instance)
+    },
+  },
+});
+```
+
+Exceeding a bucket returns `429` with a `Retry-After` header and `code: 'RATE_LIMITED'`. In-memory counters are per-process — supply a shared `store` for multi-instance deployments.
+
+## Built-in soft lockout (`security.lockout`)
+
+Complements rate limiting: after N failed logins for an identifier+IP, further attempts are refused for a cooldown (a longer, softer window than the per-minute rate limit). It's event-driven (counts `LOGIN_FAILED`, clears on `LOGGED_IN`) and now covers **admin login** too:
+
+```ts
+NestAuthModule.forRoot({
+  security: {
+    lockout: {
+      enabled: true,
+      maxFailedAttempts: 10,   // per identifier+IP
+      window: '15m',           // counting window
+      lockDuration: '15m',     // cooldown once tripped
+    },
+  },
+});
+```
+
+A locked identifier gets `429` + `code: 'ACCOUNT_LOCKED'`. Keyed by identifier **and** IP so an attacker can't lock a victim out from another IP.
+
+## Alternative: `@nestjs/throttler`
+
+You can still bring your own edge throttler (e.g. to cap total request volume before auth logic runs), on its own or in addition to the built-ins:
 
 ```bash
 pnpm add @nestjs/throttler
 ```
-
-## Apply
 
 ```ts
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';

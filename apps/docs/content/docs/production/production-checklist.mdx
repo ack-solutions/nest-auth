@@ -7,11 +7,11 @@ Run through this before your first production deploy.
 
 ## Secrets
 
-- [ ] `JWT_SECRET` is at least 256 bits, in a secrets manager, not in `.env` checked to git.
+- [ ] `session.jwt.secret` is set (32+ chars / 256+ bits), in a secrets manager, not in `.env` checked to git. **The library fails closed** — it has no default and throws at boot on a missing/known-weak secret.
 - [ ] Refresh-token signing material is separate from `JWT_SECRET` (or use the same with secret rotation in mind).
 - [ ] Rotation plan documented: how to roll the secret without logging everyone out simultaneously.
 - [ ] OAuth client secrets (Google, Facebook, Apple, GitHub) live in the secrets manager, not in code.
-- [ ] `adminConsole.secretKey` is set if the admin console is enabled, and rotated when an operator leaves.
+- [ ] If the admin console is enabled: `adminConsole.secretKey` **and** a dedicated `adminConsole.sessionSecret` are set (each 32+ chars — boot **fails closed** below that), and rotated when an operator leaves. Using only `secretKey` still works (the signing key is derived from it), but a dedicated `sessionSecret` is strongly recommended.
 
 ## TLS
 
@@ -38,8 +38,9 @@ See [CORS & Security](/docs/production/cors-and-security).
 
 ## Rate limiting
 
-- [ ] `@nestjs/throttler` (or equivalent) on `/auth/login`, `/auth/passwordless/send`, `/auth/forgot-password`, `/auth/mfa/challenge`.
-- [ ] Per-IP and per-identifier (so an attacker hitting many usernames from one IP is blocked).
+- [ ] Enable the built-in `security.rateLimit` (and/or `security.lockout`) — or `@nestjs/throttler` — on `/auth/login`, `/auth/passwordless/send`, `/auth/forgot-password`, `/auth/mfa/challenge`.
+- [ ] Per-IP and per-identifier (so an attacker hitting many usernames from one IP is blocked). The built-in default is `keyBy: 'both'`.
+- [ ] Admin console brute-force protection is **on by default** (`adminConsole.bruteForce`) — leave it on. For multi-instance, back `security.rateLimit.store` with a shared store.
 
 See [Rate Limiting](/docs/production/rate-limiting).
 

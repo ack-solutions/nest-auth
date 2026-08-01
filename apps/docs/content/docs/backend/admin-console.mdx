@@ -100,6 +100,110 @@ adminConsole: { enabled: false },
 
 Or omit the section entirely. None of the routes get registered, none of the assets get served.
 
+## Security
+
+The admin console is the highest-value surface in the product, so 2.8.0 hardens it by default. Most of this is automatic; a few items are breaking on upgrade.
+
+> **Upgrading from 2.7.x?** Four changes affect a running app: (1) a `secretKey`/`sessionSecret` shorter than 32 chars now throws at boot; (2) admin sessions minted by older versions are invalidated — admins re-login once; (3) admin login is rate-limited out of the box (`429` after the budget); (4) the session cookie is `Secure` unless `NODE_ENV` is explicitly `development` or `test`. Details below.
+
+### Strong secrets, fail-closed
+
+`adminConsole.secretKey` and the recommended, dedicated `adminConsole.sessionSecret` must be a high-entropy value of **32+ characters**. A short or known-weak value (`admin`, `changeme`, `secret`, `password`, …) now **throws at boot** instead of just warning — consistent with the fail-closed `session.jwt.secret`. If you can't supply a strong key, disable the console (`adminConsole.enabled: false`) rather than shipping a guessable one. (Leaving `secretKey` unset simply disables the console.)
+
+```ts
+adminConsole: {
+  enabled: true,
+  secretKey: process.env.ADMIN_CONSOLE_SECRET,     // 32+ chars — gates bootstrap signup + reset
+  sessionSecret: process.env.ADMIN_SESSION_SECRET, // 32+ chars — signs admin session cookies
+},
+```
+
+Keep the two separate. `secretKey` travels on the wire to the signup/reset endpoints; reusing it as the cookie-signing key would turn a captured or guessed setup key into a session-forging primitive.
+
+**If you leave `sessionSecret` unset**, the signing key is *derived* from `secretKey` (`sha256("nest-auth-admin-session:" + secretKey)`) rather than using it raw. That derivation is new in 2.8.0, so admin sessions signed by an older version become invalid on upgrade — admins simply log in once more. A dedicated `sessionSecret` (used verbatim) is still strongly recommended.
+
+### Brute-force protection (on by default)
+
+Admin auth endpoints are throttled out of the box — you do **not** need `security.rateLimit.enabled`. This caps online password/secret guessing and bounds the per-attempt argon2 work (a request-to-work DoS-amplification vector).
+
+| Endpoint | Bucket | Default |
+|---|---|---|
+| `POST <admin>/login` | `adminLogin` | 5 / 60s |
+| `POST <admin>/signup`, `POST <admin>/reset-password` | `adminReset` | 5 / 15 min |
+
+Over budget returns `429`. Tune the windows via the shared rate-limit buckets, or opt out entirely:
+
+```ts
+security: {
+  rateLimit: {
+    buckets: {
+      adminLogin: { windowMs: 60_000, max: 10 },
+      adminReset: { windowMs: 15 * 60_000, max: 5 },
+    },
+  },
+},
+adminConsole: {
+  bruteForce: { enabled: false }, // opt out (not recommended)
+},
+```
+
+If you also enable `security.lockout`, admin login participates in the soft lockout: repeated failures for an identifier trip the lock, and a successful login clears the counter. Login also no longer leaks valid admin emails — a missing admin runs a dummy argon2 verify, so a wrong password and an unknown admin are indistinguishable (identical `401`).
+
+### Secure cookie by default
+
+The admin session cookie is `Secure` unless `NODE_ENV` is **explicitly** `development` or `test`.
+
+- **Before:** `Secure` only when `NODE_ENV === 'production'` — so staging, an unset env, or a misconfigured prod shipped the cookie in cleartext.
+- **After:** anything other than `development`/`test` fails safe to `Secure`.
+
+TLS terminated at a proxy is unaffected (the browser leg is still HTTPS), and a `sameSite: 'none'` cookie always forces `Secure`. For a genuinely-HTTP deployment, opt out explicitly:
+
+```ts
+adminConsole: {
+  cookie: { secure: false }, // only for real HTTP
+},
+```
+
+### Anti-clickjacking and response headers
+
+Every admin route — the SPA shell and all admin API controllers — sets defense-in-depth headers so a logged-in admin can't be framed and UI-redressed into a destructive action. These are always on, no configuration:
+
+- `X-Frame-Options: DENY`
+- `Content-Security-Policy` with `frame-ancestors 'none'` (a `<meta>` CSP cannot set `frame-ancestors`, so it must be a real response header), plus `default-src 'self'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`
+- `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: no-referrer`
+
+### Bootstrap-only signup
+
+The public, secret-key-gated `POST <admin>/signup` is **bootstrap-only**: once one admin exists it's closed, and further admins are created by a signed-in admin from the dashboard (a session-guarded endpoint). This stops a leaked `secretKey` from minting unlimited super-admins. Post-bootstrap, every attempt returns the same `ADMIN_BOOTSTRAP_CLOSED` regardless of whether the key is right — so there's no correct/incorrect secret-key oracle to grind.
+
+```ts
+adminConsole: {
+  allowPublicSignupAfterFirstAdmin: false, // default — bootstrap-only
+  allowAdminManagement: true,              // default — create/manage admins in the UI
+},
+```
+
+Set `allowPublicSignupAfterFirstAdmin: true` only to restore the legacy "additional admins via the shared secret key" behaviour. `allowAdminManagement: false` turns off admin creation/management entirely — the signup endpoint then also refuses with `ADMIN_MANAGEMENT_DISABLED`.
+
+### Admin account safety
+
+- **Last-admin guard** — deleting the final remaining admin is refused (`409 ADMIN_LAST_REMAINING`). It would otherwise lock everyone out, since the management API is session-guarded and secret-key bootstrap is already closed.
+- **Revoke on password change** — changing an admin's password (dashboard update or the reset flow) bumps its token version, invalidating that admin's outstanding session cookies.
+- **Password floor** — admin passwords are held to a minimum of 8 characters through *every* path (even a direct service call), independent of any global `ValidationPipe`. The admin controllers also apply their own scoped `ValidationPipe`, so the DTO complexity rules and mass-assignment stripping hold regardless of the consumer's pipe.
+
+### CSRF
+
+The console is CSRF-ready. When you enable the built-in double-submit protection, the admin SPA reads the non-httpOnly CSRF cookie and echoes it as `x-csrf-token` on every state-changing request, and admin login issues that token — so turning it on doesn't break the dashboard. It's a no-op while disabled.
+
+```ts
+security: {
+  csrf: { enabled: true }, // admin SPA echoes the token automatically
+},
+```
+
+Recommended whenever you serve admin (or app) auth over cookies.
+
 ## Related
 
 - [Backend services reference](/docs/backend/services) — the same services the console uses.

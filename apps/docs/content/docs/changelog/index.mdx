@@ -5,10 +5,42 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.7.6`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.8.0`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/changelog/migrations#upgrading-within-v2-20x--22x)**. Bump every package to the same version.
+
+---
+
+## 2.8.0 — security hardening
+
+The P0 security-hardening release: ~24 fixes across the auth core and the embedded admin console. A handful **change how existing apps boot or authenticate** — read the **Breaking** items and the **[2.7.x → 2.8.0 upgrade steps](/docs/changelog/migrations#2-7-x--2-8-0--security-hardening)** before you bump. Everything under **Added (opt-in)** is off by default, so nothing else changes until you enable it.
+
+- **Breaking:** `session.jwt.secret` is now **required**. The shipped default (`'secret'`) is gone — boot **throws** when the signing key is missing or a known-insecure value. A short (<32-char) secret warns; set `session.jwt.validateSecretStrength: true` to make that a hard error too.
+- **Breaking:** the **`jwt` login provider is now opt-in**. It used to register automatically whenever `session.jwt` existed, and it trusts any token signed with your secret and mints a session for its `sub` — a privileged bypass that must be enabled deliberately with `session.jwt.enableLoginProvider: true`. As defense-in-depth the auth guard now only accepts `type: 'access'` tokens, so a refresh token presented as a Bearer is rejected.
+- **Breaking (admin console):** a `secretKey` / `sessionSecret` under **32 chars** (or a known-weak value) now **throws at boot** instead of warning. Disable the console if you can't supply a strong key.
+- **Breaking (admin console):** when no dedicated `sessionSecret` is set, the admin session-signing key is now **derived** from `secretKey` rather than being the raw `secretKey`. Admin sessions minted by older versions are invalidated — **admins re-login once** after upgrade.
+- **Breaking (admin console):** admin login is **throttled by default** (`429` after ~5/min). Opt out with `adminConsole.bruteForce.enabled: false`.
+- **Breaking (admin console):** the admin session cookie is now `Secure` **unless** `NODE_ENV` is explicitly `development` or `test` (was: `Secure` only when `NODE_ENV === 'production'`, so staging / unset / misconfigured prod shipped it in cleartext). Force it off with `adminConsole.cookie.secure: false`.
+- **Breaking (admin console):** admin DTO validation and an **8-char admin-password floor** are now enforced regardless of whether your app registers a global `ValidationPipe` (those DTO rules were previously inert without one).
+- **Breaking (social):** account-linking now requires a **verified provider email**. A social identity whose email matches an existing local account no longer silently attaches unless the provider verified that email — the user must sign in with their existing method and link deliberately. Restore the old behavior per-provider with `social.requireVerifiedEmailForLinking: false`.
+
+- **Added (opt-in):** built-in **CSRF** for cookie-authenticated, state-changing requests via `security.csrf.enabled` — a double-submit token (non-httpOnly cookie the SPA echoes back in a header) plus an optional `allowedOrigins` check. No-op for bearer/header auth; required if you set `sameSite: 'none'`.
+- **Added (opt-in):** **rate limiting** for sensitive endpoints (login, signup, forgot-password, passwordless/OTP send + verify, MFA verify) via `security.rateLimit.enabled`. Supply a shared `store` for multi-instance deployments.
+- **Added (opt-in):** **password strength policy + HIBP breach check** (`password.policy`), enforced uniformly at every password-set path (signup, change, reset, admin-set) and on admin-console passwords. Turn on the breach check with `password.policy.checkBreached: true` (Have I Been Pwned k-anonymity, fail-open).
+- **Added (opt-in):** **email-verification gating** — `registration.requireVerifiedEmail: true` hard-blocks a signed-in-but-unverified user from protected routes.
+- **Added (opt-in):** **soft account lockout** (`security.lockout.enabled`) keyed by identifier + IP so an attacker can't lock a victim's logins from another IP, plus a provider-agnostic **CAPTCHA hook** (`security.captcha.verify`) for abuse-prone routes.
+- **Added (opt-in):** **disposable / throwaway email-domain screening** at sign-up (`emailAuth.disposable`) — a DB-backed blocklist seedable from a built-in ~8k default list and managed from a new **Blocked Emails** console page. `block` mode rejects with `403 EMAIL_DOMAIN_NOT_ALLOWED`; `flag` mode allows the sign-up but emits an event.
+
+- **Hardened (admin console):** signup is now **bootstrap-only** — once the first admin exists, the secret-key `POST <admin>/signup` is refused and further admins must be created by a signed-in admin from the dashboard, so a leaked `secretKey` can't mint unlimited super-admins. Restore the legacy shared-key path with `adminConsole.allowPublicSignupAfterFirstAdmin: true`.
+- **Hardened (admin console):** **revocable admin sessions** — a dashboard password change now bumps `tokenVersion` and revokes that admin's outstanding session cookies (previously only the secret-key reset flow did).
+- **Hardened (admin console):** **anti-framing + transport headers** on every admin route — `X-Frame-Options: DENY`, a real `Content-Security-Policy` with `frame-ancestors 'none'` (a `<meta>` CSP can't set that, so a logged-in admin was frameable), `X-Content-Type-Options: nosniff`, and `Referrer-Policy: no-referrer` — and the injected `window.__NEST_AUTH_CONFIG__` JSON is escaped so no config value can break out of the inline `<script>`.
+- **Hardened (admin console):** the secret-key-gated **signup / reset-password endpoints are throttled and de-oracled** — the bootstrap-closed check now runs *before* the key comparison, so after bootstrap a wrong vs. correct key are byte-identical (the key-grinding oracle is gone). Admin login also runs a dummy Argon2 verify on the not-found path, killing the email-enumeration timing side-channel.
+- **Hardened (admin console):** a **last-admin delete guard** (`409 ADMIN_LAST_REMAINING`) so you can't lock everyone out, `ArrayMaxSize(1000)` + per-item caps on bulk blocked-domain add, and the SPA now echoes the CSRF double-submit token so the dashboard keeps working with `security.csrf` enabled.
+
+- **Fixed:** **refresh-token reuse now revokes the session.** A replayed / rotated-out refresh token invalidates the whole session instead of rejecting just the one request — containing token theft rather than letting the attacker retry.
+- **Fixed:** **TOTP device deletion is scoped to its owner** — you can no longer delete another user's TOTP device. OTP verification attempts are capped and recovery/OTP codes now use a CSPRNG.
+- **Fixed (social):** social login persists `firstName` / `lastName` / `avatarUrl` from the provider (fixes Apple's display name arriving only on the first authorization and never being saved).
 
 ---
 
