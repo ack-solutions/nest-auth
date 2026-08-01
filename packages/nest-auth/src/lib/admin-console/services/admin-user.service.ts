@@ -77,6 +77,10 @@ export class AdminUserService {
     }
     if (data.password) {
       await admin.setPassword(data.password);
+      // A password change must invalidate the admin's outstanding session tokens
+      // (bump tokenVersion) — otherwise a session that predates the reset stays
+      // valid. Mirrors the secret-key reset-password flow.
+      admin.tokenVersion = (admin.tokenVersion ?? 0) + 1;
     }
 
     await this.adminRepo.save(admin);
@@ -94,6 +98,16 @@ export class AdminUserService {
       throw new NotFoundException({
         message: `Admin user with ID ${id} not found`,
         code: 'ADMIN_USER_NOT_FOUND',
+      });
+    }
+    // Refuse to delete the LAST admin — that would lock everyone out of the
+    // console (the session-guarded management API needs a signed-in admin, and
+    // the secret-key bootstrap is closed once an admin exists).
+    const total = await this.adminRepo.count();
+    if (total <= 1) {
+      throw new ConflictException({
+        message: 'Cannot delete the last remaining admin.',
+        code: 'ADMIN_LAST_REMAINING',
       });
     }
     await this.adminRepo.delete(id);
