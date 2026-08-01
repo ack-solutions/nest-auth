@@ -62,8 +62,14 @@ export class AdminConsoleConfigService {
   }
 
   getCookieOptions(): CookieOptions {
-    // Determine secure flag based on environment
-    const secureDefault = process.env.NODE_ENV === 'production';
+    // Secure by default. The admin session cookie is only sent over HTTPS unless
+    // NODE_ENV is EXPLICITLY 'development' or 'test' — so an unset/other NODE_ENV
+    // (staging, misconfigured prod) fails safe to Secure instead of silently
+    // shipping the admin cookie in cleartext. A consumer terminating TLS at a
+    // proxy is unaffected (the browser leg is still HTTPS); genuinely-HTTP
+    // deployments must set adminConsole.cookie.secure=false to opt out.
+    const nodeEnv = process.env.NODE_ENV;
+    const secureDefault = nodeEnv !== 'development' && nodeEnv !== 'test';
     const config = this.getConfig();
 
     const base: CookieOptions = {

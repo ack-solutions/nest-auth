@@ -84,9 +84,14 @@ export class AdminConsoleController implements OnModuleInit {
 
       const basePath = this.config.getBasePath();
       const config = { basePath };
-      const js = `window.__NEST_AUTH_CONFIG__ = ${JSON.stringify(config)};`;
+      // Escape HTML-significant characters so a value like `</script>` (or any
+      // future config field) cannot break out of the inline <script> context.
+      const safeJson = JSON.stringify(config)
+        .replace(/</g, '\\u003c')
+        .replace(/>/g, '\\u003e')
+        .replace(/&/g, '\\u0026');
+      const js = `window.__NEST_AUTH_CONFIG__ = ${safeJson};`;
 
-      // Inject external config script tag to satisfy CSP (no inline script)
       const configScriptTag = `<script>${js}</script>`;
 
       // Insert config script before closing </head> tag or at the start of <body>

@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { NestAuthAdminUser } from './entities/admin-user.entity';
 import { AdminUserService } from './services/admin-user.service';
@@ -16,6 +16,7 @@ import { AdminTenantsController } from './controllers/admin-tenants.controller';
 import { AdminPermissionsController } from './controllers/admin-permissions.controller';
 import { AdminBlockedDomainsController } from './controllers/admin-blocked-domains.controller';
 import { AdminConsoleConfigService } from './services/admin-console-config.service';
+import { AdminSecurityHeadersMiddleware } from './middleware/admin-security-headers.middleware';
 import { AuthModule } from '../auth/auth.module';
 import { NestAuthMFASecret } from '../auth/entities/mfa-secret.entity';
 import { NestAuthTrustedDevice } from '../auth/entities/trusted-device.entity';
@@ -69,4 +70,22 @@ import { AdminUserManagementService } from './services/admin-user-management.ser
     TypeOrmModule,
   ],
 })
-export class AdminConsoleModule { }
+export class AdminConsoleModule implements NestModule {
+  // Apply defense-in-depth security headers (clickjacking, MIME-sniffing,
+  // referrer) to every admin-console route — the SPA shell and all admin API
+  // controllers. Bound to the controllers rather than a path so it tracks a
+  // custom adminConsole.path automatically.
+  configure(consumer: MiddlewareConsumer): void {
+    consumer
+      .apply(AdminSecurityHeadersMiddleware)
+      .forRoutes(
+        AdminConsoleController,
+        AdminAuthController,
+        AdminUsersController,
+        AdminRolesController,
+        AdminTenantsController,
+        AdminPermissionsController,
+        AdminBlockedDomainsController,
+      );
+  }
+}
