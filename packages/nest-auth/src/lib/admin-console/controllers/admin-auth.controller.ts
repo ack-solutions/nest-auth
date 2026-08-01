@@ -124,6 +124,7 @@ export class AdminAuthController {
 
   @ApiOperation({ summary: 'Bootstrap the first admin (secret-key gated)' })
   @Post('signup')
+  @AdminThrottle('adminReset')
   async signup(@Body() dto: AdminSignupDto, @Req() req: Request) {
     this.config.ensureEnabled();
 
@@ -133,6 +134,23 @@ export class AdminAuthController {
         message: 'Admin management is disabled',
         code: 'ADMIN_MANAGEMENT_DISABLED',
       });
+    }
+
+    // Bootstrap-only by default: once an admin exists, this public secret-key
+    // endpoint is closed so a leaked secretKey can't mint unlimited super-admins.
+    // This check runs BEFORE the secret-key comparison so a post-bootstrap
+    // attempt returns ADMIN_BOOTSTRAP_CLOSED regardless of whether the key is
+    // right or wrong — removing the correct/incorrect secret-key oracle. Create
+    // further admins while signed in via POST <admin>/admins (session-guarded).
+    // Opt out with adminConsole.allowPublicSignupAfterFirstAdmin.
+    if (!this.config.allowPublicSignupAfterFirstAdmin()) {
+      const existing = await this.adminUsers.listAdmins();
+      if (existing.length > 0) {
+        throw new ForbiddenException({
+          message: 'An admin already exists. Sign in and create additional admins from the dashboard.',
+          code: 'ADMIN_BOOTSTRAP_CLOSED',
+        });
+      }
     }
 
     // Validate secret key using constant-time comparison to prevent timing attacks
@@ -149,20 +167,6 @@ export class AdminAuthController {
         message: 'Invalid secret key',
         code: 'INVALID_SECRET_KEY',
       });
-    }
-
-    // Bootstrap-only by default: once an admin exists, this public secret-key
-    // endpoint is closed so a leaked secretKey can't mint unlimited super-admins.
-    // Create further admins while signed in via POST <admin>/admins (session-
-    // guarded). Opt out with adminConsole.allowPublicSignupAfterFirstAdmin.
-    if (!this.config.allowPublicSignupAfterFirstAdmin()) {
-      const existing = await this.adminUsers.listAdmins();
-      if (existing.length > 0) {
-        throw new ForbiddenException({
-          message: 'An admin already exists. Sign in and create additional admins from the dashboard.',
-          code: 'ADMIN_BOOTSTRAP_CLOSED',
-        });
-      }
     }
 
     const admin = await this.adminUsers.createAdmin({
@@ -379,6 +383,7 @@ export class AdminAuthController {
 
   @ApiOperation({ summary: "Reset an admin's password (secret-key gated recovery)" })
   @Post('reset-password')
+  @AdminThrottle('adminReset')
   async resetPassword(@Body() dto: AdminResetPasswordDto, @Req() req: Request) {
     this.config.ensureEnabled();
 
