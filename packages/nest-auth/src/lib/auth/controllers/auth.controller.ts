@@ -45,6 +45,8 @@ import { AuthExceptionFilter } from '../filters/auth-exception.filter';
 
 import { Auth } from '../../core/decorators/auth.decorator';
 import { RateLimit } from '../../core/decorators/rate-limit.decorator';
+import { Lockout } from '../../core/decorators/lockout.decorator';
+import { Captcha } from '../../core/decorators/captcha.decorator';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { CsrfService } from '../../core/services/csrf.service';
 import { TenantService } from '../../tenant/services/tenant.service';
@@ -112,6 +114,7 @@ export class AuthController {
     @Public()
     @Post('signup')
     @RateLimit('signup')
+    @Captcha()
     @UseInterceptors(TokenResponseInterceptor)
     async signup(@Body() input: NestAuthSignupRequestDto): Promise<AuthWithTokensResponseDto> {
         const response = await this.authService.signup(input);
@@ -154,6 +157,7 @@ export class AuthController {
     @Public()
     @Post('login')
     @RateLimit('login')
+    @Lockout()
     @UseInterceptors(TokenResponseInterceptor)
     async login(@Body() input: NestAuthLoginRequestDto): Promise<AuthWithTokensResponseDto> {
         const response = await this.authService.login(input);
@@ -390,6 +394,7 @@ export class AuthController {
     @Public()
     @Post('forgot-password')
     @RateLimit('forgotPassword')
+    @Captcha()
     @SkipMfa()
     async forgotPassword(@Body() input: NestAuthForgotPasswordRequestDto): Promise<NestAuthPasswordResetLinkSentResponseDto> {
         await this.passwordService.forgotPassword(input);

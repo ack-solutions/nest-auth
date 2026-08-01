@@ -14,6 +14,9 @@ import { AuthConfigService } from './services/auth-config.service';
 import { CsrfService } from './services/csrf.service';
 import { RateLimitService } from './services/rate-limit.service';
 import { RateLimitGuard } from './guards/rate-limit.guard';
+import { LockoutService } from './services/lockout.service';
+import { LockoutGuard } from './guards/lockout.guard';
+import { CaptchaGuard } from './guards/captcha.guard';
 import { DebugLoggerService } from './services/debug-logger.service';
 import { TenantModule } from '../tenant/tenant.module';
 import { NestAuthUser } from '../user/entities/user.entity';
@@ -36,6 +39,9 @@ import { PasswordlessAuthProvider } from './providers/passwordless-auth.provider
         CsrfService,
         RateLimitService,
         RateLimitGuard,
+        LockoutService,
+        LockoutGuard,
+        CaptchaGuard,
         JwtService,
         AuthProviderRegistryService,
         EmailAuthProvider,
@@ -56,6 +62,9 @@ import { PasswordlessAuthProvider } from './providers/passwordless-auth.provider
         CsrfService,
         RateLimitService,
         RateLimitGuard,
+        LockoutService,
+        LockoutGuard,
+        CaptchaGuard,
     ],
 })
 export class CoreModule { }

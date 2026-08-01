@@ -19,6 +19,10 @@ export const PASSWORDLESS_AUTH_PROVIDER = 'passwordless';
 export const OPTIONAL_AUTH_KEY = 'optional_auth';
 /** Reflector metadata key naming a route's rate-limit bucket (see @RateLimit). */
 export const RATE_LIMIT_BUCKET_KEY = 'nest_auth_rate_limit_bucket';
+/** Reflector metadata key marking a route as lockout-checked (see @Lockout). */
+export const LOCKOUT_KEY = 'nest_auth_lockout';
+/** Reflector metadata key marking a route as CAPTCHA-protected (see @Captcha). */
+export const CAPTCHA_KEY = 'nest_auth_captcha';
 
 // ==========================================
 // ERROR CODES - Categorized for better organization
@@ -52,6 +56,11 @@ export const AUTH_ERROR_CODES = {
 
     // Rate limiting
     RATE_LIMITED: 'RATE_LIMITED',
+
+    // Account lockout / CAPTCHA
+    ACCOUNT_LOCKED: 'ACCOUNT_LOCKED',
+    CAPTCHA_REQUIRED: 'CAPTCHA_REQUIRED',
+    CAPTCHA_FAILED: 'CAPTCHA_FAILED',
 
     // Password
     CURRENT_PASSWORD_INCORRECT: 'CURRENT_PASSWORD_INCORRECT',

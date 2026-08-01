@@ -423,6 +423,39 @@ export interface IAuthModuleOptions {
          * in-memory / per-instance).
          */
         rateLimit?: IRateLimitOptions;
+        /**
+         * Soft account lockout: after `maxFailedAttempts` failed logins for an
+         * account within `window`, further login attempts are rejected for
+         * `lockDuration`. Keyed by identifier + IP (so a failing attacker can't
+         * lock a victim's logins from other IPs — avoids lockout-DoS). A
+         * successful login clears the counter. Complements rate limiting.
+         */
+        lockout?: {
+            /** @default false */
+            enabled?: boolean;
+            /** Failed attempts before locking. @default 10 */
+            maxFailedAttempts?: number;
+            /** Rolling window for counting failures (ms or `ms` string). @default '15m' */
+            window?: number | string;
+            /** How long the lock lasts (ms or `ms` string). @default '15m' */
+            lockDuration?: number | string;
+        };
+        /**
+         * CAPTCHA verification on abuse-prone routes (signup, forgot-password).
+         * Provider-agnostic: you supply `verify` (call Turnstile / hCaptcha /
+         * reCAPTCHA's siteverify). The client sends the CAPTCHA token in the
+         * `x-captcha-token` header (or a `captchaToken` body field).
+         */
+        captcha?: {
+            /** @default false. Enforced only when `verify` is also provided. */
+            enabled?: boolean;
+            /** Verify the token with your CAPTCHA provider. Return true if human. */
+            verify?: (token: string, ctx: { ip?: string; route?: string }) => boolean | Promise<boolean>;
+            /** Header the client sends the token in. @default 'x-captcha-token' */
+            headerName?: string;
+            /** Request-body field the token may alternatively arrive in. @default 'captchaToken' */
+            bodyField?: string;
+        };
     };
     /**
      * Cross-cutting social-login safety options (apply to Google/Apple/Facebook/

@@ -114,6 +114,40 @@ NestAuthModule.forRoot({
 - **Multi-instance.** The default store is in-memory (per-process). Behind more than one instance, supply a shared `store` (e.g. Redis-backed) that implements the small `IRateLimitStore` interface — `increment(key, windowMs) => { count, resetAt }` — so limits are global.
 - The limiter runs before authentication, so unauthenticated brute-force (login/signup/forgot-password) is covered.
 
+## Account lockout
+
+Soft lockout complements rate limiting: after `maxFailedAttempts` failed logins for an account within `window`, further login attempts are rejected for `lockDuration`.
+
+```ts
+security: {
+  lockout: { enabled: true, maxFailedAttempts: 10, window: '15m', lockDuration: '15m' },
+}
+```
+
+Keyed by **identifier + IP**, so a failing attacker can't lock a victim's logins from other IPs (avoids lockout-DoS); a successful login clears the counter. Over-limit → `429` with `Retry-After` and `{ code: 'ACCOUNT_LOCKED' }`. In-memory / per-instance.
+
+## CAPTCHA
+
+Provider-agnostic CAPTCHA on abuse-prone routes (signup, forgot-password). You supply `verify` — call Turnstile / hCaptcha / reCAPTCHA's siteverify:
+
+```ts
+security: {
+  captcha: {
+    enabled: true,
+    verify: async (token, { ip }) => {
+      const r = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret: process.env.TURNSTILE_SECRET, response: token, remoteip: ip }),
+      }).then((res) => res.json());
+      return r.success === true;
+    },
+  },
+}
+```
+
+The client sends the token in the `x-captcha-token` header (or a `captchaToken` body field). Missing → `400 CAPTCHA_REQUIRED`; invalid → `400 CAPTCHA_FAILED`. Add `x-captcha-token` to your CORS allowlist.
+
 ## Helmet
 
 Recommended headers via Helmet:

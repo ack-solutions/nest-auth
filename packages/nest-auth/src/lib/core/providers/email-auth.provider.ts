@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BaseAuthProvider } from './base-auth.provider';
-import { EMAIL_AUTH_PROVIDER } from '../../auth.constants';
+import { EMAIL_AUTH_PROVIDER, ERROR_CODES } from '../../auth.constants';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
 import { EmailCredentialsDto } from '../../auth/dto/credentials/email-credentials.dto';
@@ -53,7 +53,7 @@ export class EmailAuthProvider extends BaseAuthProvider {
         const identity = await this.findIdentity(emailNorm, tenantId);
 
         if (!identity?.user) {
-            throw new UnauthorizedException('Invalid credentials');
+            throw new UnauthorizedException({ message: 'Invalid credentials', code: ERROR_CODES.INVALID_CREDENTIALS });
         }
 
         // `passwordHash` is `select: false` on NestAuthUser, so the relation
@@ -66,12 +66,12 @@ export class EmailAuthProvider extends BaseAuthProvider {
         });
 
         if (!userWithHash?.passwordHash) {
-            throw new UnauthorizedException('Invalid credentials');
+            throw new UnauthorizedException({ message: 'Invalid credentials', code: ERROR_CODES.INVALID_CREDENTIALS });
         }
         identity.user.passwordHash = userWithHash.passwordHash;
 
         if (!(await identity.user.validatePassword(credentials.password))) {
-            throw new UnauthorizedException('Invalid credentials');
+            throw new UnauthorizedException({ message: 'Invalid credentials', code: ERROR_CODES.INVALID_CREDENTIALS });
         }
 
         return {
