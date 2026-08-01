@@ -1,6 +1,47 @@
 {
   "openapi": "3.0.0",
   "paths": {
+    "/auth/csrf": {
+      "get": {
+        "description": "Cookie mode: sets/rotates the double-submit CSRF cookie and returns the token to echo in the CSRF header (default `x-csrf-token`) on state-changing requests. Call with credentials so the cookie is stored. Returns `{ enabled: false }` when CSRF is not configured.",
+        "operationId": "AuthController_getCsrfToken",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Get a CSRF token",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
     "/auth/signup": {
       "post": {
         "description": "Register a new user. Response format depends on accessTokenType configuration:\n- Header mode (default): Returns tokens in response body\n- Cookie mode: Sets tokens in HTTP-only cookies and returns success message",
@@ -839,19 +880,12 @@
     },
     "/auth/client-config": {
       "get": {
-        "description": "Public configuration for clients (tenant mode, email/phone/passwordless, OAuth client ids, registration, MFA, platform access, token mode). No auth required. Never includes secrets.",
+        "description": "Public configuration for clients (tenant mode, auth methods, registration, MFA, etc.). No auth required.",
         "operationId": "AuthController_getClientConfig",
         "parameters": [],
         "responses": {
           "200": {
-            "description": "Client configuration",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ClientConfigResponseDto"
-                }
-              }
-            }
+            "description": "Client configuration"
           },
           "400": {
             "description": "Validation failed (bad input).",
@@ -1875,7 +1909,7 @@
             }
           }
         },
-        "summary": "Create an admin (secret-key gated)",
+        "summary": "Bootstrap the first admin (secret-key gated)",
         "tags": [
           "Admin · Console"
         ]
@@ -2279,7 +2313,7 @@
             }
           }
         },
-        "summary": "Reset an admin's password",
+        "summary": "Reset an admin's password (secret-key gated recovery)",
         "tags": [
           "Admin · Console"
         ]
@@ -4108,12 +4142,304 @@
           "Admin · Permissions"
         ]
       }
+    },
+    "/auth/admin/api/blocked-email-domains": {
+      "get": {
+        "operationId": "AdminBlockedDomainsController_list",
+        "parameters": [
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "List blocked email domains (searchable, paginated)",
+        "tags": [
+          "Admin · Blocked Email Domains"
+        ]
+      },
+      "post": {
+        "operationId": "AdminBlockedDomainsController_add",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminAddBlockedDomainsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "{ added, skipped }"
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Add one or more blocked domains",
+        "tags": [
+          "Admin · Blocked Email Domains"
+        ]
+      }
+    },
+    "/auth/admin/api/blocked-email-domains/stats": {
+      "get": {
+        "operationId": "AdminBlockedDomainsController_stats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Blocklist stats (current count + size of the built-in default list)",
+        "tags": [
+          "Admin · Blocked Email Domains"
+        ]
+      }
+    },
+    "/auth/admin/api/blocked-email-domains/import-defaults": {
+      "post": {
+        "operationId": "AdminBlockedDomainsController_importDefaults",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "{ imported, total }"
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Import the built-in default disposable-domain list",
+        "tags": [
+          "Admin · Blocked Email Domains"
+        ]
+      }
+    },
+    "/auth/admin/api/blocked-email-domains/{idOrDomain}": {
+      "delete": {
+        "operationId": "AdminBlockedDomainsController_remove",
+        "parameters": [
+          {
+            "name": "idOrDomain",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Remove a blocked domain (by id or domain)",
+        "tags": [
+          "Admin · Blocked Email Domains"
+        ]
+      }
     }
   },
   "info": {
     "title": "@ackplus/nest-auth API",
     "description": "Authentication & authorization API for **@ackplus/nest-auth**.\n\n### Conventions\n- **Base URL** — routes are shown relative to your app’s global prefix. The reference example app uses `/api`, so a route like `POST /auth/login` is called at `POST /api/auth/login`.\n- **Auth** — most endpoints require a Bearer access token: `Authorization: Bearer <accessToken>`. The **Admin** endpoints use an httpOnly session cookie set by `POST /auth/admin/login`.\n- **Token modes** — in *header* mode (default) tokens are returned in the response body; in *cookie* mode they are set as httpOnly cookies. Controlled by `accessTokenType`.\n- **Errors** — failures return `{ statusCode, error, message, code }`; the machine-readable `code` is the value to branch on.\n\nBrowse by section in the sidebar: **Authentication**, **Password**, **Verification**, **Passwordless**, **MFA**, and the **Admin** groups.",
-    "version": "2.7.4",
+    "version": "2.7.6",
     "contact": {}
   },
   "tags": [
@@ -4387,8 +4713,23 @@
           },
           "name": {
             "type": "string",
-            "description": "Display name from the provider. Apple only returns the user's name on the FIRST native sign-in, so pass it here to persist it (ignored by other providers).",
+            "description": "Full display name from the provider. Apple only returns the user's name on the FIRST native sign-in, so pass it here to persist it (ignored by other providers). Prefer `firstName`/`lastName` when you have them separately.",
             "example": "Ada Lovelace"
+          },
+          "firstName": {
+            "type": "string",
+            "description": "User's given/first name captured by the frontend. Needed for Apple Sign In, which returns the name to the app ONLY on the first authorization (never in the id_token on later logins) — capture it then and send it here. Ignored by providers that already supply a name.",
+            "example": "Ada"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "User's family/last name captured by the frontend (see `firstName`). Needed for Apple Sign In on the first authorization.",
+            "example": "Lovelace"
+          },
+          "avatarUrl": {
+            "type": "string",
+            "description": "Avatar / profile-picture URL supplied by the frontend. Apple Sign In does NOT provide a photo, so pass one here only if your app sourced it elsewhere. Google returns its own `picture`, used as a fallback when this is omitted.",
+            "example": "https://example.com/avatar/ada.png"
           },
           "nonce": {
             "type": "string",
@@ -4910,374 +5251,6 @@
           "message"
         ]
       },
-      "TenantOptionDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "slug": {
-            "type": "string"
-          },
-          "isActive": {
-            "type": "boolean"
-          },
-          "metadata": {
-            "type": "object"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "slug",
-          "isActive"
-        ]
-      },
-      "TenantsConfigDto": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "example": true
-          },
-          "mode": {
-            "type": "string",
-            "example": "isolated",
-            "enum": [
-              "isolated",
-              "shared"
-            ]
-          },
-          "options": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TenantOptionDto"
-            }
-          }
-        },
-        "required": [
-          "mode"
-        ]
-      },
-      "MultipleAccountsConfigDto": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "example": false
-          }
-        },
-        "required": [
-          "enabled"
-        ]
-      },
-      "EmailAuthConfigDto": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "example": true
-          }
-        },
-        "required": [
-          "enabled"
-        ]
-      },
-      "PhoneAuthConfigDto": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "example": false
-          }
-        },
-        "required": [
-          "enabled"
-        ]
-      },
-      "PasswordlessAuthConfigDto": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "example": false
-          },
-          "allowSignUp": {
-            "type": "boolean",
-            "example": false
-          }
-        },
-        "required": [
-          "enabled"
-        ]
-      },
-      "OAuthProviderPublicConfigDto": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "example": false
-          },
-          "clientId": {
-            "type": "string",
-            "example": "1234567890-abcdef.apps.googleusercontent.com"
-          },
-          "appId": {
-            "type": "string",
-            "example": "123456789012345",
-            "description": "Facebook app id (when provider is Facebook)"
-          }
-        },
-        "required": [
-          "enabled"
-        ]
-      },
-      "RegistrationConfigDto": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "example": true,
-            "description": "Whether user registration is enabled"
-          },
-          "requireInvitation": {
-            "type": "boolean",
-            "example": false,
-            "description": "Whether registration requires an invitation"
-          },
-          "collectProfileFields": {
-            "type": "array",
-            "description": "Additional profile fields to collect during registration",
-            "items": {
-              "type": "object",
-              "properties": {
-                "id": {
-                  "type": "string"
-                },
-                "label": {
-                  "type": "string"
-                },
-                "required": {
-                  "type": "boolean"
-                },
-                "type": {
-                  "type": "string",
-                  "enum": [
-                    "text",
-                    "email",
-                    "phone",
-                    "select",
-                    "checkbox",
-                    "password"
-                  ]
-                },
-                "placeholder": {
-                  "type": "string"
-                },
-                "options": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "label": {
-                        "type": "string"
-                      },
-                      "value": {
-                        "type": "string"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "required": [
-          "enabled"
-        ]
-      },
-      "MfaConfigDto": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "example": true
-          },
-          "methods": {
-            "example": [
-              "email",
-              "totp"
-            ],
-            "type": "array",
-            "items": {
-              "type": "array"
-            }
-          },
-          "allowUserToggle": {
-            "type": "boolean",
-            "example": true
-          },
-          "allowMethodSelection": {
-            "type": "boolean",
-            "example": true
-          }
-        },
-        "required": [
-          "enabled"
-        ]
-      },
-      "PlatformAccessPublicConfigDto": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "example": false
-          }
-        },
-        "required": [
-          "enabled"
-        ]
-      },
-      "SsoProviderConfigDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "logoUrl": {
-            "type": "string"
-          },
-          "authorizationUrl": {
-            "type": "string"
-          },
-          "clientId": {
-            "type": "string"
-          },
-          "hint": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name"
-        ]
-      },
-      "SsoConfigDto": {
-        "type": "object",
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "example": false
-          },
-          "providers": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/SsoProviderConfigDto"
-            }
-          }
-        },
-        "required": [
-          "enabled"
-        ]
-      },
-      "UiConfigDto": {
-        "type": "object",
-        "properties": {
-          "brandName": {
-            "type": "string"
-          },
-          "brandColor": {
-            "type": "string"
-          },
-          "logoUrl": {
-            "type": "string"
-          },
-          "backgroundImageUrl": {
-            "type": "string"
-          }
-        }
-      },
-      "ClientConfigResponseDto": {
-        "type": "object",
-        "properties": {
-          "tenants": {
-            "$ref": "#/components/schemas/TenantsConfigDto"
-          },
-          "multipleAccounts": {
-            "$ref": "#/components/schemas/MultipleAccountsConfigDto"
-          },
-          "roleGuards": {
-            "example": [
-              "web",
-              "api"
-            ],
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "emailAuth": {
-            "$ref": "#/components/schemas/EmailAuthConfigDto"
-          },
-          "phoneAuth": {
-            "$ref": "#/components/schemas/PhoneAuthConfigDto"
-          },
-          "passwordless": {
-            "$ref": "#/components/schemas/PasswordlessAuthConfigDto"
-          },
-          "google": {
-            "$ref": "#/components/schemas/OAuthProviderPublicConfigDto"
-          },
-          "facebook": {
-            "$ref": "#/components/schemas/OAuthProviderPublicConfigDto"
-          },
-          "apple": {
-            "$ref": "#/components/schemas/OAuthProviderPublicConfigDto"
-          },
-          "github": {
-            "$ref": "#/components/schemas/OAuthProviderPublicConfigDto"
-          },
-          "customProviders": {
-            "example": [
-              "ldap"
-            ],
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "registration": {
-            "$ref": "#/components/schemas/RegistrationConfigDto"
-          },
-          "mfa": {
-            "$ref": "#/components/schemas/MfaConfigDto"
-          },
-          "platformAccess": {
-            "$ref": "#/components/schemas/PlatformAccessPublicConfigDto"
-          },
-          "accessTokenType": {
-            "type": "string",
-            "enum": [
-              "header",
-              "cookie",
-              null
-            ],
-            "example": "header"
-          },
-          "sso": {
-            "$ref": "#/components/schemas/SsoConfigDto"
-          },
-          "ui": {
-            "$ref": "#/components/schemas/UiConfigDto"
-          }
-        }
-      },
       "NestAuthSendEmailVerificationRequestDto": {
         "type": "object",
         "properties": {
@@ -5767,6 +5740,25 @@
             "description": "Optional description of what this permission allows"
           }
         }
+      },
+      "AdminAddBlockedDomainsDto": {
+        "type": "object",
+        "properties": {
+          "domains": {
+            "description": "One or more email domains to block (e.g. [\"mailinator.com\", \"guerrillamail.com\"]).",
+            "example": [
+              "mailinator.com",
+              "guerrillamail.com"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "domains"
+        ]
       }
     }
   }
