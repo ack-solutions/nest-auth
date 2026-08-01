@@ -171,6 +171,20 @@ Nest them — they compose cleanly:
 
 For very common combos (auth + role), wrap in a custom component to keep your route file tidy.
 
+## Guard renders a blank page for a signed-in user
+
+If a guard renders **nothing** for a user you know is authenticated, the usual cause is `@ackplus/nest-auth-react` being installed **twice** — common in pnpm/monorepos when a peer-React version split double-installs it. Each copy used to create its own React context, so `<AuthProvider>` from one copy populated one context while the hooks inside your guard read a different, still-default one: `isLoading` never flipped to `false`, and the guard sat rendering its (absent) loading UI forever.
+
+Since **2.7.3** the contexts are cross-realm singletons pinned on `globalThis`, so duplicate copies share one context and the app works anyway. A guard that renders nothing purely because auth is still loading also emits a one-time **dev-only** `console.warn` pointing at this cause (production builds stay silent).
+
+The real fix is still to dedupe the package to a single copy:
+
+```bash
+pnpm why @ackplus/nest-auth-react
+```
+
+Then align the `react` / `react-dom` peer ranges (or add a workspace `overrides` / `resolutions` entry) so only one copy is installed. Passing an explicit `loadingComponent` to your guards also makes a stuck-loading state visible instead of blank.
+
 ## Related
 
 - [Hooks](/docs/react/hooks).

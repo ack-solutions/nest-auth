@@ -26,6 +26,30 @@ Use it to power a slug field or a "find your workspace" step, then carry `tenant
 
 `GET /auth/client-config` also returns the active tenant's mode, so the UI can decide whether to show the tenant step at all.
 
+## Optional: email/phone-first picker
+
+If users know their email/phone better than the org slug, call `UserService` from **your** app (no public nest-auth route — you own authz, rate limits, and response shape):
+
+```ts
+import { UserService } from '@ackplus/nest-auth';
+
+// In your controller / service:
+const tenants = await this.users.getTenantsByEmail(email);
+// → NestAuthTenant[] (active tenants with an active membership for that email)
+
+if (tenants.length === 1) {
+  // silently select tenants[0].id
+} else if (tenants.length > 1) {
+  // show a picker — e.g. map to { id, slug, name }
+}
+```
+
+Same for phone: `getTenantsByPhone(phone)`.
+
+Then continue with the normal login call using the chosen `tenantId` (section 2). Inactive users/memberships/tenants are omitted; results are de-duplicated by tenant id.
+
+> Prefer the slug-lookup path when users already know the workspace. Use this helper only when you intentionally want identity → tenant discovery, and harden the HTTP surface yourself (rate limits, generic errors when empty, etc.).
+
 ## 2. Log in with the tenant
 
 Pass `tenantId` on the login (and signup) request. Without it, ISOLATED can't disambiguate a shared email.

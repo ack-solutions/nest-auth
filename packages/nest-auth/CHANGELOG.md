@@ -1,5 +1,31 @@
 # @ackplus/nest-auth
 
+## 2.7.6
+
+### Patch Changes
+
+- feat(user): `UserService.getTenantsByEmail` / `getTenantsByPhone` for
+  app-owned email/phone-first tenant pickers (cross-tenant, active-only,
+  no public HTTP endpoint).
+  - @ackplus/nest-auth-contracts@2.7.6
+
+## 2.7.5
+
+### Patch Changes
+
+- feat(auth): richer public `/auth/client-config` for login/signup UIs
+  - Returns passwordless `{ enabled, allowSignUp }`, OAuth public ids
+    (`google.clientId`, `facebook.appId`, `apple.clientId`, `github.clientId`),
+    `customProviders`, `platformAccess.enabled`, and `accessTokenType`.
+  - Secrets are never included. Extend further via `clientConfig.factory`.
+  - @ackplus/nest-auth-contracts@2.7.5
+
+## 2.7.4
+
+### Patch Changes
+
+- @ackplus/nest-auth-contracts@2.7.4
+
 ## 2.7.3
 
 ### Patch Changes

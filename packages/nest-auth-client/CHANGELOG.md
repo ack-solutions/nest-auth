@@ -1,5 +1,36 @@
 # @ackplus/nest-auth-client
 
+## 2.7.6
+
+### Patch Changes
+
+- @ackplus/nest-auth-contracts@2.7.6
+
+## 2.7.5
+
+### Patch Changes
+
+- feat(client): `IClientConfig` now includes passwordless, OAuth public ids,
+  `platformAccess`, `accessTokenType`, and `customProviders` (canonical type
+  lives in `@ackplus/nest-auth-contracts`).
+  - @ackplus/nest-auth-contracts@2.7.5
+
+## 2.7.4
+
+### Patch Changes
+
+- fix(client): no more silent anonymous requests when no account is active
+
+  With no active account, `AccountManager.getAuthHeaders()` / `getAuthHeadersSync()` / `shouldSendCookies()` / `refresh()` resolved to nothing **silently** — so every request through an attached axios/fetch went out without an `Authorization` header and came back 401, while an `AuthProvider` fed a separate bootstrap client still reported the user as signed in. Two token sources disagreeing with no signal, and very hard to diagnose.
+  - **`fallbackClient`** (new `AccountManagerConfig` option) — the client to fall back to when no account is active, typically your single-account bootstrap client.
+  - **`resolveActiveClient()`** (new, also on `IAccountSwitcher`) — the client auth actually resolves through (active account, else `fallbackClient`). Feed this to your auth provider so it and your attached HTTP client can never diverge.
+  - **`onNoActiveAccount({ method })`** (new option) — fires when auth resolves to nothing, so you can log/redirect instead of silently 401ing.
+
+  Resolution is also **boot-safe**: the async resolvers await the account index before answering, and the sync ones return the neutral default until it has loaded, so a persisted active account is never briefly impersonated by the `fallbackClient`.
+
+  Behaviour is unchanged when neither option is configured (still non-fatal empty headers, so genuinely public requests keep working). Note: the exported `IAccountSwitcher` interface gained `resolveActiveClient()` — custom in-house implementers (not users of the shipped managers) must add it.
+  - @ackplus/nest-auth-contracts@2.7.4
+
 ## 2.7.3
 
 ### Patch Changes

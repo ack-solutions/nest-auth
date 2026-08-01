@@ -5,12 +5,40 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.7.2`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.7.6`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/changelog/migrations#upgrading-within-v2-20x--22x)**. Bump every package to the same version.
 
 ---
+
+## 2.7.6 — email/phone-first tenant picker helpers
+
+- **Added (backend):** `UserService.getTenantsByEmail(email)` / `getTenantsByPhone(phone)` — cross-tenant helpers for app-owned email/phone-first login pickers (especially ISOLATED). No public nest-auth HTTP route; call from your own controller. See [Logging in under a tenant (ISOLATED)](/docs/recipes/tenant-login-isolated#optional-emailphone-first-picker).
+
+---
+
+## 2.7.5 — richer `/auth/client-config` for login/signup UIs
+
+- **Added (backend):** `GET /auth/client-config` now returns passwordless flags, OAuth public client/app ids (`google` / `facebook` / `apple` / `github`), `customProviders`, `platformAccess.enabled`, and `accessTokenType` — so login/signup screens can render without hardcoding. Secrets (`clientSecret`, `appSecret`, private keys, JWT secrets) are never included; public OAuth client/app ids are safe to expose.
+- **Added (contracts):** `IClientConfig` (+ related public config types) is the shared response shape; `@ackplus/nest-auth-client` re-exports it.
+- **Docs:** client + hooks-reference pages updated for the expanded config.
+
+---
+
+## 2.7.4 — no silent anonymous requests when no account is active
+
+- **Fixed (client):** with no active account, `AccountManager.getAuthHeaders()` / `getAuthHeadersSync()` / `shouldSendCookies()` / `refresh()` resolved to nothing **silently**, so every request through an attached axios/fetch went out anonymous and 401'd — while an `AuthProvider` fed a separate bootstrap client still reported the user signed in. Two token sources disagreeing with no signal.
+- **Added:** `fallbackClient` on `AccountManagerConfig` — the client to use when no account is active (typically your bootstrap client) — plus a public **`resolveActiveClient()`** (also on `IAccountSwitcher`) so your auth provider and your attached HTTP client resolve the **same** client and can't diverge.
+- **Added:** `onNoActiveAccount({ method })` — fires when auth resolves to nothing, so you can log or redirect instead of silently 401ing. Defaults are unchanged (still non-fatal empty headers) when neither option is configured. See [HTTP adapters](/docs/client/http-adapters) and [multi-account switching](/docs/recipes/multi-account-switching).
+- **Behavior:** resolution is boot-safe — the async resolvers await the account index before answering and the sync ones return the neutral default until it has loaded, so a persisted active account is never briefly impersonated by the `fallbackClient`.
+
+## 2.7.3 — duplication-safe React contexts
+
+- **Fixed (React):** when `@ackplus/nest-auth-react` ends up installed **twice** (common in pnpm/monorepos when a peer-React version split double-installs it), each copy called `createContext()` and got its own context object — so `<AuthProvider>` from one copy populated one context while hooks imported from the other read a different, still-default one. `isLoading` stayed `true` forever and `AuthGuard`, `RequirePermission` / `RequireRole`, and the `withRequirePermission` / `withRequireRole` HOCs silently rendered a blank page for authenticated users.
+- **Fixed:** `AuthContext` and `AccountSwitcherContext` are now cross-realm singletons pinned on `globalThis` via `Symbol.for(...)`, so every duplicate copy shares **one** context object. (Safe because React itself stays a single instance via `peerDependency` — only the context *identity* broke.)
+- **Added:** guards no longer fail completely silently while loading — when a guard renders nothing purely because auth is still loading and no loading UI was supplied, a one-time **dev-only** `console.warn` points at a duplicate install as the likely cause. Production builds stay silent.
+- No API changes — a drop-in fix. The real remedy is still to dedupe `@ackplus/nest-auth-react` to a single copy; this makes the app work even when you can't.
 
 ## 2.7.2 — multi-account storage GC + `reset()`
 

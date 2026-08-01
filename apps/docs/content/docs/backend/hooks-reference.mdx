@@ -246,7 +246,7 @@ resolveConfig(ctx) {
 
 ### `clientConfig.factory(default, context) => any`
 
-Reshapes the public `/auth/client-config` response — what your frontend reads to decide which sign-in buttons to render.
+Reshapes the public `/auth/client-config` response — what your frontend reads to decide which sign-in buttons to render. The default already includes email/phone/passwordless flags, OAuth public client/app ids, MFA, tenants, `platformAccess.enabled`, and `accessTokenType`. Use the factory to add branding (`ui`), SSO, tenant option lists, or other app-specific fields.
 
 ### `password.hash(password) => Promise<string>` / `password.verify(password, hash) => Promise<boolean>`
 

@@ -93,10 +93,12 @@ Returns the full user data (the same payload `useUser()` exposes in React).
 
 ### `getClientConfig(options?) => Promise<IClientConfig>`
 
-Fetch the backend's **public** config (no auth): tenant mode, enabled auth methods, registration/MFA options, and `multipleAccounts.enabled`. Use it to adapt the UI to the backend — e.g. whether to show an account switcher.
+Fetch the backend's **public** config (no auth): tenant mode, email/phone/passwordless flags, OAuth public client/app ids, registration/MFA options, `platformAccess.enabled`, `accessTokenType`, and `multipleAccounts.enabled`. Use it to adapt login/signup UI to the backend.
 
 ```ts
 const cfg = await auth.getClientConfig();
+if (cfg.passwordless?.enabled) { /* show OTP login */ }
+if (cfg.google?.enabled) { /* show Google button with cfg.google.clientId */ }
 if (cfg.multipleAccounts?.enabled) { /* show switcher */ }
 ```
 

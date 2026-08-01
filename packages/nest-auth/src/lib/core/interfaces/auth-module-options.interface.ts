@@ -608,7 +608,10 @@ export interface IAuthModuleOptions {
          * Factory function to customize the client config response
          * Receives the default config and can modify/return it
          */
-        factory?: (defaultConfig: any, context: { configService: any; tenantService: any }) => Promise<any> | any;
+        factory?: (
+            defaultConfig: import('@ackplus/nest-auth-contracts').IClientConfig,
+            context: { configService: any; tenantService: any },
+        ) => Promise<any> | any;
     };
     mfa?: MFAOptions;
     session?: SessionOptions;

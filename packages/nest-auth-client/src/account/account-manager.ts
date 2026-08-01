@@ -96,6 +96,12 @@ export interface IAccountSwitcher extends AuthHeaderProvider {
     listAccounts(): AccountSnapshot[];
     getActiveAccountId(): string | null;
     getActiveClient(): AuthClient | null;
+    /**
+     * The client auth actually resolves through (active account, else a configured
+     * fallback). Feed this to your auth provider so it can't diverge from what an
+     * attached axios/fetch sends.
+     */
+    resolveActiveClient(): AuthClient | null;
     addAccount(dto: ILoginRequest, options?: AddAccountOptions): Promise<AccountSnapshot>;
     /**
      * Register an already-authenticated pending client (after `login`/`verify2fa`)
@@ -138,6 +144,31 @@ export interface AccountManagerConfig extends Omit<AuthClientConfig, 'storage'> 
      * {@link reset}. All managers over the same storage should use the same value.
      */
     reapOrphanStorageOnReady?: boolean;
+    /**
+     * Client to fall back to when NO account is active — typically your
+     * single-account "bootstrap" client. Without it, a manager with no active
+     * account resolves no auth headers, so every request through an attached
+     * axios/fetch goes out anonymous and 401s while your `AuthProvider` (fed a
+     * bootstrap client) still shows the user signed in — two token sources
+     * disagreeing silently.
+     *
+     * Configure this and feed {@link AccountManager.resolveActiveClient} to your
+     * auth provider so both resolve the SAME client.
+     *
+     * It is NOT a managed account: {@link AccountManager.removeAccount} /
+     * {@link AccountManager.reset} never revoke or clear it, so auth keeps
+     * resolving through it after a reset. If "reset" should mean *signed out
+     * everywhere* for your app, log the fallback client out yourself. Don't pass a
+     * manager-created pending client here — its namespace is GC-eligible.
+     */
+    fallbackClient?: AuthClient;
+    /**
+     * Called when auth is resolved but there is neither an active account nor a
+     * {@link fallbackClient} — i.e. the request is about to go out anonymous.
+     * Use it to log/redirect instead of silently 401ing. (Not fatal: the call
+     * still returns empty headers so genuinely public requests keep working.)
+     */
+    onNoActiveAccount?: (info: { method: 'getAuthHeaders' | 'getAuthHeadersSync' | 'shouldSendCookies' | 'refresh' }) => void;
 }
 
 /** Thrown by `addAccount()` when the login needs an MFA step before it completes. */
@@ -163,6 +194,8 @@ export class AccountManager implements IAccountSwitcher {
     private readonly pendingNamespaces = new Set<string>();
     private readonly listeners = new Set<() => void>();
     private index: AccountsIndex = { accounts: [], activeAccountId: null };
+    /** True once the persisted index has been read — sync resolvers must not answer before this. */
+    private indexLoaded = false;
     private readonly loaded: Promise<void>;
 
     constructor(private readonly config: AccountManagerConfig) {
@@ -347,6 +380,10 @@ export class AccountManager implements IAccountSwitcher {
      * account's session server-side (best-effort). Use it to implement a
      * "plain sign-in starts a fresh single-account session" rule without
      * reverse-engineering storage keys.
+     *
+     * Note: a configured {@link AccountManagerConfig.fallbackClient} is NOT a
+     * managed account — it is left untouched, so auth still resolves through it
+     * after a reset. Log it out yourself if reset should mean "signed out".
      */
     async reset(): Promise<void> {
         await this.ready();
@@ -388,27 +425,64 @@ export class AccountManager implements IAccountSwitcher {
         return this.index.activeAccountId ? this.getClient(this.index.activeAccountId) : null;
     }
 
-    /** Auth headers for the ACTIVE account — delegate target for a shared axios/fetch instance. */
+    /**
+     * The client every auth resolution goes through: the ACTIVE account's client,
+     * else the configured {@link AccountManagerConfig.fallbackClient}, else null.
+     *
+     * Feed this (not `getActiveClient()`) to your auth provider so the provider and
+     * an attached axios/fetch always resolve the SAME client — otherwise a manager
+     * with no active account sends anonymous requests while the UI still shows the
+     * user signed in.
+     */
+    resolveActiveClient(): AuthClient | null {
+        return this.getActiveClient() ?? this.config.fallbackClient ?? null;
+    }
+
+    /** Auth headers for the resolved account — delegate target for a shared axios/fetch instance. */
     async getAuthHeaders(opts?: GetAuthHeadersOptions): Promise<Record<string, string>> {
-        const c = this.getActiveClient();
-        return c ? c.getAuthHeaders(opts) : {};
+        // Wait for the persisted index: resolving before it loads would hand back
+        // the fallback for an account that IS active — i.e. send the wrong identity.
+        await this.ready();
+        const c = this.resolveActiveClient();
+        if (!c) {
+            this.reportNoActiveAccount('getAuthHeaders');
+            return {};
+        }
+        return c.getAuthHeaders(opts);
     }
 
     getAuthHeadersSync(opts?: GetAuthHeadersOptions): Record<string, string> {
-        const c = this.getActiveClient();
-        return c ? c.getAuthHeadersSync(opts) : {};
+        // Sync path can't await the index — until it's loaded, fall back to the
+        // pre-2.7.3 safe default rather than answering as the wrong account.
+        if (!this.indexLoaded) return {};
+        const c = this.resolveActiveClient();
+        if (!c) {
+            this.reportNoActiveAccount('getAuthHeadersSync');
+            return {};
+        }
+        return c.getAuthHeadersSync(opts);
     }
 
-    /** Whether the ACTIVE account's transport sends cookies (delegate for the attach helpers). */
+    /** Whether the resolved account's transport sends cookies (delegate for the attach helpers). */
     shouldSendCookies(): boolean {
-        const c = this.getActiveClient();
-        return c ? c.shouldSendCookies() : false;
+        if (!this.indexLoaded) return false;
+        const c = this.resolveActiveClient();
+        if (!c) {
+            this.reportNoActiveAccount('shouldSendCookies');
+            return false;
+        }
+        return c.shouldSendCookies();
     }
 
-    /** Refresh the ACTIVE account's tokens (delegate for the attach helpers' 401 retry). */
+    /** Refresh the resolved account's tokens (delegate for the attach helpers' 401 retry). */
     async refresh(): Promise<unknown> {
-        const c = this.getActiveClient();
-        return c ? c.refresh() : null;
+        await this.ready();
+        const c = this.resolveActiveClient();
+        if (!c) {
+            this.reportNoActiveAccount('refresh');
+            return null;
+        }
+        return c.refresh();
     }
 
     /**
@@ -459,10 +533,27 @@ export class AccountManager implements IAccountSwitcher {
     }
 
     private buildClient(ns: string): AuthClient {
-        const { storageFactory, storageNamespace, ...base } = this.config as AccountManagerConfig & Record<string, unknown>;
+        // Strip the manager-only options so they never leak into AuthClientConfig.
+        const {
+            storageFactory,
+            storageNamespace,
+            reapOrphanStorageOnReady,
+            fallbackClient,
+            onNoActiveAccount,
+            ...base
+        } = this.config as AccountManagerConfig & Record<string, unknown>;
         const client = new AuthClient({ ...(base as AuthClientConfig), storage: this.storageFactory(ns) });
         this.nsOf.set(client, ns);
         return client;
+    }
+
+    /** Surface "about to send an anonymous request" instead of failing silently. */
+    private reportNoActiveAccount(method: 'getAuthHeaders' | 'getAuthHeadersSync' | 'shouldSendCookies' | 'refresh'): void {
+        try {
+            this.config.onNoActiveAccount?.({ method });
+        } catch {
+            /* a reporting hook must never break the request path */
+        }
     }
 
     private assertHeaderMode(): void {
@@ -494,6 +585,8 @@ export class AccountManager implements IAccountSwitcher {
             // still self-heals genuine orphans below.)
             indexTrusted = false;
         }
+        // The index is now known (empty or restored) — sync resolvers may answer.
+        this.indexLoaded = true;
         // Reap orphaned per-account namespaces left by an interrupted add-account
         // flow or an index/storage desync (best-effort; needs adapter.keys()).
         if (indexTrusted && this.config.reapOrphanStorageOnReady !== false) {

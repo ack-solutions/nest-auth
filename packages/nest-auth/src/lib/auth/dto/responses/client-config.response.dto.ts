@@ -1,18 +1,21 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IRegistrationCollectProfileField } from '../../../core/interfaces/auth-module-options.interface';
 import {
     IEmailAuthConfig,
     IPhoneAuthConfig,
+    IPasswordlessAuthConfig,
+    IOAuthProviderPublicConfig,
     IRegistrationConfig,
     IMfaConfig,
+    IMultipleAccountsConfig,
+    IPlatformAccessPublicConfig,
     ITenantOption,
     ITenantsConfig,
     ISsoProviderConfig,
     ISsoConfig,
     IUiConfig,
     TenantModeEnum,
+    IProfileField,
 } from '@ackplus/nest-auth-contracts';
-
 
 export class EmailAuthConfigDto implements IEmailAuthConfig {
     @ApiProperty({ example: true })
@@ -22,6 +25,25 @@ export class EmailAuthConfigDto implements IEmailAuthConfig {
 export class PhoneAuthConfigDto implements IPhoneAuthConfig {
     @ApiProperty({ example: false })
     enabled: boolean;
+}
+
+export class PasswordlessAuthConfigDto implements IPasswordlessAuthConfig {
+    @ApiProperty({ example: false })
+    enabled: boolean;
+
+    @ApiPropertyOptional({ example: false })
+    allowSignUp?: boolean;
+}
+
+export class OAuthProviderPublicConfigDto implements IOAuthProviderPublicConfig {
+    @ApiProperty({ example: false })
+    enabled: boolean;
+
+    @ApiPropertyOptional({ example: '1234567890-abcdef.apps.googleusercontent.com' })
+    clientId?: string;
+
+    @ApiPropertyOptional({ example: '123456789012345', description: 'Facebook app id (when provider is Facebook)' })
+    appId?: string;
 }
 
 export class RegistrationConfigDto implements IRegistrationConfig {
@@ -55,7 +77,7 @@ export class RegistrationConfigDto implements IRegistrationConfig {
             },
         },
     })
-    collectProfileFields?: Array<IRegistrationCollectProfileField>;
+    collectProfileFields?: IProfileField[];
 }
 
 export class MfaConfigDto implements IMfaConfig {
@@ -63,13 +85,23 @@ export class MfaConfigDto implements IMfaConfig {
     enabled: boolean;
 
     @ApiPropertyOptional({ example: ['email', 'totp'], isArray: true })
-    methods?: any[]; // Using any[] here to avoid circular dependency or import issues with MFAMethodEnum if complex
+    methods?: any[];
 
     @ApiPropertyOptional({ example: true })
     allowUserToggle?: boolean;
 
     @ApiPropertyOptional({ example: true })
     allowMethodSelection?: boolean;
+}
+
+export class MultipleAccountsConfigDto implements IMultipleAccountsConfig {
+    @ApiProperty({ example: false })
+    enabled: boolean;
+}
+
+export class PlatformAccessPublicConfigDto implements IPlatformAccessPublicConfig {
+    @ApiProperty({ example: false })
+    enabled: boolean;
 }
 
 export class TenantOptionDto implements ITenantOption {
@@ -90,6 +122,9 @@ export class TenantOptionDto implements ITenantOption {
 }
 
 export class TenantsConfigDto implements ITenantsConfig {
+    @ApiPropertyOptional({ example: true })
+    enabled?: boolean;
+
     @ApiProperty({ example: TenantModeEnum.ISOLATED, enum: TenantModeEnum })
     mode: TenantModeEnum;
 
@@ -137,4 +172,58 @@ export class UiConfigDto implements IUiConfig {
 
     @ApiPropertyOptional()
     backgroundImageUrl?: string;
+}
+
+/** Swagger shape for `GET /auth/client-config`. */
+export class ClientConfigResponseDto {
+    @ApiPropertyOptional({ type: TenantsConfigDto })
+    tenants?: TenantsConfigDto;
+
+    @ApiPropertyOptional({ type: MultipleAccountsConfigDto })
+    multipleAccounts?: MultipleAccountsConfigDto;
+
+    @ApiPropertyOptional({ type: [String], example: ['web', 'api'] })
+    roleGuards?: string[];
+
+    @ApiPropertyOptional({ type: EmailAuthConfigDto })
+    emailAuth?: EmailAuthConfigDto;
+
+    @ApiPropertyOptional({ type: PhoneAuthConfigDto })
+    phoneAuth?: PhoneAuthConfigDto;
+
+    @ApiPropertyOptional({ type: PasswordlessAuthConfigDto })
+    passwordless?: PasswordlessAuthConfigDto;
+
+    @ApiPropertyOptional({ type: OAuthProviderPublicConfigDto })
+    google?: OAuthProviderPublicConfigDto;
+
+    @ApiPropertyOptional({ type: OAuthProviderPublicConfigDto })
+    facebook?: OAuthProviderPublicConfigDto;
+
+    @ApiPropertyOptional({ type: OAuthProviderPublicConfigDto })
+    apple?: OAuthProviderPublicConfigDto;
+
+    @ApiPropertyOptional({ type: OAuthProviderPublicConfigDto })
+    github?: OAuthProviderPublicConfigDto;
+
+    @ApiPropertyOptional({ type: [String], example: ['ldap'] })
+    customProviders?: string[];
+
+    @ApiPropertyOptional({ type: RegistrationConfigDto })
+    registration?: RegistrationConfigDto;
+
+    @ApiPropertyOptional({ type: MfaConfigDto })
+    mfa?: MfaConfigDto;
+
+    @ApiPropertyOptional({ type: PlatformAccessPublicConfigDto })
+    platformAccess?: PlatformAccessPublicConfigDto;
+
+    @ApiPropertyOptional({ enum: ['header', 'cookie', null], example: 'header' })
+    accessTokenType?: 'header' | 'cookie' | null;
+
+    @ApiPropertyOptional({ type: SsoConfigDto })
+    sso?: SsoConfigDto;
+
+    @ApiPropertyOptional({ type: UiConfigDto })
+    ui?: UiConfigDto;
 }

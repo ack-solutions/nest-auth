@@ -18,7 +18,7 @@ import request from 'supertest';
 import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { bootTestApp, type TestAppHandle } from '../helpers/boot-test-app';
 import { attachEventCapture, type EventCapture } from '../helpers/event-capture';
-import { TenantService } from '../../src';
+import { TenantService, UserService } from '../../src';
 
 const PASSWORD = 'IsoTenant!1';
 const EMAIL = 'dup@test.local';
@@ -89,5 +89,15 @@ describe('ISOLATED tenant — same email is a separate account per tenant', () =
 
     const missing = await request(handle.httpServer).get('/auth/tenants/lookup').query({ slug: 'does-not-exist' });
     expect(missing.status).toBe(404);
+  });
+
+  it('UserService.getTenantsByEmail returns every tenant that email belongs to', async () => {
+    const users = handle.get(UserService);
+    const tenants = await users.getTenantsByEmail(EMAIL);
+    expect(tenants.map((t) => t.id).sort()).toEqual([acmeId, globexId].sort());
+    expect(tenants.every((t) => t.slug && t.name)).toBe(true);
+
+    expect(await users.getTenantsByEmail('nobody@test.local')).toEqual([]);
+    expect(await users.getTenantsByEmail('')).toEqual([]);
   });
 });

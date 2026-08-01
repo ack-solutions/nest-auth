@@ -83,16 +83,21 @@ export { TenantModeEnum } from './config';
 export type {
     IEmailAuthConfig,
     IPhoneAuthConfig,
+    IPasswordlessAuthConfig,
+    IOAuthProviderPublicConfig,
     IProfileFieldOption,
     IProfileField,
     IRegistrationConfig,
     IMfaConfig,
+    IMultipleAccountsConfig,
+    IPlatformAccessPublicConfig,
     ITenantOption,
     ITenantsConfig,
     ISsoProviderConfig,
     ISsoConfig,
     IUiConfig,
     INestAuthTenantOptions,
+    IClientConfig,
 } from './config';
 
 // User (from user.ts) — type

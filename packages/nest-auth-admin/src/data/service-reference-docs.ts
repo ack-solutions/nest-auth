@@ -114,6 +114,24 @@ const user = await this.userService.getUserByEmail('user@example.com');
 
 ---
 
+### getTenantsByEmail() / getTenantsByPhone()
+
+Cross-tenant: return every **active** tenant that has an active membership for this email or phone. For app-owned login pickers (especially ISOLATED). **No** public HTTP endpoint — call from your own controller.
+
+**Signature**:
+\`\`\`typescript
+async getTenantsByEmail(email: string, manager?: EntityManager): Promise<NestAuthTenant[]>
+async getTenantsByPhone(phone: string, manager?: EntityManager): Promise<NestAuthTenant[]>
+\`\`\`
+
+**Example**:
+\`\`\`typescript
+const tenants = await this.userService.getTenantsByEmail('user@example.com');
+// → [{ id, slug, name, ... }, ...]
+\`\`\`
+
+---
+
 ### updateUser()
 
 Update user details.

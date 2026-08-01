@@ -65,11 +65,14 @@ Backs the password endpoints. All four methods take their request DTO and read t
 | `setUserAccessRoles(userId, tenantId, roleIds, manager?)` | Replace the roles on a user's tenant membership |
 | `ensureUserAccess(userId, tenantId, manager?)` / `deleteUserAccess(userId, tenantId, manager?)` | Create / remove a membership row |
 | `isUserInTenant(userId, tenantId)` / `getUserTenants(userId)` / `getUsersByRole(roleName, guard, tenantId?)` | Membership queries |
+| `getTenantsByEmail(email)` / `getTenantsByPhone(phone)` | Cross-tenant: active tenants that have an active membership for this email/phone (for app-owned login pickers — **no** public HTTP endpoint) |
 | `runInTransaction(fn)` | Run `fn(manager)` in a TypeORM transaction — pass `manager` into the tx-aware methods above |
 | `createPlatformUser(data, context?, manager?)` | Provision a **tenant-less** platform (super-admin) user **+ its `PlatformAccess` marker**, atomically. Works in every tenant mode |
 | `getPlatformUserByEmail(email, options?)` | Look up a platform user, tenant-less (keyed on the `PlatformAccess` marker) |
 
 > **ISOLATED mode:** `getUserByEmail` / `createUser` **require** a `tenantId` there (they throw `TENANT_ID_REQUIRED` without one). Platform super-admins are tenant-less, so provision and look them up with `createPlatformUser` / `getPlatformUserByEmail` instead — they never require a tenant and identify the user by the `PlatformAccess` marker (the same row the login path enforces), so they never return a regular tenant account. Grant roles with `user.getPlatformAccess(true)` then `assignRoles(...)`. See the [platform-admin portal recipe](/docs/recipes/platform-admin-portal).
+>
+> For an **email/phone-first** tenant picker (list which orgs an identity belongs to before login), use `getTenantsByEmail` / `getTenantsByPhone`. Those deliberately search across tenants and do **not** require `tenantId`. There is no public nest-auth route for them — wire your own endpoint if you need one (rate-limit; return only the fields your UI needs). See [Logging in under a tenant (ISOLATED)](/docs/recipes/tenant-login-isolated#optional-emailphone-first-picker).
 
 ## `RoleService`
 
