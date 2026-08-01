@@ -557,6 +557,19 @@ export interface IAuthModuleOptions {
     };
     emailAuth?: {
         enabled: boolean;
+        /**
+         * Disposable / throwaway email-domain blocking at sign-up. The blocklist
+         * is stored in the DB and managed from the admin console (seedable from
+         * the built-in ~8k default list). Opt-in.
+         */
+        disposable?: {
+            /** @default false */
+            enabled?: boolean;
+            /** `block` (reject the sign-up, default) or `flag` (allow but emit an event). */
+            mode?: 'block' | 'flag';
+            /** Domains to always allow, even if present in the blocklist. */
+            allowlist?: string[];
+        };
     };
     passwordless?: IPasswordlessOptions;
 

@@ -52,6 +52,7 @@ import { normalizedEmail, normalizedPhone } from '../../utils';
 import { OtpFlowService } from './otp-flow.service';
 import { LogoutService } from './logout.service';
 import { SessionTokenService } from './session-token.service';
+import { DisposableEmailService } from './disposable-email.service';
 import { PasswordlessCodeRequestedEvent } from '../events/passwordless-code-requested.event';
 import { chain, omit, pick } from 'lodash';
 import { NestAuthRole } from '../../role/entities/role.entity';
@@ -92,6 +93,8 @@ export class AuthService {
 
         private readonly sessionTokenService: SessionTokenService,
 
+        private readonly disposableEmail: DisposableEmailService,
+
         @Inject(NEST_AUTH_TENANT_CONTEXT_SERVICE)
         private readonly tenantContext: ITenantContextService,
 
@@ -122,6 +125,9 @@ export class AuthService {
             }
 
             // Resolve guard from config if available (Server-side enforcement)
+            // Reject sign-ups from blocked/disposable email domains (opt-in).
+            await this.disposableEmail.assertAllowed(input.email);
+
             if (this.authConfig.registrationHooks?.beforeSignup) {
                 const req = RequestContext.currentRequest();
                 input = await this.authConfig.registrationHooks.beforeSignup(input, { request: req });

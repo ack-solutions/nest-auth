@@ -14,6 +14,7 @@ import { AdminUsersController } from './controllers/admin-users.controller';
 import { AdminRolesController } from './controllers/admin-roles.controller';
 import { AdminTenantsController } from './controllers/admin-tenants.controller';
 import { AdminPermissionsController } from './controllers/admin-permissions.controller';
+import { AdminBlockedDomainsController } from './controllers/admin-blocked-domains.controller';
 import { AdminConsoleConfigService } from './services/admin-console-config.service';
 import { AuthModule } from '../auth/auth.module';
 import { NestAuthMFASecret } from '../auth/entities/mfa-secret.entity';
@@ -55,6 +56,7 @@ import { AdminUserManagementService } from './services/admin-user-management.ser
     AdminRolesController,
     AdminTenantsController,
     AdminPermissionsController,
+    AdminBlockedDomainsController,
     // UI controller LAST - it has catch-all routes that should only match non-API paths
     AdminConsoleController,
   ],

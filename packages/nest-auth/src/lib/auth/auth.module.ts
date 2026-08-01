@@ -17,6 +17,8 @@ import { SessionTokenService } from './services/session-token.service';
 import { InviteService } from './services/invite.service';
 import { NestAuthOTP } from './entities/otp.entity';
 import { NestAuthMFASecret } from './entities/mfa-secret.entity';
+import { NestAuthBlockedEmailDomain } from './entities/blocked-email-domain.entity';
+import { DisposableEmailService } from './services/disposable-email.service';
 import { NestAuthAccessKey } from '../user/entities/access-key.entity';
 import { NestAuthTrustedDevice } from './entities/trusted-device.entity';
 import { EventEmitterModule } from '@nestjs/event-emitter';
@@ -37,6 +39,7 @@ import { PermissionModule } from '../permission';
             NestAuthAccessKey,
             NestAuthIdentity,
             NestAuthTrustedDevice,
+            NestAuthBlockedEmailDomain,
         ]),
         forwardRef(() => CoreModule),
         forwardRef(() => UserModule),
@@ -57,6 +60,7 @@ import { PermissionModule } from '../permission';
         LogoutService,
         SessionTokenService,
         InviteService,
+        DisposableEmailService,
     ],
     controllers: [AuthController, MfaController],
     exports: [
@@ -70,6 +74,7 @@ import { PermissionModule } from '../permission';
         MfaService,
         NestAuthAuthGuard,
         TokenResponseInterceptor,
+        DisposableEmailService,
     ],
 })
 export class AuthModule {

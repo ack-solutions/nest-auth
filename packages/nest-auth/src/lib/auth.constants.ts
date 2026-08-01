@@ -34,6 +34,7 @@ export const AUTH_ERROR_CODES = {
     REGISTRATION_DISABLED: 'REGISTRATION_DISABLED',
     EMAIL_ALREADY_EXISTS: 'EMAIL_ALREADY_EXISTS',
     PHONE_ALREADY_EXISTS: 'PHONE_ALREADY_EXISTS',
+    EMAIL_DOMAIN_NOT_ALLOWED: 'EMAIL_DOMAIN_NOT_ALLOWED',
     PROVIDER_NOT_FOUND: 'PROVIDER_NOT_FOUND',
 
     // Login
@@ -254,6 +255,8 @@ export const NestAuthEvents = {
     /** Magic link URL built — send email in listener */
     MAGIC_LINK_REQUESTED: 'nest_auth.passwordless.magic_link.requested',
     REGISTERED: 'nest_auth.registered',
+    /** A blocked/disposable email domain was seen at sign-up (emitted in `flag` mode). Payload: { email, domain }. */
+    DISPOSABLE_EMAIL_DETECTED: 'nest_auth.disposable_email_detected',
     USER_INVITED: 'nest_auth.user_invited',
     TWO_FACTOR_VERIFIED: 'nest_auth.two_factor_verified',
     TWO_FACTOR_CODE_SENT: 'nest_auth.two_factor_code_sent',

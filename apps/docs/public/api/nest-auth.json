@@ -4142,6 +4142,298 @@
           "Admin · Permissions"
         ]
       }
+    },
+    "/auth/admin/api/blocked-email-domains": {
+      "get": {
+        "operationId": "AdminBlockedDomainsController_list",
+        "parameters": [
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "List blocked email domains (searchable, paginated)",
+        "tags": [
+          "Admin · Blocked Email Domains"
+        ]
+      },
+      "post": {
+        "operationId": "AdminBlockedDomainsController_add",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminAddBlockedDomainsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "{ added, skipped }"
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Add one or more blocked domains",
+        "tags": [
+          "Admin · Blocked Email Domains"
+        ]
+      }
+    },
+    "/auth/admin/api/blocked-email-domains/stats": {
+      "get": {
+        "operationId": "AdminBlockedDomainsController_stats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Blocklist stats (current count + size of the built-in default list)",
+        "tags": [
+          "Admin · Blocked Email Domains"
+        ]
+      }
+    },
+    "/auth/admin/api/blocked-email-domains/import-defaults": {
+      "post": {
+        "operationId": "AdminBlockedDomainsController_importDefaults",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "{ imported, total }"
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Import the built-in default disposable-domain list",
+        "tags": [
+          "Admin · Blocked Email Domains"
+        ]
+      }
+    },
+    "/auth/admin/api/blocked-email-domains/{idOrDomain}": {
+      "delete": {
+        "operationId": "AdminBlockedDomainsController_remove",
+        "parameters": [
+          {
+            "name": "idOrDomain",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Remove a blocked domain (by id or domain)",
+        "tags": [
+          "Admin · Blocked Email Domains"
+        ]
+      }
     }
   },
   "info": {
@@ -5448,6 +5740,25 @@
             "description": "Optional description of what this permission allows"
           }
         }
+      },
+      "AdminAddBlockedDomainsDto": {
+        "type": "object",
+        "properties": {
+          "domains": {
+            "description": "One or more email domains to block (e.g. [\"mailinator.com\", \"guerrillamail.com\"]).",
+            "example": [
+              "mailinator.com",
+              "guerrillamail.com"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "domains"
+        ]
       }
     }
   }
