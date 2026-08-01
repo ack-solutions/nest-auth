@@ -12,7 +12,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import { bootTestApp, type TestAppHandle } from '../helpers/boot-test-app';
 
-const SECRET = 'test-admin-secret-key-123';
+const SECRET = 'test-admin-secret-key-1234567890AB'; // 32+ chars (admin console fails closed below 32)
 const ADMIN_PASSWORD = 'AdminPass!1word';
 
 describe('Admin console auth — TC-310..TC-313', () => {

@@ -53,3 +53,42 @@ describe('JWT signing secret validation (fail-closed, no insecure default)', () 
     ).not.toThrow();
   });
 });
+
+describe('admin console secret validation (fail-closed)', () => {
+  const withAdmin = (adminConsole: Record<string, unknown>) =>
+    ({ session: { jwt: { secret: STRONG } }, adminConsole } as any);
+
+  it('throws when the console is enabled with a short (<32 char) secretKey', () => {
+    expect(() =>
+      AuthConfigService.setOptions(withAdmin({ enabled: true, secretKey: 'short-admin-secret' })),
+    ).toThrow(/32 characters/i);
+  });
+
+  it('throws on a known-weak/default secretKey', () => {
+    for (const weak of ['admin', 'change-me', 'password']) {
+      expect(() =>
+        AuthConfigService.setOptions(withAdmin({ enabled: true, secretKey: weak })),
+      ).toThrow(/secure adminConsole/i);
+    }
+  });
+
+  it('throws when a dedicated sessionSecret is set but too short', () => {
+    expect(() =>
+      AuthConfigService.setOptions(
+        withAdmin({ enabled: true, secretKey: STRONG, sessionSecret: 'too-short-session' }),
+      ),
+    ).toThrow(/32 characters/i);
+  });
+
+  it('accepts a strong 32+ char secretKey', () => {
+    expect(() =>
+      AuthConfigService.setOptions(withAdmin({ enabled: true, secretKey: 'a'.repeat(40) })),
+    ).not.toThrow();
+  });
+
+  it('does NOT validate the secret when the console is disabled', () => {
+    expect(() =>
+      AuthConfigService.setOptions(withAdmin({ enabled: false, secretKey: 'x' })),
+    ).not.toThrow();
+  });
+});

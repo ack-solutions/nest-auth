@@ -97,6 +97,36 @@ describe('admin console — dedicated session secret (#5)', () => {
       await handle.close();
     }
   });
+
+  it('derives a signing key DISTINCT from secretKey when no sessionSecret is set', async () => {
+    const { AdminConsoleConfigService } = await import(
+      '../../src/lib/admin-console/services/admin-console-config.service'
+    );
+    const handle = await boot({}); // secretKey only, no dedicated sessionSecret
+    try {
+      const cfg = handle.get(AdminConsoleConfigService);
+      const signingKey = cfg.getSessionSecret();
+      // The wire-transmitted setup key must NOT itself be the cookie-signing key.
+      expect(signingKey).not.toBe(SECRET);
+      expect(signingKey).toMatch(/^[0-9a-f]{64}$/); // sha256 hex digest
+    } finally {
+      await handle.close();
+    }
+  });
+
+  it('uses a dedicated sessionSecret verbatim when provided', async () => {
+    const { AdminConsoleConfigService } = await import(
+      '../../src/lib/admin-console/services/admin-console-config.service'
+    );
+    const dedicated = 'admin-console-DEDICATED-session-secret-0003';
+    const handle = await boot({ sessionSecret: dedicated });
+    try {
+      const cfg = handle.get(AdminConsoleConfigService);
+      expect(cfg.getSessionSecret()).toBe(dedicated);
+    } finally {
+      await handle.close();
+    }
+  });
 });
 
 describe('admin console — OOB notification events (#4)', () => {

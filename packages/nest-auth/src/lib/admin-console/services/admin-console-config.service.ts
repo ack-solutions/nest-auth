@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { createHash } from 'crypto';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { IAdminConsoleOptions } from '../../core/interfaces/auth-module-options.interface';
 import { CookieOptions } from 'express';
@@ -43,18 +44,27 @@ export class AdminConsoleConfigService {
 
   getSessionSecret(): string {
     // Dedicated admin session-signing key, kept SEPARATE from the bootstrap
-    // `secretKey` (a low-entropy setup key must not double as the cookie signing
-    // key). Falls back to `secretKey` for backward compatibility; the boot-time
-    // validation (validateAdminConsoleOptions) enforces a 32+ char floor.
+    // `secretKey`. A dedicated `adminConsole.sessionSecret` is used verbatim when
+    // set. Otherwise we DERIVE the signing key from `secretKey` instead of using
+    // it directly, so the setup key — which is transmitted on the wire to the
+    // signup/reset-password endpoints — is never itself the HS256 cookie-signing
+    // key (which would let a captured/guessed setup key forge admin sessions).
+    // The boot-time validation (validateAdminConsoleOptions) enforces a 32+ char
+    // floor on both. NOTE: this derivation invalidates admin sessions minted by
+    // older versions (that signed with the raw secretKey) — admins re-login once.
     const admin = this.authConfigService.getConfig().adminConsole;
-    const secret = admin?.sessionSecret || admin?.secretKey;
-    if (!secret) {
-      throw new Error(
-        'Admin console session secret is not configured. Set adminConsole.sessionSecret ' +
-        '(recommended) or adminConsole.secretKey to a high-entropy 32+ character random value.',
-      );
+    if (admin?.sessionSecret) {
+      return admin.sessionSecret;
     }
-    return secret;
+    if (admin?.secretKey) {
+      return createHash('sha256')
+        .update(`nest-auth-admin-session:${admin.secretKey}`)
+        .digest('hex');
+    }
+    throw new Error(
+      'Admin console session secret is not configured. Set adminConsole.sessionSecret ' +
+      '(recommended) or adminConsole.secretKey to a high-entropy 32+ character random value.',
+    );
   }
 
   getSessionDuration(): string | number {

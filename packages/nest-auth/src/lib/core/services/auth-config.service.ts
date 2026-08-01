@@ -224,8 +224,12 @@ export class AuthConfigService {
     /**
      * Validates admin console configuration options. When the console is enabled,
      * both the bootstrap `secretKey` and (if set) the dedicated `sessionSecret`
-     * must be non-weak; a short (<32 char) value warns but doesn't block boot
-     * (backward compatible — a future major may make this fail closed).
+     * must be strong: a known-weak/default value or a value shorter than 32
+     * characters now FAILS CLOSED (throws at boot). The admin console is the
+     * highest-value surface in the product, and its secret both bootstraps admins
+     * and (by default) signs session cookies — a low-entropy value is directly
+     * brute-forceable. Provide a high-entropy 32+ char random value, or disable
+     * the console (`adminConsole.enabled: false`).
      */
     private static validateAdminConsoleOptions(options: IAuthModuleOptions): void {
         const admin = options.adminConsole;
@@ -252,9 +256,10 @@ export class AuthConfigService {
                 );
             }
             if (value.length < 32) {
-                console.warn(
-                    `[NestAuth] adminConsole.${label} is shorter than the recommended 32 characters — ` +
-                    'use a high-entropy 32+ byte random value in production.',
+                throw new Error(
+                    `Admin console requires adminConsole.${label} to be at least 32 characters. ` +
+                    'Use a high-entropy 32+ byte random value from an environment variable / secrets ' +
+                    'manager, or disable the console with adminConsole.enabled: false.',
                 );
             }
         };
