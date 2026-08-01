@@ -13,6 +13,8 @@ import {
   UnauthorizedException,
   UseGuards,
   UseFilters,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -47,6 +49,12 @@ import { MoreThanOrEqual } from 'typeorm';
 
 @Controller()
 @UseFilters(AuthExceptionFilter)
+// Validate admin DTOs at the controller level so the credential/password rules
+// (MinLength + complexity) and mass-assignment stripping apply even when the
+// consumer app hasn't registered a global ValidationPipe. `whitelist` drops
+// unknown props; `transform` coerces types. Every AdminAuthController DTO field
+// carries a class-validator decorator, so nothing legitimate is stripped.
+@UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 @ApiTags('Admin · Console')
 @ApiValidationError()
 @ApiUnauthorized()

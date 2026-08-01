@@ -8,6 +8,8 @@ import {
   Query,
   UseFilters,
   UseGuards,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
 import { AuthExceptionFilter } from '../../auth/filters/auth-exception.filter';
@@ -22,6 +24,7 @@ import { AdminAddBlockedDomainsDto } from '../dto/admin-blocked-domain.dto';
  */
 @Controller('api/blocked-email-domains')
 @UseFilters(AuthExceptionFilter)
+@UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
 @UseGuards(AdminSessionGuard)
 @ApiTags('Admin · Blocked Email Domains')
 @ApiCookieAuth('admin-session')

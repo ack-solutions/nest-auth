@@ -9,9 +9,13 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { BadRequestException } from '@nestjs/common';
 import { hash, verify, Algorithm } from '@node-rs/argon2';
 import { assertPasswordPolicy } from '../../utils/password-policy.util';
 import { normalizedEmail } from '../../utils';
+
+/** Unconditional minimum length for an admin password (backstop below the DTO). */
+const ADMIN_PASSWORD_MIN_LENGTH = 8;
 
 @Entity('nest_auth_admin_users')
 export class NestAuthAdminUser extends BaseEntity {
@@ -65,6 +69,16 @@ export class NestAuthAdminUser extends BaseEntity {
   }
 
   async setPassword(password: string): Promise<void> {
+    // Unconditional backstop: even with no ValidationPipe and no opt-in password
+    // policy, an admin credential (the crown jewel) must never be trivially short
+    // or empty. The controller ValidationPipe enforces the stronger DTO rules
+    // (complexity); this guarantees a floor through every code path.
+    if (typeof password !== 'string' || password.trim().length < ADMIN_PASSWORD_MIN_LENGTH) {
+      throw new BadRequestException({
+        message: `Admin password must be at least ${ADMIN_PASSWORD_MIN_LENGTH} characters`,
+        code: 'ADMIN_PASSWORD_TOO_SHORT',
+      });
+    }
     // Hold admin-console passwords to the same (opt-in) policy as user passwords.
     await assertPasswordPolicy(password, { email: this.email });
     this.passwordHash = await hash(password, {
