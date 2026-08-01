@@ -6,7 +6,7 @@ import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import { useTheme } from '@mui/material/styles';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Shield, Building2, BookOpen, UserCog, LogOut, FileText, Key } from 'lucide-react';
+import { LayoutDashboard, Users, Shield, Building2, BookOpen, UserCog, LogOut, FileText, Key, Ban } from 'lucide-react';
 import { Icon } from '@mui/material';
 import { api } from '../services/api';
 import type { DashboardConfig, Admin } from '../types';
@@ -49,6 +49,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, config, onLogout }) =>
         { to: '/roles', icon: Shield, label: 'Roles' },
         { to: '/permissions', icon: Key, label: 'Permissions' },
         ...(tenantEnabled ? [{ to: '/tenants', icon: Building2, label: 'Tenants' }] : []),
+        { to: '/blocked-domains', icon: Ban, label: 'Blocked Emails' },
         { to: '/api', icon: FileText, label: 'API Docs' },
         ...(config.allowAdminManagement ? [{ to: '/admins', icon: UserCog, label: 'Admins' }] : []),
     ];

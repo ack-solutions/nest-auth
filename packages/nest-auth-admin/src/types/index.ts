@@ -128,3 +128,10 @@ export interface ApiResponse<T> {
 export interface DashboardConfig {
     allowAdminManagement: boolean;
 }
+
+export interface BlockedDomain {
+    id: string;
+    domain: string;
+    source: string;
+    createdAt: string;
+}

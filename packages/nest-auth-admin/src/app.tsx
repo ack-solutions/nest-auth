@@ -16,6 +16,7 @@ import { RolesPage } from './pages/roles-page';
 import { TenantsPage } from './pages/tenants-page';
 import { AdminsPage } from './pages/admins-page';
 import { PermissionsPage } from './pages/permissions-page';
+import { BlockedDomainsPage } from './pages/blocked-domains-page';
 import { ApiPage } from './pages/api-page';
 
 const ProtectedRoute: React.FC<{
@@ -192,6 +193,16 @@ export const App: React.FC = () => {
                             <ProtectedRoute authenticated={authenticated}>
                                 <Layout config={config} onLogout={handleLogout}>
                                     <PermissionsPage />
+                                </Layout>
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/blocked-domains"
+                        element={
+                            <ProtectedRoute authenticated={authenticated}>
+                                <Layout config={config} onLogout={handleLogout}>
+                                    <BlockedDomainsPage />
                                 </Layout>
                             </ProtectedRoute>
                         }
