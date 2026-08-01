@@ -16,6 +16,7 @@ import {
 } from "typeorm";
 import { hash, verify, Algorithm } from '@node-rs/argon2';
 import { AuthConfigService } from '../../core/services/auth-config.service';
+import { assertPasswordPolicy } from '../../utils/password-policy.util';
 import { NestAuthIdentity } from "./identity.entity";
 import { NestAuthSession } from "../../session/entities/session.entity";
 import { NestAuthOTP } from "../../auth/entities/otp.entity";
@@ -310,6 +311,10 @@ export class NestAuthUser extends BaseEntity {
     }
 
     async setPassword(password: string): Promise<void> {
+        // Enforce the (opt-in) password policy here so every path — signup,
+        // change, reset, admin-set — is covered uniformly and can't be bypassed.
+        await assertPasswordPolicy(password, { email: this.email });
+
         const options = AuthConfigService.getOptions();
 
         const hasCustomHash = !!options.password?.hash;

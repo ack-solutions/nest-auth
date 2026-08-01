@@ -1,6 +1,7 @@
 import { Type } from '@nestjs/common';
 import { MFAOptions } from './mfa-options.interface';
 import { IRateLimitOptions } from './rate-limit.interface';
+import { HibpOptions } from '../../utils/password-policy.util';
 import { CookieOptions, SessionOptions } from './session-options.interface';
 import { BaseAuthProvider } from '../providers/base-auth.provider';
 import { DebugLogOptions } from '../services/debug-logger.service';
@@ -665,6 +666,13 @@ export interface IAuthModuleOptions {
             timeCost?: number; // default: 3 (3 iterations)
             parallelism?: number; // default: 4 (4 parallel threads)
         };
+        /**
+         * Password strength policy, enforced uniformly at every password-set path
+         * (signup, change, reset, admin-set) and on admin-console passwords.
+         * Opt-in — a no-op unless `enabled: true`, so existing deployments are
+         * unchanged.
+         */
+        policy?: IPasswordPolicyOptions;
     };
 
     /**
@@ -714,6 +722,29 @@ export interface IAuthModuleOptions {
      * ```
      */
     resolveConfig?: (context: any) => Promise<Partial<IAuthModuleOptions>> | Partial<IAuthModuleOptions>;
+}
+
+/**
+ * Password strength policy (see `password.policy`). Opt-in; enforced at every
+ * password-set path. All checks after `enabled` are individually toggleable.
+ */
+export interface IPasswordPolicyOptions {
+    /** Master switch. @default false */
+    enabled?: boolean;
+    /** Minimum length. @default 8 */
+    minLength?: number;
+    /** Maximum length (also guards against unbounded-input hashing). @default 128 */
+    maxLength?: number;
+    /** Reject the built-in list of very common passwords. @default true */
+    blockCommonPasswords?: boolean;
+    /** Additional forbidden passwords (case-insensitive, exact match). */
+    blocklist?: string[];
+    /** Reject a password that contains the account's email local-part. @default true */
+    blockContainsIdentifier?: boolean;
+    /** Check the password against Have I Been Pwned (k-anonymity). @default false */
+    checkBreached?: boolean;
+    /** HIBP request tuning (base URL / timeout / fail-open). */
+    hibp?: HibpOptions;
 }
 
 export interface IAdminConsoleOptions {

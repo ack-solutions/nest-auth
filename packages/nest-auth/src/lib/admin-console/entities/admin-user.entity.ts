@@ -10,6 +10,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { hash, verify, Algorithm } from '@node-rs/argon2';
+import { assertPasswordPolicy } from '../../utils/password-policy.util';
 import { normalizedEmail } from '../../utils';
 
 @Entity('nest_auth_admin_users')
@@ -55,6 +56,8 @@ export class NestAuthAdminUser extends BaseEntity {
   }
 
   async setPassword(password: string): Promise<void> {
+    // Hold admin-console passwords to the same (opt-in) policy as user passwords.
+    await assertPasswordPolicy(password, { email: this.email });
     this.passwordHash = await hash(password, {
       algorithm: Algorithm.Argon2id,
       memoryCost: 65536,
