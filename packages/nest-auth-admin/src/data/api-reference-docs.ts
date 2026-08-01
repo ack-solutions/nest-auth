@@ -23,18 +23,22 @@ NestAuthModule.forRoot({
 ### Frontend Token Management (Header Mode)
 
 **1. Store Tokens Securely**
+
+> **Prefer httpOnly cookie mode** (\`session.accessTokenType: 'cookie'\`) so tokens
+> are never readable by JavaScript. **Avoid \`localStorage\`** — any XSS on your page
+> can read it and exfiltrate both tokens. If you must use header mode, keep tokens
+> in memory (a module variable / closure), not in \`localStorage\`/\`sessionStorage\`.
+
 \`\`\`typescript
-// After login/signup
+// After login/signup (header mode)
 const { accessToken, refreshToken } = response.data;
 
-// Store in memory (most secure, lost on refresh)
+// RECOMMENDED for header mode: keep in memory only (not persisted; lost on reload,
+// re-obtained via the refresh token which itself should live in an httpOnly cookie).
 let tokens = { accessToken, refreshToken };
 
-// OR store in localStorage (persists, less secure)
-localStorage.setItem('accessToken', accessToken);
-localStorage.setItem('refreshToken', refreshToken);
-
-// OR use a secure library like js-cookie with httpOnly emulation
+// NOT RECOMMENDED: localStorage is readable by any injected script (XSS) —
+// prefer httpOnly cookie mode instead.
 \`\`\`
 
 **2. Send Access Token with Requests**

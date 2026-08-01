@@ -43,9 +43,10 @@ export class AdminSessionService {
     try {
       // Pin the algorithm — never let a token dictate its own verification alg.
       return jwt.verify(token, this.config.getSessionSecret(), { algorithms: ['HS256'] }) as AdminSessionPayload;
-    } catch (error) {
-      // Log JWT verification failures for security monitoring
-      console.warn('JWT verification failed:', error.message);
+    } catch {
+      // An invalid/expired/tampered admin cookie is a routine, expected condition
+      // (every logged-out or probing request hits this). Return null silently — no
+      // per-request console noise (which an attacker could also use to flood logs).
       return null;
     }
   }

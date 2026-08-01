@@ -25,6 +25,24 @@ interface RequestOptions extends RequestInit {
     body?: string;
 }
 
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+// Default double-submit CSRF cookie name (matches the server's CSRF_COOKIE_NAME).
+const CSRF_COOKIE_NAME = 'nest_auth_csrf';
+const CSRF_HEADER_NAME = 'x-csrf-token';
+
+/** Read a non-httpOnly cookie value by name (used for the CSRF double-submit token). */
+function readCookie(name: string): string | undefined {
+    if (typeof document === 'undefined' || !document.cookie) return undefined;
+    for (const part of document.cookie.split(';')) {
+        const idx = part.indexOf('=');
+        if (idx === -1) continue;
+        if (part.slice(0, idx).trim() === name) {
+            return decodeURIComponent(part.slice(idx + 1).trim());
+        }
+    }
+    return undefined;
+}
+
 interface ApiService {
     basePath: string;
     request<T = any>(endpoint: string, options?: RequestOptions): Promise<T>;
@@ -48,25 +66,22 @@ export const api: ApiService = {
             ...options,
         };
 
-        // Merge headers and ensure Content-Type for JSON bodies without clobbering existing headers
-        if (options.body) {
-            const existing = options.headers;
-            if (existing instanceof Headers) {
-                const hasContentType = Array.from(existing.keys()).some((k) => k.toLowerCase() === 'content-type');
-                if (!hasContentType) existing.set('Content-Type', 'application/json');
-                fetchOptions.headers = existing;
-            } else {
-                const objHeaders: Record<string, string> = {};
-                if (existing) {
-                    for (const [k, v] of Object.entries(existing as Record<string, string>)) {
-                        objHeaders[k] = v as string;
-                    }
-                }
-                const hasContentType = Object.keys(objHeaders).some((k) => k.toLowerCase() === 'content-type');
-                if (!hasContentType) objHeaders['Content-Type'] = 'application/json';
-                fetchOptions.headers = objHeaders;
-            }
+        // Normalize headers into a Headers object so we can add Content-Type and
+        // the CSRF token without clobbering any caller-provided headers.
+        const headers = new Headers(options.headers as HeadersInit | undefined);
+        if (options.body && !headers.has('Content-Type')) {
+            headers.set('Content-Type', 'application/json');
         }
+        // Echo the double-submit CSRF token on state-changing requests. The admin
+        // console authenticates by cookie, so the server (when CSRF is enabled)
+        // requires the token from the non-httpOnly CSRF cookie to be echoed here.
+        // A no-op when CSRF is disabled (no cookie present).
+        const method = (options.method || 'GET').toUpperCase();
+        if (!SAFE_METHODS.has(method)) {
+            const csrf = readCookie(CSRF_COOKIE_NAME);
+            if (csrf) headers.set(CSRF_HEADER_NAME, csrf);
+        }
+        fetchOptions.headers = headers;
 
         const response = await fetch(url, fetchOptions);
         const text = await response.text().catch((err) => {

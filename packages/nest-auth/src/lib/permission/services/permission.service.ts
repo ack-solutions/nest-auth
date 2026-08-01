@@ -75,9 +75,12 @@ export class PermissionService {
         const query = this.permissionRepository.createQueryBuilder('permission');
 
         if (options?.search) {
+            // Strip LIKE wildcards from the search term (they'd act as globs) —
+            // consistent with the other admin search paths.
+            const search = String(options.search).replace(/[%_]/g, '');
             query.where(
                 '(permission.name LIKE :search OR permission.description LIKE :search)',
-                { search: `%${options.search}%` }
+                { search: `%${search}%` }
             );
         }
 
