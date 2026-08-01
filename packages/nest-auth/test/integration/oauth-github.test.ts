@@ -150,4 +150,39 @@ describe('GitHub OAuth login', () => {
     expect(res.status).toBeGreaterThanOrEqual(400);
     expect(res.status).toBeLessThan(500);
   });
+
+  // Account-linking takeover guard (audit #6): a social login whose email matches
+  // an EXISTING local account must not auto-attach unless the provider verified it.
+  it('BLOCKS auto-linking to an existing account when the provider email is UNVERIFIED', async () => {
+    const email = 'link-victim@github.test';
+    const signup = await request(handle.httpServer).post('/auth/signup').send({ email, password: 'Victim!123' });
+    expect(signup.status).toBeLessThan(300);
+
+    // GitHub asserts the SAME email but as a private, UNVERIFIED address.
+    ghUser = { id: 9001, login: 'attacker', name: 'Attacker', email: null };
+    ghEmails = [{ email, primary: true, verified: false, visibility: 'private' }];
+
+    const res = await request(handle.httpServer)
+      .post('/auth/login')
+      .send({ providerName: 'github', credentials: { token: 'attacker-token' }, createUserIfNotExists: true });
+
+    expect(res.status).toBe(401);
+    expect(JSON.stringify(res.body)).toContain('SOCIAL_EMAIL_NOT_VERIFIED');
+  });
+
+  it('ALLOWS linking to an existing account when the provider VERIFIED the email', async () => {
+    const email = 'link-owner@github.test';
+    const signup = await request(handle.httpServer).post('/auth/signup').send({ email, password: 'Owner!123' });
+    expect(signup.status).toBeLessThan(300);
+
+    // A public GitHub profile email is verified by definition.
+    ghUser = { id: 9002, login: 'owner', name: 'Owner', email };
+
+    const res = await request(handle.httpServer)
+      .post('/auth/login')
+      .send({ providerName: 'github', credentials: { token: 'owner-token' }, createUserIfNotExists: true });
+
+    expect(res.status).toBeLessThan(300);
+    expect(res.body.accessToken ?? res.body.tokens?.accessToken).toBeTypeOf('string');
+  });
 });

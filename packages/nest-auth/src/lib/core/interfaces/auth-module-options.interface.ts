@@ -385,6 +385,31 @@ export interface IAuthModuleOptions {
      * Default: true (automatic refresh enabled)
      */
     enableAutoRefresh?: boolean;
+    /**
+     * Cross-cutting social-login safety options (apply to Google/Apple/Facebook/
+     * GitHub and any custom social provider).
+     */
+    social?: {
+        /**
+         * When a social login's email matches an EXISTING local account,
+         * auto-attach the new provider identity to that account only if the
+         * provider verified the email. Otherwise refuse the auto-link (the user
+         * must sign in with their existing method and link the provider
+         * deliberately). This blocks account takeover via a provider that
+         * asserts an unverified address the attacker doesn't control.
+         *
+         * - `true` (default) — require a provider-verified email to auto-link.
+         * - `false` — preserve the older behaviour (link by matching email
+         *   regardless of verification). Not recommended.
+         *
+         * Note: creating a BRAND-NEW account from a social login is always
+         * allowed; only the email's verified status decides whether the new
+         * user's `emailVerifiedAt` is set.
+         *
+         * @default true
+         */
+        requireVerifiedEmailForLinking?: boolean;
+    };
     google?: {
         clientId: string;
         clientSecret: string;

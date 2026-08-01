@@ -836,17 +836,47 @@ export class AuthService {
         const linkUserWith = provider.linkUserWith();
         const linkUserValue = providerUser?.[linkUserWith] || providerUser.userId;
 
-        let user = await this.userRepository.findOne({ where: { [linkUserWith]: linkUserValue } });
+        // Tenant-scope the lookup so a social login in one tenant can't resolve or
+        // link a user owned by another tenant (matches findIdentity's scoping).
+        const scopedWhere = {
+            [linkUserWith]: linkUserValue,
+            ...(tenantId ? { userAccesses: { tenantId: Equal(tenantId) } } : {}),
+        };
 
-        if (!user) {
+        let user = await this.userRepository.findOne({ where: scopedWhere });
+
+        if (user) {
+            // Account-linking guard: attaching a NEW social identity to an EXISTING
+            // account by email is an account-takeover vector unless the provider
+            // actually verified the email — otherwise anyone who can make a provider
+            // assert someone else's unverified address inherits their account.
+            const config = this.authConfigService.getConfig();
+            const requireVerifiedForLinking = config.social?.requireVerifiedEmailForLinking !== false;
+            if (linkUserWith === 'email' && requireVerifiedForLinking && providerUser.emailVerified !== true) {
+                throw new UnauthorizedException({
+                    message:
+                        'An account already exists for this email. Sign in with your existing method, ' +
+                        'then link this provider from your account settings.',
+                    code: ERROR_CODES.SOCIAL_EMAIL_NOT_VERIFIED,
+                });
+            }
+        } else {
+            // Brand-new account. Only mark the contact verified when the provider
+            // actually proved it — do NOT blanket-stamp emailVerifiedAt.
+            const createData: Record<string, any> = {
+                [linkUserWith]: linkUserValue,
+                metadata: providerUser.metadata || {},
+            };
+            if (linkUserWith === 'email') {
+                createData.emailVerifiedAt = providerUser.emailVerified === true ? new Date() : null;
+            } else if (linkUserWith === 'phone') {
+                createData.phoneVerifiedAt = providerUser.phoneVerified === true ? new Date() : null;
+            }
+
             // Create new user via UserService to ensure hooks and events are triggered
             try {
                 user = await this.userService.createUser(
-                    {
-                        [linkUserWith]: linkUserValue,
-                        emailVerifiedAt: new Date(),
-                        metadata: providerUser.metadata || {},
-                    },
+                    createData as any,
                     tenantId,
                     {
                         [linkUserWith]: linkUserValue,
@@ -860,7 +890,7 @@ export class AuthService {
             } catch (error) {
                 // Handle race condition: user might have been created by another process
                 if (error instanceof ConflictException || error.status === 409) {
-                    user = await this.userRepository.findOne({ where: { [linkUserWith]: linkUserValue } });
+                    user = await this.userRepository.findOne({ where: scopedWhere });
                     if (!user) {
                         // If still not found, rethrow
                         throw error;

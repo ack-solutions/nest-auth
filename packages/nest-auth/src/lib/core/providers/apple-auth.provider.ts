@@ -162,6 +162,9 @@ export class AppleAuthProvider extends BaseAuthProvider {
         return {
             userId: payload.sub,
             email: payload.email || '',
+            // Top-level so the auth service can gate account-linking / lift
+            // emailVerifiedAt (kept in metadata too for backward compatibility).
+            emailVerified,
             metadata: {
                 ...payload,
                 name: credentials.name,
@@ -236,6 +239,9 @@ export class AppleAuthProvider extends BaseAuthProvider {
                 // Apple id_tokens identify the user by `sub`, not `id`.
                 userId: user.sub,
                 email: user.email || '',
+                // This id_token is decoded but not signature-verified here, so its
+                // claims can't be trusted for auto-linking — report unverified.
+                emailVerified: false,
                 metadata: { ...user, name: credentials.name },
             };
         } catch (error) {

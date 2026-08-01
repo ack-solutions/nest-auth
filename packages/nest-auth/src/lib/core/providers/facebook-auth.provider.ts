@@ -55,6 +55,12 @@ export class FacebookAuthProvider extends BaseAuthProvider {
             return {
                 userId: response.id,
                 email: response.email || '',
+                // Facebook's Graph API does not expose a per-email "verified"
+                // flag, and this token's app audience isn't verified here (see
+                // the debug_token / appsecret_proof hardening item). So we cannot
+                // attest the email — report it as unverified. This still creates
+                // new accounts, but won't auto-link to an existing account.
+                emailVerified: false,
                 metadata: {
                     name: response.name,
                     picture: response.picture?.data?.url,
