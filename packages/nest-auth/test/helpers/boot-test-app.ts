@@ -16,6 +16,7 @@
  */
 
 import 'reflect-metadata';
+import deepmerge from 'deepmerge';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Module, ValidationPipe, type INestApplication } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
@@ -144,10 +145,18 @@ function buildTypeOrmOptions(opts: BootTestAppOptions): TypeOrmModuleOptions {
  * ```
  */
 export async function bootTestApp(opts: BootTestAppOptions = {}): Promise<TestAppHandle> {
-  const nestAuthConfig: IAuthModuleOptions = {
-    ...DEFAULT_NEST_AUTH_CONFIG,
-    ...opts.nestAuth,
-  };
+  // Deep-merge so a test overriding a single field (e.g. session.accessTokenType
+  // for cookie mode, or session.allowMultipleAccounts) keeps the rest of the
+  // default session — including session.jwt.secret. A shallow spread would drop
+  // the default secret and the module (which now requires one) would fail to boot.
+  // `clone: false` matches the library's own AuthConfigService.setOptions merge
+  // and preserves reference-type overrides (a live custom session store, hook
+  // functions) that a deep clone would mangle.
+  const nestAuthConfig: IAuthModuleOptions = deepmerge(
+    DEFAULT_NEST_AUTH_CONFIG,
+    (opts.nestAuth ?? {}) as IAuthModuleOptions,
+    { clone: false },
+  );
 
   @Module({
     imports: [
