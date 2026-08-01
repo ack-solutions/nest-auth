@@ -305,6 +305,13 @@ export interface IOtpOptions {
      * Ms string (e.g. `30m`) or milliseconds number. Default: `30m`.
      */
     codeExpiresIn?: number | string;
+
+    /**
+     * Maximum number of failed verification attempts allowed against a single
+     * code before it is invalidated (defends the short numeric code against
+     * brute force). Default: `5`. Set `0`/negative to fall back to the default.
+     */
+    maxAttempts?: number;
 }
 
 /**

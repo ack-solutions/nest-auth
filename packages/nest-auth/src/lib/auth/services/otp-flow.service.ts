@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { NestAuthOTP } from '../entities/otp.entity';
 import { NestAuthOTPTypeEnum } from '@ackplus/nest-auth-contracts';
 import { IOtpOptions } from '../../core/interfaces/auth-module-options.interface';
@@ -144,6 +144,36 @@ export class OtpFlowService {
             }
             await this.otpRepository.remove(otp);
             return;
+        }
+
+        // No code matched: this is a failed guess. Count it against the still-active
+        // codes and invalidate them once the attempt cap is reached, so a short
+        // numeric code can't be brute-forced within its TTL. Use an atomic
+        // `increment` (not load-then-save) because `code` is `select: false` and
+        // saving a partially-loaded entity would null it out — and so concurrent
+        // verifies each count.
+        const maxAttempts = this.otpConfig?.maxAttempts && this.otpConfig.maxAttempts > 0
+            ? this.otpConfig.maxAttempts
+            : 5;
+        const now = Date.now();
+        const activeIds = candidates.filter((o) => o.expiresAt.getTime() > now).map((o) => o.id);
+
+        if (activeIds.length > 0) {
+            await this.otpRepository.increment({ id: In(activeIds) }, 'attempts', 1);
+            const refreshed = await this.otpRepository.find({ where: { id: In(activeIds) } });
+            const exhaustedIds = refreshed.filter((o) => (o.attempts ?? 0) >= maxAttempts).map((o) => o.id);
+
+            if (exhaustedIds.length > 0) {
+                await this.otpRepository.delete({ id: In(exhaustedIds) });
+            }
+
+            // Every active code is now spent — tell the caller to request a new one.
+            if (refreshed.length > 0 && refreshed.every((o) => (o.attempts ?? 0) >= maxAttempts)) {
+                throw new BadRequestException({
+                    message: 'Too many invalid attempts. Please request a new verification code.',
+                    code: ERROR_CODES.VERIFICATION_CODE_INVALID,
+                });
+            }
         }
 
         throw new BadRequestException({

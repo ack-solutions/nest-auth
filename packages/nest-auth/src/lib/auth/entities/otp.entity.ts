@@ -22,6 +22,14 @@ export class NestAuthOTP extends BaseEntity {
     @Column()
     expiresAt: Date;
 
+    /**
+     * Failed verification attempts against this code. Incremented on each wrong
+     * guess; once it reaches `otp.maxAttempts` the code is invalidated so a short
+     * numeric code can't be brute-forced within its TTL.
+     */
+    @Column({ default: 0 })
+    attempts: number;
+
     @CreateDateColumn()
     createdAt: Date;
 
