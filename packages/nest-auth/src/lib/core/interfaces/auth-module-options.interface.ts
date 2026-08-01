@@ -386,6 +386,35 @@ export interface IAuthModuleOptions {
      */
     enableAutoRefresh?: boolean;
     /**
+     * Cross-cutting security controls.
+     */
+    security?: {
+        /**
+         * CSRF protection for COOKIE-authenticated, state-changing requests
+         * (`accessTokenType: 'cookie'` and the admin console). Bearer/header auth
+         * is immune to CSRF and is left untouched. Uses a double-submit token (a
+         * non-httpOnly cookie the SPA echoes back in a request header) plus an
+         * optional Origin/Referer allowlist. Strongly recommended whenever you
+         * serve auth over cookies, and REQUIRED if you set
+         * `cookieOptions.sameSite: 'none'`.
+         */
+        csrf?: {
+            /** Enable CSRF enforcement. @default false */
+            enabled?: boolean;
+            /**
+             * Trusted browser origins (e.g. `['https://app.example.com']`). When
+             * set, a state-changing request whose `Origin`/`Referer` is present
+             * and NOT listed is rejected. Leave empty to rely on the double-submit
+             * token alone.
+             */
+            allowedOrigins?: string[];
+            /** Name of the double-submit cookie (non-httpOnly). @default 'nest_auth_csrf' */
+            cookieName?: string;
+            /** Request header the SPA echoes the token in. @default 'x-csrf-token' */
+            headerName?: string;
+        };
+    };
+    /**
      * Cross-cutting social-login safety options (apply to Google/Apple/Facebook/
      * GitHub and any custom social provider).
      */

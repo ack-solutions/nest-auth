@@ -45,6 +45,7 @@ import { AuthExceptionFilter } from '../filters/auth-exception.filter';
 
 import { Auth } from '../../core/decorators/auth.decorator';
 import { AuthConfigService } from '../../core/services/auth-config.service';
+import { CsrfService } from '../../core/services/csrf.service';
 import { TenantService } from '../../tenant/services/tenant.service';
 import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { NestAuthPasswordlessSendRequestDto } from '../dto/requests/passwordless-send.request.dto';
@@ -64,9 +65,38 @@ export class AuthController {
         private readonly authConfigService: AuthConfigService,
         private readonly tenantService: TenantService,
         private readonly inviteService: InviteService,
+        private readonly csrfService: CsrfService,
     ) { }
 
     // Helper methods for response handling are now handled by TokenResponseInterceptor
+
+    @ApiOperation({
+        summary: 'Get a CSRF token',
+        description:
+            'Cookie mode: sets/rotates the double-submit CSRF cookie and returns the token to echo in the ' +
+            'CSRF header (default `x-csrf-token`) on state-changing requests. Call with credentials so the ' +
+            'cookie is stored. Returns `{ enabled: false }` when CSRF is not configured.',
+    })
+    @Get('csrf')
+    @Public()
+    getCsrfToken(@Res({ passthrough: true }) res: Response) {
+        if (!this.csrfService.isEnabled()) {
+            return { enabled: false };
+        }
+        const cookieOptions = this.authConfigService.getConfig().session?.cookieOptions;
+        const token = this.csrfService.issue(res, {
+            secure: cookieOptions?.secure ?? true,
+            sameSite: (cookieOptions?.sameSite ?? 'lax') as 'lax' | 'strict' | 'none',
+            ...(cookieOptions?.domain ? { domain: cookieOptions.domain } : {}),
+            path: '/',
+        });
+        return {
+            enabled: true,
+            csrfToken: token,
+            headerName: this.csrfService.headerName(),
+            cookieName: this.csrfService.cookieName(),
+        };
+    }
 
     @ApiOperation({
         summary: 'Signup',

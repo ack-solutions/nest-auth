@@ -18,13 +18,17 @@ import ms from 'ms';
 import { omit } from 'lodash';
 import { CookieHelper, CookieOptions } from '../../utils/cookie.helper';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
+import { CsrfService } from '../../core/services/csrf.service';
 
 @Injectable()
 export class TokenResponseInterceptor implements NestInterceptor {
 
     private readonly options: IAuthModuleOptions;
 
-    constructor(private readonly debugLogger: DebugLoggerService) {
+    constructor(
+        private readonly debugLogger: DebugLoggerService,
+        private readonly csrfService: CsrfService,
+    ) {
         this.options = AuthConfigService.getOptions();
     }
 
@@ -159,6 +163,20 @@ export class TokenResponseInterceptor implements NestInterceptor {
             const duration = AuthConfigService.getOptions().mfa?.trustedDeviceDuration || '30d';
             this.setCookie(response, trustCookieName, tokens.trustToken, {
                 maxAge: ms(duration),
+            });
+        }
+
+        // Issue (rotate) the double-submit CSRF token alongside the session
+        // cookies whenever CSRF is enabled, so the SPA always has a fresh token to
+        // echo. Non-httpOnly (handled by CsrfService.issue), but same transport
+        // flags as the auth cookies.
+        if (this.csrfService.isEnabled()) {
+            this.csrfService.issue(response, {
+                secure: this.options.session?.cookieOptions?.secure ?? true,
+                sameSite: (this.options.session?.cookieOptions?.sameSite ?? 'lax') as CookieOptions['sameSite'],
+                ...(this.options.session?.cookieOptions?.domain ? { domain: this.options.session.cookieOptions.domain } : {}),
+                path: '/',
+                maxAge: refreshMaxAge,
             });
         }
 

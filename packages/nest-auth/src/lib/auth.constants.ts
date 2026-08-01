@@ -44,6 +44,10 @@ export const AUTH_ERROR_CODES = {
     EMAIL_NOT_VERIFIED: 'EMAIL_NOT_VERIFIED',
     SOCIAL_EMAIL_NOT_VERIFIED: 'SOCIAL_EMAIL_NOT_VERIFIED',
 
+    // CSRF (cookie-authenticated state-changing requests)
+    CSRF_TOKEN_INVALID: 'CSRF_TOKEN_INVALID',
+    CSRF_ORIGIN_REJECTED: 'CSRF_ORIGIN_REJECTED',
+
     // Password
     CURRENT_PASSWORD_INCORRECT: 'CURRENT_PASSWORD_INCORRECT',
     NEW_PASSWORD_SAME_AS_CURRENT: 'NEW_PASSWORD_SAME_AS_CURRENT',
@@ -185,6 +189,8 @@ export const ACTIVE_ACCOUNT_COOKIE_NAME = 'nest_auth_active_account';
 // login opted OUT of persistence, so subsequent token refreshes keep issuing
 // session cookies (sticky across refresh) instead of upgrading to persistent.
 export const REMEMBER_COOKIE_NAME = 'nest_auth_remember';
+/** Non-httpOnly double-submit CSRF token cookie (cookie-auth mode). */
+export const CSRF_COOKIE_NAME = 'nest_auth_csrf';
 
 /** Per-account access-token cookie name. `accountKey` is the user id (cookie-safe). */
 export const accountAccessCookieName = (accountKey: string): string =>

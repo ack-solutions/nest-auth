@@ -15,6 +15,7 @@ Whatever CORS solution you use (`@nestjs/common`'s `enableCors`, `cors` middlewa
 | `Authorization` | Bearer tokens in header mode |
 | `x-access-token-type` | Auto-detect signal between header and cookie mode |
 | `nest_auth_device_trust` (or your `trustDeviceHeaderName`) | Trusted-device tokens for MFA |
+| `x-csrf-token` (or your `security.csrf.headerName`) | CSRF double-submit token in cookie mode |
 
 Plus any custom headers you've added (tracing, app-version).
 
@@ -27,6 +28,7 @@ app.enableCors({
     'Authorization',
     'x-access-token-type',
     'nest_auth_device_trust',
+    'x-csrf-token',
     'x-tenant-id',
   ],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -44,14 +46,43 @@ If `accessTokenType: 'cookie'`:
 
 If any of these are wrong, the browser silently strips the cookie and you'll see auth fail with no useful console message.
 
-## CSRF posture
+## CSRF protection
 
-In **header mode** (Bearer), CSRF is not an issue — no cookie is auto-attached, so cross-site requests can't piggyback your auth.
+In **header mode** (Bearer), CSRF is not an issue — no cookie is auto-attached, so cross-site requests can't piggyback your auth. The built-in protection leaves Bearer/header requests untouched.
 
-In **cookie mode**, the auth cookies are HttpOnly (the default `cookieOptions`) and `sameSite: 'lax'` (default). This prevents CSRF for top-level navigations, but POST forms from another origin can still attach the cookie if `sameSite: 'lax'`. Two layers of defense:
+In **cookie mode**, the session cookie is ambient (the browser attaches it to any request a malicious page triggers), so state-changing requests need CSRF protection. The library ships it — enable `security.csrf`:
 
-1. **Stick with `sameSite: 'lax'` or `strict`** — never `none` unless you genuinely need cross-site auth.
-2. **Add a CSRF token** for state-changing endpoints if your threat model warrants. The library doesn't ship one — use [`csurf`](https://github.com/expressjs/csurf) or roll your own.
+```ts
+NestAuthModule.forRoot({
+  session: { accessTokenType: 'cookie' },
+  security: {
+    csrf: {
+      enabled: true,
+      // Trusted browser origins. A state-changing request whose Origin/Referer
+      // is present and NOT listed is rejected (defense in depth).
+      allowedOrigins: ['https://app.example.com'],
+      // Optional overrides:
+      // cookieName: 'nest_auth_csrf',   // the non-httpOnly double-submit cookie
+      // headerName: 'x-csrf-token',     // the header your SPA echoes it in
+    },
+  },
+});
+```
+
+**How it works.** On login (and refresh) the server sets a non-httpOnly `nest_auth_csrf` cookie. Your SPA reads that token and echoes it in the `x-csrf-token` header on every `POST`/`PUT`/`PATCH`/`DELETE`. The server accepts the request only when the header matches the cookie (a *double-submit* token — an attacker can't read the victim's cookie to forge the match) and, when `allowedOrigins` is set, the `Origin`/`Referer` is allowed. `GET`/`HEAD`/`OPTIONS` are never blocked. This applies to both the main API (cookie mode) and the admin console.
+
+**Getting the token in the SPA.** Same-domain, the SPA can read the non-httpOnly cookie directly. Cross-domain (`sameSite: 'none'`), call `GET /auth/csrf` with credentials — it returns `{ csrfToken, headerName, cookieName }` and sets the cookie:
+
+```ts
+const { csrfToken } = await fetch('/auth/csrf', { credentials: 'include' }).then((r) => r.json());
+await fetch('/auth/logout', {
+  method: 'POST',
+  credentials: 'include',
+  headers: { 'x-csrf-token': csrfToken },
+});
+```
+
+Add `x-csrf-token` to your CORS `allowedHeaders` (see above). And still prefer `sameSite: 'lax'`/`'strict'` over `'none'` — the library **warns at boot** when cookie auth (or a `sameSite: 'none'` cookie) is configured without `security.csrf.enabled`.
 
 ## Helmet
 

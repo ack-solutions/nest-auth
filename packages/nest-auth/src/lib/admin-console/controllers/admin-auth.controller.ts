@@ -17,6 +17,7 @@ import {
 import { Request, Response } from 'express';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { NestAuthEvents } from '../../auth.constants';
+import { CsrfService } from '../../core/services/csrf.service';
 import { AdminAuthService } from '../services/admin-auth.service';
 import { AdminSessionService } from '../services/admin-session.service';
 import { AdminConsoleConfigService } from '../services/admin-console-config.service';
@@ -60,6 +61,7 @@ export class AdminAuthController {
     private readonly roleService: RoleService,
     private readonly tenantService: TenantService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly csrf: CsrfService,
     @InjectRepository(NestAuthUser)
     private readonly userRepository: Repository<NestAuthUser>,
   ) { }
@@ -156,7 +158,23 @@ export class AdminAuthController {
     this.config.ensureEnabled();
     const admin = await this.adminAuth.validateCredentials(dto.email, dto.password);
     const token = this.sessions.createSession(admin);
-    res.cookie(this.sessions.getCookieName(), token, this.getCookieOptions());
+    const cookieOpts = this.getCookieOptions();
+    res.cookie(this.sessions.getCookieName(), token, cookieOpts);
+
+    // Issue the double-submit CSRF token so the dashboard can echo it on
+    // state-changing requests (no-op unless security.csrf.enabled).
+    if (this.csrf.isEnabled()) {
+      const sameSite = typeof cookieOpts.sameSite === 'boolean'
+        ? (cookieOpts.sameSite ? 'strict' : 'lax')
+        : cookieOpts.sameSite;
+      this.csrf.issue(res, {
+        secure: cookieOpts.secure,
+        sameSite,
+        ...(cookieOpts.domain ? { domain: cookieOpts.domain } : {}),
+        path: cookieOpts.path,
+      });
+    }
+
     return {
       message: 'Signed in successfully',
       admin: this.toSafeAdmin(admin),

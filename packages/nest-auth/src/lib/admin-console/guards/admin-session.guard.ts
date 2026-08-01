@@ -8,6 +8,7 @@ import { Request } from 'express';
 import { AdminSessionService } from '../services/admin-session.service';
 import { AdminUserService } from '../services/admin-user.service';
 import { AdminConsoleConfigService } from '../services/admin-console-config.service';
+import { CsrfService } from '../../core/services/csrf.service';
 import { NestAuthAdminUser } from '../entities/admin-user.entity';
 
 export interface AdminRequest extends Request {
@@ -20,6 +21,7 @@ export class AdminSessionGuard implements CanActivate {
     private readonly sessions: AdminSessionService,
     private readonly adminUsers: AdminUserService,
     private readonly config: AdminConsoleConfigService,
+    private readonly csrf: CsrfService,
   ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -30,6 +32,10 @@ export class AdminSessionGuard implements CanActivate {
     if (!token) {
       throw new UnauthorizedException('Admin authentication required');
     }
+
+    // The admin console authenticates by cookie, so a state-changing request
+    // must carry a valid CSRF token (no-op unless security.csrf.enabled).
+    this.csrf.assertValidForCookieAuth(req);
 
     const payload = this.sessions.verifySession(token);
     if (!payload) {

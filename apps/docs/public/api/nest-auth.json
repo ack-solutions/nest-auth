@@ -1,6 +1,47 @@
 {
   "openapi": "3.0.0",
   "paths": {
+    "/auth/csrf": {
+      "get": {
+        "description": "Cookie mode: sets/rotates the double-submit CSRF cookie and returns the token to echo in the CSRF header (default `x-csrf-token`) on state-changing requests. Call with credentials so the cookie is stored. Returns `{ enabled: false }` when CSRF is not configured.",
+        "operationId": "AuthController_getCsrfToken",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Get a CSRF token",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
     "/auth/signup": {
       "post": {
         "description": "Register a new user. Response format depends on accessTokenType configuration:\n- Header mode (default): Returns tokens in response body\n- Cookie mode: Sets tokens in HTTP-only cookies and returns success message",

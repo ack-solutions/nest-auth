@@ -155,6 +155,32 @@ export class AuthConfigService {
 
         // Validate admin console configuration
         this.validateAdminConsoleOptions(this.options);
+
+        // Nudge: cookie-based auth without CSRF protection is exploitable.
+        this.warnIfCookieAuthWithoutCsrf(this.options);
+    }
+
+    /**
+     * Warn when auth is served over cookies (or a cross-site `SameSite=None`
+     * cookie) but CSRF protection is off. Cookie sessions are ambient, so a
+     * state-changing request needs a CSRF defense — enable `security.csrf`.
+     */
+    private static warnIfCookieAuthWithoutCsrf(options: IAuthModuleOptions): void {
+        if (options.security?.csrf?.enabled === true) return;
+
+        const cookieMode = options.session?.accessTokenType === 'cookie';
+        const sameSiteNone =
+            options.session?.cookieOptions?.sameSite === 'none' ||
+            options.adminConsole?.cookie?.sameSite === 'none';
+
+        if (cookieMode || sameSiteNone) {
+            console.warn(
+                '[NestAuth] Cookie-based auth is in use ' +
+                (sameSiteNone ? "(a SameSite='none' cookie) " : '') +
+                'without CSRF protection. Enable security.csrf (security.csrf.enabled: true, plus ' +
+                'security.csrf.allowedOrigins) — cookie sessions are otherwise vulnerable to CSRF.',
+            );
+        }
     }
 
     /**

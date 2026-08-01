@@ -12,6 +12,7 @@ import { SKIP_MUST_CHANGE_PASSWORD_KEY } from '../../core/decorators/must-change
 import { PERMISSIONS_KEY, PERMISSIONS_REQUIRE_ALL_KEY } from '../../core/decorators/permissions.decorator';
 import { ROLES_KEY, GUARD_KEY } from '../../core/decorators/role.decorator';
 import { AuthConfigService } from '../../core/services/auth-config.service';
+import { CsrfService } from '../../core/services/csrf.service';
 import { CookieHelper } from '../../utils/cookie.helper';
 import { uniq } from 'lodash';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
@@ -41,6 +42,7 @@ export class NestAuthAuthGuard implements CanActivate {
         private sessionManager: SessionManagerService,
         private accessKeyService: AccessKeyService,
         private authConfigService: AuthConfigService,
+        private csrfService: CsrfService,
         private debugLogger: DebugLoggerService,
     ) { }
 
@@ -72,7 +74,7 @@ export class NestAuthAuthGuard implements CanActivate {
         request.authType = null;
 
         // Get token from header or cookie based on configuration
-        const { token, authType } = this.extractToken(request);
+        const { token, authType, source } = this.extractToken(request);
 
         // If no token found
         if (!token) {
@@ -87,6 +89,13 @@ export class NestAuthAuthGuard implements CanActivate {
                     code: ERROR_CODES.NO_AUTH_PROVIDED
                 });
             }
+        }
+
+        // CSRF: a COOKIE-authenticated, state-changing request must prove it came
+        // from our own app. Bearer/header auth (and API keys) are immune to CSRF
+        // and skipped. No-op unless security.csrf.enabled. Throws 403 on failure.
+        if (source === 'cookie') {
+            this.csrfService.assertValidForCookieAuth(request);
         }
 
 
@@ -177,7 +186,7 @@ export class NestAuthAuthGuard implements CanActivate {
      * - 'cookie': Only check cookies
      * - null/undefined: Check both (header first)
      */
-    private extractToken(request: Request): { token: string | null; authType: 'bearer' | 'apikey' | null } {
+    private extractToken(request: Request): { token: string | null; authType: 'bearer' | 'apikey' | null; source: 'header' | 'cookie' | null } {
         const config = this.authConfigService.getConfig();
         const accessTokenType = config.session?.accessTokenType ?? null;
 
@@ -193,7 +202,7 @@ export class NestAuthAuthGuard implements CanActivate {
                 if (type && token) {
                     const authType = type.toLowerCase() as 'bearer' | 'apikey';
                     if (authType === 'bearer' || authType === 'apikey') {
-                        return { token, authType };
+                        return { token, authType, source: 'header' };
                     }
                 }
             }
@@ -209,19 +218,19 @@ export class NestAuthAuthGuard implements CanActivate {
                 if (activeAccount) {
                     const perAccountToken = CookieHelper.get(request, accountAccessCookieName(activeAccount));
                     if (perAccountToken) {
-                        return { token: perAccountToken, authType: 'bearer' };
+                        return { token: perAccountToken, authType: 'bearer', source: 'cookie' };
                     }
                 }
             }
             // Use CookieHelper for robust cookie parsing (works even without cookie-parser middleware)
             const cookieToken = CookieHelper.get(request, ACCESS_TOKEN_COOKIE_NAME);
             if (cookieToken) {
-                return { token: cookieToken, authType: 'bearer' };
+                return { token: cookieToken, authType: 'bearer', source: 'cookie' };
             }
         }
 
         this.debugLogger.verbose('No token found in request', 'AuthGuard');
-        return { token: null, authType: null };
+        return { token: null, authType: null, source: null };
     }
 
     private resetAuth(request: any) {
