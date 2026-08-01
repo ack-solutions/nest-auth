@@ -48,6 +48,15 @@ extension NativeSignIn on NestAuthClient {
             .where((p) => p != null && p.isNotEmpty)
             .cast<String>();
         final name = parts.isEmpty ? null : parts.join(' ');
-        return socialLogin('apple', identityToken, nonce: nonce, name: name);
+        // Forward given/family separately (firstName/lastName) and also as a
+        // combined `name` for backward compatibility. Apple provides no avatar.
+        return socialLogin(
+            'apple',
+            identityToken,
+            nonce: nonce,
+            name: name,
+            firstName: (givenName != null && givenName.isNotEmpty) ? givenName : null,
+            lastName: (familyName != null && familyName.isNotEmpty) ? familyName : null,
+        );
     }
 }

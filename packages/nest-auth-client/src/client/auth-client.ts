@@ -503,10 +503,24 @@ export class AuthClient {
              */
             nonce?: string;
             /**
-             * Display name. Apple only returns the user's name on the FIRST
-             * native sign-in, so pass it here to persist it.
+             * Full display name. Apple only returns the user's name on the FIRST
+             * native sign-in, so pass it here to persist it. Prefer
+             * `firstName`/`lastName` when you have them separately.
              */
             name?: string;
+            /**
+             * Given/first name. Needed for Apple Sign In, which returns the name
+             * only on the first authorization (capture it then and pass it here).
+             */
+            firstName?: string;
+            /** Family/last name (see `firstName`). */
+            lastName?: string;
+            /**
+             * Avatar / profile-picture URL. Apple provides no photo — pass one
+             * only if your app sourced it elsewhere. Google's `picture` is used
+             * as a fallback when omitted.
+             */
+            avatarUrl?: string;
             /** Extra credential fields some providers need. */
             extraCredentials?: Record<string, unknown>;
         },
@@ -519,6 +533,9 @@ export class AuthClient {
                 ...(opts?.type ? { type: opts.type } : {}),
                 ...(opts?.nonce ? { nonce: opts.nonce } : {}),
                 ...(opts?.name ? { name: opts.name } : {}),
+                ...(opts?.firstName ? { firstName: opts.firstName } : {}),
+                ...(opts?.lastName ? { lastName: opts.lastName } : {}),
+                ...(opts?.avatarUrl ? { avatarUrl: opts.avatarUrl } : {}),
                 ...(opts?.extraCredentials ?? {}),
             } as ILoginRequest['credentials'],
             createUserIfNotExists: opts?.createUserIfNotExists ?? true,

@@ -170,6 +170,30 @@ describe('GitHub OAuth login', () => {
     expect(JSON.stringify(res.body)).toContain('SOCIAL_EMAIL_NOT_VERIFIED');
   });
 
+  it('persists frontend-supplied firstName / lastName / avatarUrl into the new user metadata', async () => {
+    // A public GitHub profile email → verified, so a new account is created.
+    ghUser = { id: 8080, login: 'profile', name: 'GH Name', email: 'profile-fields@github.test' };
+
+    const res = await request(handle.httpServer)
+      .post('/auth/login')
+      .send({
+        providerName: 'github',
+        credentials: { token: 't', firstName: 'Ada', lastName: 'Lovelace', avatarUrl: 'https://example.com/a.png' },
+        createUserIfNotExists: true,
+      });
+    expect(res.status).toBeLessThan(300);
+
+    const ds = handle.get(require('typeorm').DataSource);
+    const rows = await ds.query(
+      `SELECT metadata FROM nest_auth_users WHERE email = 'profile-fields@github.test'`,
+    );
+    expect(rows.length).toBe(1);
+    const meta = typeof rows[0].metadata === 'string' ? JSON.parse(rows[0].metadata) : rows[0].metadata;
+    expect(meta.firstName).toBe('Ada');
+    expect(meta.lastName).toBe('Lovelace');
+    expect(meta.avatarUrl).toBe('https://example.com/a.png');
+  });
+
   it('ALLOWS linking to an existing account when the provider VERIFIED the email', async () => {
     const email = 'link-owner@github.test';
     const signup = await request(handle.httpServer).post('/auth/signup').send({ email, password: 'Owner!123' });

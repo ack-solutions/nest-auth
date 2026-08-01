@@ -88,10 +88,18 @@ export async function signInWithApple(
         throw new Error('Apple Sign-In returned no identityToken.');
     }
 
+    // Apple returns the name (given/family) only on the FIRST sign-in. Forward
+    // the parts separately (firstName/lastName) and also as a combined `name` for
+    // backward compatibility. Apple provides no avatar.
     const fullName = credential?.fullName;
-    const name = fullName
-        ? [fullName.givenName, fullName.familyName].filter(Boolean).join(' ') || undefined
-        : undefined;
+    const firstName: string | undefined = fullName?.givenName || undefined;
+    const lastName: string | undefined = fullName?.familyName || undefined;
+    const name = [firstName, lastName].filter(Boolean).join(' ') || undefined;
 
-    return client.socialLogin('apple', identityToken, { nonce: options?.nonce, name });
+    return client.socialLogin('apple', identityToken, {
+        nonce: options?.nonce,
+        name,
+        firstName,
+        lastName,
+    });
 }

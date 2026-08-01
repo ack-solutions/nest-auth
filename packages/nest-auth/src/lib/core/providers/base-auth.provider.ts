@@ -106,4 +106,21 @@ export abstract class BaseAuthProvider {
     linkUserWith(): LinkUserWith {
         return 'email';
     }
+
+    /**
+     * Optional profile fields a frontend may attach to a social login. Apple only
+     * returns the user's name on the FIRST authorization (to the app, never in the
+     * id_token afterwards) and never returns an avatar, so the client forwards
+     * `firstName` / `lastName` / `avatarUrl` in the credentials. Providers merge
+     * the result into their `metadata`; the auth service then uses it when
+     * creating the user. Only present keys are copied (never overwrites with
+     * `undefined`).
+     */
+    protected profileOverridesFromCredentials(credentials: any): Record<string, any> {
+        const out: Record<string, any> = {};
+        if (credentials?.firstName) out.firstName = credentials.firstName;
+        if (credentials?.lastName) out.lastName = credentials.lastName;
+        if (credentials?.avatarUrl) out.avatarUrl = credentials.avatarUrl;
+        return out;
+    }
 }

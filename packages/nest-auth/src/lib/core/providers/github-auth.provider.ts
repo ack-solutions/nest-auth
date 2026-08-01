@@ -134,6 +134,7 @@ export class GitHubAuthProvider extends BaseAuthProvider {
                 bio: userData.bio,
                 company: userData.company,
                 location: userData.location,
+                ...this.profileOverridesFromCredentials(credentials),
             },
         };
     }

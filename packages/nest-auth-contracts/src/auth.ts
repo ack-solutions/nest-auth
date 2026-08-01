@@ -87,7 +87,39 @@ export interface IPhoneCredentials {
 }
 
 export interface ISocialCredentials {
+    /** OAuth token or ID token from the social provider. */
     token: string;
+    /**
+     * How to interpret `token`. Only meaningful for Google: `idToken` (default)
+     * verifies a Google-signed ID token; `accessToken` calls Google's userinfo
+     * endpoint. Ignored by other providers.
+     */
+    type?: 'idToken' | 'accessToken';
+    /**
+     * Full display name. Apple only returns the user's name on the FIRST
+     * authorization (to the app, never in the id_token afterwards) — capture it
+     * then and send it. Prefer `firstName`/`lastName` when available separately.
+     */
+    name?: string;
+    /**
+     * Given/first name captured by the frontend. Needed for Apple Sign In (name
+     * is only returned on the first authorization). Ignored by providers that
+     * already supply a name.
+     */
+    firstName?: string;
+    /** Family/last name captured by the frontend (see `firstName`). */
+    lastName?: string;
+    /**
+     * Avatar / profile-picture URL. Apple Sign In does NOT provide a photo, so
+     * only pass one your app sourced elsewhere. Google's own `picture` is used
+     * as a fallback when omitted.
+     */
+    avatarUrl?: string;
+    /**
+     * Nonce for native sign-in replay protection. When provided it must match the
+     * `nonce` claim in the verified Apple identityToken.
+     */
+    nonce?: string;
 }
 
 export interface IPasswordlessOtpLoginCredentials {

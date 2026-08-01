@@ -117,12 +117,19 @@ class NestAuthClient {
   /// - `type`: for Google, `'idToken'` (default) or `'accessToken'`.
   /// - `nonce`: native replay-protection nonce; must match the token's nonce.
   /// - `name`: Apple only returns the name on the first sign-in — pass it here.
+  /// - `firstName` / `lastName`: given/family name captured by the app (Apple
+  ///   returns these only on the first authorization). Preferred over `name`.
+  /// - `avatarUrl`: profile-picture URL your app sourced (Apple provides none;
+  ///   Google's own picture is used as a fallback when omitted).
   Future<AuthResponse> socialLogin(
     String providerName,
     String token, {
     String? type,
     String? nonce,
     String? name,
+    String? firstName,
+    String? lastName,
+    String? avatarUrl,
   }) =>
       login(
         providerName: providerName,
@@ -131,6 +138,9 @@ class NestAuthClient {
           if (type != null) 'type': type,
           if (nonce != null) 'nonce': nonce,
           if (name != null) 'name': name,
+          if (firstName != null) 'firstName': firstName,
+          if (lastName != null) 'lastName': lastName,
+          if (avatarUrl != null) 'avatarUrl': avatarUrl,
         },
         createUserIfNotExists: true,
       );

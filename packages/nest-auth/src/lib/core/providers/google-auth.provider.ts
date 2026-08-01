@@ -150,6 +150,7 @@ export class GoogleAuthProvider extends BaseAuthProvider {
                 name: payload.name,
                 picture: payload.picture,
                 locale: payload.locale,
+                ...this.profileOverridesFromCredentials(credentials),
             },
         };
     }

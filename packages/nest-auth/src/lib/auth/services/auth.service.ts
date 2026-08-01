@@ -875,13 +875,19 @@ export class AuthService {
 
             // Create new user via UserService to ensure hooks and events are triggered
             try {
+                const meta = providerUser.metadata ?? {};
                 user = await this.userService.createUser(
                     createData as any,
                     tenantId,
                     {
                         [linkUserWith]: linkUserValue,
-                        firstName: (providerUser.metadata?.name ?? '').split(' ')[0],
-                        lastName: (providerUser.metadata?.name ?? '').split(' ').slice(1).join(' '),
+                        // Prefer the frontend-supplied firstName/lastName (needed for
+                        // Apple, which only returns the name on first sign-in); fall
+                        // back to splitting a full `name` from the provider token.
+                        firstName: meta.firstName ?? (meta.name ?? '').split(' ')[0],
+                        lastName: meta.lastName ?? (meta.name ?? '').split(' ').slice(1).join(' '),
+                        // Explicit avatarUrl wins; Google exposes `picture` as a fallback.
+                        avatarUrl: meta.avatarUrl ?? meta.picture,
                         ...providerUser,
                         provider: provider.providerName,
                         description: 'Social login auto-creation'

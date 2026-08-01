@@ -169,6 +169,7 @@ export class AppleAuthProvider extends BaseAuthProvider {
                 ...payload,
                 name: credentials.name,
                 emailVerified,
+                ...this.profileOverridesFromCredentials(credentials),
             },
         };
     }
@@ -242,7 +243,7 @@ export class AppleAuthProvider extends BaseAuthProvider {
                 // This id_token is decoded but not signature-verified here, so its
                 // claims can't be trusted for auto-linking — report unverified.
                 emailVerified: false,
-                metadata: { ...user, name: credentials.name },
+                metadata: { ...user, name: credentials.name, ...this.profileOverridesFromCredentials(credentials) },
             };
         } catch (error) {
             throw new UnauthorizedException({

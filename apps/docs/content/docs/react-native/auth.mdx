@@ -129,7 +129,7 @@ export function GoogleButton() {
 
 ### Apple
 
-Use `expo-apple-authentication` (Expo) or `@invertase/react-native-apple-authentication`. `signInWithApple` presents the native sheet, forwards the `identityToken`, and passes the user's name (Apple returns it only on the **first** sign-in) plus an optional `nonce` for replay protection.
+Use `expo-apple-authentication` (Expo) or `@invertase/react-native-apple-authentication`. `signInWithApple` presents the native sheet, forwards the `identityToken`, and passes the user's name as separate `firstName`/`lastName` (from Apple's `fullName.givenName`/`familyName` — Apple returns these only on the **first** sign-in) plus an optional `nonce` for replay protection. Apple provides no avatar.
 
 ```tsx
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -154,7 +154,9 @@ If you obtain a token another way, call the client directly:
 ```tsx
 const { client } = useNestAuth();
 await client.socialLogin('google', idToken, { type: 'idToken' });
-await client.socialLogin('apple', identityToken, { nonce, name: 'Ada Lovelace' });
+// firstName/lastName are needed for Apple (name is returned only on first sign-in);
+// avatarUrl is optional (Apple provides none — Google falls back to its own picture).
+await client.socialLogin('apple', identityToken, { nonce, firstName: 'Ada', lastName: 'Lovelace' });
 ```
 
 ## Logout

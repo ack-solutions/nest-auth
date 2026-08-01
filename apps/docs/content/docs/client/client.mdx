@@ -33,6 +33,17 @@ await auth.login({
 });
 ```
 
+For social sign-in there's also `socialLogin(provider, token, opts?)`. Apple only returns the user's name on the **first** authorization, so forward it (and, if you have one, an avatar) via the credential options — the backend persists them:
+
+```ts
+await auth.socialLogin('apple', identityToken, {
+  nonce,
+  firstName: 'Ada',
+  lastName: 'Lovelace',
+  // avatarUrl is optional — Apple provides none; Google falls back to its own picture.
+});
+```
+
 If MFA is required, the response carries `isRequiresMfa: true` and the client holds a one-shot challenge token. Call `send2fa` and `verify2fa` to complete.
 
 ### `signup(dto, options?) => Promise<IAuthResponse>`

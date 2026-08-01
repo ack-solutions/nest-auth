@@ -36,11 +36,25 @@ pnpm add apple-auth
 
 | Method | Path | Body |
 |---|---|---|
-| `POST` | `/auth/login` | `{ providerName: 'apple', credentials: { token } }` |
+| `POST` | `/auth/login` | `{ providerName: 'apple', credentials: { token, firstName?, lastName? } }` |
 
 `token` is the Apple `identityToken` returned by their JS SDK or native frameworks.
 
+## Capturing the user's name (first sign-in only)
+
+Apple returns the user's name **only on the very first authorization**, and only to your app (in the authorization `user` object) — it is **never** in the `identityToken`, so it is gone on every later login. Capture it on that first sign-in and forward it, and the backend persists it (into the user's `metadata`, and to your `user.beforeCreate`/`afterCreate` hooks as `firstName`/`lastName`):
+
+| Credential field | Notes |
+|---|---|
+| `firstName` / `lastName` | The given/family name from Apple's first-login `user.name`. Preferred over `name`. |
+| `name` | A combined full name — accepted as a fallback if you only have one string. |
+| `avatarUrl` | **Apple provides no profile photo.** Only send one if your app has it from elsewhere. |
+
+> **Heads up.** If you don't capture the name on the first sign-in, you cannot get it later from Apple. To re-request it, remove the app from the user's Apple ID settings (Settings → Apple ID → Sign in with Apple).
+
 ## Client call (web)
+
+Apple's JS SDK returns the name under `response.user` on the first sign-in:
 
 ```tsx
 import AppleSignin from 'react-apple-signin-auth';
@@ -60,7 +74,12 @@ function AppleSignIn() {
       onSuccess={(response) =>
         login({
           providerName: 'apple',
-          credentials: { token: response.authorization.id_token },
+          credentials: {
+            token: response.authorization.id_token,
+            // Present only on the FIRST sign-in — forward it so it isn't lost.
+            firstName: response.user?.name?.firstName,
+            lastName: response.user?.name?.lastName,
+          },
         })
       }
     />

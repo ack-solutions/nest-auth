@@ -130,7 +130,7 @@ await auth.signInWithGoogleIdToken(googleAuth.idToken!);
 
 ### Apple
 
-Apple returns the user's name only on the **first** sign-in — pass `givenName`/`familyName` so the backend can persist it. `nonce` is optional replay protection.
+Apple returns the user's name only on the **first** sign-in — pass `givenName`/`familyName` so the backend can persist it (they're forwarded to the API as `firstName`/`lastName`). `nonce` is optional replay protection. Apple provides no avatar.
 
 ```dart
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
@@ -154,7 +154,8 @@ await auth.signInWithAppleCredential(
 
 ```dart
 await auth.socialLogin('google', idToken, type: 'idToken');
-await auth.socialLogin('apple', identityToken, nonce: nonce, name: 'Ada Lovelace');
+// firstName/lastName are needed for Apple; avatarUrl is optional (Apple has none).
+await auth.socialLogin('apple', identityToken, nonce: nonce, firstName: 'Ada', lastName: 'Lovelace');
 ```
 
 ## The current session

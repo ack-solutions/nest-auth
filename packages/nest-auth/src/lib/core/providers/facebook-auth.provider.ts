@@ -64,6 +64,7 @@ export class FacebookAuthProvider extends BaseAuthProvider {
                 metadata: {
                     name: response.name,
                     picture: response.picture?.data?.url,
+                    ...this.profileOverridesFromCredentials(credentials),
                 },
             };
         } catch (error) {
