@@ -44,6 +44,7 @@ import { TokenResponseInterceptor } from '../interceptors/token-response.interce
 import { AuthExceptionFilter } from '../filters/auth-exception.filter';
 
 import { Auth } from '../../core/decorators/auth.decorator';
+import { RateLimit } from '../../core/decorators/rate-limit.decorator';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { CsrfService } from '../../core/services/csrf.service';
 import { TenantService } from '../../tenant/services/tenant.service';
@@ -110,6 +111,7 @@ export class AuthController {
     @HttpCode(200)
     @Public()
     @Post('signup')
+    @RateLimit('signup')
     @UseInterceptors(TokenResponseInterceptor)
     async signup(@Body() input: NestAuthSignupRequestDto): Promise<AuthWithTokensResponseDto> {
         const response = await this.authService.signup(input);
@@ -151,6 +153,7 @@ export class AuthController {
     @HttpCode(200)
     @Public()
     @Post('login')
+    @RateLimit('login')
     @UseInterceptors(TokenResponseInterceptor)
     async login(@Body() input: NestAuthLoginRequestDto): Promise<AuthWithTokensResponseDto> {
         const response = await this.authService.login(input);
@@ -165,6 +168,7 @@ export class AuthController {
     @HttpCode(200)
     @Public()
     @Post('passwordless/send')
+    @RateLimit('passwordlessSend')
     @SkipMfa()
     async passwordlessSend(@Body() input: NestAuthPasswordlessSendRequestDto): Promise<MessageResponseDto> {
         return this.authService.passwordlessSend(input);
@@ -243,6 +247,7 @@ export class AuthController {
     @HttpCode(200)
     @SkipMustChangePassword()
     @Post('mfa/verify')
+    @RateLimit('mfaVerify')
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     @UseInterceptors(TokenResponseInterceptor)
@@ -378,6 +383,7 @@ export class AuthController {
     @HttpCode(200)
     @Public()
     @Post('forgot-password')
+    @RateLimit('forgotPassword')
     @SkipMfa()
     async forgotPassword(@Body() input: NestAuthForgotPasswordRequestDto): Promise<NestAuthPasswordResetLinkSentResponseDto> {
         await this.passwordService.forgotPassword(input);
@@ -389,6 +395,7 @@ export class AuthController {
     @HttpCode(200)
     @Public()
     @Post('verify-forgot-password-otp')
+    @RateLimit('verifyOtp')
     @SkipMfa()
     async verifyForgotPasswordOtp(@Body() input: NestAuthVerifyForgotPasswordOtpRequestDto): Promise<VerifyOtpResponseDto> {
         return await this.passwordService.verifyForgotPasswordOtp(input);

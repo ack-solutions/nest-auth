@@ -18,6 +18,7 @@ import { Request, Response } from 'express';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { NestAuthEvents } from '../../auth.constants';
 import { CsrfService } from '../../core/services/csrf.service';
+import { RateLimit } from '../../core/decorators/rate-limit.decorator';
 import { AdminAuthService } from '../services/admin-auth.service';
 import { AdminSessionService } from '../services/admin-session.service';
 import { AdminConsoleConfigService } from '../services/admin-console-config.service';
@@ -154,6 +155,7 @@ export class AdminAuthController {
 
   @ApiOperation({ summary: 'Admin login (sets the session cookie)' })
   @Post('login')
+  @RateLimit('adminLogin')
   async login(@Body() dto: AdminLoginDto, @Res({ passthrough: true }) res: Response) {
     this.config.ensureEnabled();
     const admin = await this.adminAuth.validateCredentials(dto.email, dto.password);

@@ -84,6 +84,36 @@ await fetch('/auth/logout', {
 
 Add `x-csrf-token` to your CORS `allowedHeaders` (see above). And still prefer `sameSite: 'lax'`/`'strict'` over `'none'` — the library **warns at boot** when cookie auth (or a `sameSite: 'none'` cookie) is configured without `security.csrf.enabled`.
 
+## Rate limiting
+
+The sensitive endpoints — login, signup, forgot-password, passwordless/OTP **send** and **verify**, MFA verify, and admin login — can be throttled to blunt brute-force and abuse. Opt in with `security.rateLimit`:
+
+```ts
+NestAuthModule.forRoot({
+  security: {
+    rateLimit: {
+      enabled: true,
+      keyBy: 'both', // 'ip' | 'identifier' | 'both' (default)
+      // Per-bucket overrides (built-in defaults shown):
+      buckets: {
+        login:            { windowMs: 60_000, max: 5 },
+        signup:           { windowMs: 60_000, max: 5 },
+        forgotPassword:   { windowMs: 60_000, max: 3 },
+        verifyOtp:        { windowMs: 60_000, max: 5 },
+        passwordlessSend: { windowMs: 60_000, max: 3 },
+        mfaVerify:        { windowMs: 60_000, max: 5 },
+        adminLogin:       { windowMs: 60_000, max: 5 },
+      },
+    },
+  },
+});
+```
+
+- **Keys.** `keyBy: 'both'` (default) enforces an IP limit **and** a per-account (email/phone) limit, so an attacker can't dodge it by rotating either. Set `app.set('trust proxy', …)` correctly so `req.ip` is the real client IP behind a proxy/load balancer.
+- **Response.** Over-limit requests get `429 Too Many Requests` with a `Retry-After` header and `{ code: 'RATE_LIMITED', retryAfter }`.
+- **Multi-instance.** The default store is in-memory (per-process). Behind more than one instance, supply a shared `store` (e.g. Redis-backed) that implements the small `IRateLimitStore` interface — `increment(key, windowMs) => { count, resetAt }` — so limits are global.
+- The limiter runs before authentication, so unauthenticated brute-force (login/signup/forgot-password) is covered.
+
 ## Helmet
 
 Recommended headers via Helmet:

@@ -17,6 +17,8 @@ export const PASSWORDLESS_AUTH_PROVIDER = 'passwordless';
 
 // Key for optional auth metadata
 export const OPTIONAL_AUTH_KEY = 'optional_auth';
+/** Reflector metadata key naming a route's rate-limit bucket (see @RateLimit). */
+export const RATE_LIMIT_BUCKET_KEY = 'nest_auth_rate_limit_bucket';
 
 // ==========================================
 // ERROR CODES - Categorized for better organization
@@ -47,6 +49,9 @@ export const AUTH_ERROR_CODES = {
     // CSRF (cookie-authenticated state-changing requests)
     CSRF_TOKEN_INVALID: 'CSRF_TOKEN_INVALID',
     CSRF_ORIGIN_REJECTED: 'CSRF_ORIGIN_REJECTED',
+
+    // Rate limiting
+    RATE_LIMITED: 'RATE_LIMITED',
 
     // Password
     CURRENT_PASSWORD_INCORRECT: 'CURRENT_PASSWORD_INCORRECT',

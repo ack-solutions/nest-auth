@@ -1,5 +1,6 @@
 import { Type } from '@nestjs/common';
 import { MFAOptions } from './mfa-options.interface';
+import { IRateLimitOptions } from './rate-limit.interface';
 import { CookieOptions, SessionOptions } from './session-options.interface';
 import { BaseAuthProvider } from '../providers/base-auth.provider';
 import { DebugLogOptions } from '../services/debug-logger.service';
@@ -413,6 +414,14 @@ export interface IAuthModuleOptions {
             /** Request header the SPA echoes the token in. @default 'x-csrf-token' */
             headerName?: string;
         };
+        /**
+         * Rate limiting for the sensitive endpoints (login, signup,
+         * forgot-password, passwordless/OTP send + verify, MFA verify, admin
+         * login). Opt-in; keyed by IP and/or the target identifier. Supply a
+         * shared `store` for multi-instance deployments (the default is
+         * in-memory / per-instance).
+         */
+        rateLimit?: IRateLimitOptions;
     };
     /**
      * Cross-cutting social-login safety options (apply to Google/Apple/Facebook/
