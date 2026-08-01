@@ -7,6 +7,7 @@ export * from './decorators/auth.decorator';
 export * from './decorators/public.decorator';
 export * from './decorators/current-user.decorator';
 export * from './decorators/must-change-password.decorator';
+export * from './decorators/skip-email-verification.decorator';
 
 // Swagger / OpenAPI helpers
 export * from './swagger/api-responses.decorator';

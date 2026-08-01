@@ -1,5 +1,5 @@
 import { Controller, Post, Body, UnauthorizedException, UseGuards, HttpCode, Get, Delete, Param, ForbiddenException } from '@nestjs/common';
-import { SkipMfa, SkipMustChangePassword, NestAuthUser, ApiValidationError, ApiUnauthorized, ApiForbidden } from '../../core';
+import { SkipMfa, SkipMustChangePassword, SkipEmailVerification, NestAuthUser, ApiValidationError, ApiUnauthorized, ApiForbidden } from '../../core';
 import { NestAuthMFAMethodEnum } from '@ackplus/nest-auth-contracts';
 import { MfaService } from '../services/mfa.service';
 import { RequestContext } from '../../request-context/request-context';
@@ -25,6 +25,7 @@ import { MFA_ERROR_CODES, ERROR_CODES } from '../../auth.constants';
 @ApiUnauthorized() //                               401 — all routes
 @ApiForbidden() //                                  403 — all routes
 @SkipMustChangePassword() // MFA must stay reachable so a 2FA user can finish signing in
+@SkipEmailVerification() // ...and so an unverified user can complete MFA login
 @Controller('mfa')
 export class MfaController {
     constructor(

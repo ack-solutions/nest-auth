@@ -9,6 +9,7 @@ import { JWTTokenPayload } from '../../core/interfaces/token-payload.interface';
 import { SKIP_MFA_KEY } from '../../core/decorators/skip-mfa.decorator';
 import { IS_PUBLIC_KEY } from '../../core/decorators/public.decorator';
 import { SKIP_MUST_CHANGE_PASSWORD_KEY } from '../../core/decorators/must-change-password.decorator';
+import { SKIP_EMAIL_VERIFICATION_KEY } from '../../core/decorators/skip-email-verification.decorator';
 import { PERMISSIONS_KEY, PERMISSIONS_REQUIRE_ALL_KEY } from '../../core/decorators/permissions.decorator';
 import { ROLES_KEY, GUARD_KEY } from '../../core/decorators/role.decorator';
 import { AuthConfigService } from '../../core/services/auth-config.service';
@@ -148,9 +149,34 @@ export class NestAuthAuthGuard implements CanActivate {
         // never be silently skipped.
         if (isAuthenticated) {
             this.checkMustChangePassword(context, request);
+            this.checkEmailVerified(context, request);
             await this.checkAuthorization(context, request);
         }
         return true;
+    }
+
+    /**
+     * Hard-block (opt-in via `registration.requireVerifiedEmail`): a signed-in
+     * user whose email is unverified may only reach routes carrying
+     * `@SkipEmailVerification()` (the library marks its own verification / logout
+     * / current-user / session / refresh / MFA routes). Every other guarded route
+     * gets `403 EMAIL_NOT_VERIFIED`. Mirrors checkMustChangePassword().
+     */
+    private checkEmailVerified(context: ExecutionContext, request: any): void {
+        if (this.authConfigService.getConfig().registration?.requireVerifiedEmail !== true) return;
+        if (request.emailVerified === true) return;
+
+        const exempt = this.reflector.getAllAndOverride<boolean>(SKIP_EMAIL_VERIFICATION_KEY, [
+            context.getHandler(),
+            context.getClass(),
+        ]);
+        if (exempt) return;
+
+        this.debugLogger.warn('Blocked: email verification required', 'AuthGuard');
+        throw new ForbiddenException({
+            message: 'You must verify your email address before continuing',
+            code: ERROR_CODES.EMAIL_NOT_VERIFIED,
+        });
     }
 
     /**
@@ -300,13 +326,15 @@ export class NestAuthAuthGuard implements CanActivate {
 
             const user = await NestAuthUser.findOne({
                 where: { id: session.userId },
-                select: ['id', 'isActive', 'mustChangePassword'],
+                select: ['id', 'isActive', 'mustChangePassword', 'emailVerifiedAt'],
             });
 
             // Surface the force-change-password flag to the request so
             // checkMustChangePassword() can enforce it (JWT auth only — API keys
             // are a separate credential and aren't subject to it).
             request.mustChangePassword = user?.mustChangePassword === true;
+            // Surface email-verified state for checkEmailVerified().
+            request.emailVerified = !!user?.emailVerifiedAt;
 
             if (!user || user.isActive === false) {
                 if (isOptional) {

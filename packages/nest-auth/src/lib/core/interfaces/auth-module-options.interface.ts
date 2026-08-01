@@ -535,6 +535,17 @@ export interface IAuthModuleOptions {
         enabled?: boolean;
         requireInvitation?: boolean;
         /**
+         * When `true`, a signed-in user whose email is not yet verified is
+         * hard-blocked (`403 EMAIL_NOT_VERIFIED`) from every guarded route except
+         * those marked `@SkipEmailVerification()` (the library marks its own
+         * verification / logout / current-user / session / refresh / MFA routes).
+         * Opt-in; default `false` — the session is still issued at signup, the
+         * user just can't reach protected resources until they verify. Mirrors the
+         * `mustChangePassword.enforce` hard-block.
+         * @default false
+         */
+        requireVerifiedEmail?: boolean;
+        /**
          * Whether to automatically log in the user after signup.
          * If true (default), signup returns tokens and the user is logged in immediately.
          * If false, signup only creates the account and the user must login separately.
