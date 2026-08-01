@@ -8,6 +8,8 @@ import { NestAuthAdminUser } from '../entities/admin-user.entity';
 interface AdminSessionPayload {
   sub: string;
   email: string;
+  /** tokenVersion the session was minted at (for revocation). */
+  tv?: number;
   iat: number;
   exp: number;
 }
@@ -24,6 +26,7 @@ export class AdminSessionService {
       {
         sub: admin.id,
         email: admin.email,
+        tv: admin.tokenVersion ?? 0,
       },
       secret,
       {

@@ -194,12 +194,13 @@ export class AdminAuthController {
   @Post('logout')
   @UseGuards(AdminSessionGuard)
   async logout(@CurrentAdmin() admin: NestAuthAdminUser, @Res({ passthrough: true }) res: Response) {
-    // Invalidate server-side session if session ID is available
+    // Revoke the admin's outstanding session tokens server-side (bump
+    // tokenVersion), so logout actually invalidates the cookie's JWT.
     try {
-      await this.sessions.invalidateSessionForAdmin(admin.id);
+      await this.adminUsers.revokeSessions(admin.id);
     } catch (error) {
       // Log error but continue with logout to ensure client cookie is cleared
-      console.error('Failed to invalidate admin session:', error);
+      console.error('Failed to revoke admin session:', error);
     }
 
     res.cookie(this.sessions.getCookieName(), '', {
@@ -379,8 +380,10 @@ export class AdminAuthController {
       });
     }
 
-    // Update the password
+    // Update the password and revoke any outstanding sessions (a reset should
+    // invalidate existing logins — standard post-reset hygiene).
     await this.adminUsers.updateAdmin(admin.id, { password: dto.newPassword });
+    await this.adminUsers.revokeSessions(admin.id);
 
     // OOB-notify: a secret-key password reset is security-sensitive.
     await this.emitAdminEvent(NestAuthEvents.ADMIN_PASSWORD_RESET, admin, req);

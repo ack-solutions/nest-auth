@@ -47,6 +47,12 @@ export class AdminSessionGuard implements CanActivate {
       throw new UnauthorizedException('Admin account not found');
     }
 
+    // Revocation: reject a token whose version no longer matches the admin's
+    // current tokenVersion (bumped on logout / password reset).
+    if (((payload as any).tv ?? 0) !== (admin.tokenVersion ?? 0)) {
+      throw new UnauthorizedException('Admin session has been revoked');
+    }
+
     req.adminUser = admin;
     return true;
   }

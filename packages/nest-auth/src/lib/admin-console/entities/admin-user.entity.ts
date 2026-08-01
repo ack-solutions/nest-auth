@@ -34,6 +34,15 @@ export class NestAuthAdminUser extends BaseEntity {
   @Column({ nullable: true })
   lastLoginAt?: Date;
 
+  /**
+   * Bumped to revoke this admin's outstanding session tokens (logout, password
+   * reset). The session JWT carries the version it was minted at; the guard
+   * rejects a token whose version no longer matches — making the otherwise
+   * stateless admin sessions revocable.
+   */
+  @Column({ default: 0 })
+  tokenVersion: number;
+
   @CreateDateColumn()
   createdAt: Date;
 

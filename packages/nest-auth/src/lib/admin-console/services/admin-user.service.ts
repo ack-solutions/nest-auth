@@ -83,6 +83,11 @@ export class AdminUserService {
     return admin;
   }
 
+  /** Revoke all of an admin's outstanding session tokens by bumping tokenVersion. */
+  async revokeSessions(id: string): Promise<void> {
+    await this.adminRepo.increment({ id }, 'tokenVersion', 1);
+  }
+
   async deleteAdmin(id: string): Promise<void> {
     const admin = await this.findById(id);
     if (!admin) {
