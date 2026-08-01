@@ -7,6 +7,7 @@ import { AdminSessionService } from './services/admin-session.service';
 import { AdminConsoleController } from './controllers/admin-console.controller';
 import { AdminAuthController } from './controllers/admin-auth.controller';
 import { AdminSessionGuard } from './guards/admin-session.guard';
+import { AdminBruteForceGuard } from './guards/admin-brute-force.guard';
 import { UserModule } from '../user/user.module';
 import { RoleModule } from '../role/role.module';
 import { TenantModule } from '../tenant/tenant.module';
@@ -49,6 +50,7 @@ import { AdminUserManagementService } from './services/admin-user-management.ser
     AdminConsoleConfigService,
     AdminUserManagementService,
     AdminSessionGuard,
+    AdminBruteForceGuard,
   ],
   controllers: [
     // Register API controllers FIRST so they match before the UI catch-all route

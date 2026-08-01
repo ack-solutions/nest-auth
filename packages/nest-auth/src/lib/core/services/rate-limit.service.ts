@@ -18,6 +18,9 @@ export const DEFAULT_RATE_LIMIT_BUCKETS: Record<RateLimitBucket, RateLimitBucket
     passwordlessSend: { windowMs: 60_000, max: 3 },
     mfaVerify: { windowMs: 60_000, max: 5 },
     adminLogin: { windowMs: 60_000, max: 5 },
+    // Secret-key-gated admin bootstrap/recovery: strict, since a hit is a
+    // credential-forging primitive. 5 attempts per 15 minutes.
+    adminReset: { windowMs: 15 * 60_000, max: 5 },
 };
 
 /**
@@ -77,7 +80,22 @@ export class RateLimitService {
      * `Retry-After` header and throws 429 when the limit is exceeded.
      */
     async enforce(bucket: RateLimitBucket, req: Request, res?: Response): Promise<void> {
-        if (!this.isEnabled()) return;
+        return this.enforceBucket(bucket, req, res, false);
+    }
+
+    /**
+     * Like {@link enforce} but ALWAYS runs, regardless of `security.rateLimit.enabled`.
+     * Used by the admin console to give its highest-value endpoints (login /
+     * secret-key signup+reset) brute-force protection by default. Consumers can
+     * still tune the window/max via `security.rateLimit.buckets` or disable it via
+     * `adminConsole.bruteForce.enabled: false`.
+     */
+    async enforceAlways(bucket: RateLimitBucket, req: Request, res?: Response): Promise<void> {
+        return this.enforceBucket(bucket, req, res, true);
+    }
+
+    private async enforceBucket(bucket: RateLimitBucket, req: Request, res: Response | undefined, force: boolean): Promise<void> {
+        if (!force && !this.isEnabled()) return;
 
         const { windowMs, max } = this.bucketConfig(bucket);
         if (!Number.isFinite(max) || max <= 0) return; // a non-positive max disables the bucket

@@ -8,7 +8,8 @@ export type RateLimitBucket =
     | 'verifyOtp'
     | 'passwordlessSend'
     | 'mfaVerify'
-    | 'adminLogin';
+    | 'adminLogin'
+    | 'adminReset';
 
 export interface RateLimitBucketConfig {
     /** Rolling window length in milliseconds. */

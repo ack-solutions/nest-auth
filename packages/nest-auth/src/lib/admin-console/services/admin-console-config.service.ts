@@ -109,6 +109,11 @@ export class AdminConsoleConfigService {
     return this.getConfig().allowAdminManagement !== false;
   }
 
+  /** Whether the always-on admin auth brute-force throttle is active (default true). */
+  bruteForceProtectionEnabled(): boolean {
+    return this.getConfig().bruteForce?.enabled !== false;
+  }
+
   /**
    * Whether the public secret-key `signup` endpoint may create admins even after
    * one already exists. Default false → that endpoint is bootstrap-only.

@@ -16,9 +16,12 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { NestAuthEvents } from '../../auth.constants';
+import { NestAuthEvents, ERROR_CODES } from '../../auth.constants';
 import { CsrfService } from '../../core/services/csrf.service';
-import { RateLimit } from '../../core/decorators/rate-limit.decorator';
+import { Lockout } from '../../core/decorators/lockout.decorator';
+import { LockoutService } from '../../core/services/lockout.service';
+import { LoginFailedEvent } from '../../auth/events/login-failed.event';
+import { AdminThrottle } from '../decorators/admin-throttle.decorator';
 import { AdminAuthService } from '../services/admin-auth.service';
 import { AdminSessionService } from '../services/admin-session.service';
 import { AdminConsoleConfigService } from '../services/admin-console-config.service';
@@ -63,9 +66,33 @@ export class AdminAuthController {
     private readonly tenantService: TenantService,
     private readonly eventEmitter: EventEmitter2,
     private readonly csrf: CsrfService,
+    private readonly lockout: LockoutService,
     @InjectRepository(NestAuthUser)
     private readonly userRepository: Repository<NestAuthUser>,
   ) { }
+
+  /**
+   * Feed the soft-lockout counter on a failed admin login (no-op unless
+   * `security.lockout.enabled`). Advisory — never breaks the auth flow.
+   */
+  private async emitLoginFailed(email: string | undefined, req: Request): Promise<void> {
+    try {
+      await this.eventEmitter.emitAsync(
+        NestAuthEvents.LOGIN_FAILED,
+        new LoginFailedEvent({
+          identifier: email,
+          providerName: 'admin',
+          reasonCode: ERROR_CODES.INVALID_CREDENTIALS,
+          reason: 'Invalid admin credentials',
+          ip: req?.ip,
+          userAgent: req?.headers?.['user-agent'] as string | undefined,
+          at: new Date(),
+        }),
+      );
+    } catch {
+      // advisory only
+    }
+  }
 
   /**
    * Best-effort out-of-band notification for a security-sensitive admin action
@@ -155,10 +182,19 @@ export class AdminAuthController {
 
   @ApiOperation({ summary: 'Admin login (sets the session cookie)' })
   @Post('login')
-  @RateLimit('adminLogin')
-  async login(@Body() dto: AdminLoginDto, @Res({ passthrough: true }) res: Response) {
+  @AdminThrottle('adminLogin')
+  @Lockout()
+  async login(@Body() dto: AdminLoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     this.config.ensureEnabled();
-    const admin = await this.adminAuth.validateCredentials(dto.email, dto.password);
+    let admin: NestAuthAdminUser;
+    try {
+      admin = await this.adminAuth.validateCredentials(dto.email, dto.password);
+    } catch (error) {
+      await this.emitLoginFailed(dto.email, req);
+      throw error;
+    }
+    // A successful login clears any accumulated failure counter for this identifier.
+    if (dto.email) this.lockout.clearIdentifier(dto.email);
     const token = this.sessions.createSession(admin);
     const cookieOpts = this.getCookieOptions();
     res.cookie(this.sessions.getCookieName(), token, cookieOpts);

@@ -99,6 +99,14 @@ export class LockoutService {
         this.maybeSweep(now);
     }
 
+    /**
+     * Clear lock state for an identifier across every IP. Public so non-event
+     * login flows (e.g. the admin console) can reset the counter on success.
+     */
+    clearIdentifier(identifier: string): void {
+        this.resetForIdentifier(identifier);
+    }
+
     /** Clear lock state for an identifier across every IP (on successful login). */
     private resetForIdentifier(identifier: string): void {
         const prefix = `${identifier.trim().toLowerCase()}:`;

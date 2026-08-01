@@ -1,4 +1,5 @@
 import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { hash, verify, Algorithm } from '@node-rs/argon2';
 import { AdminUserService } from './admin-user.service';
 import { AdminSessionService } from './admin-session.service';
 import { AdminConsoleConfigService } from './admin-console-config.service';
@@ -18,6 +19,10 @@ export class AdminAuthService {
   async validateCredentials(email: string, password: string): Promise<NestAuthAdminUser> {
     const admin = await this.adminUsers.findByEmail(email);
     if (!admin) {
+      // Equalize timing so a non-existent admin can't be distinguished from a
+      // wrong password (argon2 verify runs on both paths) — closes admin-email
+      // enumeration via a login timing side-channel.
+      await verify(await this.dummyHash(), password).catch(() => false);
       throw new UnauthorizedException('Invalid credentials');
     }
     const valid = await admin.validatePassword(password);
@@ -27,6 +32,22 @@ export class AdminAuthService {
     admin.lastLoginAt = new Date();
     await admin.save();
     return admin;
+  }
+
+  // Precomputed argon2id hash used ONLY to equalize verify timing on the
+  // admin-not-found path (see validateCredentials). Same cost params as the
+  // admin entity so the work is comparable. Computed once, then cached.
+  private dummyHashPromise?: Promise<string>;
+  private dummyHash(): Promise<string> {
+    if (!this.dummyHashPromise) {
+      this.dummyHashPromise = hash('nest-auth-admin-timing-equalizer', {
+        algorithm: Algorithm.Argon2id,
+        memoryCost: 65536,
+        timeCost: 3,
+        parallelism: 4,
+      });
+    }
+    return this.dummyHashPromise;
   }
 
   async createInitialAdmin(payload: {

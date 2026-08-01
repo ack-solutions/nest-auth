@@ -859,6 +859,17 @@ export interface IAdminConsoleOptions {
      */
     allowAdminManagement?: boolean;
     /**
+     * Brute-force protection for the admin console's auth endpoints (login and the
+     * secret-key-gated signup/reset-password). ENABLED BY DEFAULT and independent
+     * of `security.rateLimit.enabled` — the admin console is the highest-value
+     * surface, so it is throttled out of the box. Tune the window/max via
+     * `security.rateLimit.buckets.adminLogin` / `.adminReset`. Set
+     * `{ enabled: false }` to opt out (not recommended).
+     */
+    bruteForce?: {
+      enabled?: boolean;
+    };
+    /**
      * By default the public, secret-key-gated `POST <admin>/signup` endpoint is
      * BOOTSTRAP-ONLY: once at least one admin exists it is refused, and further
      * admins must be created by a signed-in admin via the dashboard (an
