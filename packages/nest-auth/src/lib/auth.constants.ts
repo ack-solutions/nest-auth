@@ -243,6 +243,8 @@ export const NestAuthEvents = {
     TWO_FACTOR_VERIFIED: 'nest_auth.two_factor_verified',
     TWO_FACTOR_CODE_SENT: 'nest_auth.two_factor_code_sent',
     REFRESH_TOKEN: 'nest_auth.refresh_token',
+    /** A rotated/replayed refresh token was presented — likely token theft. Payload: { sessionId, userId, revoked }. */
+    REFRESH_TOKEN_REUSE_DETECTED: 'nest_auth.refresh_token_reuse_detected',
     PASSWORD_RESET_REQUESTED: 'nest_auth.password_reset_requested',
     PASSWORD_RESET: 'nest_auth.password_reset',
     LOGGED_OUT: 'nest_auth.logged_out',

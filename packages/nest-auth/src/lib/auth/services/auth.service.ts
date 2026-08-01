@@ -962,6 +962,24 @@ export class AuthService {
             if (storedRefreshHash) {
                 const secret = this.authConfig.session?.jwt?.secret ?? '';
                 if (!timingSafeEqualHex(storedRefreshHash, hmacSha256Hex(secret, refreshToken))) {
+                    // REUSE DETECTED: an already-rotated refresh token is being
+                    // replayed — a strong theft signal. We can't tell the attacker
+                    // from the victim, so by default we revoke the whole session
+                    // (kill the token family): this ejects a thief holding a stolen
+                    // token, at the cost of the legitimate user re-authenticating.
+                    // Only that one session is revoked (other devices are untouched).
+                    const revoke = this.authConfig.session?.refreshTokenReuse?.revokeSession !== false;
+                    if (revoke) {
+                        await this.sessionManager.revokeSession(session.id, 'security');
+                    }
+                    // Emit for alerting/audit; never let a listener break the flow.
+                    await this.eventEmitter
+                        .emitAsync(NestAuthEvents.REFRESH_TOKEN_REUSE_DETECTED, {
+                            sessionId: session.id,
+                            userId: session.userId,
+                            revoked: revoke,
+                        })
+                        .catch(() => undefined);
                     throw new UnauthorizedException({
                         message: 'Refresh token is no longer valid (rotated or replayed)',
                         code: ERROR_CODES.REFRESH_TOKEN_INVALID,

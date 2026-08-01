@@ -66,6 +66,23 @@ export interface SessionOptions {
     refreshTokenValidity?: number | string; // expressed in seconds or a string describing a time span [zeit/ms](https://github.com/zeit/ms.js).  Eg: 60, "2 days", "10h", "7d"
 
     /**
+     * Behaviour when a REPLAYED refresh token is detected (an already-rotated
+     * token presented again — a strong signal of token theft, since only a
+     * validly-signed token for that session can reach this check).
+     */
+    refreshTokenReuse?: {
+        /**
+         * Revoke the WHOLE session on reuse (the OAuth 2.0 best-practice: you
+         * can't tell attacker from victim, so kill the token family — this ejects
+         * a thief at the cost of the legitimate user re-authenticating). Set
+         * `false` to only reject the replayed request without revoking.
+         * Either way a `refresh_token_reuse_detected` event is emitted.
+         * @default true
+         */
+        revokeSession?: boolean;
+    };
+
+    /**
      * Cookie options for access/refresh tokens when using `accessTokenType: 'cookie'`.
      * Placed under `session` so all token/session settings live together.
      */
