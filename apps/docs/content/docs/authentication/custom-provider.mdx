@@ -1,15 +1,24 @@
 ---
 title: Custom OAuth / SSO Provider
-description: Plug in any provider not built in — Microsoft, Okta, Auth0, Discord, an internal SSO — by implementing one validate() method.
+description: Plug in any provider not built in — Microsoft, Okta, Auth0, Discord, an internal SSO — with a full, end-to-end example.
 ---
 
 Need Microsoft, Discord, Slack, Okta, Auth0, an internal enterprise SSO? Extend `BaseAuthProvider`, implement `validate()`, and pass an instance to the module. Nest Auth handles everything else — identity lookup, user creation, account linking, session, and events (see [how SSO works](/docs/authentication/social-sso)).
 
-## The contract
+## Full example: a Discord provider, end to end
 
-Two things are required: a `providerName` and a `validate()` method. `getRequiredFields()` is also abstract, so you must implement it.
+Five steps take you from nothing to a working "Sign in with Discord". Swap the URLs/fields for Microsoft, Okta, Auth0, or your internal IdP — the shape is identical.
+
+### 1. Register the OAuth app with the provider
+
+In the [Discord Developer Portal](https://discord.com/developers/applications) → *New Application → OAuth2*. Add your redirect URI, select the `identify` + `email` scopes, and copy the **Client ID** and **Client Secret**. (Every provider has an equivalent console step — this is where you get the credentials.)
+
+### 2. Write the provider
+
+A `BaseAuthProvider` subclass needs exactly three things: `providerName`, `getRequiredFields()`, and `validate()`. `validate()` verifies the credential *with the provider* and returns a normalized user.
 
 ```ts
+// src/auth/discord.provider.ts
 import { BaseAuthProvider, AuthProviderUser } from '@ackplus/nest-auth';
 import { UnauthorizedException } from '@nestjs/common';
 
@@ -20,63 +29,51 @@ interface DiscordOptions {
 }
 
 export class DiscordAuthProvider extends BaseAuthProvider {
-  // The name you'll pass as `providerName` on POST /auth/login. (NOT `name`.)
+  // The name you pass as `providerName` on POST /auth/login. (NOT `name`.)
   providerName = 'discord';
 
-  // The user already authenticated with Discord, so skip Nest Auth's own MFA
-  // challenge. Omit (defaults false) if you still want app-level MFA.
+  // The user already authenticated with Discord — skip Nest Auth's own MFA
+  // challenge. Omit (defaults false) to still require app-level MFA.
   skipMfa = true;
 
   constructor(private readonly opts: DiscordOptions) {
-    // Call super() with no args — the provider registry injects the user +
-    // identity repositories the base helpers need once the module boots.
+    // super() with no args — the provider registry injects the DB repositories
+    // the base helpers need once the module boots.
     super();
   }
 
-  // Which credential fields the client MUST send (validated before validate()).
+  // The credential fields the client MUST send (validated before validate()).
   getRequiredFields(): string[] {
-    return ['token']; // or ['code'] if you exchange an auth code (see below)
+    return ['token']; // switch to ['code'] to accept an auth code instead
   }
 
   async validate(credentials: { token?: string }): Promise<AuthProviderUser | null> {
+    // 1. Verify the credential with the provider.
     const me = await fetch('https://discord.com/api/users/@me', {
       headers: { Authorization: `Bearer ${credentials.token}` },
     }).then((r) => r.json());
 
-    if (!me?.id) {
-      throw new UnauthorizedException('Invalid Discord token');
-    }
+    if (!me?.id) throw new UnauthorizedException('Invalid Discord token');
 
+    // 2. Return the normalized user.
     return {
-      // The PROVIDER's stable user id (Discord's `id`) — the field is `userId`.
-      userId: me.id,
+      userId: me.id,                    // the PROVIDER's user id — field is `userId`, not `providerId`
       email: me.email,
-      // Set true ONLY if the provider attests the email is verified. Gates
-      // account-linking to an existing user (see below).
-      emailVerified: me.verified === true,
+      emailVerified: me.verified === true, // true ONLY if the provider attests it
       metadata: { username: me.username, avatarUrl: me.avatar },
     };
   }
 }
 ```
 
-### The `AuthProviderUser` you return
+### 3. Register it in the module
 
-| Field | Meaning |
-|---|---|
-| `userId` **(required)** | The **provider's** stable user id (e.g. an OAuth `sub`, Discord `id`). This is what identities are keyed on — *not* your local user id. |
-| `email` / `phone` | Used to find/create the local user and to link to an existing account. |
-| `emailVerified` / `phoneVerified` | Set `true` only when the provider proves it. Controls the linking gate and whether `emailVerifiedAt` is stamped. |
-| `metadata` | Anything else (username, avatar, raw profile) — stored on the identity and available to your hooks. |
-
-Return `null` (or throw) when the credential is invalid.
-
-## Registering the provider
-
-Pass an instance in `customAuthProviders`. A plain `new Provider(opts)` with `forRoot` is all you need — the repositories are injected for you:
+Pass a plain instance in `customAuthProviders`. That's it — the repositories are injected for you, so no `forRootAsync` or DI wiring is needed.
 
 ```ts
+// app.module.ts
 NestAuthModule.forRoot({
+  session: { jwt: { secret: process.env.JWT_SECRET! } },
   customAuthProviders: [
     new DiscordAuthProvider({
       clientId: process.env.DISCORD_CLIENT_ID!,
@@ -89,28 +86,54 @@ NestAuthModule.forRoot({
 
 `POST /auth/login` with `{ providerName: 'discord', … }` now works.
 
-## Calling it from the client
+### 4. Call it from the frontend
 
-Same as any social login. **A first-time user must be provisioned with `createUserIfNotExists: true`** (the client SDK's `socialLogin()` sets it for you):
+Get a Discord access token with your OAuth flow, then log in. **A first-time user needs `createUserIfNotExists: true`** — the client SDK's `socialLogin()` sets it for you:
 
 ```ts
 import { AuthClient } from '@ackplus/nest-auth-client';
 const client = new AuthClient({ baseUrl: '/api' });
 
 // socialLogin defaults createUserIfNotExists: true
-await client.socialLogin('discord', accessToken);
+const res = await client.socialLogin('discord', discordAccessToken);
+// res is a normal auth response (session/tokens) — the user is signed in.
 ```
 
-Raw HTTP / React `login()` — pass the flag yourself for new users:
+React (`useNestAuth().login`) — pass the flag yourself:
 
-```jsonc
-POST /auth/login
-{
-  "providerName": "discord",
-  "credentials": { "token": "<discord access token>" },
-  "createUserIfNotExists": true
-}
+```tsx
+const { login } = useNestAuth();
+await login({
+  providerName: 'discord',
+  credentials: { token: discordAccessToken },
+  createUserIfNotExists: true,
+});
 ```
+
+### 5. Verify with curl
+
+```bash
+curl -X POST http://localhost:3000/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "providerName": "discord",
+    "credentials": { "token": "<a real discord access token>" },
+    "createUserIfNotExists": true
+  }'
+```
+
+A `2xx` with a session/token body means it works. On the first call a `NestAuthUser` + identity row are created; subsequent logins with the same Discord id resolve to the same user.
+
+## The `AuthProviderUser` you return
+
+| Field | Meaning |
+|---|---|
+| `userId` **(required)** | The **provider's** stable user id (an OAuth `sub`, Discord `id`, …). Identities are keyed on this — *not* your local user id. |
+| `email` / `phone` | Used to find/create the local user and to link to an existing account. |
+| `emailVerified` / `phoneVerified` | Set `true` only when the provider proves it. Controls the linking gate and whether `emailVerifiedAt` is stamped. |
+| `metadata` | Anything else (username, avatar, raw profile) — stored on the identity and available to your hooks. |
+
+Return `null` (or throw) when the credential is invalid.
 
 ## What you get for free
 
@@ -118,14 +141,12 @@ Once `validate()` returns, the library:
 
 - Looks up the identity (`nest_auth_identities` for `provider='discord'` + the returned `userId`) → logs the existing user in.
 - Creates a new `NestAuthUser` + identity when the identity is new and `createUserIfNotExists` is set — emitting `UserRegisteredEvent`.
-- **Links** to an existing account when the email matches — but only when `emailVerified: true` (the [2.8.0 verified-email gate](/docs/authentication/social-sso#account-linking--the-verified-email-gate); `social.requireVerifiedEmailForLinking`).
+- **Links** to an existing account when the email matches — but only when `emailVerified: true` (the [verified-email gate](/docs/authentication/social-sso#account-linking--the-verified-email-gate); `social.requireVerifiedEmailForLinking`).
 - Issues the session / JWT and emits `UserLoggedInEvent`.
-
-You only write the provider-specific part: verifying the credential.
 
 ## When the client sends an auth code instead of a token
 
-If your provider hands the frontend a one-time **authorization code**, exchange it for a token inside `validate()` (and declare `getRequiredFields()` as `['code']`):
+If your provider hands the frontend a one-time **authorization code**, exchange it for a token inside `validate()` and declare `getRequiredFields()` as `['code']`:
 
 ```ts
 getRequiredFields() { return ['code']; }
@@ -153,7 +174,7 @@ async validate(credentials: { code?: string }): Promise<AuthProviderUser | null>
 
 ## Enterprise SSO (SAML / OIDC / IdP groups)
 
-The same shape covers enterprise SSO: verify the assertion/token in `validate()` and return the user. To map IdP groups → Nest Auth roles, see the [external role resolver recipe](/docs/recipes/external-role-resolver).
+The same shape covers enterprise SSO — verify the assertion/id-token in `validate()` (for OIDC, validate the `id_token` signature against the IdP's JWKS and return its `sub`/`email`) and return the user. To map IdP groups → Nest Auth roles, see the [external role resolver recipe](/docs/recipes/external-role-resolver).
 
 ## Common mistakes
 
@@ -168,5 +189,5 @@ The same shape covers enterprise SSO: verify the assertion/token in `validate()`
 
 - [Social / SSO Login](/docs/authentication/social-sso) — how the universal flow works.
 - [Google OAuth](/docs/authentication/oauth-google) — a built-in, by example.
-- [Custom OAuth provider recipe](/docs/recipes/custom-oauth-provider) — copy-paste starting point.
+- [Custom OAuth provider recipe](/docs/recipes/custom-oauth-provider) — a short copy-paste version.
 - [Link multiple providers to one account](/docs/recipes/link-multiple-providers).

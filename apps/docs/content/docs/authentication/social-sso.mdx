@@ -43,6 +43,49 @@ Enable a provider by adding its config block to `NestAuthModule.forRoot({ … })
 
 Each provider is off until you configure it — no config block, no registration.
 
+## Set up a provider, step by step
+
+A complete walkthrough with **Google** (every built-in follows the same five steps — see each provider's page for its exact config keys).
+
+**1. Create the OAuth app in the provider's console.** In [Google Cloud Console](https://console.cloud.google.com/apis/credentials) → *Create Credentials → OAuth client ID → Web application*. Add your app's origin to *Authorized JavaScript origins* (and, if you use the redirect flow, your callback to *Authorized redirect URIs*). Copy the **Client ID** and **Client secret**.
+
+**2. Install the provider's optional peer dependency.**
+
+```bash
+pnpm add google-auth-library   # google. (facebook/github: none; apple: jose)
+```
+
+**3. Configure the module** (secrets from env — never hard-code them):
+
+```ts
+NestAuthModule.forRoot({
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID!,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    redirectUri: process.env.GOOGLE_REDIRECT_URI!, // only used for the server-side code flow
+  },
+});
+```
+
+That single block registers the `google` provider and its `POST /auth/login` handler. Each provider's config keys:
+
+| Provider | Config block |
+|---|---|
+| `google` | `{ clientId, clientSecret, redirectUri, audiences? }` |
+| `facebook` | `{ appId, appSecret, redirectUri }` |
+| `apple` | `{ clientId (Service ID), teamId, keyId, privateKey, redirectUri, audiences? }` |
+| `github` | `{ clientId, clientSecret, redirectUri }` |
+
+**4. Get the provider token on the frontend.** Use the provider's own SDK — e.g. `@react-oauth/google`'s `<GoogleLogin>` gives you an ID token in `response.credential`.
+
+**5. Send it to `POST /auth/login`** with `createUserIfNotExists: true` (see [Calling it from each SDK](#calling-it-from-each-sdk) for React / client / RN / Flutter):
+
+```ts
+await client.socialLogin('google', response.credential, { type: 'idToken' });
+```
+
+That's the whole setup. The provider-specific pages ([Google](/docs/authentication/oauth-google), [Facebook](/docs/authentication/oauth-facebook), [Apple](/docs/authentication/oauth-apple), [GitHub](/docs/authentication/oauth-github)) cover the token/id-token nuances and console specifics.
+
 ## The login request
 
 Every social/SSO sign-in is the same `POST /auth/login` shape — a `providerName` plus a `credentials` object the provider needs:
