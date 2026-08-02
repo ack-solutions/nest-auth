@@ -1,65 +1,165 @@
 ---
 title: Recipes
-description: Copy-paste solutions to common problems.
+description: Copy-paste solutions to common problems — browse all recipes below.
 ---
 
 Each recipe is a self-contained, runnable example. Pick one, copy the code, adapt the names — done.
 
-### Auth lifecycle & events
+## Auth lifecycle & events
 
-- [React to a new signup with `UserRegisteredEvent`](/docs/recipes/user-registered-listener) — create your `AppUser`, link a referral, queue a welcome email.
-- [React to login with `UserLoggedInEvent`](/docs/recipes/user-logged-in-listener) — last-login tracking, role sync, audit writes.
-- [Transactional user creation](/docs/recipes/transactional-user-creation) — wrap `NestAuthUser` + `AppUser` in one TypeORM transaction so a mid-flow failure rolls back cleanly.
-- [Custom OAuth provider](/docs/recipes/custom-oauth-provider) — extend `BaseAuthProvider` for an IDP that isn't built in.
-- [Extra signup fields with `collectProfileFields`](/docs/recipes/extra-signup-fields) — capture and persist your own fields at registration.
-- [Link multiple providers to one account](/docs/recipes/link-multiple-providers) — connect Google, Apple, password, etc. under a single identity.
-- [Normalize email & phone](/docs/recipes/normalize-email-phone) — `normalizedEmail` / `normalizedPhone` for consistent identity matching.
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem', marginTop: '0.75rem', marginBottom: '2rem' }}>
+  <a href="/docs/recipes/user-registered-listener" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>React to a new signup with UserRegisteredEvent</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>create your AppUser, link a referral, queue a welcome email</span>
+  </a>
+  <a href="/docs/recipes/user-logged-in-listener" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>React to login with UserLoggedInEvent</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>last-login tracking, role sync, audit writes</span>
+  </a>
+  <a href="/docs/recipes/transactional-user-creation" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Transactional user creation</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>wrap NestAuthUser + AppUser in one TypeORM transaction so a mid-flow failure rolls back cleanly</span>
+  </a>
+  <a href="/docs/recipes/custom-oauth-provider" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Custom OAuth provider</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>extend BaseAuthProvider for an IDP that isn't built in</span>
+  </a>
+  <a href="/docs/recipes/extra-signup-fields" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Extra signup fields with collectProfileFields</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>capture and persist your own fields at registration</span>
+  </a>
+  <a href="/docs/recipes/link-multiple-providers" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Link multiple providers to one account</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>connect Google, Apple, password, etc. under a single identity</span>
+  </a>
+  <a href="/docs/recipes/normalize-email-phone" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Normalize email &amp; phone</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>normalizedEmail / normalizedPhone for consistent identity matching</span>
+  </a>
+</div>
 
-### Multi-tenant & multi-platform
+## Multi-tenant & multi-platform
 
-- [Multi-platform login with guards](/docs/recipes/multi-platform-login) — admin / portal / mobile from one backend, with origin-aware login gating.
-- [Platform-admin portal](/docs/recipes/platform-admin-portal) — staff who manage the whole platform as full users with a cross-tenant super-admin role, origin-locked and MFA-gated.
-- [Tenant switcher](/docs/recipes/tenant-switcher) — a tenant-picker dropdown that re-scopes the active session.
-- [Logging in under a tenant (ISOLATED)](/docs/recipes/tenant-login-isolated) — slug → `tenantId` resolution, the login DTO, password reset, and the invite pattern.
-- [Per-request config (mobile vs web)](/docs/recipes/per-request-config) — vary auth behavior per incoming request.
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem', marginTop: '0.75rem', marginBottom: '2rem' }}>
+  <a href="/docs/recipes/multi-platform-login" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Multi-platform login with guards</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>admin / portal / mobile from one backend, with origin-aware login gating</span>
+  </a>
+  <a href="/docs/recipes/platform-admin-portal" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Platform-admin portal</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>staff who manage the whole platform as full users with a cross-tenant super-admin role, origin-locked and MFA-gated</span>
+  </a>
+  <a href="/docs/recipes/tenant-switcher" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Tenant switcher</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>a tenant-picker dropdown that re-scopes the active session</span>
+  </a>
+  <a href="/docs/recipes/tenant-login-isolated" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Logging in under a tenant (ISOLATED)</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>slug → tenantId resolution, the login DTO, password reset, and the invite pattern</span>
+  </a>
+  <a href="/docs/recipes/per-request-config" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Per-request config (mobile vs web)</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>vary auth behavior per incoming request</span>
+  </a>
+</div>
 
-### Multi-account switcher (v2.6)
+## Multi-account switcher (v2.6)
 
-**New in v2.6:** nest-auth is multi-session by design — each login mints an independent session, so one client can hold several account token sets at once.
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem', marginTop: '0.75rem', marginBottom: '2rem' }}>
+  <a href="/docs/recipes/multi-account-switching" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Multi-account login &amp; switching</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>Gmail/Slack-style account switching in header or cookie mode</span>
+  </a>
+</div>
 
-- [Multi-account login & switching](/docs/recipes/multi-account-switching) — Gmail/Slack-style account switching in header or cookie mode.
+## Roles, permissions & access control
 
-### Roles, permissions & access control
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem', marginTop: '0.75rem', marginBottom: '2rem' }}>
+  <a href="/docs/recipes/seeding-roles-and-permissions" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Seeding roles &amp; permissions</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>idempotent bootstrap of isSystem roles per guard</span>
+  </a>
+  <a href="/docs/recipes/external-role-resolver" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>External role resolver</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>resolve roles from Okta / Auth0 / a custom IDP</span>
+  </a>
+  <a href="/docs/recipes/ip-allowlist-guard" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>IP allowlist guard</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>restrict auth via guards.beforeAuth</span>
+  </a>
+  <a href="/docs/recipes/account-suspension" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Account suspension and reactivation</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>block and restore access without deleting the account</span>
+  </a>
+  <a href="/docs/recipes/force-password-change" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Force password change</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>make admin-set temporary passwords genuinely temporary via mustChangePassword</span>
+  </a>
+</div>
 
-- [Seeding roles & permissions](/docs/recipes/seeding-roles-and-permissions) — idempotent bootstrap of `isSystem` roles per guard.
-- [External role resolver](/docs/recipes/external-role-resolver) — resolve roles from Okta / Auth0 / a custom IDP.
-- [IP allowlist guard](/docs/recipes/ip-allowlist-guard) — restrict auth via `guards.beforeAuth`.
-- [Account suspension and reactivation](/docs/recipes/account-suspension) — block and restore access without deleting the account.
-- [Force password change](/docs/recipes/force-password-change) — make admin-set temporary passwords genuinely temporary via `mustChangePassword`.
+## MFA & devices
 
-### MFA & devices
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem', marginTop: '0.75rem', marginBottom: '2rem' }}>
+  <a href="/docs/recipes/mfa-recovery-codes" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>MFA recovery codes</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>generate, show, and store backup codes</span>
+  </a>
+  <a href="/docs/recipes/remember-this-device" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Remember this device</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>skip MFA on trusted devices using trusted-device tokens</span>
+  </a>
+  <a href="/docs/recipes/custom-trusted-device-header" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Custom trusted-device header</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>change the trusted-device header name</span>
+  </a>
+</div>
 
-- [MFA recovery codes](/docs/recipes/mfa-recovery-codes) — generate, show, and store backup codes.
-- [Remember this device](/docs/recipes/remember-this-device) — skip MFA on trusted devices using trusted-device tokens.
-- [Custom trusted-device header](/docs/recipes/custom-trusted-device-header) — change the trusted-device header name.
+## Tokens & sessions
 
-### Tokens & sessions
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem', marginTop: '0.75rem', marginBottom: '2rem' }}>
+  <a href="/docs/recipes/custom-jwt-claims" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Custom JWT claims</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>add your own claims to issued tokens</span>
+  </a>
+</div>
 
-- [Custom JWT claims](/docs/recipes/custom-jwt-claims) — add your own claims to issued tokens.
+## Frontend integration
 
-### Frontend integration
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem', marginTop: '0.75rem', marginBottom: '2rem' }}>
+  <a href="/docs/recipes/react-auth-forms" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Pre-built React auth forms</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>login / signup / MFA / forgot-password components</span>
+  </a>
+  <a href="/docs/recipes/nextjs-protected-dashboard" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Next.js dashboard behind &lt;RequireRole&gt;</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>role-gated protected routes</span>
+  </a>
+</div>
 
-- [Pre-built React auth forms](/docs/recipes/react-auth-forms) — login / signup / MFA / forgot-password components.
-- [Next.js dashboard behind `<RequireRole>`](/docs/recipes/nextjs-protected-dashboard) — role-gated protected routes.
+## Notifications
 
-### Notifications
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem', marginTop: '0.75rem', marginBottom: '2rem' }}>
+  <a href="/docs/recipes/single-notification-service" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Single notification service for email + SMS</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>one service handles every auth notification</span>
+  </a>
+</div>
 
-- [Single notification service for email + SMS](/docs/recipes/single-notification-service) — one service handles every auth notification.
+## Migration & data
 
-### Migration & data
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem', marginTop: '0.75rem', marginBottom: '2rem' }}>
+  <a href="/docs/recipes/migrate-existing-users" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Migrate an existing user table</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>move legacy users into nest-auth</span>
+  </a>
+</div>
 
-- [Migrate an existing user table](/docs/recipes/migrate-existing-users) — move legacy users into nest-auth.
+## Error handling & config
 
-### Error handling & config
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem', marginTop: '0.75rem', marginBottom: '2rem' }}>
+  <a href="/docs/recipes/per-flow-error-transform" style={{ display: 'block', padding: '0.85rem 1rem', borderRadius: '0.5rem', border: '1px solid var(--color-fd-border)', background: 'var(--color-fd-card)', textDecoration: 'none', color: 'var(--color-fd-foreground)' }}>
+    <span style={{ display: 'block', fontWeight: 600, marginBottom: '0.2rem' }}>Custom error transformation per flow</span>
+    <span style={{ fontSize: '0.82rem', lineHeight: 1.4, color: 'var(--color-fd-muted-foreground)' }}>shape error responses per auth flow</span>
+  </a>
+</div>
 
-- [Custom error transformation per flow](/docs/recipes/per-flow-error-transform) — shape error responses per auth flow.
