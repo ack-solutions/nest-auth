@@ -4,6 +4,7 @@
     "get-auth-accounts",
     "get-auth-callback-provider",
     "get-auth-client-config",
+    "get-auth-csrf",
     "get-auth-me",
     "get-auth-tenants-lookup",
     "get-auth-user",

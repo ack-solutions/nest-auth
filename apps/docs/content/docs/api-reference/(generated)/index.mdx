@@ -3,7 +3,15 @@ title: All Endpoints
 description: Generated reference for every operation in the OpenAPI spec.
 ---
 
-The library exposes 69 endpoints, grouped below by tag. Each page documents the request body, query / path parameters, every response status code, and a copy-pasteable curl example.
+The library exposes 75 endpoints, grouped below by tag. Each page documents the request body, query / path parameters, every response status code, and a copy-pasteable curl example.
+
+## Admin-blocked-email-domains
+
+- [`GET /auth/admin/api/blocked-email-domains`](/docs/api-reference/admin-blocked-email-domains/get-auth-admin-api-blocked-email-domains) — List blocked email domains (searchable, paginated)
+- [`GET /auth/admin/api/blocked-email-domains/stats`](/docs/api-reference/admin-blocked-email-domains/get-auth-admin-api-blocked-email-domains-stats) — Blocklist stats (current count + size of the built-in default list)
+- [`POST /auth/admin/api/blocked-email-domains`](/docs/api-reference/admin-blocked-email-domains/post-auth-admin-api-blocked-email-domains) — Add one or more blocked domains
+- [`POST /auth/admin/api/blocked-email-domains/import-defaults`](/docs/api-reference/admin-blocked-email-domains/post-auth-admin-api-blocked-email-domains-import-defaults) — Import the built-in default disposable-domain list
+- [`DELETE /auth/admin/api/blocked-email-domains/{idOrDomain}`](/docs/api-reference/admin-blocked-email-domains/delete-auth-admin-api-blocked-email-domains-idordomain) — Remove a blocked domain (by id or domain)
 
 ## Admin-console
 
@@ -14,8 +22,8 @@ The library exposes 69 endpoints, grouped below by tag. Each page documents the 
 - [`POST /auth/admin/admins`](/docs/api-reference/admin-console/post-auth-admin-admins) — Create an admin
 - [`POST /auth/admin/login`](/docs/api-reference/admin-console/post-auth-admin-login) — Admin login (sets the session cookie)
 - [`POST /auth/admin/logout`](/docs/api-reference/admin-console/post-auth-admin-logout) — Admin logout
-- [`POST /auth/admin/reset-password`](/docs/api-reference/admin-console/post-auth-admin-reset-password) — Reset an admin's password
-- [`POST /auth/admin/signup`](/docs/api-reference/admin-console/post-auth-admin-signup) — Create an admin (secret-key gated)
+- [`POST /auth/admin/reset-password`](/docs/api-reference/admin-console/post-auth-admin-reset-password) — Reset an admin's password (secret-key gated recovery)
+- [`POST /auth/admin/signup`](/docs/api-reference/admin-console/post-auth-admin-signup) — Bootstrap the first admin (secret-key gated)
 - [`PATCH /auth/admin/admins/{id}`](/docs/api-reference/admin-console/patch-auth-admin-admins-id) — Update an admin
 - [`DELETE /auth/admin/admins/{id}`](/docs/api-reference/admin-console/delete-auth-admin-admins-id) — Delete an admin
 
@@ -61,6 +69,7 @@ The library exposes 69 endpoints, grouped below by tag. Each page documents the 
 - [`GET /auth/accounts`](/docs/api-reference/authentication/get-auth-accounts) — List logged-in accounts (cookie multi-account)
 - [`GET /auth/callback/{provider}`](/docs/api-reference/authentication/get-auth-callback-provider) — SSO Callback
 - [`GET /auth/client-config`](/docs/api-reference/authentication/get-auth-client-config) — Client config
+- [`GET /auth/csrf`](/docs/api-reference/authentication/get-auth-csrf) — Get a CSRF token
 - [`GET /auth/me`](/docs/api-reference/authentication/get-auth-me) — Get Session User Data and menage extra user data from config
 - [`GET /auth/tenants/lookup`](/docs/api-reference/authentication/get-auth-tenants-lookup) — Resolve a tenant by slug (public)
 - [`GET /auth/user`](/docs/api-reference/authentication/get-auth-user) — Get Logged In User

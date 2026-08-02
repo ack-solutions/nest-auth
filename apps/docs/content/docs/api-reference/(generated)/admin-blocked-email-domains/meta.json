@@ -1,0 +1,10 @@
+{
+  "title": "Admin-blocked-email-domains",
+  "pages": [
+    "get-auth-admin-api-blocked-email-domains",
+    "get-auth-admin-api-blocked-email-domains-stats",
+    "post-auth-admin-api-blocked-email-domains",
+    "post-auth-admin-api-blocked-email-domains-import-defaults",
+    "delete-auth-admin-api-blocked-email-domains-idordomain"
+  ]
+}

@@ -1,6 +1,7 @@
 {
   "title": "Endpoints",
   "pages": [
+    "admin-blocked-email-domains",
     "admin-console",
     "admin-permissions",
     "admin-roles",
