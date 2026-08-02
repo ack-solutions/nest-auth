@@ -1,6 +1,4 @@
 {
-  "title": "Migration (v1 → v2)",
-  "pages": [
-    "index"
-  ]
+  "title": "Migration",
+  "pages": ["index", "within-v2"]
 }

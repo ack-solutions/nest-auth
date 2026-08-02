@@ -1,0 +1,152 @@
+---
+title: Social / SSO Login
+description: How social sign-in (Google, Facebook, Apple, GitHub) and SSO work in Nest Auth — the one universal flow, the login request shape, account linking, and how to call it from every SDK.
+---
+
+"Sign in with Google / Apple / …" and enterprise SSO all work the **same way** in Nest Auth: your **frontend** obtains a credential from the provider, then hands it to **one endpoint** — `POST /auth/login` — tagged with which provider it came from. The backend verifies the credential *with that provider*, finds or creates the matching user, and returns a normal session. There's no Nest-Auth-hosted redirect/callback page to configure — you own the provider handshake on the client, Nest Auth owns the verification and the session.
+
+## The universal flow
+
+```text
+┌────────────┐   1. provider handshake    ┌─────────────┐
+│  Frontend  │ ─────────────────────────► │  Google/…   │
+│  (SDK)     │ ◄───────────────────────── │  provider   │
+└────────────┘   2. token / id_token      └─────────────┘
+      │
+      │  3. POST /auth/login
+      │     { providerName, credentials: { token, … } }
+      ▼
+┌────────────────────────────────────────────────────────┐
+│  Nest Auth backend                                      │
+│  4. provider.validate(credentials)  → verify w/ provider │
+│  5. find identity (provider + providerId) → user        │
+│     └ new? create user + identity (if registration on)  │
+│  6. issue session (JWT / cookie) + emit events          │
+└────────────────────────────────────────────────────────┘
+      │
+      ▼   7. session returned to the frontend
+```
+
+Steps 4–6 are identical for every provider — only step 4 (how the credential is verified) differs. That's why adding a [custom provider](/docs/authentication/custom-provider) means writing *only* a `validate()` method.
+
+## Built-in providers
+
+Enable a provider by adding its config block to `NestAuthModule.forRoot({ … })`; that registers it and its `POST /auth/login` provider name.
+
+| Provider | `providerName` | Config block | Guide |
+|---|---|---|---|
+| Google | `google` | `google: { clientId, clientSecret }` | [Google OAuth](/docs/authentication/oauth-google) |
+| Facebook | `facebook` | `facebook: { appId, appSecret }` | [Facebook OAuth](/docs/authentication/oauth-facebook) |
+| Apple | `apple` | `apple: { clientId, teamId, keyId, privateKey }` | [Apple OAuth](/docs/authentication/oauth-apple) |
+| GitHub | `github` | `github: { clientId, clientSecret }` | [GitHub OAuth](/docs/authentication/oauth-github) |
+| Anything else (Microsoft, Okta, Discord, internal SSO…) | your choice | `customAuthProviders: [ … ]` | [Custom provider](/docs/authentication/custom-provider) |
+
+Each provider is off until you configure it — no config block, no registration.
+
+## The login request
+
+Every social/SSO sign-in is the same `POST /auth/login` shape — a `providerName` plus a `credentials` object the provider needs:
+
+```jsonc
+{
+  "providerName": "google",
+  "credentials": {
+    "token": "<token from the provider>",
+    "type": "idToken",        // Google only: "idToken" (default) | "accessToken"
+    // Optional profile fields the frontend can attach (see below):
+    "firstName": "Ada",
+    "lastName": "Lovelace",
+    "avatarUrl": "https://…"
+  }
+}
+```
+
+- **`token`** — the credential from the provider (an ID token, access token, or provider auth code, depending on the provider/flow).
+- **`type`** — Google-only, selects ID-token vs access-token verification. Other providers ignore it.
+- **`firstName` / `lastName` / `avatarUrl` / `name`** — optional. **Apple only returns the user's name on the *first* authorization** (and never an avatar), so capture it on the client and forward it here to persist it. Other providers fill these from their own profile data.
+
+## What happens on the backend
+
+1. The provider's `validate()` verifies the credential *with the provider* and returns a normalized `{ userId (the provider's user id), email, emailVerified?, metadata }`.
+2. Nest Auth looks up `nest_auth_identities` for `provider` + `providerId`. **Found** → that user is logged in.
+3. **Not found** → if `registration.enabled !== false`, a new `NestAuthUser` + identity row are created; `UserRegisteredEvent` fires. Otherwise the login is rejected.
+4. A session is issued (`UserLoggedInEvent` always fires).
+
+### Account linking & the verified-email gate
+
+If a social login's email matches an **existing** account (e.g. someone who signed up with email/password), Nest Auth can attach the new social identity to that user. As of **2.8.0** this only happens when the **provider verified the email** (`social.requireVerifiedEmailForLinking`, default `true`) — so an attacker can't register an unverified-email social account to hijack an existing user. To restore the old link-by-email behavior (not recommended):
+
+```ts
+NestAuthModule.forRoot({
+  social: { requireVerifiedEmailForLinking: false },
+});
+```
+
+`emailVerifiedAt` on the user is lifted **only** when the provider actually attests the email (`email_verified` / a verified primary email) — never blanket-stamped.
+
+### MFA on social sign-in
+
+Built-in social providers set `skipMfa = true`: the user already proved their identity to Google/Apple/etc., so Nest Auth doesn't issue its own MFA challenge on top. If your policy still requires app-level MFA after a social login, enforce it in a `loginHooks.onLogin` hook.
+
+## Calling it from each SDK
+
+The call is the same everywhere — `login({ providerName, credentials })` — you just get the provider token differently per platform.
+
+### React (`@ackplus/nest-auth-react`)
+
+```tsx
+import { GoogleLogin } from '@react-oauth/google';
+import { useNestAuth } from '@ackplus/nest-auth-react';
+
+function GoogleButton() {
+  const { login } = useNestAuth();
+  return (
+    <GoogleLogin
+      onSuccess={(res) =>
+        login({ providerName: 'google', credentials: { token: res.credential!, type: 'idToken' } })
+      }
+    />
+  );
+}
+```
+
+See [React → Hooks](/docs/react/hooks).
+
+### Vanilla JS / any framework (`@ackplus/nest-auth-client`)
+
+```ts
+import { AuthClient } from '@ackplus/nest-auth-client';
+
+const client = new AuthClient({ baseUrl: '/api' });
+await client.login({ providerName: 'google', credentials: { token, type: 'idToken' } });
+```
+
+See [Client → AuthClient](/docs/client/client).
+
+### React Native / Expo (`@ackplus/nest-auth-react-native`)
+
+Get the token from a native SDK (e.g. `@react-native-google-signin/google-signin`, Apple's `expo-apple-authentication`) and pass it through the shared client / hook. For Apple, forward the first-sign-in `firstName` / `lastName`:
+
+```ts
+await login({
+  providerName: 'apple',
+  credentials: { token: identityToken, firstName, lastName, nonce },
+});
+```
+
+See [React Native → Authentication](/docs/react-native/auth).
+
+### Flutter (`nest_auth_flutter`)
+
+Use the native sign-in helper to get the provider credential, then log in through the Dart client. See [Flutter → Authentication](/docs/flutter/auth).
+
+## Custom / enterprise SSO
+
+Anything not built in — Microsoft, Okta, Auth0, Discord, an internal IdP — is a [custom provider](/docs/authentication/custom-provider): you implement one `validate()` method that verifies the credential and returns the normalized user, and Nest Auth handles the identity lookup, user creation, linking, session, and events. See also the [external role resolver recipe](/docs/recipes/external-role-resolver) for mapping IdP groups → roles.
+
+## Related
+
+- [Google](/docs/authentication/oauth-google) · [Facebook](/docs/authentication/oauth-facebook) · [Apple](/docs/authentication/oauth-apple) · [GitHub](/docs/authentication/oauth-github) OAuth guides.
+- [Custom OAuth provider](/docs/authentication/custom-provider).
+- [Link multiple providers to one account](/docs/recipes/link-multiple-providers).
+- [`POST /auth/login` reference](/docs/api-reference/authentication/post-auth-login).

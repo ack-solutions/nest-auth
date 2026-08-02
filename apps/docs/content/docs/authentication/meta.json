@@ -2,15 +2,20 @@
   "title": "Authentication Methods",
   "pages": [
     "index",
+    "---Password---",
     "email-password",
     "phone-password",
+    "---Passwordless---",
     "passwordless-otp",
     "magic-link",
+    "---Social / SSO---",
+    "social-sso",
     "oauth-google",
     "oauth-facebook",
     "oauth-apple",
     "oauth-github",
     "custom-provider",
+    "---Programmatic---",
     "api-keys"
   ]
 }
