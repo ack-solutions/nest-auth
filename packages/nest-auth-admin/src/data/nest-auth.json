@@ -1,0 +1,6140 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/auth/csrf": {
+      "get": {
+        "description": "Cookie mode: sets/rotates the double-submit CSRF cookie and returns the token to echo in the CSRF header (default `x-csrf-token`) on state-changing requests. Call with credentials so the cookie is stored. Returns `{ enabled: false }` when CSRF is not configured.",
+        "operationId": "AuthController_getCsrfToken",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Get a CSRF token",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/signup": {
+      "post": {
+        "description": "Register a new user. Response format depends on accessTokenType configuration:\n- Header mode (default): Returns tokens in response body\n- Cookie mode: Sets tokens in HTTP-only cookies and returns success message",
+        "operationId": "AuthController_signup",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthSignupRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Header mode: Returns message + tokens in body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthWithTokensResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A user with this email or phone already exists.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Signup",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/invite": {
+      "post": {
+        "description": "Create-or-link a user in the tenant and emit a `nest_auth.user_invited` event carrying a single-use set-password token, so YOUR listener can email the invite link (the token is intentionally NEVER returned in the response — that would leak a working credential). The member sets their password via POST /auth/reset-password { token, newPassword }, then signs in. Guarded by the `users.invite` permission — assign it to your admin roles, or call InviteService.inviteUser() directly from your own guarded controller.",
+        "operationId": "AuthController_invite",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthInviteRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Invitation issued: { message, userId, isNewUser }"
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Invite a member (admin)",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "description": "Authenticate user. Response format depends on accessTokenType configuration:\n- Header mode (default): Returns tokens in response body\n- Cookie mode: Sets tokens in HTTP-only cookies and returns success message",
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthLoginRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Header mode: Returns message + tokens in body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthWithTokensResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Login",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/passwordless/send": {
+      "post": {
+        "operationId": "AuthController_passwordlessSend",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthPasswordlessSendRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Passwordless — send login code (email or SMS)",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/refresh-token": {
+      "post": {
+        "description": "Refresh access token. Response format depends on accessTokenType configuration:\n- Header mode (default): Returns new tokens in response body\n- Cookie mode: Sets new tokens in HTTP-only cookies and returns success message",
+        "operationId": "AuthController_refreshToken",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthRefreshTokenRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Header mode: Returns message + tokens in body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthWithTokensResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Refresh Token",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/mfa/challenge": {
+      "post": {
+        "operationId": "MfaController_challenge",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthSendMfaCodeRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthMfaCodeSentResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Send MFA code for setup/verification",
+        "tags": [
+          "MFA"
+        ]
+      }
+    },
+    "/auth/mfa/verify": {
+      "post": {
+        "description": "Verify multi-factor authentication. Response format depends on accessTokenType configuration:\n- Header mode (default): Returns tokens in response body\n- Cookie mode: Sets tokens in HTTP-only cookies and returns success message",
+        "operationId": "AuthController_verify2fa",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthVerify2faRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Header mode: Returns message + tokens in body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Verify2faWithTokensResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Verify MFA",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthLogoutResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Logout",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/logout-all": {
+      "post": {
+        "operationId": "AuthController_logoutAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthLogoutAllResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Logout All",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/switch-tenant": {
+      "post": {
+        "operationId": "AuthController_switchTenant",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthSwitchTenantRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthWithTokensResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Switch Active Tenant",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "operationId": "AuthController_sessionUserData",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Current user data"
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Get Session User Data and menage extra user data from config",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/change-password": {
+      "post": {
+        "operationId": "AuthController_changePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthChangePasswordRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Change Password",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "operationId": "AuthController_forgotPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthForgotPasswordRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthPasswordResetLinkSentResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Forgot password",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/verify-forgot-password-otp": {
+      "post": {
+        "operationId": "AuthController_verifyForgotPasswordOtp",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthVerifyForgotPasswordOtpRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyOtpResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Verify Forgot Password OTP and get reset token",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/reset-password": {
+      "post": {
+        "operationId": "AuthController_resetPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthResetPasswordWithTokenRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthPasswordResetResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Reset password",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/client-config": {
+      "get": {
+        "description": "Public configuration for clients (tenant mode, email/phone/passwordless, OAuth client ids, registration, MFA, platform access, token mode). No auth required. Never includes secrets.",
+        "operationId": "AuthController_getClientConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Client configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientConfigResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Client config",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/accounts": {
+      "get": {
+        "description": "Cookie-mode account switcher: lists the accounts this browser is logged into, derived from the per-account token cookies it holds (httpOnly tokens are never returned — only id/email/tenant + which is active). Empty unless session.allowMultipleAccounts is enabled.",
+        "operationId": "AuthController_listAccounts",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Logged-in accounts for this browser"
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "List logged-in accounts (cookie multi-account)",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/tenants/lookup": {
+      "get": {
+        "description": "ISOLATED-mode login helper: resolve a tenant slug to its id so the login form can supply the right tenantId (the same email is a distinct account per tenant). Returns minimal public fields; 404 if not found. Broader name search/autocomplete is intentionally left to your app to avoid tenant enumeration.",
+        "operationId": "AuthController_lookupTenant",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The resolved tenant: { id, slug, name }"
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Resolve a tenant by slug (public)",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/user": {
+      "get": {
+        "operationId": "AuthController_getUser",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Get Logged In User",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/verify-session": {
+      "get": {
+        "description": "Lightweight endpoint to verify if the current session is valid. Returns minimal information without fetching full user data.",
+        "operationId": "AuthController_verifySession",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "valid": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "userId": {
+                      "type": "string",
+                      "example": "123e4567-e89b-12d3-a456-426614174000"
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "example": "2024-01-01T12:00:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Verify Session",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/send-email-verification": {
+      "post": {
+        "operationId": "AuthController_sendEmailVerification",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthSendEmailVerificationRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthEmailVerificationSentResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Send email verification",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/verify-email": {
+      "post": {
+        "operationId": "AuthController_verifyEmail",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthVerifyEmailRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthEmailVerifiedResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Verify Email",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/send-phone-verification": {
+      "post": {
+        "operationId": "AuthController_sendPhoneVerification",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthSendPhoneVerificationRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthPhoneVerificationSentResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Send phone verification (SMS OTP)",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/verify-phone": {
+      "post": {
+        "operationId": "AuthController_verifyPhone",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthVerifyPhoneRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthPhoneVerifiedResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Verify phone number with OTP",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/callback/{provider}": {
+      "get": {
+        "description": "OAuth callback endpoint for SSO providers. Exchanges authorization code for access token and returns raw SSO user info. Returns HTML page that posts SSO data to parent window and auto-closes.",
+        "operationId": "AuthController_ssoCallback",
+        "parameters": [
+          {
+            "name": "provider",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "SSO Callback",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/auth/mfa/status": {
+      "get": {
+        "operationId": "MfaController_getStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaStatusResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Get MFA status for the current user",
+        "tags": [
+          "MFA"
+        ]
+      }
+    },
+    "/auth/mfa/toggle": {
+      "post": {
+        "operationId": "MfaController_toggleMfa",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthToggleMfaRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthMfaToggleResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Enable or disable MFA for the current user",
+        "tags": [
+          "MFA"
+        ]
+      }
+    },
+    "/auth/mfa/devices": {
+      "get": {
+        "operationId": "MfaController_listDevices",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MfaDeviceDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "List registered MFA devices",
+        "tags": [
+          "MFA"
+        ]
+      }
+    },
+    "/auth/mfa/devices/{deviceId}": {
+      "delete": {
+        "operationId": "MfaController_removeDevice",
+        "parameters": [
+          {
+            "name": "deviceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthMfaDeviceRemovedResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Remove a registered MFA device",
+        "tags": [
+          "MFA"
+        ]
+      }
+    },
+    "/auth/mfa/setup-totp": {
+      "post": {
+        "operationId": "MfaController_setupTotp",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Invalid or expired code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Setup TOTP Device",
+        "tags": [
+          "MFA"
+        ]
+      }
+    },
+    "/auth/mfa/verify-totp-setup": {
+      "post": {
+        "operationId": "MfaController_verifyTotpSetup",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthVerifyTotpSetupRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthMfaDeviceVerifiedResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Verify TOTP Setup",
+        "tags": [
+          "MFA"
+        ]
+      }
+    },
+    "/auth/mfa/generate-recovery-code": {
+      "post": {
+        "operationId": "MfaController_generateRecoveryCodes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Invalid or expired code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Generate Recovery Codes",
+        "tags": [
+          "MFA"
+        ]
+      }
+    },
+    "/auth/mfa/reset-totp": {
+      "post": {
+        "operationId": "MfaController_resetTotp",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NestAuthMfaResetResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Reset TOTP Device",
+        "tags": [
+          "MFA"
+        ]
+      }
+    },
+    "/auth/admin/signup": {
+      "post": {
+        "operationId": "AdminAuthController_signup",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminSignupDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Bootstrap the first admin (secret-key gated)",
+        "tags": [
+          "Admin · Console"
+        ]
+      }
+    },
+    "/auth/admin/login": {
+      "post": {
+        "operationId": "AdminAuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminLoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Admin login (sets the session cookie)",
+        "tags": [
+          "Admin · Console"
+        ]
+      }
+    },
+    "/auth/admin/me": {
+      "get": {
+        "operationId": "AdminAuthController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Current admin",
+        "tags": [
+          "Admin · Console"
+        ]
+      }
+    },
+    "/auth/admin/logout": {
+      "post": {
+        "operationId": "AdminAuthController_logout",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Admin logout",
+        "tags": [
+          "Admin · Console"
+        ]
+      }
+    },
+    "/auth/admin/config": {
+      "get": {
+        "operationId": "AdminAuthController_publicConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Public admin-console config",
+        "tags": [
+          "Admin · Console"
+        ]
+      }
+    },
+    "/auth/admin/api/stats": {
+      "get": {
+        "operationId": "AdminAuthController_getDashboardStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Dashboard stats",
+        "tags": [
+          "Admin · Console"
+        ]
+      }
+    },
+    "/auth/admin/admins": {
+      "get": {
+        "operationId": "AdminAuthController_listAdmins",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List admins",
+        "tags": [
+          "Admin · Console"
+        ]
+      },
+      "post": {
+        "operationId": "AdminAuthController_createAdmin",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDashboardAdminDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create an admin",
+        "tags": [
+          "Admin · Console"
+        ]
+      }
+    },
+    "/auth/admin/admins/{id}": {
+      "patch": {
+        "operationId": "AdminAuthController_updateAdmin",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDashboardAdminDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update an admin",
+        "tags": [
+          "Admin · Console"
+        ]
+      },
+      "delete": {
+        "operationId": "AdminAuthController_deleteAdmin",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete an admin",
+        "tags": [
+          "Admin · Console"
+        ]
+      }
+    },
+    "/auth/admin/reset-password": {
+      "post": {
+        "operationId": "AdminAuthController_resetPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminResetPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reset an admin's password (secret-key gated recovery)",
+        "tags": [
+          "Admin · Console"
+        ]
+      }
+    },
+    "/auth/admin/api/users": {
+      "get": {
+        "operationId": "AdminUsersController_listUsers",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "roleName",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "List users (paginated, cross-tenant; filter by status/tenant/role/search)",
+        "tags": [
+          "Admin · Users"
+        ]
+      },
+      "post": {
+        "operationId": "AdminUsersController_createUser",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Create a user",
+        "tags": [
+          "Admin · Users"
+        ]
+      }
+    },
+    "/auth/admin/api/users/{id}": {
+      "get": {
+        "operationId": "AdminUsersController_getUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Get a user (with roles, sessions, identities)",
+        "tags": [
+          "Admin · Users"
+        ]
+      },
+      "patch": {
+        "operationId": "AdminUsersController_updateUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Update a user",
+        "tags": [
+          "Admin · Users"
+        ]
+      },
+      "delete": {
+        "operationId": "AdminUsersController_deleteUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Delete a user",
+        "tags": [
+          "Admin · Users"
+        ]
+      }
+    },
+    "/auth/admin/api/users/{id}/totp-devices/{deviceId}": {
+      "delete": {
+        "operationId": "AdminUsersController_deleteTotpDevice",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deviceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Remove a user's TOTP device",
+        "tags": [
+          "Admin · Users"
+        ]
+      }
+    },
+    "/auth/admin/api/users/{id}/sessions": {
+      "get": {
+        "operationId": "AdminUsersController_listSessions",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "List a user's active sessions",
+        "tags": [
+          "Admin · Users"
+        ]
+      },
+      "delete": {
+        "operationId": "AdminUsersController_revokeAllSessions",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Revoke all of a user's sessions",
+        "tags": [
+          "Admin · Users"
+        ]
+      }
+    },
+    "/auth/admin/api/users/{id}/sessions/{sessionId}": {
+      "delete": {
+        "operationId": "AdminUsersController_revokeSession",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Revoke a single user session",
+        "tags": [
+          "Admin · Users"
+        ]
+      }
+    },
+    "/auth/admin/api/roles": {
+      "get": {
+        "operationId": "AdminRolesController_listRoles",
+        "parameters": [
+          {
+            "name": "tenantId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "guard",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Role not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "List roles",
+        "tags": [
+          "Admin · Roles"
+        ]
+      },
+      "post": {
+        "operationId": "AdminRolesController_createRole",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Role not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Create a role",
+        "tags": [
+          "Admin · Roles"
+        ]
+      }
+    },
+    "/auth/admin/api/roles/{id}": {
+      "patch": {
+        "operationId": "AdminRolesController_updateRole",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Role not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Update a role",
+        "tags": [
+          "Admin · Roles"
+        ]
+      },
+      "delete": {
+        "operationId": "AdminRolesController_deleteRole",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Role not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Delete a role",
+        "tags": [
+          "Admin · Roles"
+        ]
+      }
+    },
+    "/auth/admin/api/tenants": {
+      "get": {
+        "operationId": "AdminTenantsController_listTenants",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tenant not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "List tenants",
+        "tags": [
+          "Admin · Tenants"
+        ]
+      },
+      "post": {
+        "operationId": "AdminTenantsController_createTenant",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tenant not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Create a tenant",
+        "tags": [
+          "Admin · Tenants"
+        ]
+      }
+    },
+    "/auth/admin/api/tenants/{id}": {
+      "patch": {
+        "operationId": "AdminTenantsController_updateTenant",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdateTenantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tenant not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Update a tenant",
+        "tags": [
+          "Admin · Tenants"
+        ]
+      },
+      "delete": {
+        "operationId": "AdminTenantsController_deleteTenant",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tenant not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Delete a tenant",
+        "tags": [
+          "Admin · Tenants"
+        ]
+      }
+    },
+    "/auth/admin/api/permissions": {
+      "get": {
+        "operationId": "AdminPermissionsController_listPermissions",
+        "parameters": [
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "guard",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Permission not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "List permissions",
+        "tags": [
+          "Admin · Permissions"
+        ]
+      },
+      "post": {
+        "operationId": "AdminPermissionsController_createPermission",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreatePermissionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Permission not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Create a permission",
+        "tags": [
+          "Admin · Permissions"
+        ]
+      }
+    },
+    "/auth/admin/api/permissions/guards": {
+      "get": {
+        "operationId": "AdminPermissionsController_getGuards",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Permission not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "List guard namespaces",
+        "tags": [
+          "Admin · Permissions"
+        ]
+      }
+    },
+    "/auth/admin/api/permissions/search": {
+      "get": {
+        "operationId": "AdminPermissionsController_searchPermissions",
+        "parameters": [
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "guard",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Permission not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Search permissions",
+        "tags": [
+          "Admin · Permissions"
+        ]
+      }
+    },
+    "/auth/admin/api/permissions/categories": {
+      "get": {
+        "operationId": "AdminPermissionsController_getCategories",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Permission not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "List permission categories",
+        "tags": [
+          "Admin · Permissions"
+        ]
+      }
+    },
+    "/auth/admin/api/permissions/{id}": {
+      "get": {
+        "operationId": "AdminPermissionsController_getPermission",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Permission not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Get a permission",
+        "tags": [
+          "Admin · Permissions"
+        ]
+      },
+      "patch": {
+        "operationId": "AdminPermissionsController_updatePermission",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUpdatePermissionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Permission not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Update a permission",
+        "tags": [
+          "Admin · Permissions"
+        ]
+      },
+      "delete": {
+        "operationId": "AdminPermissionsController_deletePermission",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Permission not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Delete a permission",
+        "tags": [
+          "Admin · Permissions"
+        ]
+      }
+    },
+    "/auth/admin/api/blocked-email-domains": {
+      "get": {
+        "operationId": "AdminBlockedDomainsController_list",
+        "parameters": [
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "List blocked email domains (searchable, paginated)",
+        "tags": [
+          "Admin · Blocked Email Domains"
+        ]
+      },
+      "post": {
+        "operationId": "AdminBlockedDomainsController_add",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminAddBlockedDomainsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "{ added, skipped }"
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Add one or more blocked domains",
+        "tags": [
+          "Admin · Blocked Email Domains"
+        ]
+      }
+    },
+    "/auth/admin/api/blocked-email-domains/stats": {
+      "get": {
+        "operationId": "AdminBlockedDomainsController_stats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Blocklist stats (current count + size of the built-in default list)",
+        "tags": [
+          "Admin · Blocked Email Domains"
+        ]
+      }
+    },
+    "/auth/admin/api/blocked-email-domains/import-defaults": {
+      "post": {
+        "operationId": "AdminBlockedDomainsController_importDefaults",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "{ imported, total }"
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Import the built-in default disposable-domain list",
+        "tags": [
+          "Admin · Blocked Email Domains"
+        ]
+      }
+    },
+    "/auth/admin/api/blocked-email-domains/{idOrDomain}": {
+      "delete": {
+        "operationId": "AdminBlockedDomainsController_remove",
+        "parameters": [
+          {
+            "name": "idOrDomain",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin session missing or invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "admin-session": []
+          }
+        ],
+        "summary": "Remove a blocked domain (by id or domain)",
+        "tags": [
+          "Admin · Blocked Email Domains"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "@ackplus/nest-auth API",
+    "description": "Authentication & authorization API for **@ackplus/nest-auth**.\n\n### Conventions\n- **Base URL** — routes are shown relative to your app’s global prefix. The reference example app uses `/api`, so a route like `POST /auth/login` is called at `POST /api/auth/login`.\n- **Auth** — most endpoints require a Bearer access token: `Authorization: Bearer <accessToken>`. The **Admin** endpoints use an httpOnly session cookie set by `POST /auth/admin/login`.\n- **Token modes** — in *header* mode (default) tokens are returned in the response body; in *cookie* mode they are set as httpOnly cookies. Controlled by `accessTokenType`.\n- **Errors** — failures return `{ statusCode, error, message, code }`; the machine-readable `code` is the value to branch on.\n\nBrowse by section in the sidebar: **Authentication**, **Password**, **Verification**, **Passwordless**, **MFA**, and the **Admin** groups.",
+    "version": "2.8.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "Sign up, log in/out, refresh, sessions, password, verification, passwordless, account introspection, tenant switching."
+    },
+    {
+      "name": "MFA",
+      "description": "Multi-factor: TOTP, email/SMS OTP, recovery codes, trusted devices."
+    },
+    {
+      "name": "Admin · Console",
+      "description": "Admin sign-in (cookie session), profile, dashboard stats, and managing admins."
+    },
+    {
+      "name": "Admin · Users",
+      "description": "Cross-tenant user management: list, create, update, delete, sessions, MFA reset."
+    },
+    {
+      "name": "Admin · Roles",
+      "description": "Create and manage roles + their permissions."
+    },
+    {
+      "name": "Admin · Permissions",
+      "description": "Create and manage permissions."
+    },
+    {
+      "name": "Admin · Tenants",
+      "description": "Create and manage tenants."
+    }
+  ],
+  "servers": [
+    {
+      "url": "/api",
+      "description": "Default — your app’s global prefix (the example app uses `api`)"
+    },
+    {
+      "url": "/",
+      "description": "No global prefix"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "access-token": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "description": "Paste an access token from /auth/login"
+      },
+      "admin-session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "nest_auth_admin"
+      }
+    },
+    "schemas": {
+      "ApiErrorResponseDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 401,
+            "description": "HTTP status code"
+          },
+          "error": {
+            "type": "string",
+            "example": "Unauthorized",
+            "description": "HTTP status text / exception name"
+          },
+          "message": {
+            "type": "string",
+            "example": "Invalid credentials",
+            "description": "Human-readable message"
+          },
+          "code": {
+            "type": "string",
+            "example": "INVALID_CREDENTIALS",
+            "description": "Stable, machine-readable error code — branch on this, not the message"
+          }
+        },
+        "required": [
+          "statusCode",
+          "error",
+          "message",
+          "code"
+        ]
+      },
+      "NestAuthSignupRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User email address (required if phone not provided)",
+            "example": "user@example.com"
+          },
+          "phone": {
+            "type": "string",
+            "description": "User phone number (required if email not provided)",
+            "example": "+1234567890"
+          },
+          "password": {
+            "type": "string",
+            "description": "User password",
+            "example": "SecurePass123!",
+            "minLength": 8
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "guard": {
+            "type": "string",
+            "description": "Guard context (e.g. admin, web, vendor) for isolation. Deprecated: use client",
+            "example": "admin",
+            "deprecated": true
+          }
+        },
+        "required": [
+          "password"
+        ]
+      },
+      "AuthWithTokensResponseDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "JWT access token (short-lived)",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJpYXQiOjE2OTk5OTk5OTksImV4cCI6MTY5OTk5OTk5OX0.xyz"
+          },
+          "refreshToken": {
+            "type": "string",
+            "description": "JWT refresh token (long-lived)",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJ0eXBlIjoicmVmcmVzaCIsImlhdCI6MTY5OTk5OTk5OX0.abc"
+          },
+          "message": {
+            "type": "string",
+            "description": "Success message (added by controller based on configuration)",
+            "example": "Login successful"
+          },
+          "isRequiresMfa": {
+            "type": "boolean",
+            "description": "Whether multi-factor authentication is required",
+            "example": false
+          },
+          "mustChangePassword": {
+            "type": "boolean",
+            "description": "True when the user must set a new password before using the app (e.g. an admin-set temporary password). Route them to the change-password screen.",
+            "example": false
+          },
+          "mfaMethods": {
+            "type": "array",
+            "description": "Available MFA methods when isRequiresMfa is true",
+            "example": [
+              "email",
+              "totp"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "email",
+                "sms",
+                "totp"
+              ]
+            }
+          },
+          "defaultMfaMethod": {
+            "type": "string",
+            "description": "Default/recommended MFA method",
+            "example": "email",
+            "enum": [
+              "email",
+              "sms",
+              "totp"
+            ]
+          },
+          "trustToken": {
+            "type": "string",
+            "description": "Trust token for trusted device verification",
+            "example": "1234567890"
+          }
+        },
+        "required": [
+          "accessToken",
+          "refreshToken",
+          "isRequiresMfa"
+        ]
+      },
+      "NestAuthInviteRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Email address to invite",
+            "example": "member@acme.test"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Phone number to invite",
+            "example": "+15551234567"
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant to invite the member into (ISOLATED: the same email is a distinct account per tenant).",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Optional metadata stored on a new user and echoed on the invite event for your email template."
+          }
+        }
+      },
+      "EmailCredentialsDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User email address",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "User password",
+            "example": "SecurePass123!",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "PhoneCredentialsDto": {
+        "type": "object",
+        "properties": {
+          "phone": {
+            "type": "string",
+            "description": "User phone number",
+            "example": "+1234567890"
+          },
+          "password": {
+            "type": "string",
+            "description": "User password",
+            "example": "SecurePass123!",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "phone",
+          "password"
+        ]
+      },
+      "SocialCredentialsDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "OAuth token or ID token from social provider",
+            "example": "ya29.a0AfH6SMBx1234567890abcdefghijklmnop"
+          },
+          "type": {
+            "type": "string",
+            "description": "How to interpret the supplied token. Required only for Google: `idToken` (default) verifies a Google-signed ID token client-side; `accessToken` calls Google's userinfo endpoint with a Bearer access token. Other providers (Facebook, Apple, GitHub) ignore this field.",
+            "example": "idToken",
+            "enum": [
+              "idToken",
+              "accessToken"
+            ],
+            "default": "idToken"
+          },
+          "name": {
+            "type": "string",
+            "description": "Full display name from the provider. Apple only returns the user's name on the FIRST native sign-in, so pass it here to persist it (ignored by other providers). Prefer `firstName`/`lastName` when you have them separately.",
+            "example": "Ada Lovelace"
+          },
+          "firstName": {
+            "type": "string",
+            "description": "User's given/first name captured by the frontend. Needed for Apple Sign In, which returns the name to the app ONLY on the first authorization (never in the id_token on later logins) — capture it then and send it here. Ignored by providers that already supply a name.",
+            "example": "Ada"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "User's family/last name captured by the frontend (see `firstName`). Needed for Apple Sign In on the first authorization.",
+            "example": "Lovelace"
+          },
+          "avatarUrl": {
+            "type": "string",
+            "description": "Avatar / profile-picture URL supplied by the frontend. Apple Sign In does NOT provide a photo, so pass one here only if your app sourced it elsewhere. Google returns its own `picture`, used as a fallback when this is omitted.",
+            "example": "https://example.com/avatar/ada.png"
+          },
+          "nonce": {
+            "type": "string",
+            "description": "Nonce used for native sign-in replay protection. When provided, it must match the `nonce` claim in the verified Apple identityToken."
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "PasswordlessOtpCredentialsDto": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Email or phone (same value as in send request)",
+            "example": "user@example.com"
+          },
+          "channels": {
+            "type": "array",
+            "description": "Channel(s) to try in order. Use both when the client is unsure whether `identifier` is email or phone.",
+            "example": [
+              "email",
+              "sms"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "email",
+                "sms"
+              ]
+            }
+          },
+          "code": {
+            "type": "string",
+            "description": "One-time code from email or SMS",
+            "example": "123456"
+          }
+        },
+        "required": [
+          "identifier",
+          "channels",
+          "code"
+        ]
+      },
+      "NestAuthLoginRequestDto": {
+        "type": "object",
+        "properties": {
+          "providerName": {
+            "type": "string",
+            "description": "Authentication provider name",
+            "example": "email",
+            "enum": [
+              "email",
+              "phone",
+              "passwordless",
+              "google",
+              "facebook",
+              "apple",
+              "github"
+            ],
+            "default": "email"
+          },
+          "credentials": {
+            "description": "Login credentials - type varies by provider",
+            "examples": {
+              "emailLogin": {
+                "summary": "Email + password",
+                "value": {
+                  "email": "user@example.com",
+                  "password": "SecurePass123!"
+                }
+              },
+              "phoneLogin": {
+                "summary": "Phone + password",
+                "value": {
+                  "phone": "+1234567890",
+                  "password": "SecurePass123!"
+                }
+              },
+              "passwordlessOtp": {
+                "summary": "Passwordless OTP — set providerName to passwordless (after POST /auth/passwordless/send)",
+                "value": {
+                  "providerName": "passwordless",
+                  "credentials": {
+                    "identifier": "user@example.com",
+                    "channels": [
+                      "email",
+                      "sms"
+                    ],
+                    "code": "123456"
+                  }
+                }
+              },
+              "socialLogin": {
+                "summary": "Social Login (Google/Facebook/etc)",
+                "value": {
+                  "token": "ya29.a0AfH6SMBx...",
+                  "type": "idToken"
+                }
+              }
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/EmailCredentialsDto"
+              },
+              {
+                "$ref": "#/components/schemas/PhoneCredentialsDto"
+              },
+              {
+                "$ref": "#/components/schemas/SocialCredentialsDto"
+              },
+              {
+                "$ref": "#/components/schemas/PasswordlessOtpCredentialsDto"
+              }
+            ]
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "guard": {
+            "type": "string",
+            "description": "Guard context (e.g. admin, web, vendor) for isolation. Deprecated: use client",
+            "example": "admin",
+            "deprecated": true
+          },
+          "createUserIfNotExists": {
+            "type": "boolean",
+            "description": "Auto-create user if not exists (for social auth)",
+            "default": false
+          },
+          "rememberMe": {
+            "type": "boolean",
+            "description": "\"Remember me\". In cookie mode, `false` issues SESSION cookies that clear when the browser closes (good for shared devices); `true`/omitted keeps the persistent cookies. The choice is sticky across token refresh. In header mode the client decides persistence by its storage adapter.",
+            "default": true
+          }
+        },
+        "required": [
+          "credentials"
+        ]
+      },
+      "NestAuthPasswordlessSendRequestDto": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Email or phone (per `channel`)",
+            "example": "user@example.com"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "email",
+              "sms"
+            ]
+          },
+          "tenantId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "channel"
+        ]
+      },
+      "MessageResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthRefreshTokenRequestDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "description": "Refresh token to obtain new access token",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJ0eXBlIjoicmVmcmVzaCJ9.abc123"
+          }
+        }
+      },
+      "NestAuthMfaCodeSentResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "MFA code sent successfully"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthMFAMethodEnum": {
+        "type": "string",
+        "enum": [
+          "email",
+          "sms",
+          "totp"
+        ]
+      },
+      "NestAuthVerify2faRequestDto": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "description": "MFA method used",
+            "example": "totp",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NestAuthMFAMethodEnum"
+              }
+            ]
+          },
+          "otp": {
+            "type": "string",
+            "description": "One-time password code",
+            "example": "123456",
+            "minLength": 6,
+            "maxLength": 8
+          },
+          "trustDevice": {
+            "type": "boolean",
+            "description": "Whether to trust this device for future logins",
+            "example": true
+          }
+        },
+        "required": [
+          "method",
+          "otp"
+        ]
+      },
+      "UserResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "User unique identifier",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          },
+          "email": {
+            "type": "string",
+            "description": "User email address",
+            "example": "user@example.com"
+          },
+          "phone": {
+            "type": "string",
+            "description": "User phone number",
+            "example": "+1234567890"
+          },
+          "emailVerifiedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Email verification status",
+            "example": true
+          },
+          "phoneVerifiedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Phone verification status",
+            "example": true
+          },
+          "isMfaEnabled": {
+            "type": "boolean",
+            "description": "Whether MFA is enabled for this user",
+            "example": false
+          },
+          "roles": {
+            "description": "User roles (role names)",
+            "example": [
+              "admin",
+              "user"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "permissions": {
+            "description": "User permissions (flattened from roles)",
+            "example": [
+              "read:users",
+              "write:users"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Additional user metadata",
+            "example": {
+              "firstName": "John",
+              "lastName": "Doe"
+            }
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "tenant-123"
+          }
+        },
+        "required": [
+          "id",
+          "emailVerifiedAt",
+          "phoneVerifiedAt"
+        ]
+      },
+      "Verify2faWithTokensResponseDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "JWT access token (short-lived)",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJpYXQiOjE2OTk5OTk5OTksImV4cCI6MTY5OTk5OTk5OX0.xyz"
+          },
+          "refreshToken": {
+            "type": "string",
+            "description": "JWT refresh token (long-lived)",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJ0eXBlIjoicmVmcmVzaCIsImlhdCI6MTY5OTk5OTk5OX0.abc"
+          },
+          "message": {
+            "type": "string",
+            "description": "Verification success message (added by controller)",
+            "example": "2FA verification successful"
+          },
+          "user": {
+            "description": "User information with roles and permissions",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "accessToken",
+          "refreshToken"
+        ]
+      },
+      "NestAuthLogoutResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Logged out successfully"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthLogoutAllResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Logged out from all devices"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthSwitchTenantRequestDto": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID to switch into",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        },
+        "required": [
+          "tenantId"
+        ]
+      },
+      "NestAuthChangePasswordRequestDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "description": "Current password",
+            "example": "DemoOwner1!",
+            "minLength": 8
+          },
+          "newPassword": {
+            "type": "string",
+            "description": "New password",
+            "example": "DemoOwner1!New",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ]
+      },
+      "NestAuthForgotPasswordRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User email address (required if phone not provided)",
+            "example": "user@example.com"
+          },
+          "phone": {
+            "type": "string",
+            "description": "User phone number (required if email not provided)",
+            "example": "+1234567890"
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        }
+      },
+      "NestAuthPasswordResetLinkSentResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "If your email is registered, you will receive a password reset link"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthVerifyForgotPasswordOtpRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "User email address (required if phone not provided)",
+            "example": "user@example.com"
+          },
+          "phone": {
+            "type": "string",
+            "description": "User phone number (required if email not provided)",
+            "example": "+1234567890"
+          },
+          "code": {
+            "type": "string",
+            "description": "Verification or magic-link code (matches OTP entity `code`)",
+            "example": "123456",
+            "minLength": 6,
+            "maxLength": 8
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "VerifyOtpResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Success message"
+          },
+          "resetToken": {
+            "type": "string",
+            "description": "Password reset token - use this to reset password"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthResetPasswordWithTokenRequestDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Password reset token (JWT) received after OTP verification",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0eXBlIjoicGFzc3dvcmQtcmVzZXQifQ.xyz"
+          },
+          "newPassword": {
+            "type": "string",
+            "description": "New password",
+            "example": "NewSecurePass123!",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "token",
+          "newPassword"
+        ]
+      },
+      "NestAuthPasswordResetResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Password has been reset successfully"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "TenantOptionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "isActive"
+        ]
+      },
+      "TenantsConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "mode": {
+            "type": "string",
+            "example": "isolated",
+            "enum": [
+              "isolated",
+              "shared"
+            ]
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TenantOptionDto"
+            }
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "MultipleAccountsConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "EmailAuthConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "PhoneAuthConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "PasswordlessAuthConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": false
+          },
+          "allowSignUp": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "OAuthProviderPublicConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": false
+          },
+          "clientId": {
+            "type": "string",
+            "example": "1234567890-abcdef.apps.googleusercontent.com"
+          },
+          "appId": {
+            "type": "string",
+            "example": "123456789012345",
+            "description": "Facebook app id (when provider is Facebook)"
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "RegistrationConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether user registration is enabled"
+          },
+          "requireInvitation": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether registration requires an invitation"
+          },
+          "collectProfileFields": {
+            "type": "array",
+            "description": "Additional profile fields to collect during registration",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "text",
+                    "email",
+                    "phone",
+                    "select",
+                    "checkbox",
+                    "password"
+                  ]
+                },
+                "placeholder": {
+                  "type": "string"
+                },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "label": {
+                        "type": "string"
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "MfaConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "methods": {
+            "example": [
+              "email",
+              "totp"
+            ],
+            "type": "array",
+            "items": {
+              "type": "array"
+            }
+          },
+          "allowUserToggle": {
+            "type": "boolean",
+            "example": true
+          },
+          "allowMethodSelection": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "PlatformAccessPublicConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": false
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "SsoProviderConfigDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string"
+          },
+          "authorizationUrl": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "hint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "SsoConfigDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": false
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SsoProviderConfigDto"
+            }
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "UiConfigDto": {
+        "type": "object",
+        "properties": {
+          "brandName": {
+            "type": "string"
+          },
+          "brandColor": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string"
+          },
+          "backgroundImageUrl": {
+            "type": "string"
+          }
+        }
+      },
+      "ClientConfigResponseDto": {
+        "type": "object",
+        "properties": {
+          "tenants": {
+            "$ref": "#/components/schemas/TenantsConfigDto"
+          },
+          "multipleAccounts": {
+            "$ref": "#/components/schemas/MultipleAccountsConfigDto"
+          },
+          "roleGuards": {
+            "example": [
+              "web",
+              "api"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "emailAuth": {
+            "$ref": "#/components/schemas/EmailAuthConfigDto"
+          },
+          "phoneAuth": {
+            "$ref": "#/components/schemas/PhoneAuthConfigDto"
+          },
+          "passwordless": {
+            "$ref": "#/components/schemas/PasswordlessAuthConfigDto"
+          },
+          "google": {
+            "$ref": "#/components/schemas/OAuthProviderPublicConfigDto"
+          },
+          "facebook": {
+            "$ref": "#/components/schemas/OAuthProviderPublicConfigDto"
+          },
+          "apple": {
+            "$ref": "#/components/schemas/OAuthProviderPublicConfigDto"
+          },
+          "github": {
+            "$ref": "#/components/schemas/OAuthProviderPublicConfigDto"
+          },
+          "customProviders": {
+            "example": [
+              "ldap"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "registration": {
+            "$ref": "#/components/schemas/RegistrationConfigDto"
+          },
+          "mfa": {
+            "$ref": "#/components/schemas/MfaConfigDto"
+          },
+          "platformAccess": {
+            "$ref": "#/components/schemas/PlatformAccessPublicConfigDto"
+          },
+          "accessTokenType": {
+            "type": "string",
+            "enum": [
+              "header",
+              "cookie",
+              null
+            ],
+            "example": "header"
+          },
+          "sso": {
+            "$ref": "#/components/schemas/SsoConfigDto"
+          },
+          "ui": {
+            "$ref": "#/components/schemas/UiConfigDto"
+          }
+        }
+      },
+      "NestAuthSendEmailVerificationRequestDto": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        }
+      },
+      "NestAuthEmailVerificationSentResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Verification email sent"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthVerifyEmailRequestDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Verification code received via email",
+            "example": "123456",
+            "minLength": 6,
+            "maxLength": 8
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "NestAuthEmailVerifiedResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Email verified successfully"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthSendPhoneVerificationRequestDto": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        }
+      },
+      "NestAuthPhoneVerificationSentResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Verification SMS sent"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthVerifyPhoneRequestDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Verification code received via SMS (matches OTP entity `code`)",
+            "example": "123456",
+            "minLength": 6,
+            "maxLength": 8
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Tenant ID for multi-tenant applications",
+            "example": "123e4567-e89b-12d3-a456-426614174000"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "NestAuthPhoneVerifiedResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Phone verified successfully"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "MfaDeviceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier of the MFA device",
+            "example": "4b3c9c9c-9a9d-4d1e-8d9f-123456789abc"
+          },
+          "deviceName": {
+            "type": "string",
+            "description": "Friendly name of the registered device",
+            "example": "Work laptop"
+          },
+          "method": {
+            "type": "string",
+            "description": "MFA method this device supports",
+            "enum": [
+              "email",
+              "sms",
+              "totp"
+            ],
+            "example": "totp"
+          },
+          "lastUsedAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Timestamp of when the device was last used",
+            "example": "2024-05-20T12:34:56.000Z"
+          },
+          "verified": {
+            "type": "boolean",
+            "description": "Whether the device setup has been verified",
+            "example": true
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string",
+            "description": "Timestamp of when the device was registered",
+            "example": "2024-05-18T10:15:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "deviceName",
+          "method",
+          "verified"
+        ]
+      },
+      "MfaStatusResponseDto": {
+        "type": "object",
+        "properties": {
+          "isEnabled": {
+            "type": "boolean",
+            "description": "Whether MFA is currently enabled for the user",
+            "example": true
+          },
+          "verifiedMethods": {
+            "type": "array",
+            "description": "MFA methods the user has verified and can currently use (includes EMAIL/SMS if configured, and TOTP if user has verified device)",
+            "example": [
+              "email",
+              "totp"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "email",
+                "sms",
+                "totp"
+              ]
+            }
+          },
+          "configuredMethods": {
+            "type": "array",
+            "description": "All MFA methods configured and available in the application (methods user can potentially set up)",
+            "example": [
+              "email",
+              "totp",
+              "sms"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "email",
+                "sms",
+                "totp"
+              ]
+            }
+          },
+          "allowUserToggle": {
+            "type": "boolean",
+            "description": "Indicates if MFA toggling is allowed for the user",
+            "example": true
+          },
+          "allowMethodSelection": {
+            "type": "boolean",
+            "description": "Indicates if users can choose their preferred MFA method",
+            "example": true
+          },
+          "totpDevices": {
+            "description": "Registered TOTP devices for the user",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MfaDeviceDto"
+            }
+          },
+          "hasRecoveryCode": {
+            "type": "boolean",
+            "description": "Whether a recovery code has been generated for the user",
+            "example": false
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Whether MFA is required for all users. If true, users cannot disable MFA even if allowUserToggle is true",
+            "example": false
+          },
+          "canToggle": {
+            "type": "boolean",
+            "description": "Whether the user can toggle MFA. This is false if MFA is required (required=true) even if allowUserToggle is true",
+            "example": true
+          }
+        },
+        "required": [
+          "isEnabled",
+          "verifiedMethods",
+          "configuredMethods",
+          "allowUserToggle",
+          "allowMethodSelection",
+          "totpDevices",
+          "hasRecoveryCode",
+          "required",
+          "canToggle"
+        ]
+      },
+      "NestAuthToggleMfaRequestDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Whether MFA should be enabled for the current user",
+            "example": true
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "NestAuthMfaToggleResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "MFA enabled successfully"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthMfaDeviceRemovedResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Device removed successfully"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthSendMfaCodeRequestDto": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "description": "MFA delivery method",
+            "example": "email",
+            "examples": {
+              "email": {
+                "value": "email",
+                "description": "Send OTP via email"
+              },
+              "sms": {
+                "value": "sms",
+                "description": "Send OTP via SMS"
+              },
+              "totp": {
+                "value": "totp",
+                "description": "Use authenticator app (TOTP)"
+              }
+            },
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NestAuthMFAMethodEnum"
+              }
+            ]
+          }
+        },
+        "required": [
+          "method"
+        ]
+      },
+      "NestAuthVerifyTotpSetupRequestDto": {
+        "type": "object",
+        "properties": {
+          "otp": {
+            "type": "string",
+            "description": "The TOTP code from authenticator app",
+            "example": "123456",
+            "minLength": 6,
+            "maxLength": 6
+          },
+          "secret": {
+            "type": "string",
+            "description": "Secret key from TOTP setup",
+            "example": "JBSWY3DPEHPK3PXP"
+          }
+        },
+        "required": [
+          "otp",
+          "secret"
+        ]
+      },
+      "NestAuthMfaDeviceVerifiedResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "Device setup successfully"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "NestAuthMfaResetResponseDto": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message",
+            "example": "MFA reset successfully"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "AdminSignupDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Admin email address",
+            "example": "admin@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "Admin password (minimum 8 characters, must contain uppercase, lowercase, number, and special character)",
+            "example": "SecurePassword123!",
+            "minLength": 8
+          },
+          "secretKey": {
+            "type": "string",
+            "description": "Secret key for authorization (provided in module configuration)",
+            "example": "your-secret-key"
+          },
+          "name": {
+            "type": "string",
+            "description": "Admin name (optional)",
+            "example": "Admin User"
+          },
+          "metadata": {
+            "type": "object",
+            "description": "Additional metadata for the admin user (optional)",
+            "example": {
+              "department": "IT",
+              "role": "super-admin"
+            }
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "secretKey"
+        ]
+      },
+      "AdminLoginDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateDashboardAdminDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateDashboardAdminDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AdminResetPasswordDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AdminCreateUserDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AdminUpdateUserDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AdminCreateRoleDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AdminUpdateRoleDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AdminCreateTenantDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AdminUpdateTenantDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "AdminCreatePermissionDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Permission name (must be unique per guard)",
+            "example": "users.create",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "guard": {
+            "type": "string",
+            "description": "Guard name (defaults to \"web\" if not provided)",
+            "example": "web"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional description of what this permission allows",
+            "example": "Allows creating new user accounts"
+          },
+          "category": {
+            "type": "string",
+            "description": "Optional category to group permissions (e.g., \"users\", \"posts\", \"admin\")",
+            "example": "users"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "AdminUpdatePermissionDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Permission name (must be unique per guard if changed)",
+            "example": "users.create"
+          },
+          "category": {
+            "type": "string",
+            "description": "Optional category to group permissions"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional description of what this permission allows"
+          }
+        }
+      },
+      "AdminAddBlockedDomainsDto": {
+        "type": "object",
+        "properties": {
+          "domains": {
+            "description": "One or more email domains to block (e.g. [\"mailinator.com\", \"guerrillamail.com\"]). Max 1000 per request; each max 253 chars.",
+            "example": [
+              "mailinator.com",
+              "guerrillamail.com"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "domains"
+        ]
+      }
+    }
+  }
+}

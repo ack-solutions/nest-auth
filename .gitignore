@@ -18,7 +18,4 @@ out
 coverage
 .vitest
 
-# Generated artifacts (T-002 — admin UI reads swagger from here)
-packages/nest-auth-admin/src/data/nest-auth.json
-
 .env
