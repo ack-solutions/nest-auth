@@ -1,4 +1,8 @@
 import { Injectable, Inject } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { NestAuthUser } from '../../user/entities/user.entity';
+import { NestAuthIdentity } from '../../user/entities/identity.entity';
 import { BaseAuthProvider } from '../providers/base-auth.provider';
 import { EmailAuthProvider } from '../providers/email-auth.provider';
 import { PhoneAuthProvider } from '../providers/phone-auth.provider';
@@ -25,7 +29,10 @@ export class AuthProviderRegistryService {
         private readonly facebookAuthProvider: FacebookAuthProvider,
         private readonly appleAuthProvider: AppleAuthProvider,
         private readonly githubAuthProvider: GitHubAuthProvider,
-
+        @InjectRepository(NestAuthUser)
+        private readonly userRepository: Repository<NestAuthUser>,
+        @InjectRepository(NestAuthIdentity)
+        private readonly authIdentityRepository: Repository<NestAuthIdentity>,
     ) {
 
         this.options = AuthConfigService.getOptions();
@@ -62,9 +69,13 @@ export class AuthProviderRegistryService {
             this.registerProvider(this.githubAuthProvider);
         }
 
-        // Register custom providers
+        // Register custom providers. They're constructed by the consumer (in
+        // `customAuthProviders`) without DI access to the repositories the base
+        // helpers need, so inject them here before registering — a plain
+        // `new MyProvider(opts)` with `forRoot` then works end to end.
         if (this.options.customAuthProviders && Array.isArray(this.options.customAuthProviders)) {
             for (const provider of this.options.customAuthProviders) {
+                provider.attachRepositories(this.userRepository, this.authIdentityRepository);
                 this.registerProvider(provider);
             }
         }

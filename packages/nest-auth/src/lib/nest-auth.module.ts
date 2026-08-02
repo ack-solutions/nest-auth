@@ -166,6 +166,14 @@ export class NestAuthModule {
       merged.session.store = options.session.store;
     }
 
+    // Same reasoning: `customAuthProviders` are BaseAuthProvider class instances.
+    // The deep-merge would clone them into plain objects and strip their methods
+    // (validate / attachRepositories / …). Preserve the caller's instances by
+    // reference so the provider registry gets working providers.
+    if (options.customAuthProviders) {
+      merged.customAuthProviders = options.customAuthProviders;
+    }
+
     return merged;
   }
 

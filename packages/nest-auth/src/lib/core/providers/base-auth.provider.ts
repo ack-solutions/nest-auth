@@ -34,11 +34,34 @@ export abstract class BaseAuthProvider {
     options: IAuthModuleOptions;
     skipMfa = false;
 
+    // Repositories the base helpers (linkToUser / findIdentity / …) use. Built-in
+    // providers inject them via the constructor; CUSTOM providers registered
+    // through `customAuthProviders` are built by the consumer without DI access to
+    // the repos, so the provider registry calls `attachRepositories()` on them.
+    protected userRepository!: Repository<NestAuthUser>;
+    protected authIdentityRepository!: Repository<NestAuthIdentity>;
+
     constructor(
-        protected readonly userRepository: Repository<NestAuthUser>,
-        protected readonly authIdentityRepository: Repository<NestAuthIdentity>,
+        userRepository?: Repository<NestAuthUser>,
+        authIdentityRepository?: Repository<NestAuthIdentity>,
     ) {
+        if (userRepository) this.userRepository = userRepository;
+        if (authIdentityRepository) this.authIdentityRepository = authIdentityRepository;
         this.options = AuthConfigService.getOptions();
+    }
+
+    /**
+     * Inject the user + identity repositories after construction. Used by the
+     * provider registry for custom providers (which the consumer builds without
+     * DI access to the repos). No-op for a slot that's already set — so a provider
+     * that DID receive repos via its constructor keeps them.
+     */
+    attachRepositories(
+        userRepository: Repository<NestAuthUser>,
+        authIdentityRepository: Repository<NestAuthIdentity>,
+    ): void {
+        this.userRepository ??= userRepository;
+        this.authIdentityRepository ??= authIdentityRepository;
     }
 
     /**
