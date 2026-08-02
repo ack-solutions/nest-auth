@@ -61,7 +61,8 @@ export async function bootBackend(extraEnv: Record<string, string> = {}): Promis
             NODE_ENV: 'test',
             JWT_SECRET: 'rn-sdk-test-jwt-secret',
             TRUSTED_DEVICE_SECRET: 'rn-sdk-test-trusted-device-secret',
-            ADMIN_CONSOLE_SECRET_KEY: 'rn-sdk-test-admin-secret',
+            // 32+ chars: the admin console fails closed on a short secret (2.8.0).
+            ADMIN_CONSOLE_SECRET_KEY: 'rn-sdk-test-admin-console-secret-key-0001',
             TENANT_MODE: 'disabled',
             ...extraEnv,
         },

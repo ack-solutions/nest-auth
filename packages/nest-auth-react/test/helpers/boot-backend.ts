@@ -58,7 +58,7 @@ export async function bootBackend(extraEnv: Record<string, string> = {}): Promis
             NODE_ENV: 'test',
             JWT_SECRET: 'client-sdk-test-jwt-secret',
             TRUSTED_DEVICE_SECRET: 'client-sdk-test-trusted-device-secret',
-            ADMIN_CONSOLE_SECRET_KEY: 'client-sdk-test-admin-secret',
+            ADMIN_CONSOLE_SECRET_KEY: 'client-sdk-test-admin-console-secret-0001',
             TENANT_MODE: 'disabled',
             ...extraEnv,
         },
