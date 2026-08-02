@@ -3,6 +3,8 @@ title: Custom OAuth Provider
 description: Add Discord, Microsoft, Slack — anything not in the built-in list.
 ---
 
+A copy-paste starting point. See [Custom OAuth / SSO Provider](/docs/authentication/custom-provider) for the full contract and the client call.
+
 ```ts
 // app/auth/discord.provider.ts
 import { BaseAuthProvider, AuthProviderUser } from '@ackplus/nest-auth';
@@ -15,13 +17,18 @@ interface DiscordOptions {
 }
 
 export class DiscordAuthProvider extends BaseAuthProvider {
-  readonly name = 'discord';
+  providerName = 'discord'; // NOT `name`
+  skipMfa = true;
 
   constructor(private readonly opts: DiscordOptions) {
-    super();
+    super(); // repos are injected by the provider registry
   }
 
-  async validate(credentials: { code?: string; token?: string }): Promise<AuthProviderUser> {
+  getRequiredFields(): string[] {
+    return ['token']; // or ['code']
+  }
+
+  async validate(credentials: { code?: string; token?: string }): Promise<AuthProviderUser | null> {
     let accessToken = credentials.token;
 
     // If the client sent a code instead, exchange it
@@ -48,18 +55,16 @@ export class DiscordAuthProvider extends BaseAuthProvider {
     if (!me?.id) throw new UnauthorizedException('Discord token rejected');
 
     return {
-      providerId: me.id,
+      userId: me.id, // the PROVIDER's user id — the field is `userId`, not `providerId`
       email: me.email,
-      metadata: {
-        username: me.username,
-        avatar: me.avatar,
-      },
+      emailVerified: me.verified === true,
+      metadata: { username: me.username, avatarUrl: me.avatar },
     };
   }
 }
 ```
 
-Register it:
+Register it — a plain instance with `forRoot`; the repositories are injected for you:
 
 ```ts
 NestAuthModule.forRoot({
@@ -73,9 +78,14 @@ NestAuthModule.forRoot({
 });
 ```
 
-Now `POST /auth/login` with `{ providerName: 'discord', credentials: { code } }` works.
+Log in — a first-time user needs `createUserIfNotExists: true` (the client SDK's `socialLogin()` sets it):
+
+```ts
+await client.socialLogin('discord', accessToken);
+// or: POST /auth/login { providerName: 'discord', credentials: { code }, createUserIfNotExists: true }
+```
 
 ## Related
 
-- [Custom provider docs](/docs/authentication/custom-provider) — the conceptual overview.
+- [Custom OAuth / SSO Provider](/docs/authentication/custom-provider) — the full contract.
 - [Google OAuth](/docs/authentication/oauth-google) — reference implementation.

@@ -1,96 +1,172 @@
 ---
-title: Custom OAuth Provider
-description: Plug in any OAuth or SSO not in the built-in list.
+title: Custom OAuth / SSO Provider
+description: Plug in any provider not built in — Microsoft, Okta, Auth0, Discord, an internal SSO — by implementing one validate() method.
 ---
 
-Need Microsoft, Discord, Slack, Okta, an internal SSO? Extend `BaseAuthProvider` and pass it to the module.
+Need Microsoft, Discord, Slack, Okta, Auth0, an internal enterprise SSO? Extend `BaseAuthProvider`, implement `validate()`, and pass an instance to the module. Nest Auth handles everything else — identity lookup, user creation, account linking, session, and events (see [how SSO works](/docs/authentication/social-sso)).
 
 ## The contract
 
+Two things are required: a `providerName` and a `validate()` method. `getRequiredFields()` is also abstract, so you must implement it.
+
 ```ts
 import { BaseAuthProvider, AuthProviderUser } from '@ackplus/nest-auth';
+import { UnauthorizedException } from '@nestjs/common';
+
+interface DiscordOptions {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+}
 
 export class DiscordAuthProvider extends BaseAuthProvider {
-  readonly name = 'discord';
+  // The name you'll pass as `providerName` on POST /auth/login. (NOT `name`.)
+  providerName = 'discord';
 
-  async validate(credentials: { token: string }): Promise<AuthProviderUser> {
-    const userInfo = await fetch('https://discord.com/api/users/@me', {
+  // The user already authenticated with Discord, so skip Nest Auth's own MFA
+  // challenge. Omit (defaults false) if you still want app-level MFA.
+  skipMfa = true;
+
+  constructor(private readonly opts: DiscordOptions) {
+    // Call super() with no args — the provider registry injects the user +
+    // identity repositories the base helpers need once the module boots.
+    super();
+  }
+
+  // Which credential fields the client MUST send (validated before validate()).
+  getRequiredFields(): string[] {
+    return ['token']; // or ['code'] if you exchange an auth code (see below)
+  }
+
+  async validate(credentials: { token?: string }): Promise<AuthProviderUser | null> {
+    const me = await fetch('https://discord.com/api/users/@me', {
       headers: { Authorization: `Bearer ${credentials.token}` },
-    }).then(r => r.json());
+    }).then((r) => r.json());
 
-    if (!userInfo?.id) {
+    if (!me?.id) {
       throw new UnauthorizedException('Invalid Discord token');
     }
 
     return {
-      providerId: userInfo.id,
-      email: userInfo.email,
-      metadata: {
-        username: userInfo.username,
-        avatar: userInfo.avatar,
-      },
+      // The PROVIDER's stable user id (Discord's `id`) — the field is `userId`.
+      userId: me.id,
+      email: me.email,
+      // Set true ONLY if the provider attests the email is verified. Gates
+      // account-linking to an existing user (see below).
+      emailVerified: me.verified === true,
+      metadata: { username: me.username, avatarUrl: me.avatar },
     };
   }
 }
 ```
 
-The `validate` method's job: take whatever credentials the client sent, prove they're authentic to the provider, and return a normalized `AuthProviderUser` with at least a `providerId` and (when possible) an `email`.
+### The `AuthProviderUser` you return
+
+| Field | Meaning |
+|---|---|
+| `userId` **(required)** | The **provider's** stable user id (e.g. an OAuth `sub`, Discord `id`). This is what identities are keyed on — *not* your local user id. |
+| `email` / `phone` | Used to find/create the local user and to link to an existing account. |
+| `emailVerified` / `phoneVerified` | Set `true` only when the provider proves it. Controls the linking gate and whether `emailVerifiedAt` is stamped. |
+| `metadata` | Anything else (username, avatar, raw profile) — stored on the identity and available to your hooks. |
+
+Return `null` (or throw) when the credential is invalid.
 
 ## Registering the provider
 
+Pass an instance in `customAuthProviders`. A plain `new Provider(opts)` with `forRoot` is all you need — the repositories are injected for you:
+
 ```ts
 NestAuthModule.forRoot({
-  // …
-  customAuthProviders: [new DiscordAuthProvider()],
+  customAuthProviders: [
+    new DiscordAuthProvider({
+      clientId: process.env.DISCORD_CLIENT_ID!,
+      clientSecret: process.env.DISCORD_CLIENT_SECRET!,
+      redirectUri: process.env.DISCORD_REDIRECT_URI!,
+    }),
+  ],
 });
 ```
 
-The library now accepts `POST /auth/login` with `{ providerName: 'discord', credentials: { token } }`.
+`POST /auth/login` with `{ providerName: 'discord', … }` now works.
 
-## What you get for free
+## Calling it from the client
 
-Once `validate` returns successfully, the library handles:
-
-- Identity lookup (`nest_auth_identities` row for `provider='discord'` + `providerId=<id>`).
-- User creation if the identity is new and `registration.enabled !== false`.
-- Account linking if the email matches an existing user.
-- Session creation, JWT minting, and event emission (`UserRegisteredEvent` / `UserLoggedInEvent`).
-
-You only write the part that's specific to the provider — verifying the credential.
-
-## When the client sends a code instead of a token
-
-If your provider gives the frontend an authorization code (not an access token), do the code-exchange inside `validate`:
+Same as any social login. **A first-time user must be provisioned with `createUserIfNotExists: true`** (the client SDK's `socialLogin()` sets it for you):
 
 ```ts
-async validate(credentials: { code: string }) {
-  const tokenResp = await fetch('https://discord.com/api/oauth2/token', {
-    method: 'POST',
-    body: new URLSearchParams({
-      client_id: this.clientId,
-      client_secret: this.clientSecret,
-      code: credentials.code,
-      grant_type: 'authorization_code',
-      redirect_uri: this.redirectUri,
-    }),
-  }).then(r => r.json());
+import { AuthClient } from '@ackplus/nest-auth-client';
+const client = new AuthClient({ baseUrl: '/api' });
 
-  // …then fetch the user with tokenResp.access_token
+// socialLogin defaults createUserIfNotExists: true
+await client.socialLogin('discord', accessToken);
+```
+
+Raw HTTP / React `login()` — pass the flag yourself for new users:
+
+```jsonc
+POST /auth/login
+{
+  "providerName": "discord",
+  "credentials": { "token": "<discord access token>" },
+  "createUserIfNotExists": true
 }
 ```
 
-Wire `clientId`, `clientSecret`, etc., as constructor args so they come from your config:
+## What you get for free
+
+Once `validate()` returns, the library:
+
+- Looks up the identity (`nest_auth_identities` for `provider='discord'` + the returned `userId`) → logs the existing user in.
+- Creates a new `NestAuthUser` + identity when the identity is new and `createUserIfNotExists` is set — emitting `UserRegisteredEvent`.
+- **Links** to an existing account when the email matches — but only when `emailVerified: true` (the [2.8.0 verified-email gate](/docs/authentication/social-sso#account-linking--the-verified-email-gate); `social.requireVerifiedEmailForLinking`).
+- Issues the session / JWT and emits `UserLoggedInEvent`.
+
+You only write the provider-specific part: verifying the credential.
+
+## When the client sends an auth code instead of a token
+
+If your provider hands the frontend a one-time **authorization code**, exchange it for a token inside `validate()` (and declare `getRequiredFields()` as `['code']`):
 
 ```ts
-new DiscordAuthProvider({
-  clientId: process.env.DISCORD_CLIENT_ID,
-  clientSecret: process.env.DISCORD_CLIENT_SECRET,
-  redirectUri: process.env.DISCORD_REDIRECT_URI,
-}),
+getRequiredFields() { return ['code']; }
+
+async validate(credentials: { code?: string }): Promise<AuthProviderUser | null> {
+  const tokenResp = await fetch('https://discord.com/api/oauth2/token', {
+    method: 'POST',
+    body: new URLSearchParams({
+      client_id: this.opts.clientId,
+      client_secret: this.opts.clientSecret,
+      code: credentials.code!,
+      grant_type: 'authorization_code',
+      redirect_uri: this.opts.redirectUri,
+    }),
+  }).then((r) => r.json());
+
+  const me = await fetch('https://discord.com/api/users/@me', {
+    headers: { Authorization: `Bearer ${tokenResp.access_token}` },
+  }).then((r) => r.json());
+
+  if (!me?.id) return null;
+  return { userId: me.id, email: me.email, emailVerified: me.verified === true };
+}
 ```
+
+## Enterprise SSO (SAML / OIDC / IdP groups)
+
+The same shape covers enterprise SSO: verify the assertion/token in `validate()` and return the user. To map IdP groups → Nest Auth roles, see the [external role resolver recipe](/docs/recipes/external-role-resolver).
+
+## Common mistakes
+
+| Symptom | Cause |
+|---|---|
+| `providerName` unknown on login | You set `name` instead of `providerName`, or forgot to add the instance to `customAuthProviders`. |
+| First social login returns `401 INVALID_CREDENTIALS` | New user without `createUserIfNotExists: true` — use `socialLogin()` or pass the flag. |
+| Social identity didn't link to the existing email account | `emailVerified` wasn't `true`, and `social.requireVerifiedEmailForLinking` is on (default). Set `emailVerified` when the provider proves it. |
+| `MISSING_REQUIRED_FIELDS` | The client didn't send a field named in `getRequiredFields()`. |
 
 ## Related
 
-- [Google OAuth](/docs/authentication/oauth-google) — implementation-by-example for a built-in.
-- [Account linking recipe](/docs/recipes/link-multiple-providers).
-- [Backend services reference](/docs/backend/services) for `AuthProviderRegistryService`.
+- [Social / SSO Login](/docs/authentication/social-sso) — how the universal flow works.
+- [Google OAuth](/docs/authentication/oauth-google) — a built-in, by example.
+- [Custom OAuth provider recipe](/docs/recipes/custom-oauth-provider) — copy-paste starting point.
+- [Link multiple providers to one account](/docs/recipes/link-multiple-providers).

@@ -65,6 +65,8 @@ Every social/SSO sign-in is the same `POST /auth/login` shape — a `providerNam
 - **`type`** — Google-only, selects ID-token vs access-token verification. Other providers ignore it.
 - **`firstName` / `lastName` / `avatarUrl` / `name`** — optional. **Apple only returns the user's name on the *first* authorization** (and never an avatar), so capture it on the client and forward it here to persist it. Other providers fill these from their own profile data.
 
+> **First-time users need `createUserIfNotExists: true`.** A social login for someone who doesn't have an account yet only provisions a new user when the request carries `createUserIfNotExists: true` — otherwise it returns `401`. The client SDK's `socialLogin()` sets it for you; with raw `login()` / HTTP, add it yourself.
+
 ## What happens on the backend
 
 1. The provider's `validate()` verifies the credential *with the provider* and returns a normalized `{ userId (the provider's user id), email, emailVerified?, metadata }`.
@@ -103,7 +105,11 @@ function GoogleButton() {
   return (
     <GoogleLogin
       onSuccess={(res) =>
-        login({ providerName: 'google', credentials: { token: res.credential!, type: 'idToken' } })
+        login({
+          providerName: 'google',
+          credentials: { token: res.credential!, type: 'idToken' },
+          createUserIfNotExists: true, // provision first-time users
+        })
       }
     />
   );
@@ -118,7 +124,8 @@ See [React → Hooks](/docs/react/hooks).
 import { AuthClient } from '@ackplus/nest-auth-client';
 
 const client = new AuthClient({ baseUrl: '/api' });
-await client.login({ providerName: 'google', credentials: { token, type: 'idToken' } });
+// socialLogin() defaults createUserIfNotExists: true, so first-time users are provisioned.
+await client.socialLogin('google', idToken, { type: 'idToken' });
 ```
 
 See [Client → AuthClient](/docs/client/client).
