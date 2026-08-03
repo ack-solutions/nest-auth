@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, HttpException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NestAuthMFASecret } from '../../auth/entities/mfa-secret.entity';
@@ -206,7 +206,13 @@ export class MfaService {
                 await this.markChannelVerified(userId, method);
 
                 return true;
-            } catch {
+            } catch (err) {
+                // Surface the specific OTP reason to the client — expired, invalid,
+                // or "too many attempts, request a new code" once the cap deletes
+                // the code — instead of collapsing every failure to a generic MFA
+                // error. This gives MFA the same reporting the password-reset OTP
+                // flow already has. Fail closed on any non-coded error.
+                if (err instanceof HttpException) throw err;
                 return false;
             }
         }

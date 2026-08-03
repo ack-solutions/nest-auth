@@ -9,6 +9,9 @@
 // Runtime values from auth.ts (enums only)
 export { NestAuthMFAMethodEnum, NestAuthOTPTypeEnum } from './auth';
 
+// Browser-safe error codes (runtime const + same-named type).
+export { NestAuthErrorCode } from './error-codes';
+
 // Type-only re-exports from auth.ts
 export type {
     IEmailCredentials,
