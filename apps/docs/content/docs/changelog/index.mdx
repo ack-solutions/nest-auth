@@ -5,10 +5,24 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.8.0`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.8.1`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/migration/within-v2)**. Bump every package to the same version.
+
+---
+
+## 2.8.1 — consumer-feedback fixes
+
+A patch release addressing feedback on 2.8.0.
+
+- **Fixed (backend):** `forRootAsync` can mint tokens again — `JwtService` and friends read module options lazily instead of capturing them at construction (fixes `Missing session.jwt.secret`, and removes a latent pre-2.8.0 hazard where `forRootAsync` could sign with the insecure default secret).
+- **Fixed (backend):** custom auth providers (`customAuthProviders`) work with a plain `new MyProvider(opts)` and `forRoot` — the registry injects the repositories, and the config merge preserves the instance's methods.
+- **Fixed (backend):** `NestAuthBlockedEmailDomain` is exported from `NestAuthEntities` and the barrel, so migrations can create the blocked-email-domains table.
+- **Added (contracts):** `NestAuthErrorCode` — a browser-safe enum of every server error `code` (with a drift-guard test), so a frontend matches typed codes instead of bare strings.
+- **Changed (MFA):** `verifyMfa` surfaces the specific OTP reason (expired / invalid / "request a new code") instead of a generic failure. A wrong MFA code now returns the specific `VERIFICATION_CODE_*` code rather than `MFA_CODE_INVALID`.
+- **Added (barrel):** the rate-limit / captcha / lockout decorators and guards are now exported for reuse on your own routes.
+- **Fixed (client):** a cross-tab refresh lock (Web Locks) so two tabs of the same account no longer log each other out on refresh; graceful fallback on React Native / SSR / older browsers.
 
 ---
 

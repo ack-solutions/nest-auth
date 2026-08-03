@@ -1,5 +1,41 @@
 # @ackplus/nest-auth
 
+## 2.8.1
+
+### Patch Changes
+
+- **Fixes from consumer feedback on 2.8.0:**
+
+  - **`forRootAsync` can mint tokens again.** JwtService (and TokenResponseInterceptor /
+    BaseAuthProvider) now read module options LAZILY instead of capturing them at
+    construction. Under `forRootAsync`, CoreModule initialises before the async options
+    provider runs `setOptions()`, so a captured reference was the empty default — every
+    login 500'd with "Missing session.jwt.secret". This also removes a latent pre-2.8.0
+    hazard where `forRootAsync` could sign tokens with the insecure default secret.
+  - **Custom auth providers work via `forRoot`.** A `BaseAuthProvider` passed in
+    `customAuthProviders` no longer needs manual repository wiring — the provider registry
+    injects the user/identity repositories and the config deep-merge preserves the provider
+    instance's methods. `new MyProvider(opts)` just works.
+  - **`NestAuthBlockedEmailDomain` is now exported** from `NestAuthEntities` and the public
+    barrel, so a migration DataSource built from `...NestAuthEntities` can create the
+    blocked-email-domains table.
+  - **Browser-safe error codes.** `@ackplus/nest-auth-contracts` now exports
+    `NestAuthErrorCode` — a typed enum of every error `code` the server emits (including the
+    2.8.0 and admin codes). A drift-guard test keeps it in sync with the server.
+  - **MFA surfaces the OTP reason.** `MfaService.verifyMfa` re-throws the coded reason
+    (expired / invalid / "too many attempts, request a new code") instead of collapsing to a
+    generic failure, matching the password-reset flow. **Behavior note:** a wrong MFA code now
+    returns the specific `VERIFICATION_CODE_*` code rather than `MFA_CODE_INVALID`.
+  - **Security surfaces on the barrel.** The `@RateLimit` / `@Captcha` / `@Lockout`
+    decorators, their guards, and the rate-limit bucket types are now exported for reuse on
+    your own routes.
+  - **Cross-tab refresh lock (client).** `AuthClient.refresh()` serializes refreshes across
+    browser tabs (Web Locks API) so two tabs of the same account no longer log each other out
+    via refresh-token reuse detection. Graceful fallback where Web Locks is unavailable
+    (React Native / SSR / older browsers); backend unchanged.
+
+  - @ackplus/nest-auth-contracts@2.8.1
+
 ## 2.8.0
 
 ### Minor Changes
