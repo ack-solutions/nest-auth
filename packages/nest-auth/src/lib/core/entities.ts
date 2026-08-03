@@ -12,6 +12,7 @@ import { NestAuthSession } from '../session/entities/session.entity';
 import { NestAuthPermission } from '../permission/entities/permission.entity';
 import { NestAuthAdminUser } from '../admin-console/entities/admin-user.entity';
 import { NestAuthTrustedDevice } from '../auth';
+import { NestAuthBlockedEmailDomain } from '../auth/entities/blocked-email-domain.entity';
 
 export * from '../user/entities/user.entity';
 export * from '../user/entities/identity.entity';
@@ -25,6 +26,7 @@ export * from '../auth/entities/mfa-secret.entity';
 export * from '../auth/entities/otp.entity';
 export * from '../session/entities/session.entity';
 export * from '../permission/entities/permission.entity';
+export * from '../auth/entities/blocked-email-domain.entity';
 
 
 export const NestAuthEntities = [
@@ -42,4 +44,5 @@ export const NestAuthEntities = [
     NestAuthPermission,
     NestAuthAdminUser,
     NestAuthTrustedDevice,
+    NestAuthBlockedEmailDomain,
 ];
