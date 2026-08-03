@@ -659,8 +659,29 @@ export class AuthClient {
      * Refresh tokens
      */
     async refresh(dto?: IRefreshRequest, options?: RequestOptions): Promise<ITokenPair | null> {
-        // Use refresh queue to prevent parallel refresh calls
-        return this.refreshQueue.refresh(async () => {
+        // Snapshot the stored refresh token BEFORE we queue/lock, so that once we
+        // hold the cross-tab lock we can tell whether another tab already
+        // refreshed while we were waiting (header mode only — cookie tokens aren't
+        // readable, but serialization alone fixes cookie mode: the 2nd tab's POST
+        // carries the already-rotated cookie).
+        const usingStoredToken = this.tokenManager.isHeaderMode() && !dto?.refreshToken;
+        const tokenBefore = usingStoredToken ? await this.tokenManager.getRefreshToken() : null;
+
+        // Within-tab dedupe (refreshQueue) + cross-tab lock (withRefreshLock): only
+        // ONE tab of the same account refreshes at a time. Without the cross-tab
+        // lock, two tabs replay the same refresh token and the server's reuse
+        // detection revokes the session — logging BOTH out.
+        return this.refreshQueue.refresh(async () => this.withRefreshLock(async () => {
+            // Another tab may have refreshed while we waited for the lock — reuse
+            // its fresh tokens instead of replaying our now-stale one.
+            if (usingStoredToken) {
+                const current = await this.tokenManager.getTokens();
+                if (current?.refreshToken && current.refreshToken !== tokenBefore) {
+                    this.events.emit('tokenRefreshed', current as ITokenPair);
+                    return current as ITokenPair;
+                }
+            }
+
             const endpoint = this.getEndpoint('refresh');
             let body: IRefreshRequest | undefined = dto;
 
@@ -730,7 +751,22 @@ export class AuthClient {
             this.config.onTokenRefreshed?.(tokens);
 
             return tokens;
-        });
+        }));
+    }
+
+    /**
+     * Run a refresh under a cross-tab lock so only ONE tab of the same account
+     * refreshes at a time (others wait, then reuse the fresh tokens). Uses the Web
+     * Locks API; where it's unavailable (React Native, older browsers, SSR, non-DOM
+     * runtimes) there are no sibling tabs to race, so it runs the function directly.
+     */
+    private async withRefreshLock<T>(fn: () => Promise<T>): Promise<T> {
+        const locks: any =
+            typeof navigator !== 'undefined' && (navigator as any).locks ? (navigator as any).locks : undefined;
+        if (!locks || typeof locks.request !== 'function') {
+            return fn();
+        }
+        return locks.request(`nest-auth-refresh:${this.config.baseUrl}`, fn) as Promise<T>;
     }
 
     /**
