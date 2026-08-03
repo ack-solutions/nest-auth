@@ -10,10 +10,15 @@ import { AuthConfigService } from './auth-config.service';
 @Injectable()
 export class JwtService {
 
-    private options: IAuthModuleOptions;
-
-    constructor() {
-        this.options = AuthConfigService.getOptions();
+    // Read options LAZILY (not captured in the constructor). Under forRootAsync,
+    // CoreModule — which provides JwtService — is initialised before the async
+    // options provider in NestAuthModule runs setOptions(), so a value captured
+    // at construction would be the empty default: signing would then fail with
+    // "Missing session.jwt.secret" (or, pre-2.8.0, silently sign with the old
+    // insecure default). getOptions() is a cheap static read, so this costs
+    // nothing per call and always sees the live config.
+    private get options(): IAuthModuleOptions {
+        return AuthConfigService.getOptions();
     }
 
     async generateAccessToken(payload: Partial<JWTTokenPayload>): Promise<string> {

@@ -23,14 +23,16 @@ import { CsrfService } from '../../core/services/csrf.service';
 @Injectable()
 export class TokenResponseInterceptor implements NestInterceptor {
 
-    private readonly options: IAuthModuleOptions;
+    // Lazy — never capture options at construction (they'd be stale under
+    // forRootAsync; see JwtService). getOptions() is a cheap static read.
+    private get options(): IAuthModuleOptions {
+        return AuthConfigService.getOptions();
+    }
 
     constructor(
         private readonly debugLogger: DebugLoggerService,
         private readonly csrfService: CsrfService,
-    ) {
-        this.options = AuthConfigService.getOptions();
-    }
+    ) { }
 
 
     isUsingCookies(req: Request): boolean {

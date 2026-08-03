@@ -31,8 +31,16 @@ export type LinkUserWith = 'email' | 'phone';
 export abstract class BaseAuthProvider {
     abstract providerName: string;
     enabled: boolean;
-    options: IAuthModuleOptions;
     skipMfa = false;
+
+    /**
+     * Live module options — read lazily, never captured. Capturing at
+     * construction is stale under forRootAsync (see JwtService); getOptions() is
+     * a cheap static read.
+     */
+    get options(): IAuthModuleOptions {
+        return AuthConfigService.getOptions();
+    }
 
     // Repositories the base helpers (linkToUser / findIdentity / …) use. Built-in
     // providers inject them via the constructor; CUSTOM providers registered
@@ -47,7 +55,6 @@ export abstract class BaseAuthProvider {
     ) {
         if (userRepository) this.userRepository = userRepository;
         if (authIdentityRepository) this.authIdentityRepository = authIdentityRepository;
-        this.options = AuthConfigService.getOptions();
     }
 
     /**
