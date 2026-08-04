@@ -41,7 +41,7 @@ export function ClientConfigProvider({ children }: { children: React.ReactNode }
         try {
             const authBase = getAuthApiBaseUrl();
             const res = await fetch(`${authBase}/client-config`, { credentials: 'include' });
-            if (!res.ok) throw new Error('Failed to load config');
+            if (!res.ok) throw new Error(`GET ${authBase}/client-config → ${res.status}`);
             const data = await res.json();
 
             // If tenants are explicitly disabled from the backend, treat tenant UI as off.
@@ -59,6 +59,15 @@ export function ClientConfigProvider({ children }: { children: React.ReactNode }
             };
             setConfig(normalized);
         } catch (err: any) {
+            // Surface this loudly: a failed client-config load is exactly what
+            // hides the Tenants module, tenant columns/filters, and the role-guard
+            // options — so a silent fallback to empty config looks like "the admin
+            // UI is broken". Log the resolved URL so the cause (wrong base path /
+            // global prefix / 404) is obvious in the console.
+            console.warn(
+                `[nest-auth admin] Could not load /client-config — Tenants and role-guard ` +
+                `filters will be hidden. ${err?.message ?? err}`,
+            );
             setError(err?.message ?? 'Failed to load config');
             setConfig(defaultState);
         } finally {
@@ -77,7 +86,13 @@ export function ClientConfigProvider({ children }: { children: React.ReactNode }
         refetch: fetchConfig,
         roleGuards: config?.roleGuards ?? [],
         tenantMode: config?.tenantMode ?? null,
-        tenantEnabled: config?.tenants?.enabled ?? false,
+        // Tenant UI is ON whenever a tenant mode is resolved (i.e. tenants aren't
+        // explicitly disabled) — ONE signal for the nav, columns, filters, and
+        // detail page. Deriving this from `tenants.enabled === true` alone was
+        // inconsistent with the rest of the UI (which keys off tenantMode): an app
+        // that set `tenant.mode` without `tenant.enabled: true` got the Tenants nav
+        // hidden while the user-list tenant column still showed.
+        tenantEnabled: (config?.tenantMode ?? null) !== null,
     };
 
     return (
