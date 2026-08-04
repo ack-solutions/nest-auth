@@ -5,10 +5,18 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.8.3`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.8.4`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/migration/within-v2)**. Bump every package to the same version.
+
+---
+
+## 2.8.4 — admin console tenant / role-guard visibility
+
+- **Fixed (admin UI):** the **Tenants** module, tenant columns/filters, and the **role-guard** filter options now appear consistently. They're all driven by `GET /auth/client-config`; a signal mismatch — the layout keyed off `tenants.enabled === true` while the Users page keyed off the resolved tenant mode — could hide the Tenants nav while other tenant UI still showed. `tenantEnabled` is now derived from the resolved tenant mode, so every surface uses one signal.
+- **Fixed (admin UI):** a failed `/client-config` load now logs a clear console warning (with the URL + status) instead of silently rendering an empty admin — the usual cause of "Tenants / guards are missing" is a wrong admin base path or an unconfigured global prefix.
+- If the Tenants module still doesn't show: make sure your server config has `tenant: { enabled: true, mode: 'isolated' }` (set `enabled: true` explicitly), and that `GET /auth/client-config` returns your `tenants` + `roleGuards` (a custom `clientConfig.factory` must preserve them).
 
 ---
 

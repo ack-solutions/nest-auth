@@ -1,5 +1,25 @@
 # @ackplus/nest-auth
 
+## 2.8.4
+
+### Patch Changes
+
+- **Admin console — Tenants module + role-guard filters now show consistently.**
+  Every config-driven admin surface (the Tenants nav, the tenant column/filter on
+  Users, the tenant filter on Roles, tenant fields on user detail, and the
+  role-guard filters on Roles/Permissions) is driven by `GET /auth/client-config`.
+  A signal inconsistency — the layout/Roles/user-detail keyed off
+  `tenants.enabled === true` while the Users page keyed off `tenantMode !== null` —
+  meant an app that set `tenant.mode` without `tenant.enabled: true` got the
+  Tenants nav hidden while the user-list tenant column still showed. `tenantEnabled`
+  is now derived from the resolved tenant mode, so all surfaces use ONE signal
+  (tenant UI is on whenever a mode is resolved / tenants aren't explicitly
+  disabled). A failed `/client-config` load also now logs a clear console warning
+  (URL + status) instead of silently rendering an empty admin — the usual cause of
+  "Tenants/guards are missing" is a wrong base path or an unconfigured global
+  prefix. Rebuilt the admin bundle.
+  - @ackplus/nest-auth-contracts@2.8.4
+
 ## 2.8.3
 
 ### Patch Changes
