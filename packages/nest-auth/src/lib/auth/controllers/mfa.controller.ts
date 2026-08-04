@@ -65,9 +65,14 @@ export class MfaController {
         }
 
         const required = config?.required ?? false;
-        const allowUserToggle = isEnabled ? config?.allowUserToggle ?? false : false;
-        // User can toggle only if allowUserToggle is true AND MFA is not required
-        const canToggle = allowUserToggle && !required;
+        // `allowUserToggle` is a POLICY flag ("may members manage their own 2FA?") —
+        // it must come from config, NOT from whether the member already has MFA on.
+        // Gating it on the user's state made it impossible to turn MFA ON: a member
+        // with MFA off got allowUserToggle/canToggle=false, so a UI honouring the
+        // flag disabled the switch forever. Mirror the real gate the toggle endpoint
+        // enforces (requireMfaEnabledForApp + canUserToggleMfa).
+        const allowUserToggle = globallyEnabled ? (config?.allowUserToggle ?? false) : false;
+        const canToggle = globallyEnabled && this.mfaService.canUserToggleMfa();
 
         return {
             isEnabled,
