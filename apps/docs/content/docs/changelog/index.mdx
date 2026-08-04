@@ -5,10 +5,19 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.8.1`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.8.3`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/migration/within-v2)**. Bump every package to the same version.
+
+---
+
+## 2.8.3 — MFA fixes
+
+- **Fixed (MFA):** the TOTP QR now shows your configured app name + the user's email instead of `"SecretKey"` — `mfa.totp.issuer` is finally applied. `setupTotp` accepts an optional label (via `POST /auth/mfa/setup-totp` body or `client.setupTotp({ label })`) to disambiguate multi-tenant / multi-account users, and returns `otpAuthUrl` / `issuer` / `account`. See [MFA → TOTP enrollment](/docs/concepts/mfa#totp-enrollment).
+- **Fixed (MFA):** `GET /auth/mfa/status` now reports `allowUserToggle` / `canToggle` from policy (config), not from whether the user already has MFA on — so a member with MFA off can actually turn it on.
+
+> `2.8.2` was a version-only re-publish (identical code to `2.8.1`).
 
 ---
 

@@ -1,5 +1,35 @@
 # @ackplus/nest-auth
 
+## 2.8.3
+
+### Patch Changes
+
+- **MFA fixes:**
+
+  - **TOTP QR shows your app name, not "SecretKey".** `setupTotpDevice` built the
+    `otpauth://` URI with no issuer/label (speakeasy's default is `"SecretKey"`), so
+    `mfa.totp.issuer` was never used. The URI now carries the configured issuer
+    (fallback `appName`), the user's email as the account label, and the configured
+    period. `POST /auth/mfa/setup-totp` accepts an optional `{ label?, deviceName? }`
+    body — and `client.setupTotp(body)` / the React `setupTotp(body)` forward it — so
+    a multi-tenant app can disambiguate one person's several accounts under the same
+    issuer, e.g. `label: "ada@acme.com (Acme Corp)"`. The response now includes
+    `otpAuthUrl`, `issuer`, and `account`; new contract type `ISetupTotpRequest`.
+  - **`GET /auth/mfa/status` reports `allowUserToggle` / `canToggle` from policy**, not
+    from the user's current MFA state. Previously a member with MFA off got
+    `canToggle: false`, so self-service two-factor could never be switched on — even
+    though the toggle endpoint (`canUserToggleMfa`) would have accepted it. The status
+    now mirrors the real gate (`enabled` + `allowUserToggle` + `!required`).
+
+  - @ackplus/nest-auth-contracts@2.8.3
+
+## 2.8.2
+
+### Patch Changes
+
+- Version-only re-publish (identical code to 2.8.1).
+  - @ackplus/nest-auth-contracts@2.8.2
+
 ## 2.8.1
 
 ### Patch Changes
