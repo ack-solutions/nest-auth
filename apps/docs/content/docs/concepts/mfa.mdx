@@ -90,6 +90,37 @@ The server verifies the code matches the secret, then marks the device verified.
 
 A user can enroll multiple TOTP devices (`listTotpDevices`, `removeTotpDevice`) — useful for users who want a phone *and* a hardware token like a YubiKey.
 
+### What the authenticator app shows
+
+The QR encodes an `otpauth://` URI with two display fields:
+
+- **issuer** — the bold app/service heading. Comes from `mfa.totp.issuer` (falling back to `appName`). Set it so the entry reads "My App", not the app's package id or a blank.
+- **account label** — who the entry is for. Defaults to the user's **email** (then phone, then id).
+
+`setupTotp` returns these so your UI can show them, plus the raw URI if you want to render your own QR:
+
+```ts
+const setup = await client.setupTotp();
+// setup.qrCode  – data-URL QR to render
+// setup.otpAuthUrl – the raw otpauth:// URI
+// setup.issuer  – e.g. "My App"      (from mfa.totp.issuer)
+// setup.account – e.g. "ada@acme.com" (the label shown under the issuer)
+```
+
+> If your authenticator shows **"SecretKey"**, you're on ≤ 2.8.0 — that was a bug where the URI carried no issuer/label. Fixed in **2.8.1**; set `mfa.totp.issuer` and upgrade.
+
+### Multi-tenant / multi-account labels
+
+When one person has several accounts under the **same** issuer (e.g. one email across tenants), every entry would otherwise show the same account label and be indistinguishable. Pass a custom `label` to disambiguate — the app knows the tenant, so qualify it:
+
+```ts
+// e.g. inside a tenant, from your own tenant context
+await client.setupTotp({ label: `${user.email} (${tenant.name})` });
+// authenticator then shows:  My App  ▸  ada@acme.com (Acme Corp)
+```
+
+`POST /auth/mfa/setup-totp` accepts an optional body `{ label?, deviceName? }`; with an empty body the label defaults to the email. The `issuer` stays common (your app), only the account label varies per account.
+
 ## MFA scope across tenants
 
 In multi-tenant deployments (`tenant.enabled = true`), MFA enrolment is **user-global**, not per-tenant. The `nest_auth_mfa_secrets` and `nest_auth_trusted_devices` tables key off `userId` only — there's no `tenantId` column.

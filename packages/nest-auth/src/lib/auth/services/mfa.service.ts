@@ -247,7 +247,28 @@ export class MfaService {
     }
 
 
-    async setupTotpDevice(userId: string, deviceName?: string): Promise<{ secret: string; qrCode: string }> {
+    /**
+     * Begin TOTP enrolment: generate a secret + a QR code the user scans with an
+     * authenticator app.
+     *
+     * The scanned `otpauth://` URI controls what the authenticator DISPLAYS:
+     *   - **issuer** — the app/service name (from `mfa.totp.issuer`, falling back to
+     *     `appName`). Shown as the bold heading in the app.
+     *   - **account label** — who the entry is for. Defaults to the user's email
+     *     (then phone, then id). Pass `label` to override — handy for multi-tenant
+     *     apps where one person has several accounts under the same issuer, e.g.
+     *     `label: `${user.email} (${tenantName})``, so the entries are
+     *     distinguishable instead of all showing the same name.
+     *
+     * (Previously this called `speakeasy.generateSecret()` with no options, so the
+     * URI carried speakeasy's default label `"SecretKey"` and no issuer — which is
+     * why authenticators showed "SecretKey".)
+     */
+    async setupTotpDevice(
+        userId: string,
+        deviceName?: string,
+        label?: string,
+    ): Promise<{ secret: string; qrCode: string; otpAuthUrl: string; issuer: string; account: string }> {
         this.requireMfaEnabledForApp(true)
 
         const user = await this.userRepository.findOne({ where: { id: userId } });
@@ -255,17 +276,30 @@ export class MfaService {
             throw new Error('User not found');
         }
 
-        const secret = speakeasy.generateSecret();
+        const opts = AuthConfigService.getOptions();
+        const issuer = opts.mfa?.totp?.issuer || opts.appName || 'App';
+        const period = opts.mfa?.totp?.period || 30;
+        // Account label the authenticator shows for this entry.
+        const account = (label && label.trim()) || user.email || user.phone || userId;
+
+        const secret = speakeasy.generateSecret({ length: 20 });
+        const otpAuthUrl = speakeasy.otpauthURL({
+            secret: secret.base32,
+            encoding: 'base32',
+            label: account,
+            issuer,
+            period,
+        });
 
         await this.mfaSecretRepository.save({
             userId,
             secret: secret.base32,
-            deviceName: deviceName || 'Authenticator',
+            deviceName: deviceName || account,
             verified: false
         });
 
-        const qrCode = await qrcode.toDataURL(secret.otpauth_url || '');
-        return { secret: secret.base32, qrCode };
+        const qrCode = await qrcode.toDataURL(otpAuthUrl);
+        return { secret: secret.base32, qrCode, otpAuthUrl, issuer, account };
     }
 
     async verifyTotpSetup(userId: string, secret: string, inputOtp: string): Promise<boolean> {

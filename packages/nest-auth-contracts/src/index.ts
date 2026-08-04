@@ -49,6 +49,7 @@ export type {
     IMfaStatusResponse,
     IMfaCodeResponse,
     ITotpSetupResponse,
+    ISetupTotpRequest,
     INestAuthMFASecret,
     INestAuthTrustedDevice,
 } from './mfa';

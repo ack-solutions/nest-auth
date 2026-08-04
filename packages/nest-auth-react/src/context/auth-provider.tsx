@@ -24,6 +24,7 @@ import {
     IChangePasswordRequest,
     IResetPasswordWithTokenRequest,
     IVerifyTotpSetupRequest,
+    ISetupTotpRequest,
     IToggleMfaRequest,
     ISwitchTenantRequest,
     IPasswordlessSendRequest,
@@ -409,10 +410,10 @@ export function AuthProvider({
     }, [client]);
 
     // TOTP / MFA Management
-    const setupTotp = useCallback(async () => {
+    const setupTotp = useCallback(async (body?: ISetupTotpRequest) => {
         setError(null);
         try {
-            return await client.setupTotp();
+            return await client.setupTotp(body);
         } catch (err) {
             setError(err as AuthError);
             throw err;

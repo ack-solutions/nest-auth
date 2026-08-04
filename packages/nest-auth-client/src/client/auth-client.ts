@@ -21,6 +21,7 @@ import {
     IVerifyOtpResponse,
     IVerify2faResponse,
     ITotpSetupResponse,
+    ISetupTotpRequest,
     IVerifyTotpSetupRequest,
     IMfaStatusResponse,
     IMfaDevice,
@@ -995,9 +996,9 @@ export class AuthClient {
     /**
      * Setup TOTP device - generates secret and QR code
      */
-    async setupTotp(options?: RequestOptions): Promise<ITotpSetupResponse> {
+    async setupTotp(body?: ISetupTotpRequest, options?: RequestOptions): Promise<ITotpSetupResponse> {
         const endpoint = this.getEndpoint('setupTotp');
-        const response = await this.request<ITotpSetupResponse>('POST', endpoint, undefined, options);
+        const response = await this.request<ITotpSetupResponse>('POST', endpoint, body, options);
 
         if (!response.ok) {
             throw this.handleError(response);

@@ -28,6 +28,7 @@ import {
     IVerifyOtpResponse,
     IResetPasswordWithTokenRequest,
     ITotpSetupResponse,
+    ISetupTotpRequest,
     IVerifyTotpSetupRequest,
     IMfaStatusResponse,
     IMfaDevice,
@@ -109,7 +110,7 @@ export interface AuthContextValue {
 
     // Actions - TOTP / MFA Management
     /** Setup TOTP device - generates secret and QR code */
-    setupTotp: () => Promise<ITotpSetupResponse>;
+    setupTotp: (body?: ISetupTotpRequest) => Promise<ITotpSetupResponse>;
     /** Verify TOTP setup - verifies OTP and marks device as verified */
     verifyTotpSetup: (dto: IVerifyTotpSetupRequest) => Promise<IMessageResponse>;
     /** Get MFA status for current user */

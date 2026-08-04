@@ -91,5 +91,18 @@ export interface IMfaCodeResponse {
 export interface ITotpSetupResponse {
     secret: string;
     qrCode: string;
+    /** The raw `otpauth://` URI encoded in the QR (issuer + account label + period). */
     otpAuthUrl: string;
+    /** Issuer shown in the authenticator (from `mfa.totp.issuer`, else `appName`). */
+    issuer?: string;
+    /** Account label shown under the issuer (defaults to the user's email; overridable). */
+    account?: string;
+}
+
+/** Optional body for `POST /auth/mfa/setup-totp`. */
+export interface ISetupTotpRequest {
+    /** Account label shown in the authenticator (defaults to the user's email). */
+    label?: string;
+    /** Stored device name (not shown in the app). */
+    deviceName?: string;
 }

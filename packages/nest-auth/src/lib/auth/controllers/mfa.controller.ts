@@ -5,6 +5,7 @@ import { MfaService } from '../services/mfa.service';
 import { RequestContext } from '../../request-context/request-context';
 import { NestAuthSendMfaCodeRequestDto } from '../dto/requests/send-mfa-code.request.dto';
 import { NestAuthVerifyTotpSetupRequestDto } from '../dto/requests/verify-totp-setup.request.dto';
+import { NestAuthSetupTotpRequestDto } from '../dto/requests/setup-totp.request.dto';
 import { ApiOperation, ApiResponse, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { NestAuthAuthGuard } from '../guards/auth.guard';
 import { NestAuthToggleMfaRequestDto } from '../dto/requests/toggle-mfa.request.dto';
@@ -166,7 +167,7 @@ export class MfaController {
     @Post('setup-totp')
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
-    async setupTotp() {
+    async setupTotp(@Body() input?: NestAuthSetupTotpRequestDto) {
         const user = await RequestContext.currentUser();
         if (!user) {
             throw new UnauthorizedException('User not found');
@@ -184,11 +185,14 @@ export class MfaController {
             userEmail = fullUser?.email || 'User';
         }
 
-        // Generate meaningful device name: {APP_NAME} : {email}
-        const deviceName = `${appName} : ${userEmail}`;
+        // Stored device name (not shown in the authenticator). The `label` (shown
+        // in the app, under the issuer) is resolved by the service — defaults to
+        // the user's email; the caller can override it (e.g. tenant-qualified).
+        const deviceName = input?.deviceName || `${appName} : ${userEmail}`;
 
-        const { secret, qrCode } = await this.mfaService.setupTotpDevice(user.id, deviceName);
-        return { secret, qrCode };
+        const { secret, qrCode, otpAuthUrl, issuer, account } =
+            await this.mfaService.setupTotpDevice(user.id, deviceName, input?.label);
+        return { secret, qrCode, otpAuthUrl, issuer, account };
     }
 
     @ApiOperation({ summary: 'Verify TOTP Setup' })
