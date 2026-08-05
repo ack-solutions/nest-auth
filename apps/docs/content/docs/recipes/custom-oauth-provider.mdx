@@ -5,9 +5,11 @@ description: Add Discord, Microsoft, Slack — anything not in the built-in list
 
 A copy-paste starting point. See [Custom OAuth / SSO Provider](/docs/authentication/custom-provider) for the full contract and the client call.
 
+> Extend **`SocialAuthProvider`** (not `BaseAuthProvider`): `validate()` returns the provider's own user id, so the identity lookup must resolve by `providerId`. Extending `BaseAuthProvider` here 500s on Postgres (`invalid input syntax for type uuid`).
+
 ```ts
 // app/auth/discord.provider.ts
-import { BaseAuthProvider, AuthProviderUser } from '@ackplus/nest-auth';
+import { SocialAuthProvider, AuthProviderUser } from '@ackplus/nest-auth';
 import { UnauthorizedException } from '@nestjs/common';
 
 interface DiscordOptions {
@@ -16,7 +18,7 @@ interface DiscordOptions {
   redirectUri: string;
 }
 
-export class DiscordAuthProvider extends BaseAuthProvider {
+export class DiscordAuthProvider extends SocialAuthProvider {
   providerName = 'discord'; // NOT `name`
   skipMfa = true;
 

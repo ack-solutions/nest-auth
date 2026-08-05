@@ -9,7 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { createPublicKey, type KeyObject } from 'crypto';
 import * as jwt from 'jsonwebtoken';
-import { BaseAuthProvider } from './base-auth.provider';
+import { SocialAuthProvider } from './social-auth.provider';
 import { APPLE_AUTH_PROVIDER, ERROR_CODES } from '../../auth.constants';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
@@ -36,7 +36,7 @@ const JWKS_TTL_MS = 10 * 60 * 1000;
  * whatever the SDK gave them.
  */
 @Injectable()
-export class AppleAuthProvider extends BaseAuthProvider {
+export class AppleAuthProvider extends SocialAuthProvider {
     providerName = APPLE_AUTH_PROVIDER;
     skipMfa = true;
     private appleConfig: IAuthModuleOptions['apple'];

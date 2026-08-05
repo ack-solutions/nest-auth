@@ -5,11 +5,11 @@ import { FACEBOOK_AUTH_PROVIDER } from '../../auth.constants';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { NestAuthIdentity } from '../../user/entities/identity.entity';
 import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface';
-import { BaseAuthProvider } from './base-auth.provider';
+import { SocialAuthProvider } from './social-auth.provider';
 import { SocialCredentialsDto } from '../../auth/dto/credentials/social-credentials.dto';
 
 @Injectable()
-export class FacebookAuthProvider extends BaseAuthProvider {
+export class FacebookAuthProvider extends SocialAuthProvider {
     providerName = FACEBOOK_AUTH_PROVIDER;
     skipMfa = true;
     private facebookConfig: IAuthModuleOptions['facebook'];

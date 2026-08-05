@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { BaseAuthProvider } from './base-auth.provider';
+import { SocialAuthProvider } from './social-auth.provider';
 import { IAuthModuleOptions } from '../../core';
 import { GOOGLE_AUTH_PROVIDER } from '../../auth.constants';
 import { NestAuthUser } from '../../user/entities/user.entity';
@@ -9,7 +9,7 @@ import { NestAuthIdentity } from '../../user/entities/identity.entity';
 import { SocialCredentialsDto } from '../../auth/dto/credentials/social-credentials.dto';
 
 @Injectable()
-export class GoogleAuthProvider extends BaseAuthProvider {
+export class GoogleAuthProvider extends SocialAuthProvider {
     providerName = GOOGLE_AUTH_PROVIDER;
     skipMfa = true;
     private googleConfig: IAuthModuleOptions['google'];

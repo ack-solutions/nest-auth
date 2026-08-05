@@ -6,6 +6,20 @@ import { IAuthModuleOptions } from '../interfaces/auth-module-options.interface'
 import { NestAuthLoginRequestDto } from '../../auth/dto/requests/login.request.dto';
 
 export interface AuthProviderUser {
+    /**
+     * The provider's identifier for the authenticated principal.
+     *
+     * For FIRST-PARTY providers (email/phone/passwordless) this is our own
+     * `NestAuthUser.id` (a UUID). For SOCIAL / external providers (Google,
+     * Apple, Facebook, GitHub, a federated JWT, custom SSO) it is the EXTERNAL
+     * subject — the OAuth `sub` / account id — which is stored as
+     * `auth_identity.providerId`, NOT as our UUID.
+     *
+     * Because of that split, the login flow must not blindly treat this as our
+     * user id: it calls {@link BaseAuthProvider.findLinkedIdentity}, which the
+     * social providers override to resolve by `providerId` instead. See
+     * `SocialAuthProvider`.
+     */
     userId: string;
     email?: string;
     phone?: string;
@@ -126,6 +140,24 @@ export abstract class BaseAuthProvider {
             },
             relations: ['user'],
         });
+    }
+
+    /**
+     * Resolve the identity that a freshly `validate()`d principal is already
+     * linked to (or `null` if this is a first-time login). This is the single
+     * seam `AuthService.login` uses after `validate()` to decide "known user vs.
+     * create".
+     *
+     * The default is correct for FIRST-PARTY providers: `validate()` returns our
+     * own `NestAuthUser.id`, so we look the identity up by `userId`. SOCIAL /
+     * external providers override this to resolve by `providerId`, because their
+     * `validate().userId` is the external subject, not our UUID (see
+     * `SocialAuthProvider` / `AuthProviderUser.userId`). Keeping the by-userId
+     * lookup and the by-providerId lookup in separate, honestly-named methods is
+     * deliberate — `findIdentityByUserId` always means "by our user id".
+     */
+    async findLinkedIdentity(validated: AuthProviderUser): Promise<NestAuthIdentity | null> {
+        return this.findIdentityByUserId(validated.userId);
     }
 
     abstract validate(credentials: NestAuthLoginRequestDto['credentials'], tenantId?: string): Promise<AuthProviderUser | null>;

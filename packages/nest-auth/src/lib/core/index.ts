@@ -37,6 +37,7 @@ export * from './dto/message.response.dto';
 
 // Providers
 export * from './providers/base-auth.provider';
+export * from './providers/social-auth.provider';
 export * from './providers/email-auth.provider';
 export * from './providers/phone-auth.provider';
 export * from './providers/jwt-auth.provider';

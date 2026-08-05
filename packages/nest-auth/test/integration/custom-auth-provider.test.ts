@@ -11,11 +11,19 @@ import request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { bootTestApp, type TestAppHandle } from '../helpers/boot-test-app';
-import { BaseAuthProvider, type AuthProviderUser } from '../../src';
+import { SocialAuthProvider, type AuthProviderUser } from '../../src';
 import { NestAuthUser } from '../../src/lib/user/entities/user.entity';
 
-/** A minimal SSO provider that "verifies" a token of the form `sub|email`. */
-class MockSsoProvider extends BaseAuthProvider {
+/**
+ * A minimal SSO provider that "verifies" a token of the form `sub|email`.
+ *
+ * It extends `SocialAuthProvider` (NOT `BaseAuthProvider`): `validate()` returns
+ * the EXTERNAL subject as `userId`, so the post-validate identity lookup must
+ * resolve by `providerId`. Extending `BaseAuthProvider` would send the non-UUID
+ * subject into a `uuid` column and 500 on Postgres — this is the documented
+ * contract for custom social/SSO providers.
+ */
+class MockSsoProvider extends SocialAuthProvider {
   providerName = 'mock-sso';
   skipMfa = true;
 
@@ -76,6 +84,35 @@ describe('custom auth provider (forRoot + registry-injected repos)', () => {
     const userRepo = handle.get<Repository<NestAuthUser>>(getRepositoryToken(NestAuthUser));
     const users = await userRepo.find({ where: { email: 'grace@example.com' } });
     expect(users.length).toBe(1); // no duplicate user
+  });
+
+  // REGRESSION (social-login uuid crash): the second login sends
+  // `createUserIfNotExists: false`, so `AuthService.login` relies ENTIRELY on
+  // the post-validate `findLinkedIdentity(subject)` lookup to find the existing
+  // user. The base implementation resolves by the `uuid` userId column, so a
+  // non-UUID subject returned null here → 401 (and threw
+  // `invalid input syntax for type uuid` on Postgres). `SocialAuthProvider`
+  // resolves by `providerId`, so the existing user logs in.
+  it('logs an EXISTING external identity in with createUserIfNotExists:false (no 401/500)', async () => {
+    const create = await request(handle.httpServer)
+      .post('/auth/login')
+      .send({ providerName: 'mock-sso', credentials: { token: 'ext-909|linus@example.com' }, createUserIfNotExists: true });
+    expect(create.status).toBeLessThan(300);
+
+    // Login-only flow (signup disabled): must resolve the existing user by subject.
+    const relogin = await request(handle.httpServer)
+      .post('/auth/login')
+      .send({ providerName: 'mock-sso', credentials: { token: 'ext-909|linus@example.com' }, createUserIfNotExists: false });
+    expect(relogin.status, JSON.stringify(relogin.body)).toBeLessThan(300);
+    expect(relogin.body.accessToken ?? relogin.body.tokens?.accessToken).toBeTypeOf('string');
+
+    // The stored identity keyed the EXTERNAL subject as providerId (not a UUID).
+    const userRepo = handle.get<Repository<NestAuthUser>>(getRepositoryToken(NestAuthUser));
+    const ds = userRepo.manager.connection;
+    const rows = await ds.query(
+      `SELECT "providerId", "provider" FROM nest_auth_identities WHERE "provider" = 'mock-sso' AND "providerId" = 'ext-909'`,
+    );
+    expect(rows.length).toBe(1);
   });
 
   it('rejects an unknown provider name', async () => {

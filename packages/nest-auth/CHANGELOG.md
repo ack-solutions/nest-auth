@@ -1,5 +1,35 @@
 # @ackplus/nest-auth
 
+## 2.8.5
+
+### Patch Changes
+
+- **Fixed (backend) — every social login 500'd on Postgres with `invalid input syntax for type uuid`.**
+  Google, Apple, Facebook and GitHub logins — plus the opt-in `jwt` login
+  provider and any custom SSO provider — were broken on Postgres. Their
+  `validate()` returns the provider's EXTERNAL subject (the OAuth `sub` /
+  account id, e.g. Google's `109961585847656477769`) as `AuthProviderUser.userId`,
+  but `AuthService.login`'s post-`validate()` "is this a known user?" lookup fed
+  that value straight into the `uuid` `auth_identity.userId` column, so Postgres
+  rejected it and the request 500'd. SQLite/`sqljs` doesn't enforce column types,
+  so the in-memory test suite never reproduced it — on `sqljs` the same path
+  quietly returned `INVALID_CREDENTIALS` (401) instead. Only Google had been
+  exercised in the wild; Apple/Facebook/GitHub were broken identically.
+
+  The lookup now resolves by the external subject (`providerId`) for these
+  providers, matching what `handleSocialLogin` already does. Introduced an
+  exported `SocialAuthProvider` base (Google/Apple/Facebook/GitHub now extend it;
+  the `jwt` provider applies the same fix) and a new provider seam
+  `findLinkedIdentity(validated)` — the default resolves by our `userId`,
+  social/external providers override to resolve by `providerId`. `findIdentityByUserId`
+  keeps meaning "by our user id" (no more overloading it). **Custom SSO/social
+  providers should now extend `SocialAuthProvider` instead of `BaseAuthProvider`**
+  so they inherit the correct lookup and don't hit the same crash. Real-DB
+  regression tests cover an existing social identity logging in with
+  `createUserIfNotExists: false` (the path that 500'd on Postgres / 401'd on
+  `sqljs`).
+  - @ackplus/nest-auth-contracts@2.8.5
+
 ## 2.8.4
 
 ### Patch Changes

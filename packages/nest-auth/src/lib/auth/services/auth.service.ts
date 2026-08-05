@@ -329,12 +329,16 @@ export class AuthService {
             }
             const authProviderUser = await provider.validate(credentials, resolvedTenantId);
 
-            // BUG FIX (T-167-followup): post-.tasks/003, providers now return
-            // userId (UUID), not the providerUserId (email/phone/oauth-id).
-            // So we must use findIdentityByUserId here, not findIdentity (which
-            // expects a providerUserId, e.g. email). Calling findIdentity with a
-            // UUID silently returned null → INVALID_CREDENTIALS on every login.
-            const identity = await provider.findIdentityByUserId(authProviderUser.userId);
+            // Resolve the already-linked identity for this validated principal.
+            // The lookup key differs by provider family, so we delegate to the
+            // provider instead of guessing here: first-party providers
+            // (email/phone/passwordless) resolve by our `userId`, while social /
+            // external providers (Google, Apple, Facebook, GitHub, jwt, custom
+            // SSO) resolve by the external subject (`providerId`) — their
+            // `validate().userId` is the OAuth `sub`, not our UUID, and feeding
+            // that to the `uuid` userId column 500s on Postgres. See
+            // `BaseAuthProvider.findLinkedIdentity` / `SocialAuthProvider`.
+            const identity = await provider.findLinkedIdentity(authProviderUser);
 
             let user: NestAuthUser | null = identity?.user || null;
 

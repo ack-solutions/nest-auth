@@ -209,4 +209,32 @@ describe('GitHub OAuth login', () => {
     expect(res.status).toBeLessThan(300);
     expect(res.body.accessToken ?? res.body.tokens?.accessToken).toBeTypeOf('string');
   });
+
+  // REGRESSION (social-login uuid crash): GitHub's `validate()` returns the
+  // numeric account id as the subject. The post-validate lookup used to feed
+  // that into the `uuid` userId column → `invalid input syntax for type uuid`
+  // (500) on Postgres, or a null → 401 on sqljs whenever createUserIfNotExists
+  // is false. `GitHubAuthProvider extends SocialAuthProvider` now resolves the
+  // existing identity by providerId. Assert an existing user logs in even with
+  // signup disabled, and that the stored providerId is the (non-UUID) GH id.
+  it('existing GitHub user logs in with createUserIfNotExists:false (uuid-crash regression)', async () => {
+    ghUser = { id: 727272, login: 'returning', name: 'Returning', email: 'returning@github.test' };
+
+    const first = await request(handle.httpServer)
+      .post('/auth/login')
+      .send({ providerName: 'github', credentials: { token: 't-first' }, createUserIfNotExists: true });
+    expect(first.status).toBeLessThan(300);
+
+    const second = await request(handle.httpServer)
+      .post('/auth/login')
+      .send({ providerName: 'github', credentials: { token: 't-second' }, createUserIfNotExists: false });
+    expect(second.status, JSON.stringify(second.body)).toBeLessThan(300);
+    expect(second.body.accessToken ?? second.body.tokens?.accessToken).toBeTypeOf('string');
+
+    const ds = handle.get(require('typeorm').DataSource);
+    const rows = await ds.query(
+      `SELECT "providerId" FROM nest_auth_identities WHERE "provider" = 'github' AND "providerId" = '727272'`,
+    );
+    expect(rows.length).toBe(1); // the GH numeric id, not a UUID
+  });
 });

@@ -5,10 +5,20 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.8.4`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.8.5`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/migration/within-v2)**. Bump every package to the same version.
+
+---
+
+## 2.8.5 — social login uuid crash (Postgres)
+
+- **Fixed (backend):** every social login — **Google, Apple, Facebook, GitHub** — 500'd on Postgres with `invalid input syntax for type uuid`. These providers (and the opt-in `jwt` login provider, and custom SSO providers) return the provider's **external subject** (the OAuth `sub` / account id) from `validate()`, but the post-`validate()` "known user?" lookup fed that into the `uuid` `auth_identity.userId` column. It now resolves by the external subject (`providerId`) instead — the same key `handleSocialLogin` already uses. On SQLite/`sqljs` the column type isn't enforced, so the in-memory tests never caught it (the path returned a spurious `INVALID_CREDENTIALS` there instead of crashing).
+- **Added (backend):** an exported `SocialAuthProvider` base. Google/Apple/Facebook/GitHub extend it, and it resolves the linked identity by `providerId`. **If you write a custom social / SSO provider, extend `SocialAuthProvider` (not `BaseAuthProvider`)** so you inherit the correct lookup and don't hit this crash. See [Custom OAuth / SSO provider](/docs/authentication/custom-provider).
+- **Internal:** the login flow now calls a new provider seam `findLinkedIdentity(validated)` (default resolves by our `userId`; social/external providers override to resolve by `providerId`), so `findIdentityByUserId` keeps meaning "by our user id". No API surface changed for consumers of the built-in providers — social login just works on Postgres now.
+
+> No config or migration changes. If you pin the version, bump every package to `2.8.5` together.
 
 ---
 

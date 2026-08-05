@@ -3,7 +3,9 @@ title: Custom OAuth / SSO Provider
 description: Plug in any provider not built in — Microsoft, Okta, Auth0, Discord, an internal SSO — with a full, end-to-end example.
 ---
 
-Need Microsoft, Discord, Slack, Okta, Auth0, an internal enterprise SSO? Extend `BaseAuthProvider`, implement `validate()`, and pass an instance to the module. Nest Auth handles everything else — identity lookup, user creation, account linking, session, and events (see [how SSO works](/docs/authentication/social-sso)).
+Need Microsoft, Discord, Slack, Okta, Auth0, an internal enterprise SSO? Extend `SocialAuthProvider`, implement `validate()`, and pass an instance to the module. Nest Auth handles everything else — identity lookup, user creation, account linking, session, and events (see [how SSO works](/docs/authentication/social-sso)).
+
+> **Extend `SocialAuthProvider`, not `BaseAuthProvider`,** for any provider whose `validate()` returns the provider's own user id (an OAuth `sub`, Discord `id`, …). `SocialAuthProvider` resolves the linked identity by that external subject (`providerId`). `BaseAuthProvider` resolves by our internal `userId` — a `uuid` column — so a non-UUID subject makes **every login 500 on Postgres** with `invalid input syntax for type uuid` (it silently returns `INVALID_CREDENTIALS` on SQLite). Use `BaseAuthProvider` only when your `validate()` returns *our* `NestAuthUser.id`.
 
 ## Full example: a Discord provider, end to end
 
@@ -15,11 +17,11 @@ In the [Discord Developer Portal](https://discord.com/developers/applications) �
 
 ### 2. Write the provider
 
-A `BaseAuthProvider` subclass needs exactly three things: `providerName`, `getRequiredFields()`, and `validate()`. `validate()` verifies the credential *with the provider* and returns a normalized user.
+A `SocialAuthProvider` subclass needs exactly three things: `providerName`, `getRequiredFields()`, and `validate()`. `validate()` verifies the credential *with the provider* and returns a normalized user.
 
 ```ts
 // src/auth/discord.provider.ts
-import { BaseAuthProvider, AuthProviderUser } from '@ackplus/nest-auth';
+import { SocialAuthProvider, AuthProviderUser } from '@ackplus/nest-auth';
 import { UnauthorizedException } from '@nestjs/common';
 
 interface DiscordOptions {
@@ -28,7 +30,7 @@ interface DiscordOptions {
   redirectUri: string;
 }
 
-export class DiscordAuthProvider extends BaseAuthProvider {
+export class DiscordAuthProvider extends SocialAuthProvider {
   // The name you pass as `providerName` on POST /auth/login. (NOT `name`.)
   providerName = 'discord';
 
@@ -182,6 +184,7 @@ The same shape covers enterprise SSO — verify the assertion/id-token in `valid
 |---|---|
 | `providerName` unknown on login | You set `name` instead of `providerName`, or forgot to add the instance to `customAuthProviders`. |
 | First social login returns `401 INVALID_CREDENTIALS` | New user without `createUserIfNotExists: true` — use `socialLogin()` or pass the flag. |
+| Login 500s on Postgres: `invalid input syntax for type uuid` (or existing users get `INVALID_CREDENTIALS` on SQLite) | Your provider extends `BaseAuthProvider` but returns the provider's subject as `userId`. Extend **`SocialAuthProvider`** so the identity lookup uses `providerId`, not the `uuid` userId column. |
 | Social identity didn't link to the existing email account | `emailVerified` wasn't `true`, and `social.requireVerifiedEmailForLinking` is on (default). Set `emailVerified` when the provider proves it. |
 | `MISSING_REQUIRED_FIELDS` | The client didn't send a field named in `getRequiredFields()`. |
 

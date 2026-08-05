@@ -147,8 +147,11 @@ export class PasswordlessAuthProvider extends BaseAuthProvider {
      * `email`/`phone` identities — there is no `passwordless` provider identity
      * row. The base `findIdentityByUserId` filters by `provider: this.providerName`
      * ('passwordless'), which finds nothing, so `AuthService.login`'s post-validate
-     * lookup returned null → 401 on every passwordless login. Override to find any
-     * identity for the user.
+     * lookup (via `findLinkedIdentity`) returned null → 401 on every passwordless
+     * login. This still resolves by our real `userId` (`validate()` returns
+     * `user.id`) — it only drops the provider filter — so the method stays honest
+     * to its name; overriding `findIdentityByUserId` (not `findLinkedIdentity`)
+     * is enough because the base `findLinkedIdentity` delegates here.
      */
     override async findIdentityByUserId(userId: string): Promise<NestAuthIdentity | null> {
         return this.authIdentityRepository.findOne({

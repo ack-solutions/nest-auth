@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { BaseAuthProvider } from './base-auth.provider';
+import { BaseAuthProvider, type AuthProviderUser } from './base-auth.provider';
 import { IAuthModuleOptions } from '../../core';
 import { JWT_AUTH_PROVIDER } from '../../auth.constants';
 import { JwtService } from '../services/jwt.service';
@@ -59,5 +59,19 @@ export class JwtAuthProvider extends BaseAuthProvider {
 
     getRequiredFields(): string[] {
         return ['token'];
+    }
+
+    /**
+     * Same uuid-crash fix as the social providers (see `SocialAuthProvider`),
+     * confirmed for jwt rather than assumed: `validate()` returns `payload.sub`
+     * from an *externally* issued token (the library rejects its own access/
+     * refresh tokens above), and this provider bridges to a user by email
+     * (inherited `linkUserWith(): 'email'`) — so `sub` is an external subject,
+     * NOT our user UUID. Resolving the linked identity by our `uuid` userId
+     * column would throw `invalid input syntax for type uuid` on Postgres, so we
+     * resolve by `providerId` instead — consistent with `handleSocialLogin`.
+     */
+    override async findLinkedIdentity(validated: AuthProviderUser): Promise<NestAuthIdentity | null> {
+        return this.findIdentity(validated.userId);
     }
 }
