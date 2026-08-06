@@ -7,6 +7,7 @@
 import React, { useEffect } from 'react';
 import { useAuthStatus } from '../hooks/use-auth-status';
 import { warnAuthStillLoading } from '../utils/dev-warn';
+import { decideGuestGuard } from './guard-decision';
 
 /**
  * Props for GuestGuard component
@@ -60,35 +61,29 @@ export function GuestGuard({
     onAuthenticated,
     allowWhenAddingAccount = false,
 }: GuestGuardProps): React.ReactElement | null {
-    const { isLoading, isAuthenticated } = useAuthStatus();
+    const { status, isLoading } = useAuthStatus();
+    const { outcome, fireCallback } = decideGuestGuard({ status, isLoading }, allowWhenAddingAccount);
 
     useEffect(() => {
-        if (!isLoading && isAuthenticated && onAuthenticated && !allowWhenAddingAccount) {
+        // Redirect an authenticated user away ONLY on a definitive `authenticated`.
+        // Never on `unknown` (a session check we couldn't complete).
+        if (fireCallback && onAuthenticated) {
             onAuthenticated();
         }
-    }, [isLoading, isAuthenticated, onAuthenticated, allowWhenAddingAccount]);
+    }, [fireCallback, onAuthenticated]);
 
-    // Show loading state
-    if (isLoading) {
-        if (loadingFallback == null) warnAuthStillLoading();
+    // Loading, or UNKNOWN (couldn't determine) — render the neutral loading state
+    // rather than flashing the login form at a possibly-authenticated user.
+    if (outcome === 'loading') {
+        if (isLoading && loadingFallback == null) warnAuthStillLoading();
         return React.createElement(React.Fragment, null, loadingFallback);
     }
 
-    // Adding-an-account mode: render the login form even though authenticated.
-    if (allowWhenAddingAccount) {
-        return React.createElement(React.Fragment, null, children);
+    // Definitively authenticated - redirect or show fallback.
+    if (outcome === 'deny') {
+        return React.createElement(React.Fragment, null, onAuthenticated ? loadingFallback : fallback);
     }
 
-    // Authenticated - redirect or show fallback
-    if (isAuthenticated) {
-        // If callback provided, show loading while redirecting
-        if (onAuthenticated) {
-            return React.createElement(React.Fragment, null, loadingFallback);
-        }
-
-        return React.createElement(React.Fragment, null, fallback);
-    }
-
-    // Guest - render children
+    // Guest (or add-account mode) - render children
     return React.createElement(React.Fragment, null, children);
 }

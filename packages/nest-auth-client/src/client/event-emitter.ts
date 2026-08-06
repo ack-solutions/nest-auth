@@ -107,7 +107,7 @@ export interface AuthEvents {
     /** User logged out */
     logout: void;
     /** An error occurred */
-    error: { message: string; code?: string; statusCode?: number };
+    error: { message: string; code?: string; statusCode?: number; kind?: 'rejected' | 'indeterminate' };
 
     /** Session data was refreshed */
     sessionVerified: void;

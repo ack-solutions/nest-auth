@@ -31,6 +31,7 @@ import {
     IPasswordlessLoginRequest,
 } from '@ackplus/nest-auth-client';
 import { AuthContext, AuthContextValue } from './auth-context';
+import { decideVerifyOutcome, verifyOutcomeFromResult, verifyOutcomeFromError, type VerifyOutcome } from './verify-outcome';
 
 /**
  * Initial auth state for SSR hydration
@@ -105,6 +106,10 @@ export function AuthProvider({
     const initialLoadRef = useRef(false);
     const onUnauthenticatedRef = useRef(onUnauthenticated);
     onUnauthenticatedRef.current = onUnauthenticated;
+    // Latest status, readable inside async callbacks without stale closures — the
+    // verify-outcome decision needs to know the previous status.
+    const statusRef = useRef(status);
+    statusRef.current = status;
 
     const getSessionData = useCallback(async () => {
         setSessionDataLoading(true);
@@ -160,9 +165,11 @@ export function AuthProvider({
         };
     }, [client, onTokensSet, onTokensRemoved, getSessionData]);
 
-    // Auto load user on mount
+    // Auto load user on mount. Swallow the rejection: an indeterminate failure
+    // (server outage) is surfaced via the provider's `error` state, and must NOT
+    // become an unhandled promise rejection or log the user out.
     useEffect(() => {
-        verifySession();
+        verifySession().catch(() => { /* surfaced via error state; never logs out */ });
     }, [client]);
 
 
@@ -243,26 +250,51 @@ export function AuthProvider({
 
     const verifySession = useCallback(async () => {
         setError(null);
-        try {
-            const verifyResponse = await client.verifySession();
-            if (verifyResponse?.valid) {
-                await getSessionData();
-                return true;
-            }
 
-            setSessionData(null);
-            setSession(null);
-            setStatus('unauthenticated');
-            onUnauthenticatedRef.current?.();
-            return false;
+        // Reduce the verify call to a single outcome: valid, definitively
+        // rejected (401/403), or indeterminate (couldn't ask). The client returns
+        // { valid: false } ONLY on a definitive rejection and THROWS (with
+        // `error.kind`) on anything indeterminate.
+        let outcome: VerifyOutcome;
+        try {
+            outcome = verifyOutcomeFromResult(await client.verifySession());
         } catch (err) {
+            // Only a `kind: 'rejected'` throw is a definitive rejection; any other
+            // error is indeterminate, so we never redirect on a network/server
+            // failure.
+            outcome = verifyOutcomeFromError(err as AuthError);
+        }
+
+        const decision = decideVerifyOutcome(outcome, statusRef.current);
+
+        if (decision.clearSession) {
             setSessionData(null);
             setSession(null);
-            setStatus('unauthenticated');
-            setError(err as AuthError);
-            onUnauthenticatedRef.current?.();
-            throw err;
         }
+        setStatus(decision.status);
+        setError(decision.error);
+        if (decision.signalUnauthenticated) {
+            onUnauthenticatedRef.current?.();
+        }
+
+        if (decision.loadProfile) {
+            setSession(client.getSession());
+            try {
+                await getSessionData();
+            } catch (profileErr) {
+                // The session is valid (verify passed) but the profile fetch
+                // failed transiently — surface it, do NOT log out.
+                setError(profileErr as AuthError);
+            }
+            return true;
+        }
+
+        // Indeterminate: re-throw so manual callers can show a retry. (The mount
+        // effect swallows this.)
+        if (outcome.type === 'indeterminate') {
+            throw outcome.error;
+        }
+        return false;
     }, [client, getSessionData]);
 
     const verify2fa = useCallback(async (dto: IVerify2faRequest) => {

@@ -4,11 +4,11 @@
  * RequirePermission component - Requires specific permission(s)
  */
 
-import React, { useContext, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useAuthStatus } from '../hooks/use-auth-status';
 import { warnAuthStillLoading } from '../utils/dev-warn';
 import { useHasPermission } from '../hooks/use-has-role';
-import { AuthContext } from '../context/auth-context';
+import { decideAccessGuard } from './guard-decision';
 
 /**
  * Props for RequirePermission component
@@ -64,30 +64,27 @@ export function RequirePermission({
     fallback = null,
     onAccessDenied,
 }: RequirePermissionProps): React.ReactElement | null {
-    const {isLoading} = useContext(AuthContext);
+    const { status, isLoading } = useAuthStatus();
     const hasRequiredPermission = useHasPermission(permission, matchAll);
-    const accessDenied =!hasRequiredPermission;
+    const { outcome, fireCallback } = decideAccessGuard({ status, isLoading }, hasRequiredPermission);
 
     useEffect(() => {
-        if (!isLoading && accessDenied && onAccessDenied) {
+        // Deny ONLY on a definitive state. Never on `unknown` (session data
+        // couldn't load): don't deny access during a server outage.
+        if (fireCallback && onAccessDenied) {
             onAccessDenied();
         }
-    }, [isLoading, accessDenied, onAccessDenied]);
+    }, [fireCallback, onAccessDenied]);
 
-    // Show loading state
-    if (isLoading) {
-        if (loadingFallback == null) warnAuthStillLoading();
+    // Loading, or UNKNOWN (couldn't determine access) — neutral loading state.
+    if (outcome === 'loading') {
+        if (isLoading && loadingFallback == null) warnAuthStillLoading();
         return React.createElement(React.Fragment, null, loadingFallback);
     }
 
-    // Not authenticated or doesn't have permission
-    if (accessDenied) {
-        // If callback provided, show loading while redirecting
-        if (onAccessDenied) {
-            return React.createElement(React.Fragment, null, loadingFallback);
-        }
-
-        return React.createElement(React.Fragment, null, fallback);
+    // Definitively denied: not authenticated, or missing the permission.
+    if (outcome === 'deny') {
+        return React.createElement(React.Fragment, null, onAccessDenied ? loadingFallback : fallback);
     }
 
     // Has permission - render children

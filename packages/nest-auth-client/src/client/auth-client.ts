@@ -44,6 +44,7 @@ import {
 } from '../types/config.types';
 import { ClientSession, TokenState } from '../types/auth.types';
 import { AuthError } from '../types/auth.types';
+import { classifyAuthFailure, defaultMessageForStatus } from '../utils/auth-failure';
 import { LocalStorageAdapter } from '../storage/local.storage';
 import { FetchAdapter } from '../http/fetch.adapter';
 import { TokenManager } from '../token/token-manager';
@@ -337,7 +338,12 @@ export class AuthClient {
                 });
             } catch (refreshError) {
                 this.log('debug', 'Token refresh failed', refreshError);
-                // If refresh fails, return the original 401 response
+                // Refresh failed — return the original 401 response and let the
+                // caller handle it. Token state is already correct: refresh()
+                // cleared it ONLY on a definitive rejection (401/403); on an
+                // INDETERMINATE failure (network/timeout/429/5xx) it left stored
+                // tokens untouched, so a propagated 401 here never means the
+                // session was destroyed.
             }
         }
 
@@ -346,9 +352,14 @@ export class AuthClient {
 
     private handleError(response: HttpResponse<any>): AuthError {
         const error: AuthError = {
-            message: response.data?.message || 'An error occurred',
+            // Prefer the server's own message; fall back to a user-friendly,
+            // status-appropriate default (network/timeout/5xx rarely carry one).
+            message: response.data?.message || defaultMessageForStatus(response.status),
             code: response.data?.code || response.data?.error,
             statusCode: response.status,
+            // The single session-classification signal callers read instead of
+            // re-deriving it from the status code.
+            kind: classifyAuthFailure(response.status),
             details: response.data,
         };
 
@@ -697,9 +708,22 @@ export class AuthClient {
             const response = await this.request<IAuthResponse>('POST', endpoint, body, { ...options, skipAuthHeader: true, skipRefresh: true });
 
             if (!response.ok) {
-                // Refresh failed - logout
-                await this.logout();
-                throw this.handleError(response);
+                // THE RULE: a session may only be ended by a DEFINITIVE rejection
+                // — the server answered refresh with 401/403. Everything else
+                // (synthesised status 0 for a network failure, timeout, 408, 429,
+                // all 5xx) is INDETERMINATE: we failed to ask, so we must NOT
+                // destroy tokens, must NOT emit logout, and must surface a
+                // retryable error the caller can distinguish via `error.kind`.
+                if (classifyAuthFailure(response.status) === 'rejected') {
+                    // Definitive: end the session locally. Call clearAuthState()
+                    // directly — NOT logout(), which would POST /auth/logout: a
+                    // pointless round trip against a server that just said the
+                    // session is dead (and a doomed one when the failure was a
+                    // network error).
+                    await this.clearAuthState();
+                }
+                // On indeterminate: clear nothing, cancel nothing.
+                throw this.handleError(response); // carries statusCode + kind
             }
 
             if (this.tokenManager.isCookieMode()) {
@@ -708,9 +732,13 @@ export class AuthClient {
                 return null;
             }
             if (!response.data.accessToken || !response.data.refreshToken) {
+                // Server answered 2xx but sent no tokens — we can't complete the
+                // refresh, but this is NOT a rejection: keep tokens, let the
+                // caller retry.
                 throw {
                     message: 'Refresh response missing tokens in header mode',
                     statusCode: 500,
+                    kind: 'indeterminate' as const,
                 };
             }
 
@@ -776,20 +804,67 @@ export class AuthClient {
      */
     async verifySession(options?: RequestOptions): Promise<{ valid: boolean; userId?: string; expiresAt?: string }> {
         const endpoint = this.getEndpoint('verifySession');
-        const response = await this.request<{ valid: boolean; userId?: string; expiresAt?: string }>('GET', endpoint, undefined, options);
-        if (!response.ok) {
-            if (response.status === 401) {
-                // Unauthenticated - clear state
-                this.session = null;
-                await this.persistState();
+        // Verify WITHOUT request()'s auto-refresh so we own the refresh decision
+        // and can tell "the server rejected us" apart from "we couldn't ask".
+        const verifyOnce = () =>
+            this.request<{ valid: boolean; userId?: string; expiresAt?: string }>('GET', endpoint, undefined, {
+                ...options,
+                skipRefresh: true,
+            });
+
+        let response = await verifyOnce();
+
+        // Access token rejected (401/403). A session check means "am I still
+        // logged in", and an expired access token backed by a live refresh token
+        // still is — so attempt ONE refresh, then re-verify. (autoRefresh on and
+        // the caller didn't opt out.)
+        if (
+            !response.ok &&
+            classifyAuthFailure(response.status) === 'rejected' &&
+            this.config.autoRefresh &&
+            !options?.skipRefresh
+        ) {
+            try {
+                await this.refresh(); // resolves on success; throws rejected | indeterminate
+                response = await verifyOnce(); // retry with the fresh token
+            } catch (err) {
+                if ((err as AuthError)?.kind === 'rejected') {
+                    // DEFINITIVE (401/403): the refresh token is dead too → the
+                    // session is genuinely invalid. refresh() already cleared auth
+                    // state on this rejection.
+                    this.session = null;
+                    await this.persistState();
+                    return { valid: false };
+                }
+                // Everything else — an indeterminate failure, OR any error we
+                // cannot positively classify as a rejection (default-preserve):
+                // we could not determine the outcome, so DON'T claim the session
+                // invalid. Propagate a retryable error; tokens stay untouched.
+                // (This also covers a rare throw from refresh()'s post-2xx success
+                // path — e.g. a rejected `tokensSet` listener or a storage write —
+                // which must never read as "logged out".)
+                throw err;
             }
+        }
+
+        if (response.ok) {
+            this.isAuthenticated = true;
+            this.events.emit('sessionVerified', undefined);
+            return response.data;
+        }
+
+        if (classifyAuthFailure(response.status) === 'rejected') {
+            // Definitive 401/403: the server said the session is not valid.
+            // (Tokens are left as-is; the session pointer is cleared.)
+            this.session = null;
+            await this.persistState();
             return { valid: false };
         }
 
-        this.isAuthenticated = true;
-        this.events.emit('sessionVerified', undefined);
-
-        return response.data;
+        // INDETERMINATE (network status 0 / timeout / 408 / 429 / 5xx): we could
+        // not ask. Returning { valid: false } here would make "couldn't ask"
+        // identical to "the server said no" — so THROW a retryable error instead.
+        throw this.handleError(response); // carries statusCode + kind: 'indeterminate'
     }
 
      async getSessionUserData(): Promise<ISessionUserData> {

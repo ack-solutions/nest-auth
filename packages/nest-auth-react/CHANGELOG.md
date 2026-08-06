@@ -1,4 +1,39 @@
 # @ackplus/nest-auth-react
+
+## 2.9.0
+
+### Minor Changes
+
+- **Fixed — `AuthProvider` no longer redirects to login during a server outage.**
+  The mount-time session check called `onUnauthenticated()` (the callback apps
+  use to redirect to login) whenever `verifySession()` failed — including on a
+  network failure or a `5xx`. Now `onUnauthenticated()` fires **only on a
+  definitive rejection** (the server answered 401/403). On an indeterminate
+  failure the provider keeps the user where they are, surfaces the error via its
+  `error` state, and never redirects.
+- **Added** `AuthStatus` value **`'unknown'`** — a session check that couldn't be
+  completed (server unreachable) resolves the initial `'loading'` to `'unknown'`
+  rather than `'unauthenticated'`. Treat `'unknown'` as "we don't know yet", not
+  as logged-out. (Requires `@ackplus/nest-auth-client@2.9.0`; `verifySession()`
+  now throws on indeterminate failures.)
+- **Fixed — the guards now honour `'unknown'`.** `AuthGuard`, `GuestGuard`,
+  `RequireRole`, and `RequirePermission` fire their `onUnauthenticated` /
+  `onAuthenticated` / `onAccessDenied` callbacks **only on a definitive state**.
+  During a server outage (`'unknown'`) they render the loading fallback and never
+  redirect, flash the login page, or deny access. `useAuthStatus()` gains
+  `isUnknown`.
+- **Fixed — Next.js SSR (helpers + hydration) no longer treats a backend outage as
+  logged-out.** `getServerAuth` distinguishes an indeterminate verify failure (5xx /
+  timeout / network) from a definitive 401/403, exposing `indeterminate` / `statusCode`
+  on `ServerAuthState`. `withAuth` returns a retryable **503** (with `Retry-After`)
+  instead of `401` when the check couldn't be completed. `createInitialState` carries
+  the `indeterminate` flag through, and **`NextAuthProvider` hydrates an outage as
+  `'unknown'` (not `'unauthenticated'`)** — so a page rendered during a backend blip no
+  longer hydrates a valid session into a login redirect. Exported `resolveInitialStatus`
+  is the pure status mapping. A genuine 401/403 still hydrates as `'unauthenticated'`.
+  - @ackplus/nest-auth-client@2.9.0
+  - @ackplus/nest-auth-contracts@2.9.0
+
 ## 2.8.0
 
 ### Patch Changes

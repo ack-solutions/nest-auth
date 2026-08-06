@@ -4,11 +4,17 @@
  */
 
 import { ISessionUserData } from "@ackplus/nest-auth-contracts";
+import { AuthFailureKind } from "../utils/auth-failure";
 
 /**
- * Authentication status
+ * Authentication status.
+ *
+ * `'unknown'` means a session check could not be completed (network / server
+ * outage) — we genuinely don't know whether the user is authenticated. It is
+ * NOT the same as `'unauthenticated'` (the server said no): the app must not
+ * treat `'unknown'` as logged-out or redirect to login.
  */
-export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
+export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'unknown';
 
 /**
  * Client-side session with additional token storage (for header mode)
@@ -40,6 +46,15 @@ export interface AuthError {
     message: string;
     code?: string;
     statusCode?: number;
+    /**
+     * How to treat this failure for session purposes. `'rejected'` (401/403)
+     * means the session is definitively over; `'indeterminate'` (network,
+     * timeout, 429, 5xx, …) means we couldn't get a definitive answer, so the
+     * caller should retry and must NOT destroy tokens or redirect to login.
+     * Always set on errors thrown by refresh()/verifySession() and by the
+     * generic request error handler.
+     */
+    kind?: AuthFailureKind;
     details?: Record<string, any>;
 }
 

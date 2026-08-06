@@ -5,10 +5,29 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.8.5`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.9.0`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/migration/within-v2)**. Bump every package to the same version.
+
+---
+
+## 2.9.0 — SDKs stop logging users out on network/server blips
+
+**The bug.** The client SDKs destroyed the session on *any* failed refresh/verify, not just a real rejection. `refresh()` cleared tokens and emitted a logout on **every** non-2xx — including a network failure (the synthesised status `0`), a timeout, `429`, and all `5xx`. `verifySession()` returned `{ valid: false }` for those same failures, so "we couldn't reach the server" looked identical to "the session is invalid", and the React `AuthProvider` then fired `onUnauthenticated()` (redirect to login) during outages. A brief connectivity blip logged people out.
+
+**The fix — one rule, everywhere.** A session may only be ended by a **definitive rejection**: the server answered refresh/verify with **401 (or 403)**. Everything else is **indeterminate** — tokens are preserved, no logout fires, and a **retryable** error is thrown.
+
+- **Fixed (client):** `refresh()` clears state only on 401/403 (via `clearAuthState()`, skipping the pointless/doomed `/auth/logout` round trip); on anything else it throws and touches nothing.
+- **Fixed (client):** `verifySession()` **throws** on an indeterminate failure and returns `{ valid: false }` only on 401/403. An expired access token with a live refresh token still verifies.
+- **Added (client):** every auth error carries `error.kind: 'rejected' | 'indeterminate'` (+ `error.statusCode`), plus exported `classifyAuthFailure` / `AuthFailureKind`, so you classify without re-deriving from status codes. Default messages for network/timeout/5xx are now user-friendly.
+- **Fixed (react):** `AuthProvider` fires `onUnauthenticated()` **only** on a definitive rejection; an indeterminate failure keeps the user where they are and surfaces `error`. New `AuthStatus` value `'unknown'` for "couldn't determine". The exported guards (`AuthGuard`, `GuestGuard`, `RequireRole`, `RequirePermission`) also honour it — during an outage they render the loading fallback instead of redirecting to login or denying access.
+- **Fixed (next):** the SSR helpers apply the rule too — `getServerAuth` distinguishes an indeterminate verify failure (5xx/timeout/network) from a definitive 401/403, and `withAuth` returns a retryable `503` instead of a `401` during a backend outage.
+- **React Native** inherits the fix; **Flutter** already preserved tokens on failure — now pinned with a regression test.
+
+- **Breaking-ish (why a minor bump):** `verifySession()` now **throws** on indeterminate failures instead of resolving to `{ valid: false }`. Catch it and branch on `error.kind`. New `'unknown'` `AuthStatus` value.
+
+> Consumers that snapshot-and-restore tokens around refresh (e.g. a `preserveTokensAcrossRefresh()` wrapper) can delete that workaround — the SDK now preserves tokens itself.
 
 ---
 

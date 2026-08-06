@@ -9,6 +9,7 @@ import React, { ComponentType, useEffect } from 'react';
 import { useAuthStatus } from '../hooks/use-auth-status';
 import { useHasRole } from '../hooks/use-has-role';
 import { warnAuthStillLoading } from '../utils/dev-warn';
+import { decideAccessGuard } from './guard-decision';
 
 /**
  * Options for withRequireRole HOC
@@ -95,27 +96,29 @@ export function withRequireRole<P extends object>(
     const displayName = WrappedComponent.displayName || WrappedComponent.name || 'Component';
 
     function WithRequireRoleWrapper(props: Omit<P, keyof WithRequireRoleInjectedProps>): React.ReactElement | null {
-        const { isLoading, isAuthenticated } = useAuthStatus();
+        const { status, isLoading, isAuthenticated } = useAuthStatus();
         const hasRequiredRole = useHasRole(role, matchAll);
-        const accessDenied = !isAuthenticated || !hasRequiredRole;
+        const { outcome, fireCallback } = decideAccessGuard({ status, isLoading }, hasRequiredRole);
 
         useEffect(() => {
-            if (!isLoading && accessDenied && onAccessDenied) {
+            // Deny ONLY on a definitive state. Never on `unknown` (a session check
+            // that couldn't complete): don't deny access during a server outage.
+            if (fireCallback && onAccessDenied) {
                 onAccessDenied();
             }
-        }, [isLoading, accessDenied]);
+        }, [fireCallback]);
 
-        // Show loading state
-        if (isLoading) {
+        // Loading, or UNKNOWN (couldn't determine access) — neutral loading state.
+        if (outcome === 'loading') {
             if (LoadingComponent) {
                 return React.createElement(LoadingComponent);
             }
-            warnAuthStillLoading();
+            if (isLoading) warnAuthStillLoading(); // only warn for genuine loading, not 'unknown'
             return null;
         }
 
-        // Not authenticated or doesn't have role
-        if (accessDenied) {
+        // Definitively denied: not authenticated, or missing the role.
+        if (outcome === 'deny') {
             // If callback provided, show loading while redirecting
             if (onAccessDenied) {
                 if (LoadingComponent) {

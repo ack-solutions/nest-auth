@@ -66,3 +66,9 @@ export { CookieAccountManager, ACTIVE_ACCOUNT_COOKIE_NAME } from './account/cook
 
 // Utilities
 export { hasRole, hasPermission, hasAnyAccess, hasAllAccess } from './utils/role-utils';
+
+// Session-failure classification — the SDK's "only 401/403 ends a session" rule.
+// Consumers read `error.kind` (or call `classifyAuthFailure`) instead of
+// re-deriving the classification from status codes.
+export { classifyAuthFailure, defaultMessageForStatus } from './utils/auth-failure';
+export type { AuthFailureKind } from './utils/auth-failure';

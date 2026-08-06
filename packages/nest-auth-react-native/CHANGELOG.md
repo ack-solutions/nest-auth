@@ -1,4 +1,18 @@
 # @ackplus/nest-auth-react-native
+
+## 2.9.0
+
+### Minor Changes
+
+- Inherits the session-preservation fix from `@ackplus/nest-auth-client@2.9.0`
+  and `@ackplus/nest-auth-react@2.9.0`: a network failure, timeout, or `5xx`
+  during refresh/verify no longer destroys stored tokens or logs the user out —
+  only a definitive 401/403 does. Pinned with a regression test through
+  `createNestAuthClient`.
+  - @ackplus/nest-auth-client@2.9.0
+  - @ackplus/nest-auth-react@2.9.0
+  - @ackplus/nest-auth-contracts@2.9.0
+
 ## 2.8.0
 
 ### Minor Changes

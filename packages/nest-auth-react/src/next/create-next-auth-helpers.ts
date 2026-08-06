@@ -6,6 +6,7 @@ import {
     AuthClientConfig,
     ISessionUserData,
     ClientSession,
+    classifyAuthFailure,
 } from '@ackplus/nest-auth-client';
 
 /**
@@ -14,6 +15,19 @@ import {
 export interface ServerAuthState {
     user: ISessionUserData | null;
     session: ClientSession | null;
+    /**
+     * Set when `user`/`session` are null because the session check could NOT be
+     * completed — the backend was unreachable, timed out, or answered 5xx — i.e.
+     * "we couldn't ask", NOT "the server said the session is invalid". This is
+     * NEVER set on success or on a definitive 401/403 rejection.
+     *
+     * `withAuth` returns a retryable 503 (not 401) in this case, and SSR pages can
+     * branch on it to render a retry/error instead of treating the user as logged
+     * out. Consumers that ignore it keep the previous behavior.
+     */
+    indeterminate?: boolean;
+    /** The upstream status when `indeterminate` is set (0 for a thrown/network error). */
+    statusCode?: number;
 }
 
 /**
@@ -32,9 +46,11 @@ export interface NextAuthHelpers {
     withAuth: <T extends (...args: any[]) => any>(handler: T) => T;
 
     /**
-     * Create initial state for hydration
+     * Create initial state for hydration. Carries the `indeterminate` flag
+     * through so `NextAuthProvider` can hydrate an outage as `'unknown'` rather
+     * than a definitive `'unauthenticated'`.
      */
-    createInitialState: (serverAuth: ServerAuthState) => { user: ISessionUserData | null; session: ClientSession | null };
+    createInitialState: (serverAuth: ServerAuthState) => { user: ISessionUserData | null; session: ClientSession | null; indeterminate?: boolean };
 }
 
 /**
@@ -225,6 +241,13 @@ export function createNextAuthHelpers(config: NextAuthHelpersConfig): NextAuthHe
                     `Session verification failed: ${response.status} ${response.statusText}`,
                     'NextAuthHelpers'
                 );
+                // Only a DEFINITIVE rejection (401/403) means "logged out". A 5xx /
+                // timeout / other non-2xx means we couldn't determine the session —
+                // surface that as indeterminate so withAuth returns a retryable 503
+                // instead of bouncing the user to login during a backend outage.
+                if (classifyAuthFailure(response.status) === 'indeterminate') {
+                    return { user: null, session: null, indeterminate: true, statusCode: response.status };
+                }
                 return { user: null, session: null };
             }
 
@@ -249,7 +272,10 @@ export function createNextAuthHelpers(config: NextAuthHelpersConfig): NextAuthHe
                 'NextAuthHelpers',
                 error
             );
-            return { user: null, session: null };
+            // A thrown fetch (network failure / connection refused / DNS) — or any
+            // unexpected error — is INDETERMINATE, not a rejection. Fail safe: don't
+            // treat the user as logged out.
+            return { user: null, session: null, indeterminate: true, statusCode: 0 };
         }
     };
 
@@ -262,6 +288,22 @@ export function createNextAuthHelpers(config: NextAuthHelpersConfig): NextAuthHe
             const auth = await getServerAuth(request);
 
             if (!auth.user) {
+                // We couldn't reach the backend to check the session — this is NOT
+                // a rejection. Return a retryable 503 rather than a 401, so a
+                // transient outage doesn't read as "logged out" / redirect to login.
+                if (auth.indeterminate) {
+                    logger.warn('withAuth: session check indeterminate - returning 503', 'NextAuthHelpers');
+                    return new Response(
+                        JSON.stringify({
+                            message: 'The server is temporarily unavailable. Please try again in a moment.',
+                            code: 'SESSION_CHECK_UNAVAILABLE',
+                        }),
+                        {
+                            status: 503,
+                            headers: { 'Content-Type': 'application/json', 'Retry-After': '5' },
+                        }
+                    );
+                }
                 logger.warn('withAuth: No authenticated user - returning 401', 'NextAuthHelpers');
                 return new Response(JSON.stringify({ message: 'Unauthorized' }), {
                     status: 401,
@@ -292,6 +334,9 @@ export function createNextAuthHelpers(config: NextAuthHelpersConfig): NextAuthHe
         return {
             user: serverAuth.user,
             session: serverAuth.session,
+            // Carry the outage signal through to hydration so the client provider
+            // does NOT treat "couldn't reach the backend during SSR" as logged-out.
+            indeterminate: serverAuth.indeterminate,
         };
     };
 

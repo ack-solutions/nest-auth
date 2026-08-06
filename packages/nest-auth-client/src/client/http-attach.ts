@@ -99,9 +99,20 @@ export interface AttachOptions extends GetAuthHeadersOptions {
   skipPaths?: Array<string | RegExp | ((url: string) => boolean)>;
 
   /**
-   * Called when refresh fails inside the response interceptor (typically because
-   * the refresh token itself expired). The consumer can react by redirecting to
-   * login, clearing app state, etc. Default: a no-op (the 401 propagates).
+   * Called when refresh fails inside the response interceptor. This fires for
+   * EVERY refresh failure, so **gate your reaction on `error.kind`**: only
+   * `'rejected'` (the server answered 401/403 — the refresh token is dead) means
+   * the session is over and you should redirect to login / clear app state. An
+   * `'indeterminate'` failure (network, timeout, 429, 5xx) means "we couldn't
+   * ask" — do NOT log the user out; surface a retry instead. The SDK itself never
+   * clears tokens on an indeterminate failure. Default: a no-op (the 401
+   * propagates).
+   *
+   * @example
+   * onRefreshFailed: (err) => {
+   *   if ((err as { kind?: string })?.kind === 'rejected') redirectToLogin();
+   *   // else: transient — leave the session alone, maybe show a retry toast.
+   * }
    */
   onRefreshFailed?: (error: unknown) => void | Promise<void>;
 }

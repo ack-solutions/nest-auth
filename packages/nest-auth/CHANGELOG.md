@@ -1,5 +1,15 @@
 # @ackplus/nest-auth
 
+## 2.9.0
+
+### Minor Changes
+
+- No backend changes. Released in lockstep with a client-side fix: the JS/TS and
+  Flutter SDKs no longer destroy a session on an **indeterminate** failure
+  (network / timeout / 429 / 5xx) — only a definitive **401/403** ends a session.
+  See `@ackplus/nest-auth-client@2.9.0`.
+  - @ackplus/nest-auth-contracts@2.9.0
+
 ## 2.8.5
 
 ### Patch Changes

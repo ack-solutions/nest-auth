@@ -7,6 +7,7 @@
 import React, { useEffect } from 'react';
 import { useAuthStatus } from '../hooks/use-auth-status';
 import { warnAuthStillLoading } from '../utils/dev-warn';
+import { decideAuthGuard } from './guard-decision';
 
 /**
  * Props for AuthGuard component
@@ -59,29 +60,28 @@ export function AuthGuard({
     fallback = null,
     onUnauthenticated,
 }: AuthGuardProps): React.ReactElement | null {
-    const { isLoading, isAuthenticated } = useAuthStatus();
+    const { status, isLoading } = useAuthStatus();
+    const { outcome, fireCallback } = decideAuthGuard({ status, isLoading });
 
     useEffect(() => {
-        if (!isLoading && !isAuthenticated && onUnauthenticated) {
+        // Redirect ONLY on a definitive `unauthenticated`. Never on `unknown` (a
+        // session check we couldn't complete): a server outage must not bounce a
+        // user with a valid session to login.
+        if (fireCallback && onUnauthenticated) {
             onUnauthenticated();
         }
-    }, [isLoading, isAuthenticated, onUnauthenticated]);
+    }, [fireCallback, onUnauthenticated]);
 
-    // Show loading state
-    if (isLoading) {
-        if (loadingFallback == null) warnAuthStillLoading();
+    // Loading, or UNKNOWN (couldn't determine) — render the neutral loading state.
+    if (outcome === 'loading') {
+        if (isLoading && loadingFallback == null) warnAuthStillLoading();
         return React.createElement(React.Fragment, null, loadingFallback);
     }
 
-    // Not authenticated
-    if (!isAuthenticated) {
-        // If callback provided, show loading while redirecting
-        if (onUnauthenticated) {
-            return React.createElement(React.Fragment, null, loadingFallback);
-        }
-
-        // Show fallback
-        return React.createElement(React.Fragment, null, fallback);
+    // Definitively unauthenticated.
+    if (outcome === 'deny') {
+        // If callback provided, show loading while redirecting.
+        return React.createElement(React.Fragment, null, onUnauthenticated ? loadingFallback : fallback);
     }
 
     // Authenticated - render children

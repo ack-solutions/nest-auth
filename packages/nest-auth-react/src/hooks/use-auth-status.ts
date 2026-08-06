@@ -20,6 +20,12 @@ export interface AuthStatusResult {
     isAuthenticated: boolean;
     /** Whether user is unauthenticated */
     isUnauthenticated: boolean;
+    /**
+     * Whether the session state is UNKNOWN — a session check could not be
+     * completed (server unreachable). This is NOT logged-out: never redirect to
+     * login on `isUnknown`. Guards treat it like "still resolving".
+     */
+    isUnknown: boolean;
 }
 
 /**
@@ -47,5 +53,6 @@ export function useAuthStatus(): AuthStatusResult {
         isLoading: context.status === 'loading' || context.isLoadingSessionData,
         isAuthenticated: context.status === 'authenticated',
         isUnauthenticated: context.status === 'unauthenticated',
+        isUnknown: context.status === 'unknown',
     };
 }

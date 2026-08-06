@@ -1,4 +1,46 @@
 # @ackplus/nest-auth-client
+
+## 2.9.0
+
+### Minor Changes
+
+- **Fixed — the SDK logged users out on network blips and server hiccups.**
+  A session was being destroyed on any failed refresh/verify, not just a real
+  rejection. `refresh()` called `logout()` (clearing tokens + emitting a logout
+  event) on **every** non-2xx response — including the synthesised status `0` of
+  a network failure, timeouts, `429`, and all `5xx`. `verifySession()` returned
+  `{ valid: false }` for those same failures, making "we couldn't reach the
+  server" indistinguishable from "the server said the session is invalid". Any
+  connectivity blip or backend hiccup therefore logged the user out.
+
+  **The rule now, everywhere:** a session may only be ended by a **definitive
+  rejection** — the server answered refresh/verify with **401 (or 403)**.
+  Everything else is **indeterminate**: tokens are preserved, no logout is
+  emitted, and a **retryable** error is thrown.
+
+  - `refresh()` clears auth state **only** on 401/403, and does so via
+    `clearAuthState()` — not `logout()`, which would POST `/auth/logout` (a
+    pointless round trip against a server that just rejected the session, and a
+    doomed one when the failure was a network error). On indeterminate failures
+    it clears nothing and throws.
+  - `verifySession()` **throws** on an indeterminate failure (instead of
+    returning `{ valid: false }`), and only returns `{ valid: false }` on a
+    definitive 401/403. An expired access token backed by a live refresh token
+    still verifies (it refreshes once, then re-checks).
+  - Every thrown auth error now carries a discriminator so callers classify
+    without re-deriving it from status codes: **`error.kind: 'rejected' |
+    'indeterminate'`** plus `error.statusCode`. New exports `classifyAuthFailure`
+    and the `AuthFailureKind` type.
+  - **Friendlier default messages.** When the server sends no message (network /
+    timeout / opaque 5xx), errors now read like "Unable to reach the server.
+    Check your internet connection and try again." instead of "An error
+    occurred".
+
+- **Breaking-ish (hence the minor bump):** `verifySession()` now **throws** on an
+  indeterminate failure rather than resolving to `{ valid: false }`. Catch it and
+  check `error.kind` — treat `'indeterminate'` as retryable, not logged-out.
+  - @ackplus/nest-auth-contracts@2.9.0
+
 ## 2.8.0
 
 ### Minor Changes

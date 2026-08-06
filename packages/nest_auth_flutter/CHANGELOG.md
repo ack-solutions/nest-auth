@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.9.0
+
+- No behavior change: `refresh()` already leaves stored tokens intact when it
+  fails (a `502` or a `SocketException` throws without clearing tokens; only a
+  definitive server rejection ends a session). Added a regression test that pins
+  this so it can never regress. Released in lockstep with the JS/TS SDKs, which
+  received the corresponding fix.
+
 ## 2.0.0
 
 Initial release of the Flutter / Dart SDK for `@ackplus/nest-auth`.
