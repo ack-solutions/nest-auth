@@ -1,6 +1,6 @@
 {
   "name": "@ackplus/eslint-config",
-  "version": "2.9.0",
+  "version": "2.9.1",
   "private": true,
   "type": "module",
   "description": "Shared ESLint flat config presets for the nest-auth monorepo. Internal package, never published.",
