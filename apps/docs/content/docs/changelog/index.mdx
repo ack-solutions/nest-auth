@@ -5,10 +5,22 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.9.0`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.9.1`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/migration/within-v2)**. Bump every package to the same version.
+
+---
+
+## 2.9.1 — MFA hardening (backend)
+
+Backend-only patch (the JS/TS and Flutter SDKs are unchanged — no API shapes changed).
+
+- **Security (MFA): closed a password-only MFA bypass.** The challenge-stage token login issues *before* the second factor could reach the routes that **change** MFA config (every MFA route was `@SkipMfa()`), so a password-only attacker could enrol their own authenticator and satisfy the challenge with it. Now `setup-totp`, `verify-totp-setup`, `generate-recovery-code`, `toggle`, and device deletion require a fully MFA-verified session (challenge token → `401`); the routes a locked-out user needs (`status`, `challenge`, `verify`, `reset-totp`) still work. **First-time enrolment is unaffected.**
+- **Fixed (MFA): `reset-totp` could permanently lock out a TOTP-only user.** It deleted the TOTP secrets and spent the recovery code but left `isMfaEnabled: true` → the next login returned `isRequiresMfa` with an empty method list. It now turns MFA off when no verified method remains (a surviving email/SMS method keeps it on).
+- **Fixed (MFA): `defaultMfaMethod`** in the login response now falls back to a method the user actually has, instead of returning the app-wide default even when the user isn't enrolled in it.
+
+> Migration: only affects a custom UI that called `setup-totp` / `generate-recovery-code` with the *pending* challenge token mid-login — complete `mfa/verify` first. Standard flows are unaffected. See [MFA → the challenge flow](/docs/concepts/mfa).
 
 ---
 

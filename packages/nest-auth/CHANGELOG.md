@@ -1,5 +1,46 @@
 # @ackplus/nest-auth
 
+## 2.9.1
+
+### Patch Changes
+
+- **Security (MFA) — closed a password-only MFA bypass.** Every route on the MFA
+  controller was `@SkipMfa()`, so the challenge-stage token that login issues
+  before the second factor (`isMfaEnabled && !isMfaVerified`) could reach the
+  routes that **change** MFA config. An attacker with only the victim's password
+  could `setup-totp` → `verify-totp-setup` their own authenticator → satisfy the
+  challenge with it. Fixed: `setup-totp`, `verify-totp-setup`,
+  `generate-recovery-code`, `toggle`, and device deletion now require a fully
+  **MFA-verified** session — a challenge-stage token gets `401`. The routes a
+  locked-out user needs (`status`, `challenge`, `verify`, `reset-totp`, device
+  list) still accept the challenge token. **First-time enrolment is unaffected**
+  (a user with MFA off has no challenge in progress).
+
+  Behavior note: if a custom UI called `setup-totp` / `generate-recovery-code`
+  with the *pending* challenge token during the login challenge, it must now
+  complete `mfa/verify` first. No standard flow is affected.
+
+- **Fixed (MFA) — `reset-totp` could permanently lock out a TOTP-only user.**
+  Resetting via a recovery code deleted the TOTP secrets and consumed the code
+  but left `isMfaEnabled: true`. For a user with no other verified method that is
+  the invalid "MFA on, zero methods" state — the next login returned
+  `isRequiresMfa` with an empty method list and the recovery code was already
+  spent. `reset-totp` now turns MFA off when no verified method remains (and
+  emits `TWO_FACTOR_DISABLED`); if a verified email/SMS method survives, MFA
+  stays on.
+
+- **Fixed (MFA) — `defaultMfaMethod` in the login response now matches the user.**
+  It was taken from the app config unconditionally, so a response could say
+  `mfaMethods: ['email']` with `defaultMfaMethod: 'totp'` and a client honouring
+  the field would prompt for an authenticator the user doesn't have. It now uses
+  the configured default only if the user actually has it, else their first
+  available method.
+
+  No client/SDK changes — the `-client`, `-react`, `-react-native`, and Flutter
+  packages are unchanged in this release (lockstep version bump only). No API
+  shapes changed.
+  - @ackplus/nest-auth-contracts@2.9.1
+
 ## 2.9.0
 
 ### Minor Changes

@@ -42,7 +42,7 @@ NestAuthModule.forRoot({
 ## The MFA challenge flow
 
 1. User submits username + password to `/auth/login`.
-2. Server validates the credentials. If MFA is enabled for the user, the response carries `isRequiresMfa: true` plus a one-shot challenge token (in the access-token slot — but it can't access protected endpoints).
+2. Server validates the credentials. If MFA is enabled for the user, the response carries `isRequiresMfa: true` plus a one-shot **challenge token** (in the access-token slot). This token is deliberately limited: it can reach only the challenge/recovery routes (`mfa/status`, `mfa/devices`, `mfa/challenge`, `mfa/verify`, `mfa/reset-totp`) and **cannot change MFA config** — `setup-totp`, `verify-totp-setup`, `generate-recovery-code`, `toggle`, and device deletion all return `401` until the second factor is completed. (This closes a password-only bypass where an attacker with just the password could enrol their own authenticator.)
 3. Client calls `POST /auth/mfa/challenge` with the chosen method to send the code (or skips this step for TOTP).
 4. User enters the code. Client calls `POST /auth/mfa/verify` with `{ otp, method, trustDevice? }`.
 5. Server returns the final access + refresh tokens. If `trustDevice: true`, also a `trustToken`.
@@ -63,7 +63,7 @@ if (result.isRequiresMfa) {
 
 When a user enables MFA, `POST /auth/mfa/generate-recovery-code` returns a code **once**. The library never returns it again. You must show it to the user immediately and tell them to save it somewhere safe.
 
-If they lose their TOTP device, they call `POST /auth/mfa/reset-totp` with the recovery code — this disables every MFA secret on the account, letting them log in with just their password and re-enroll.
+If they lose their TOTP device, they call `POST /auth/mfa/reset-totp` with the recovery code — this deletes every TOTP secret on the account and consumes the code. If **no other verified method remains** (e.g. a TOTP-only user with no email/SMS method), MFA is turned **off** so they can sign in with just their password and re-enrol — it is never left "enabled with zero methods", which would permanently lock them out. If a verified email/SMS method survives, MFA stays on and they complete the next login with that method.
 
 The [MFA recovery codes recipe](/docs/recipes/mfa-recovery-codes) covers the UX in detail.
 
@@ -146,6 +146,8 @@ Some endpoints inside the auth flow itself need to bypass MFA enforcement (e.g. 
 @Post('mfa/verify')
 verify(@Body() dto: IVerify2faRequest) { … }
 ```
+
+> **Security:** use `@SkipMfa()` **only** on routes that a challenge-stage session (`isMfaEnabled && !isMfaVerified`) legitimately needs — the ones that *complete* or *prove* a factor: `mfa/status`, `mfa/challenge`, `mfa/verify`, `mfa/reset-totp`, and reading the device list. **Never** put it on a route that *changes* MFA config (enable/disable, enrol/verify a device, mint recovery codes, delete a device): a half-authenticated token reaching those is a password-only MFA bypass. Those routes carry only `@UseGuards(NestAuthAuthGuard)`, so the guard blocks a challenge token automatically while still allowing first-time enrolment (a user with MFA off has no challenge in progress).
 
 ## Related
 

@@ -90,8 +90,12 @@ export class MfaController {
     @ApiOperation({ summary: 'Enable or disable MFA for the current user' })
     @ApiResponse({ status: 200, type: NestAuthMfaToggleResponseDto })
     @HttpCode(200)
+    // SECURITY: NOT @SkipMfa. Changing MFA config (enable/disable) requires a
+    // fully MFA-verified session — a challenge-stage token (isMfaEnabled &&
+    // !isMfaVerified) must be blocked here by AuthGuard. First-time enable is
+    // unaffected: a user with MFA off has no challenge in progress, so the guard
+    // lets them through.
     @Post('toggle')
-    @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     async toggleMfa(@Body() input: NestAuthToggleMfaRequestDto): Promise<NestAuthMfaToggleResponseDto> {
         const user = await RequestContext.currentUser();
@@ -136,8 +140,10 @@ export class MfaController {
     @ApiOperation({ summary: 'Remove a registered MFA device' })
     @ApiResponse({ status: 200, type: NestAuthMfaDeviceRemovedResponseDto })
     @HttpCode(200)
+    // SECURITY: NOT @SkipMfa. Deleting a factor is a downgrade of the account's
+    // security and must require a fully MFA-verified session, not a challenge-
+    // stage token.
     @Delete('devices/:deviceId')
-    @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     async removeDevice(@Param('deviceId') deviceId: string): Promise<NestAuthMfaDeviceRemovedResponseDto> {
         const user = await RequestContext.currentUser();
@@ -169,8 +175,13 @@ export class MfaController {
     // These routes skip MFA verification
     @ApiOperation({ summary: 'Setup TOTP Device' })
     @HttpCode(200)
+    // SECURITY: NOT @SkipMfa. Enrolling a NEW authenticator from a challenge-
+    // stage token is a password-only MFA bypass (attacker sets up their own
+    // device, verifies it, then satisfies the challenge with it). Require a fully
+    // MFA-verified session. First-time enrolment (MFA off) is unaffected — the
+    // guard only blocks when isMfaEnabled && !isMfaVerified. A user locked out of
+    // their authenticator re-enrolls via reset-totp (proves a recovery code).
     @Post('setup-totp')
-    @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     async setupTotp(@Body() input?: NestAuthSetupTotpRequestDto) {
         const user = await RequestContext.currentUser();
@@ -203,8 +214,9 @@ export class MfaController {
     @ApiOperation({ summary: 'Verify TOTP Setup' })
     @ApiResponse({ status: 200, type: NestAuthMfaDeviceVerifiedResponseDto })
     @HttpCode(200)
+    // SECURITY: NOT @SkipMfa (see setup-totp) — verifying a freshly-enrolled
+    // device from a challenge-stage token is the second half of the bypass.
     @Post('verify-totp-setup')
-    @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     async verifyTotpSetup(@Body() input: NestAuthVerifyTotpSetupRequestDto): Promise<NestAuthMfaDeviceVerifiedResponseDto> {
         const user = await RequestContext.currentUser();
@@ -224,8 +236,10 @@ export class MfaController {
 
     @ApiOperation({ summary: 'Generate Recovery Codes' })
     @HttpCode(200)
+    // SECURITY: NOT @SkipMfa. Minting a recovery code from a challenge-stage
+    // token would hand the attacker a backup credential; require a fully MFA-
+    // verified session.
     @Post('generate-recovery-code')
-    @SkipMfa()
     @UseGuards(NestAuthAuthGuard)
     async generateRecoveryCodes() {
         const user = await RequestContext.currentUser();
@@ -241,6 +255,11 @@ export class MfaController {
     @ApiOperation({ summary: 'Reset TOTP Device' })
     @ApiResponse({ status: 200, type: NestAuthMfaResetResponseDto })
     @HttpCode(200)
+    // @SkipMfa is INTENTIONAL here (unlike setup-totp/toggle above): this is the
+    // recovery path a user locked out of their authenticator needs, and it is
+    // safe because it PROVES a factor — it requires a valid recovery code before
+    // doing anything (see MfaService.resetMfa). status/challenge/verify/devices
+    // are the only other challenge-stage-reachable routes.
     @Post('reset-totp')
     @SkipMfa()
     @UseGuards(NestAuthAuthGuard)

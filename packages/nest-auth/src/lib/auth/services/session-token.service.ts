@@ -159,7 +159,15 @@ export class SessionTokenService {
         if (isRequiresMfa) {
             const enabledMethods = await this.mfaService.getEnabledMethods(user.id);
             response.mfaMethods = enabledMethods;
-            response.defaultMfaMethod = this.mfaService.mfaConfig?.defaultMethod || enabledMethods[0];
+            // The app-wide defaultMethod only applies if the USER actually has it;
+            // otherwise fall back to their first available method. Otherwise a
+            // response could say mfaMethods:[EMAIL] with defaultMfaMethod:TOTP and
+            // a client honouring the field would prompt for an authenticator the
+            // user doesn't have.
+            const configuredDefault = this.mfaService.mfaConfig?.defaultMethod;
+            response.defaultMfaMethod = configuredDefault && enabledMethods.includes(configuredDefault)
+                ? configuredDefault
+                : enabledMethods[0];
         }
 
         if (config.auth?.transformResponse) {

@@ -505,6 +505,23 @@ export class MfaService {
             // Delete all mfa secrets
             await this.mfaSecretRepository.delete({ userId });
 
+            // A recovery reset deletes every TOTP factor. If no verified method
+            // remains, MFA would be left "on with zero methods" — the invalid
+            // state enableMFA itself refuses to create, and one that PERMANENTLY
+            // LOCKS OUT a TOTP-only user: the next login returns requiresMfa with
+            // an empty method list AND the recovery code is already spent. Turn
+            // MFA off so the user can sign in and re-enrol. (If a verified
+            // email/SMS method survives, MFA stays on — they aren't locked out.)
+            const remaining = await this.getVerifiedMethods(userId);
+            if (remaining.length === 0) {
+                await this.userRepository.update(userId, { isMfaEnabled: false });
+                // Notify the account owner that 2FA is now off (parity with disableMFA).
+                await this.eventEmitter.emitAsync(
+                    NestAuthEvents.TWO_FACTOR_DISABLED,
+                    new User2faDisabledEvent({ user }),
+                );
+            }
+
             return {
                 message: 'Recovery code verified',
             };
