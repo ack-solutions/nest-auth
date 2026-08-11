@@ -24,6 +24,7 @@ import { NestAuthSignupRequestDto } from '../dto/requests/signup.request.dto';
 import { AuthResponseDto } from '../dto/responses/auth.response.dto';
 import { NestAuthLoginRequestDto } from '../dto/requests/login.request.dto';
 import { NestAuthVerify2faRequestDto } from '../dto/requests/verify-2fa.request.dto';
+import { NestAuthVerifyRecoveryCodeRequestDto } from '../dto/requests/verify-recovery-code.request.dto';
 import { INestAuthUser, ISessionUserData, NestAuthMFAMethodEnum, NestAuthOTPTypeEnum, TenantModeEnum } from '@ackplus/nest-auth-contracts';
 import { JWTTokenPayload, SessionDataPayload, SessionPayload } from '../../core/interfaces/token-payload.interface';
 import { UserRegisteredEvent } from '../events/user-registered.event';
@@ -32,6 +33,7 @@ import { hmacSha256Hex, timingSafeEqualHex } from '../../utils/has-token';
 import { UserLoggedInEvent } from '../events/user-logged-in.event';
 import { LoginFailedEvent } from '../events/login-failed.event';
 import { User2faVerifiedEvent } from '../events/user-2fa-verified.event';
+import { MfaRecoveryCodeUsedEvent } from '../events/mfa-recovery-code-used.event';
 import { UserRefreshTokenEvent } from '../events/user-refresh-token.event';
 import { LoggedOutEvent } from '../events/logged-out.event';
 import { LoggedOutAllEvent } from '../events/logged-out-all.event';
@@ -695,6 +697,87 @@ export class AuthService {
 
         } catch (error) {
             this.debugLogger.logError(error, 'verify2fa', { method: input.method });
+            this.handleError(error, 'mfa');
+            throw error;
+        }
+    }
+
+    /**
+     * Complete a sign-in by redeeming a single-use MFA recovery (backup) code.
+     * The recovery code IS a valid second factor, so this issues a full MFA-
+     * verified session — exactly like {@link verify2fa} — and, crucially, LEAVES
+     * `isMfaEnabled` and the enrolled factors untouched (unlike `reset-totp`,
+     * which deletes them). The now-verified session can re-enrol a fresh
+     * authenticator via `setup-totp` inline, without a second sign-in.
+     */
+    async verifyRecoveryCode(input: NestAuthVerifyRecoveryCodeRequestDto) {
+        this.debugLogger.logFunctionEntry('verifyRecoveryCode', 'AuthService', {});
+        try {
+            const user = await RequestContext.currentUser();
+            const session = RequestContext.currentSession();
+
+            if (!session) {
+                throw new UnauthorizedException({
+                    message: 'Session not found',
+                    code: ERROR_CODES.SESSION_NOT_FOUND,
+                });
+            }
+
+            // A recovery code is only meaningful while MFA is enabled for the user.
+            const mfaEnabled = await this.mfaService.isRequiresMfa(session.userId!);
+            if (!mfaEnabled) {
+                throw new UnauthorizedException({
+                    message: 'MFA is not enabled',
+                    code: ERROR_CODES.MFA_NOT_ENABLED,
+                });
+            }
+
+            const ok = await this.mfaService.verifyAndConsumeRecoveryCode(session.userId!, input.code);
+            if (!ok) {
+                throw new UnauthorizedException({
+                    message: 'Invalid recovery code',
+                    code: ERROR_CODES.MFA_RECOVERY_CODE_INVALID,
+                });
+            }
+
+            // Recovery code proved the second factor → mark the session MFA-verified.
+            const payload = await this.sessionManager.updateSession(session.id!, {
+                data: {
+                    ...session.data!,
+                    isMfaVerified: true,
+                },
+            });
+            const tokens = await this.generateTokensFromSession(payload);
+
+            let trustToken: string | undefined;
+            if (input.trustDevice) {
+                const req = RequestContext.currentRequest();
+                if (req) {
+                    const userAgent = (req.headers['user-agent'] || '') as string;
+                    const ip = (req.ip || req.socket.remoteAddress || '') as string;
+                    trustToken = await this.mfaService.createTrustedDevice(session.userId!, userAgent, ip);
+                }
+            }
+
+            if (!user) {
+                return null;
+            }
+
+            await this.eventEmitter.emitAsync(
+                NestAuthEvents.MFA_RECOVERY_CODE_USED,
+                new MfaRecoveryCodeUsedEvent({
+                    user,
+                    tenantId: payload.data?.tenantId ?? null,
+                    session: payload,
+                    tokens,
+                }),
+            );
+
+            this.debugLogger.logFunctionExit('verifyRecoveryCode', 'AuthService', { userId: user.id });
+            return this.generateAuthResponse(user, payload, tokens, false, trustToken);
+
+        } catch (error) {
+            this.debugLogger.logError(error, 'verifyRecoveryCode', {});
             this.handleError(error, 'mfa');
             throw error;
         }

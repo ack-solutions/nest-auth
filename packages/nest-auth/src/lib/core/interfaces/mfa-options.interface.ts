@@ -52,5 +52,18 @@ export interface MFAOptions {
     /** MFA OTP generation (length/format); separate from top-level {@link IOtpOptions} used for verification/password reset */
     otp?: Pick<IOtpOptions, 'length' | 'format' | 'generate'>;
 
+    /**
+     * How many recovery (backup) codes `POST /auth/mfa/generate-recovery-code`
+     * issues at once. Each is single-use. @default 10
+     */
+    recoveryCodeCount?: number;
+
+    /**
+     * When `true`, a new authenticator can only be enrolled (`setup-totp`) if the
+     * user has a verified email or phone — so an abandoned enrolment can't strand
+     * the account with no recoverable factor. Opt-in. @default false
+     */
+    requireVerifiedContactForEnrollment?: boolean;
+
 }
 

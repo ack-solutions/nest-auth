@@ -16,6 +16,8 @@ import {
     IVerifyPhoneRequest,
     IChangePasswordRequest,
     IVerify2faRequest,
+    IVerifyRecoveryCodeRequest,
+    IGenerateRecoveryCodesResponse,
     IAuthResponse,
     IMessageResponse,
     IVerifyOtpResponse,
@@ -1069,6 +1071,24 @@ export class AuthClient {
     }
 
     /**
+     * Complete a sign-in by redeeming a single-use MFA recovery (backup) code.
+     * Unlike {@link resetMfa}, this does NOT delete your factors — the code acts
+     * as a backup authenticator: MFA stays enabled and you're signed in. Call it
+     * from the challenge stage (`isRequiresMfa`) exactly like {@link verify2fa}.
+     */
+    async verifyRecoveryCode(dto: IVerifyRecoveryCodeRequest, options?: RequestOptions): Promise<IVerify2faResponse> {
+        const endpoint = this.getEndpoint('verifyRecoveryCode');
+        const response = await this.request<IVerify2faResponse>('POST', endpoint, dto, { ...options, skipRefresh: true });
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+        await this.handleAuthResponse(response.data as IAuthResponse);
+
+        return response.data;
+    }
+
+    /**
      * Setup TOTP device - generates secret and QR code
      */
     async setupTotp(body?: ISetupTotpRequest, options?: RequestOptions): Promise<ITotpSetupResponse> {
@@ -1153,11 +1173,13 @@ export class AuthClient {
     }
 
     /**
-     * Generate recovery code for MFA
+     * Generate a fresh SET of MFA recovery (backup) codes (shown once).
+     * Returns `{ codes, code }` — prefer `codes`; `code` (= codes[0]) is kept for
+     * backward compatibility. Regenerating replaces any outstanding set.
      */
-    async generateRecoveryCode(options?: RequestOptions): Promise<{ code: string }> {
+    async generateRecoveryCode(options?: RequestOptions): Promise<IGenerateRecoveryCodesResponse> {
         const endpoint = this.getEndpoint('generateRecoveryCode');
-        const response = await this.request<{ code: string }>('POST', endpoint, undefined, options);
+        const response = await this.request<IGenerateRecoveryCodesResponse>('POST', endpoint, undefined, options);
 
         if (!response.ok) {
             throw this.handleError(response);

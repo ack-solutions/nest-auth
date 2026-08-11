@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.10.0
+
+- **Added `verifyRecoveryCode({ code, trustDevice })`** on `NestAuthClient` — redeem
+  an MFA recovery (backup) code to complete a sign-in (MFA stays enabled). Persists tokens.
+
 ## 2.9.2
 
 - No Flutter SDK changes — lockstep release with the backend MFA config fix (`@ackplus/nest-auth` 2.9.2).

@@ -42,6 +42,8 @@ export type {
 export type {
     IVerify2faRequest,
     IVerify2faResponse,
+    IVerifyRecoveryCodeRequest,
+    IGenerateRecoveryCodesResponse,
     ISendMfaCodeRequest,
     IToggleMfaRequest,
     IVerifyTotpSetupRequest,

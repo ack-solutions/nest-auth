@@ -1,5 +1,15 @@
 # @ackplus/nest-auth-react-native
 
+## 2.10.0
+
+### Minor Changes
+
+- Inherits `verifyRecoveryCode` from the shared client + React provider (recovery
+  code as a backup authenticator). No RN-specific change.
+  - @ackplus/nest-auth-client@2.10.0
+  - @ackplus/nest-auth-react@2.10.0
+  - @ackplus/nest-auth-contracts@2.10.0
+
 ## 2.9.2
 
 ### Patch Changes

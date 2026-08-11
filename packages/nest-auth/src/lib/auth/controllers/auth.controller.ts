@@ -1,6 +1,7 @@
 import { Controller, Post, Body, Get, UseGuards, Res, HttpCode, Query, Param, UnauthorizedException, Req, BadRequestException, NotFoundException } from '@nestjs/common';
 import { AuthService } from '../services/auth.service';
 import { NestAuthVerify2faRequestDto } from '../dto/requests/verify-2fa.request.dto';
+import { NestAuthVerifyRecoveryCodeRequestDto } from '../dto/requests/verify-recovery-code.request.dto';
 import { NestAuthRefreshTokenRequestDto } from '../dto/requests/refresh-token.request.dto';
 import { Request, Response } from 'express';
 import { ApiResponse, ApiOperation, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
@@ -262,6 +263,32 @@ export class AuthController {
         return {
             ...response,
             message: '2FA verification successful',
+        };
+    }
+
+    @ApiOperation({
+        summary: 'Verify MFA recovery code',
+        description:
+            'Redeem a single-use recovery (backup) code to COMPLETE the sign-in. Unlike ' +
+            'reset-totp, MFA stays enabled and the enrolled factors are untouched — the ' +
+            'code acts as a backup authenticator. Returns a full session; the now-verified ' +
+            'session can re-enrol a new authenticator via setup-totp inline.',
+    })
+    @ApiResponse({ status: 200, type: Verify2faWithTokensResponseDto, description: 'Header mode: message + tokens in body' })
+    @ApiResponse({ status: 200, type: AuthCookieResponseDto, description: 'Cookie mode: message only, tokens in cookies' })
+    @HttpCode(200)
+    @SkipMustChangePassword()
+    @SkipEmailVerification()
+    @Post('mfa/verify-recovery-code')
+    @RateLimit('mfaVerify')
+    @SkipMfa()
+    @UseGuards(NestAuthAuthGuard)
+    @UseInterceptors(TokenResponseInterceptor)
+    async verifyRecoveryCode(@Body() input: NestAuthVerifyRecoveryCodeRequestDto): Promise<Verify2faWithTokensResponseDto> {
+        const response = await this.authService.verifyRecoveryCode(input);
+        return {
+            ...response,
+            message: 'Recovery code verification successful',
         };
     }
 

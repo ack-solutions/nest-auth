@@ -127,6 +127,7 @@ export const DEFAULT_ENDPOINTS = {
     changePassword: '/auth/change-password',
     send2fa: '/auth/mfa/challenge',
     verify2fa: '/auth/mfa/verify',
+    verifyRecoveryCode: '/auth/mfa/verify-recovery-code',
     verifySession: '/auth/verify-session',
     me: '/auth/me',
     accounts: '/auth/accounts',

@@ -1,4 +1,12 @@
 # @ackplus/nest-auth-contracts
+## 2.10.0
+
+### Minor Changes
+
+- Added `IVerifyRecoveryCodeRequest`, `IGenerateRecoveryCodesResponse`, and
+  `IMfaConfig.recoveryCodeCount` / `requireVerifiedContactForEnrollment` for the
+  recovery-code-as-backup-authenticator feature (see `@ackplus/nest-auth@2.10.0`).
+
 ## 2.8.0
 
 ### Minor Changes

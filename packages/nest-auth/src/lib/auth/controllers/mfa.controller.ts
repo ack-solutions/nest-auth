@@ -247,9 +247,11 @@ export class MfaController {
             throw new UnauthorizedException('User not found');
         }
 
-        // Generate recovery codes
-        const code = await this.mfaService.generateRecoveryCode(user.id);
-        return { code };
+        // Generate a fresh SET of recovery codes (regenerating replaces any
+        // outstanding unused set). `code` is kept for backward compatibility
+        // (= codes[0]); prefer `codes`.
+        const codes = await this.mfaService.generateRecoveryCodes(user.id);
+        return { codes, code: codes[0] };
     }
 
     @ApiOperation({ summary: 'Reset TOTP Device' })

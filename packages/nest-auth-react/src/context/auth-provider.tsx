@@ -15,6 +15,7 @@ import {
     ILoginRequest,
     ISignupRequest,
     IVerify2faRequest,
+    IVerifyRecoveryCodeRequest,
     IForgotPasswordRequest,
     IVerifyForgotPasswordOtpRequest,
     IVerifyEmailRequest,
@@ -309,6 +310,18 @@ export function AuthProvider({
         }
     }, [client, getSessionData]);
 
+    const verifyRecoveryCode = useCallback(async (dto: IVerifyRecoveryCodeRequest) => {
+        setError(null);
+        try {
+            const response = await client.verifyRecoveryCode(dto);
+            await getSessionData();
+            return response;
+        } catch (err) {
+            setError(err as AuthError);
+            throw err;
+        }
+    }, [client, getSessionData]);
+
     const switchTenant = useCallback(async (dto: ISwitchTenantRequest) => {
         setError(null);
         try {
@@ -559,6 +572,7 @@ export function AuthProvider({
         refresh,
         verifySession,
         verify2fa,
+        verifyRecoveryCode,
         switchTenant,
         passwordlessSend,
         passwordlessLogin,
@@ -603,6 +617,7 @@ export function AuthProvider({
         refresh,
         verifySession,
         verify2fa,
+        verifyRecoveryCode,
         switchTenant,
         passwordlessSend,
         passwordlessLogin,

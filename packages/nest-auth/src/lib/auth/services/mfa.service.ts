@@ -2,6 +2,7 @@ import { ForbiddenException, HttpException, Injectable, NotFoundException, Unaut
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NestAuthMFASecret } from '../../auth/entities/mfa-secret.entity';
+import { NestAuthMfaRecoveryCode } from '../../auth/entities/mfa-recovery-code.entity';
 import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
 import { MFAOptions } from '../../core/interfaces/mfa-options.interface';
@@ -32,6 +33,9 @@ export class MfaService {
     constructor(
         @InjectRepository(NestAuthMFASecret)
         private mfaSecretRepository: Repository<NestAuthMFASecret>,
+
+        @InjectRepository(NestAuthMfaRecoveryCode)
+        private mfaRecoveryCodeRepository: Repository<NestAuthMfaRecoveryCode>,
 
         @InjectRepository(NestAuthUser)
         private userRepository: Repository<NestAuthUser>,
@@ -276,6 +280,16 @@ export class MfaService {
             throw new Error('User not found');
         }
 
+        // Opt-in (mfa.requireVerifiedContactForEnrollment): only allow enrolling a
+        // new authenticator when the user has a verified email or phone, so an
+        // abandoned enrolment can't strand the account with no recoverable factor.
+        if (this.mfaConfig.requireVerifiedContactForEnrollment && !user.emailVerifiedAt && !user.phoneVerifiedAt) {
+            throw new ForbiddenException({
+                message: 'A verified email or phone is required before enrolling an authenticator',
+                code: ERROR_CODES.MFA_CANNOT_ENABLE_WITHOUT_METHOD,
+            });
+        }
+
         const opts = AuthConfigService.getOptions();
         const issuer = opts.mfa?.totp?.issuer || opts.appName || 'App';
         const period = opts.mfa?.totp?.period || 30;
@@ -474,15 +488,73 @@ export class MfaService {
         return secret;
     }
 
-    async generateRecoveryCode(userId: string): Promise<string> {
-        this.checkIsMfaEnabledForApp(true)
+    /**
+     * Generate a fresh SET of recovery (backup) codes. Regenerating replaces any
+     * outstanding unused codes (used codes are kept for audit). Only the HMAC hash
+     * of each code is stored — the plaintext set is returned ONCE and can never be
+     * retrieved again. Count is `mfa.recoveryCodeCount` (default 10).
+     */
+    async generateRecoveryCodes(userId: string): Promise<string[]> {
+        this.checkIsMfaEnabledForApp(true);
 
-        // Generate a high-entropy recovery code and persist ONLY its HMAC hash.
-        // The plaintext is returned once to the user and never stored.
-        const plainCode = randomBytes(20).toString('base64url');
-        const hashed = hmacSha256Hex(this.getRecoveryCodeSecret(), plainCode);
-        await this.userRepository.update(userId, { mfaRecoveryCode: hashed });
-        return plainCode;
+        const count = this.mfaConfig.recoveryCodeCount && this.mfaConfig.recoveryCodeCount > 0
+            ? this.mfaConfig.recoveryCodeCount
+            : 10;
+        const secret = this.getRecoveryCodeSecret();
+
+        // Replace the outstanding set: drop unused codes and clear the legacy
+        // single-column code so neither can be redeemed after regeneration.
+        await this.mfaRecoveryCodeRepository.delete({ userId, usedAt: IsNull() });
+        await this.userRepository.update(userId, { mfaRecoveryCode: null });
+
+        const plainCodes: string[] = [];
+        const rows: NestAuthMfaRecoveryCode[] = [];
+        for (let i = 0; i < count; i++) {
+            const plain = randomBytes(20).toString('base64url');
+            plainCodes.push(plain);
+            rows.push(this.mfaRecoveryCodeRepository.create({
+                userId,
+                codeHash: hmacSha256Hex(secret, plain),
+            }));
+        }
+        await this.mfaRecoveryCodeRepository.save(rows);
+        return plainCodes;
+    }
+
+    /**
+     * Backward-compatible alias returning a single code (the first of a fresh set).
+     * @deprecated use {@link generateRecoveryCodes}.
+     */
+    async generateRecoveryCode(userId: string): Promise<string> {
+        const codes = await this.generateRecoveryCodes(userId);
+        return codes[0];
+    }
+
+    /**
+     * Verify a recovery code and CONSUME it (single-use). Checks the multi-code
+     * table first, then the legacy single-column code (pre-2.10.0 accounts).
+     * Constant-time compare. Returns true iff a valid, unused code matched.
+     */
+    async verifyAndConsumeRecoveryCode(userId: string, code: string): Promise<boolean> {
+        if (!code) return false;
+        const hash = hmacSha256Hex(this.getRecoveryCodeSecret(), code);
+
+        const rows = await this.mfaRecoveryCodeRepository.find({ where: { userId, usedAt: IsNull() } });
+        for (const row of rows) {
+            if (timingSafeEqualHex(row.codeHash, hash)) {
+                await this.mfaRecoveryCodeRepository.update({ id: row.id }, { usedAt: new Date() });
+                return true;
+            }
+        }
+
+        // Legacy single-column code.
+        const user = await this.userRepository.findOne({ where: { id: userId } });
+        const legacy = user?.mfaRecoveryCode || '';
+        if (legacy && timingSafeEqualHex(legacy, hash)) {
+            await this.userRepository.update(userId, { mfaRecoveryCode: null });
+            return true;
+        }
+        return false;
     }
 
     async resetMfa(userId: string, code: string): Promise<{ message: string }> {
@@ -496,41 +568,39 @@ export class MfaService {
                 code: ERROR_CODES.USER_NOT_FOUND
             });
         }
-        const stored = user.mfaRecoveryCode || '';
-        const computed = hmacSha256Hex(this.getRecoveryCodeSecret(), code);
-        if (stored && timingSafeEqualHex(stored, computed)) {
-            // Consume the recovery code (single use)
-            await this.userRepository.update(userId, { mfaRecoveryCode: null });
-
-            // Delete all mfa secrets
-            await this.mfaSecretRepository.delete({ userId });
-
-            // A recovery reset deletes every TOTP factor. If no verified method
-            // remains, MFA would be left "on with zero methods" — the invalid
-            // state enableMFA itself refuses to create, and one that PERMANENTLY
-            // LOCKS OUT a TOTP-only user: the next login returns requiresMfa with
-            // an empty method list AND the recovery code is already spent. Turn
-            // MFA off so the user can sign in and re-enrol. (If a verified
-            // email/SMS method survives, MFA stays on — they aren't locked out.)
-            const remaining = await this.getVerifiedMethods(userId);
-            if (remaining.length === 0) {
-                await this.userRepository.update(userId, { isMfaEnabled: false });
-                // Notify the account owner that 2FA is now off (parity with disableMFA).
-                await this.eventEmitter.emitAsync(
-                    NestAuthEvents.TWO_FACTOR_DISABLED,
-                    new User2faDisabledEvent({ user }),
-                );
-            }
-
-            return {
-                message: 'Recovery code verified',
-            };
+        // Verify + consume the recovery code (multi-code table, with legacy
+        // single-column fallback).
+        const ok = await this.verifyAndConsumeRecoveryCode(userId, code);
+        if (!ok) {
+            throw new UnauthorizedException({
+                message: 'Invalid recovery code',
+                code: ERROR_CODES.MFA_RECOVERY_CODE_INVALID
+            });
         }
 
-        throw new UnauthorizedException({
-            message: 'Invalid recovery code',
-            code: ERROR_CODES.MFA_RECOVERY_CODE_INVALID
-        });
+        // Delete all mfa secrets
+        await this.mfaSecretRepository.delete({ userId });
+
+        // A recovery reset deletes every TOTP factor. If no verified method
+        // remains, MFA would be left "on with zero methods" — the invalid
+        // state enableMFA itself refuses to create, and one that PERMANENTLY
+        // LOCKS OUT a TOTP-only user: the next login returns requiresMfa with
+        // an empty method list AND the recovery code is already spent. Turn
+        // MFA off so the user can sign in and re-enrol. (If a verified
+        // email/SMS method survives, MFA stays on — they aren't locked out.)
+        const remaining = await this.getVerifiedMethods(userId);
+        if (remaining.length === 0) {
+            await this.userRepository.update(userId, { isMfaEnabled: false });
+            // Notify the account owner that 2FA is now off (parity with disableMFA).
+            await this.eventEmitter.emitAsync(
+                NestAuthEvents.TWO_FACTOR_DISABLED,
+                new User2faDisabledEvent({ user }),
+            );
+        }
+
+        return {
+            message: 'Recovery code verified',
+        };
     }
 
     getAvailableMethods(): NestAuthMFAMethodEnum[] {
@@ -572,11 +642,14 @@ export class MfaService {
             return false;
         }
 
+        // An UNUSED code in the multi-code table, or the legacy single column.
+        const unused = await this.mfaRecoveryCodeRepository.count({ where: { userId, usedAt: IsNull() } });
+        if (unused > 0) return true;
+
         const user = await this.userRepository.findOne({
             select: ['id', 'mfaRecoveryCode'],
             where: { id: userId },
         });
-
         return Boolean(user?.mfaRecoveryCode);
     }
 

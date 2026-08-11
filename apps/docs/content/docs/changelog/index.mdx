@@ -5,10 +5,21 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.9.2`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.10.0`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/migration/within-v2)**. Bump every package to the same version.
+
+---
+
+## 2.10.0 — recovery codes as a backup authenticator
+
+- **New `POST /auth/mfa/verify-recovery-code`** — redeem a single-use recovery code to **complete the sign-in** (like `mfa/verify`), returning a full session. Unlike `reset-totp`, **MFA stays enabled and your factors are kept** — the code acts as a backup authenticator (GitHub/Google model). The recovery-verified session can enrol a fresh authenticator via `setup-totp` **inline**, so recovering a lost device is one flow, not two sign-ins. Emits `MFA_RECOVERY_CODE_USED`. The client SDKs expose **`verifyRecoveryCode({ code, trustDevice? })`** (React `useNestAuth().verifyRecoveryCode`, Flutter `NestAuthClient.verifyRecoveryCode`).
+- **Multiple recovery codes.** `generate-recovery-code` now issues a **set** (default 10, `mfa.recoveryCodeCount`), one hashed single-use row each in a new `nest_auth_mfa_recovery_codes` table. Response is `{ codes: string[], code }` (`code` = `codes[0]`, back-compat). The legacy single-column code is still honoured.
+- **New opt-in `mfa.requireVerifiedContactForEnrollment`** (default `false`): only allow enrolling a new authenticator when the user has a verified email/phone.
+- Additive — no existing endpoint or response shape changed. See [MFA → Recovery codes](/docs/concepts/mfa#recovery-codes).
+
+> **Migration:** adds one table, `nest_auth_mfa_recovery_codes`. Apps on `synchronize: false` must add it in a migration (`id` uuid pk, `userId` uuid, `codeHash` varchar, `usedAt` timestamp null, `createdAt` timestamp). Nothing else changed.
 
 ---
 

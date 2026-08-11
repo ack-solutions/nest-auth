@@ -1,5 +1,15 @@
 # @ackplus/nest-auth-react
 
+## 2.10.0
+
+### Minor Changes
+
+- **Added `verifyRecoveryCode(dto)`** to the provider / `useNestAuth()` — redeem an
+  MFA recovery (backup) code to complete a sign-in (MFA stays enabled). Wraps the
+  new client method; loads session data on success.
+  - @ackplus/nest-auth-client@2.10.0
+  - @ackplus/nest-auth-contracts@2.10.0
+
 ## 2.9.2
 
 ### Patch Changes

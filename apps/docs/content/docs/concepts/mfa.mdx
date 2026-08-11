@@ -63,9 +63,14 @@ if (result.isRequiresMfa) {
 
 ## Recovery codes
 
-When a user enables MFA, `POST /auth/mfa/generate-recovery-code` returns a code **once**. The library never returns it again. You must show it to the user immediately and tell them to save it somewhere safe.
+`POST /auth/mfa/generate-recovery-code` returns a **set** of single-use codes (default 10, configurable via `mfa.recoveryCodeCount`) — shown **once**, never returned again. The response is `{ codes: string[], code }` (`code` = `codes[0]`, kept for backward compatibility). Show them immediately and tell the user to save them. Regenerating replaces the outstanding set. (This route requires a fully MFA-verified session — see [the security note](#the-mfa-challenge-flow).)
 
-If they lose their TOTP device, they call `POST /auth/mfa/reset-totp` with the recovery code — this deletes every TOTP secret on the account and consumes the code. If **no other verified method remains** (e.g. a TOTP-only user with no email/SMS method), MFA is turned **off** so they can sign in with just their password and re-enrol — it is never left "enabled with zero methods", which would permanently lock them out. If a verified email/SMS method survives, MFA stays on and they complete the next login with that method.
+A recovery code is a **backup authenticator** — there are two ways to use one:
+
+- **`POST /auth/mfa/verify-recovery-code`** (recommended) — redeem a code to **complete the sign-in**, exactly like `mfa/verify`. MFA stays enabled and your enrolled factors are untouched; you're returned a full session. The now-verified session can enrol a fresh authenticator via `setup-totp` **inline** — no second sign-in. This is what GitHub/Google do. The client SDKs expose `verifyRecoveryCode({ code, trustDevice? })`. Emits `MFA_RECOVERY_CODE_USED` (alert the owner). Codes are single-use.
+- **`POST /auth/mfa/reset-totp`** — the destructive path: deletes every TOTP secret and consumes the code. If **no other verified method remains** (a TOTP-only user with no email/SMS), MFA is turned **off** so they can sign in with just their password and re-enrol — never left "enabled with zero methods" (which would lock them out). If a verified email/SMS method survives, MFA stays on.
+
+> Set `mfa.requireVerifiedContactForEnrollment: true` to only allow enrolling a new authenticator when the user has a verified email or phone, so an abandoned enrolment can't strand the account.
 
 The [MFA recovery codes recipe](/docs/recipes/mfa-recovery-codes) covers the UX in detail.
 

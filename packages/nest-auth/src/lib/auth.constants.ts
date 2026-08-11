@@ -270,6 +270,8 @@ export const NestAuthEvents = {
     PASSWORD_CHANGED: 'nest_auth.password_changed',
     TWO_FACTOR_ENABLED: 'nest_auth.two_factor_enabled',
     TWO_FACTOR_DISABLED: 'nest_auth.two_factor_disabled',
+    /** A recovery (backup) code was redeemed to complete a sign-in. Payload: { user, session, tokens }. */
+    MFA_RECOVERY_CODE_USED: 'nest_auth.mfa_recovery_code_used',
 
     // User events
     USER_CREATED: 'nest_auth.user.created',

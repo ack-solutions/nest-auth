@@ -1,5 +1,16 @@
 # @ackplus/nest-auth-client
 
+## 2.10.0
+
+### Minor Changes
+
+- **Added `verifyRecoveryCode({ code, trustDevice? })`** — redeem an MFA recovery
+  (backup) code to complete a sign-in. Unlike `resetMfa`, MFA stays enabled and
+  your factors are kept; the returned session is stored like `verify2fa`.
+- `generateRecoveryCode()` now returns a **set**: `{ codes: string[], code }`
+  (`code` = `codes[0]`, kept for backward compatibility).
+  - @ackplus/nest-auth-contracts@2.10.0
+
 ## 2.9.2
 
 ### Patch Changes

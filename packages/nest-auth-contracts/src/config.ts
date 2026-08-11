@@ -54,6 +54,10 @@ export interface IMfaConfig {
     methods?: NestAuthMFAMethodEnum[];
     allowUserToggle?: boolean;
     allowMethodSelection?: boolean;
+    /** How many recovery (backup) codes are issued at once. @default 10 */
+    recoveryCodeCount?: number;
+    /** Require a verified email/phone before enrolling a new authenticator. @default false */
+    requireVerifiedContactForEnrollment?: boolean;
 }
 
 export interface IMultipleAccountsConfig {

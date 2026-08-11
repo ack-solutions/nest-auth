@@ -17,6 +17,7 @@ import { SessionTokenService } from './services/session-token.service';
 import { InviteService } from './services/invite.service';
 import { NestAuthOTP } from './entities/otp.entity';
 import { NestAuthMFASecret } from './entities/mfa-secret.entity';
+import { NestAuthMfaRecoveryCode } from './entities/mfa-recovery-code.entity';
 import { NestAuthBlockedEmailDomain } from './entities/blocked-email-domain.entity';
 import { DisposableEmailService } from './services/disposable-email.service';
 import { NestAuthAccessKey } from '../user/entities/access-key.entity';
@@ -36,6 +37,7 @@ import { PermissionModule } from '../permission';
             NestAuthUser,
             NestAuthOTP,
             NestAuthMFASecret,
+            NestAuthMfaRecoveryCode,
             NestAuthAccessKey,
             NestAuthIdentity,
             NestAuthTrustedDevice,

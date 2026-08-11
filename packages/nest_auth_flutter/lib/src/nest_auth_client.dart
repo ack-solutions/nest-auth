@@ -46,6 +46,7 @@ class NestAuthClient {
   static const _switchTenantPath = '/auth/switch-tenant';
   static const _mfaChallengePath = '/auth/mfa/challenge';
   static const _mfaVerifyPath = '/auth/mfa/verify';
+  static const _mfaVerifyRecoveryCodePath = '/auth/mfa/verify-recovery-code';
   static const _mfaStatusPath = '/auth/mfa/status';
 
   NestAuthClient({
@@ -320,6 +321,24 @@ class NestAuthClient {
     final json = await _send('POST', _mfaVerifyPath, auth: true, body: {
       'otp': otp,
       if (method != null) 'method': method,
+      'trustDevice': trustDevice,
+    });
+    final auth = AuthResponse.fromJson(json);
+    if (auth.accessToken.isNotEmpty) {
+      await _storeTokens(auth.accessToken, auth.refreshToken);
+    }
+    return auth;
+  }
+
+  /// Complete an MFA-gated login by redeeming a single-use recovery (backup)
+  /// `code`. Unlike a reset, MFA stays enabled and your factors are kept — the
+  /// code acts as a backup authenticator. Persists tokens.
+  Future<AuthResponse> verifyRecoveryCode({
+    required String code,
+    bool trustDevice = false,
+  }) async {
+    final json = await _send('POST', _mfaVerifyRecoveryCodePath, auth: true, body: {
+      'code': code,
       'trustDevice': trustDevice,
     });
     final auth = AuthResponse.fromJson(json);

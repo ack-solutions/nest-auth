@@ -45,6 +45,24 @@ export interface IVerify2faResponse {
     trustToken?: string;
 }
 
+/**
+ * Redeem a single-use MFA recovery (backup) code to COMPLETE a sign-in. Unlike
+ * `reset-totp` (which deletes factors), this leaves MFA enabled and the enrolled
+ * factors intact — the recovery code acts as a backup authenticator.
+ */
+export interface IVerifyRecoveryCodeRequest {
+    code: string;
+    trustDevice?: boolean;
+}
+
+/** Response of `POST /auth/mfa/generate-recovery-code`. */
+export interface IGenerateRecoveryCodesResponse {
+    /** The fresh set of single-use recovery codes (shown ONCE). */
+    codes: string[];
+    /** @deprecated First of `codes`, kept for backward compatibility. */
+    code: string;
+}
+
 export interface ISendMfaCodeRequest {
     method: NestAuthMFAMethodEnum;
 }

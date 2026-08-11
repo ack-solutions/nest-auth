@@ -1,5 +1,34 @@
 # @ackplus/nest-auth
 
+## 2.10.0
+
+### Minor Changes
+
+- **MFA recovery codes are now a proper backup authenticator (opt-in flow).**
+  - **New `POST /auth/mfa/verify-recovery-code`** — redeem a single-use recovery
+    code to **complete the sign-in** (like `mfa/verify`), returning a full
+    session. Unlike `reset-totp`, MFA stays enabled and the enrolled factors are
+    untouched — the code acts as a backup authenticator (GitHub/Google model).
+    The recovery-verified session can enrol a fresh authenticator via `setup-totp`
+    **inline**, so a member who lost their device recovers in ONE flow instead of
+    two sign-ins and a Settings detour. Emits `MFA_RECOVERY_CODE_USED`.
+  - **Multiple recovery codes.** `generate-recovery-code` now issues a **set**
+    (default 10, via `mfa.recoveryCodeCount`) stored one hashed row per code in a
+    new `nest_auth_mfa_recovery_codes` table, each single-use. The response is
+    `{ codes: string[], code }` (`code` = `codes[0]`, kept for back-compat). The
+    legacy single-column `mfaRecoveryCode` is still honoured, and `reset-totp`
+    consumes from the same store.
+  - **New opt-in `mfa.requireVerifiedContactForEnrollment`** (default `false`):
+    only allow enrolling a new authenticator when the user has a verified email or
+    phone, so an abandoned enrolment can't strand the account.
+  - Additive/backward-compatible — no existing endpoint or response shape changed.
+
+  > **Migration:** this adds a `nest_auth_mfa_recovery_codes` table. Apps running
+  > `synchronize: false` must add it in a migration (a single table:
+  > `id uuid pk`, `userId uuid`, `codeHash varchar`, `usedAt timestamp null`,
+  > `createdAt timestamp`). Nothing else changed schema-wise.
+  - @ackplus/nest-auth-contracts@2.10.0
+
 ## 2.9.2
 
 ### Patch Changes

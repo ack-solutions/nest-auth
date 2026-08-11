@@ -16,6 +16,7 @@ import {
     ITokenPair,
     IAuthResponse,
     IVerify2faRequest,
+    IVerifyRecoveryCodeRequest,
     IVerify2faResponse,
     IForgotPasswordRequest,
     IVerifyEmailRequest,
@@ -75,6 +76,8 @@ export interface AuthContextValue {
     verifySession: () => Promise<boolean>;
     /** Verify 2FA code */
     verify2fa: (dto: IVerify2faRequest) => Promise<IVerify2faResponse>;
+    /** Redeem an MFA recovery (backup) code to complete sign-in (MFA stays enabled) */
+    verifyRecoveryCode: (dto: IVerifyRecoveryCodeRequest) => Promise<IVerify2faResponse>;
     /** Switch active tenant */
     switchTenant: (dto: ISwitchTenantRequest) => Promise<IAuthResponse>;
 
@@ -158,6 +161,7 @@ const defaultContextValue: AuthContextValue = {
     refresh: () => Promise.reject(new Error('AuthProvider not found')),
     verifySession: () => Promise.reject(new Error('AuthProvider not found')),
     verify2fa: () => Promise.reject(new Error('AuthProvider not found')),
+    verifyRecoveryCode: () => Promise.reject(new Error('AuthProvider not found')),
     switchTenant: () => Promise.reject(new Error('AuthProvider not found')),
     passwordlessSend: () => Promise.reject(new Error('AuthProvider not found')),
     passwordlessLogin: () => Promise.reject(new Error('AuthProvider not found')),
