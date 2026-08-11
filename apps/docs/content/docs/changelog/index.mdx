@@ -5,10 +5,16 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.9.1`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.9.2`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/migration/within-v2)**. Bump every package to the same version.
+
+---
+
+## 2.9.2 — MFA config fix (backend)
+
+- **Fixed:** `mfa.methods` now **replaces** the default `[EMAIL, TOTP]` instead of being concatenated with it. The config was deep-merged (arrays concatenate), so `mfa.methods: ['totp']` still got EMAIL merged back in and a TOTP-only / email-only setup was impossible. A provided list now wins; the default applies only when `methods` is omitted. Backend-only, no API/SDK changes.
 
 ---
 

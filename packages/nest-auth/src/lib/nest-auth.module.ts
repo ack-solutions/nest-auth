@@ -174,6 +174,14 @@ export class NestAuthModule {
       merged.customAuthProviders = options.customAuthProviders;
     }
 
+    // A caller-provided `mfa.methods` list must REPLACE the default, not be
+    // concatenated with it. deepmerge concatenates arrays, silently merging the
+    // default [EMAIL, TOTP] back in — so an app that set `methods: ['totp']` still
+    // got email. Honour the explicit list so a subset (e.g. TOTP-only) is possible.
+    if (options.mfa?.methods?.length && merged.mfa) {
+      merged.mfa.methods = [...new Set(options.mfa.methods)];
+    }
+
     return merged;
   }
 

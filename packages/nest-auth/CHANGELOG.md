@@ -1,5 +1,19 @@
 # @ackplus/nest-auth
 
+## 2.9.2
+
+### Patch Changes
+
+- **Fixed (MFA config) — `mfa.methods` now replaces the default instead of being
+  merged with it.** The config was deep-merged twice (`NestAuthModule.getOptions`
+  then `AuthConfigService.setOptions`), and deepmerge concatenates arrays, so a
+  consumer that set `mfa.methods: ['totp']` silently got `['email', 'totp']` at
+  runtime — a TOTP-only (or email-only) setup was impossible. A caller-provided
+  `methods` list now replaces the default `[EMAIL, TOTP]`; the default applies
+  only when `methods` is omitted. `roleGuards` is unchanged. Backend-only, no API
+  shapes changed, SDKs unchanged (lockstep bump).
+  - @ackplus/nest-auth-contracts@2.9.2
+
 ## 2.9.1
 
 ### Patch Changes

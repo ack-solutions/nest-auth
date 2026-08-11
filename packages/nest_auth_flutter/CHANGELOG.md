@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.9.2
+
+- No Flutter SDK changes — lockstep release with the backend MFA config fix (`@ackplus/nest-auth` 2.9.2).
+
 ## 2.9.1
 
 - No Flutter SDK changes — lockstep release with the backend MFA hardening patch (`@ackplus/nest-auth` 2.9.1).

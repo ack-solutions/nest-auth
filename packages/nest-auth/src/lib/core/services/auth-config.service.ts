@@ -118,10 +118,17 @@ export class AuthConfigService {
 
     static setOptions(options: IAuthModuleOptions): void {
         const deepmerge = require('deepmerge');
+        // Capture the caller's explicit mfa.methods BEFORE the merge: deepmerge
+        // concatenates arrays, which would merge the default [EMAIL, TOTP] back in.
+        const explicitMfaMethods = options.mfa?.methods;
         const mergedOptions = deepmerge(this.defaultOptions, options, { clone: false });
 
-        // avoid duplicate mfa methods
-        if (mergedOptions.mfa?.methods) {
+        // A caller-provided mfa.methods list REPLACES the default rather than being
+        // concatenated with it, so an app can restrict MFA to a subset (e.g.
+        // TOTP-only). Fall back to the merged default only when none was given.
+        if (explicitMfaMethods?.length) {
+            mergedOptions.mfa!.methods = [...new Set(explicitMfaMethods)];
+        } else if (mergedOptions.mfa?.methods) {
             mergedOptions.mfa.methods = [...new Set(mergedOptions.mfa.methods)];
         }
 

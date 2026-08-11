@@ -39,6 +39,8 @@ NestAuthModule.forRoot({
 });
 ```
 
+`methods` **replaces** the default `[EMAIL, TOTP]` — it is not merged with it. Set `methods: ['totp']` for a TOTP-only app, or `['email']` for email-only. The default (both) applies only when you don't set `methods` at all.
+
 ## The MFA challenge flow
 
 1. User submits username + password to `/auth/login`.

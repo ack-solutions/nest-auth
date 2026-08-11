@@ -1,5 +1,13 @@
 # @ackplus/nest-auth-react
 
+## 2.9.2
+
+### Patch Changes
+
+- No SDK changes — lockstep version bump for the backend MFA config fix (see `@ackplus/nest-auth@2.9.2`).
+  - @ackplus/nest-auth-client@2.9.2
+  - @ackplus/nest-auth-contracts@2.9.2
+
 ## 2.9.1
 
 ### Patch Changes
