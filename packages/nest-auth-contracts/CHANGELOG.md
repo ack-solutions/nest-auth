@@ -1,4 +1,10 @@
 # @ackplus/nest-auth-contracts
+## 2.10.1
+
+### Patch Changes
+
+- Lockstep bump for the refresh-token-401 fix (see `@ackplus/nest-auth@2.10.1`).
+
 ## 2.10.0
 
 ### Minor Changes

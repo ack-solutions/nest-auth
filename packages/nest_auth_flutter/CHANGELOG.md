@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.10.1
+
+- No Flutter SDK changes — lockstep release with the refresh-token-401 fix (`@ackplus/nest-auth` 2.10.1).
+
 ## 2.10.0
 
 - **Added `verifyRecoveryCode({ code, trustDevice })`** on `NestAuthClient` — redeem

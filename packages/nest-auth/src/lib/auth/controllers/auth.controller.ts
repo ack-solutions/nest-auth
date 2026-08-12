@@ -36,7 +36,7 @@ import { NestAuthVerifyEmailRequestDto } from '../dto/requests/verify-email.requ
 import { NestAuthSendPhoneVerificationRequestDto } from '../dto/requests/send-phone-verification.request.dto';
 import { NestAuthVerifyPhoneRequestDto } from '../dto/requests/verify-phone.request.dto';
 import { NestAuthSwitchTenantRequestDto } from '../dto/requests/switch-tenant.request.dto';
-import { ACCESS_TOKEN_COOKIE_NAME, REFRESH_TOKEN_COOKIE_NAME, ACTIVE_ACCOUNT_COOKIE_NAME, accountAccessCookieName, accountRefreshCookieName, jwtPayload } from '../../auth.constants';
+import { ACCESS_TOKEN_COOKIE_NAME, REFRESH_TOKEN_COOKIE_NAME, ACTIVE_ACCOUNT_COOKIE_NAME, accountAccessCookieName, accountRefreshCookieName, jwtPayload, ERROR_CODES } from '../../auth.constants';
 
 import { UseInterceptors, UseFilters } from '@nestjs/common';
 import { PasswordService } from '../services/password.service';
@@ -213,7 +213,17 @@ export class AuthController {
         }
 
         if (!refreshToken) {
-            throw new BadRequestException('refreshToken is required');
+            // No refresh token presented (header mode: none in body; cookie mode:
+            // no refresh cookie) means the caller has no session credential — that
+            // is UNAUTHENTICATED (401), not a malformed request (400). Returning
+            // 400 made a fresh/cleared visitor look "indeterminate" to the SDK
+            // (only 401/403 are a definitive logout), so the app got stuck on load
+            // instead of showing login. Consistent with an invalid refresh token,
+            // which already 401s.
+            throw new UnauthorizedException({
+                message: 'refreshToken is required',
+                code: ERROR_CODES.REFRESH_TOKEN_INVALID,
+            });
         }
 
         const response = await this.authService.refreshToken(refreshToken);

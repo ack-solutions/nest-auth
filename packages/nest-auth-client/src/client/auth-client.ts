@@ -704,6 +704,24 @@ export class AuthClient {
                 const refreshToken = await this.tokenManager.getRefreshToken();
                 if (refreshToken) {
                     body = { refreshToken };
+                } else {
+                    // No stored refresh token → there is nothing to refresh with, so
+                    // the caller is DEFINITIVELY not authenticated (a fresh visitor or
+                    // cleared storage). Don't make a doomed request: an older backend
+                    // 400s a missing token, which the SDK would treat as INDETERMINATE
+                    // (only 401/403 end a session), so the app gets stuck on load
+                    // instead of showing login. Throw a definitive 'rejected' error so
+                    // verifySession() resolves to { valid: false } → the app shows
+                    // login. We do NOT clearAuthState() or emit an 'error' event here
+                    // (no logout/error noise for a fresh visitor who was never logged
+                    // in); verifySession() clears the session pointer on a rejected
+                    // outcome.
+                    throw {
+                        message: 'No refresh token available',
+                        code: 'REFRESH_TOKEN_INVALID',
+                        statusCode: 401,
+                        kind: 'rejected' as const,
+                    } as AuthError;
                 }
             }
 

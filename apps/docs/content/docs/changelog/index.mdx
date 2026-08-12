@@ -5,10 +5,16 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.10.0`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.10.1`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/migration/within-v2)**. Bump every package to the same version.
+
+---
+
+## 2.10.1 — fix: fresh visitor stuck on load
+
+- **Fixed:** `POST /auth/refresh-token` with **no** token now returns **401** (was **400**). Since the SDK treats only 401/403 as a definitive logout (2.9.0), the old 400 made a fresh visitor / cleared-storage boot look *indeterminate*, so the app hung on load instead of showing login. The client SDK also short-circuits `refresh()` in header mode when there is no stored token (no doomed request, robust against older backends). Authenticated flows unchanged.
 
 ---
 

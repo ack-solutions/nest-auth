@@ -1,5 +1,20 @@
 # @ackplus/nest-auth
 
+## 2.10.1
+
+### Patch Changes
+
+- **Fixed — a fresh visitor / cleared storage got stuck on load instead of the
+  login page.** `POST /auth/refresh-token` with **no** refresh token (header
+  mode: none in the body; cookie mode: no refresh cookie) returned **400**
+  `refreshToken is required`. Since the SDK treats only 401/403 as a definitive
+  logout (everything else is indeterminate/retryable, per 2.9.0), the boot
+  `verify-session -> refresh` chain read that 400 as "couldn't determine" and the
+  app hung on load. "No refresh token" means unauthenticated, so it now returns
+  **401** (`REFRESH_TOKEN_INVALID`) — consistent with an *invalid* refresh token,
+  which already 401s. Authenticated flows are unchanged.
+  - @ackplus/nest-auth-contracts@2.10.1
+
 ## 2.10.0
 
 ### Minor Changes

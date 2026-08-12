@@ -1,5 +1,14 @@
 # @ackplus/nest-auth-react-native
 
+## 2.10.1
+
+### Patch Changes
+
+- No SDK changes — lockstep bump for the refresh-token-401 fix (see `@ackplus/nest-auth@2.10.1`).
+  - @ackplus/nest-auth-client@2.10.1
+  - @ackplus/nest-auth-react@2.10.1
+  - @ackplus/nest-auth-contracts@2.10.1
+
 ## 2.10.0
 
 ### Minor Changes

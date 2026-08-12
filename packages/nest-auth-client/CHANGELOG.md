@@ -1,5 +1,19 @@
 # @ackplus/nest-auth-client
 
+## 2.10.1
+
+### Patch Changes
+
+- **Fixed — no doomed refresh request when there is no session.** In header mode,
+  if there is no stored refresh token (a fresh visitor or cleared storage),
+  `refresh()` no longer POSTs `/auth/refresh-token` with an empty body; it
+  short-circuits to a **definitive `kind: 'rejected'`** error, so
+  `verifySession()` resolves to `{ valid: false }` and the app shows login. This
+  also makes it robust against an older backend that 400s a missing token (which
+  the SDK would otherwise treat as indeterminate and hang on load). Pairs with the
+  server-side 401 fix in `@ackplus/nest-auth@2.10.1`.
+  - @ackplus/nest-auth-contracts@2.10.1
+
 ## 2.10.0
 
 ### Minor Changes
