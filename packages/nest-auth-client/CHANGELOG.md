@@ -1,5 +1,20 @@
 # @ackplus/nest-auth-client
 
+## 2.10.2
+
+### Patch Changes
+
+- fix(client): surface mustChangePassword on the multi-account sign-in snapshot
+
+  The backend returns `mustChangePassword: true` on the login response and the single-account `AuthClient.login()` exposed it — but `AccountManager.addAccount()` resolved to an `AccountSnapshot` with no such field and discarded the login response. Any app running `allowMultipleAccounts: true` therefore had no way to learn from the sign-in call that the member was on an admin-issued temporary password, so forced-password-change prompts were dead in exactly the apps that use the switcher.
+  - **`AccountSnapshot.mustChangePassword`** — set on the snapshot returned by `addAccount()` / `commitAccount()` (and so the React `addAccount` / `completeMfa`), in both `AccountManager` and `CookieAccountManager`.
+  - Header mode reads it from the `/auth/me` lookup `commitAccount` **already performs**, so there is no extra round-trip, and the MFA-commit path — where the login response is no longer in hand — is covered too. The login response is kept as a fallback if that best-effort lookup fails.
+
+  The flag is deliberately **one-shot**: it rides the returned snapshot only, is never written to the persisted account index, and never appears on `listAccounts()` snapshots. A cached `true` would outlive the password change and bounce the user back to the change-password screen forever. Re-check it later with `getSessionUserData()` (`GET /auth/me`), which is always current; `undefined` means "not observed here", not "false" — the backend `mustChangePassword.enforce` guard remains the actual enforcement.
+
+  Additive only — no behaviour change for apps that don't read the new field.
+  - @ackplus/nest-auth-contracts@2.10.2
+
 ## 2.10.1
 
 ### Patch Changes
@@ -56,7 +71,6 @@
   rejection** — the server answered refresh/verify with **401 (or 403)**.
   Everything else is **indeterminate**: tokens are preserved, no logout is
   emitted, and a **retryable** error is thrown.
-
   - `refresh()` clears auth state **only** on 401/403, and does so via
     `clearAuthState()` — not `logout()`, which would POST `/auth/logout` (a
     pointless round trip against a server that just rejected the session, and a
@@ -68,7 +82,7 @@
     still verifies (it refreshes once, then re-checks).
   - Every thrown auth error now carries a discriminator so callers classify
     without re-deriving it from status codes: **`error.kind: 'rejected' |
-    'indeterminate'`** plus `error.statusCode`. New exports `classifyAuthFailure`
+'indeterminate'`** plus `error.statusCode`. New exports `classifyAuthFailure`
     and the `AuthFailureKind` type.
   - **Friendlier default messages.** When the server sends no message (network /
     timeout / opaque 5xx), errors now read like "Unable to reach the server.

@@ -1,5 +1,11 @@
 # @ackplus/nest-auth
 
+## 2.10.2
+
+### Patch Changes
+
+- @ackplus/nest-auth-contracts@2.10.2
+
 ## 2.10.1
 
 ### Patch Changes
@@ -11,7 +17,7 @@
   logout (everything else is indeterminate/retryable, per 2.9.0), the boot
   `verify-session -> refresh` chain read that 400 as "couldn't determine" and the
   app hung on load. "No refresh token" means unauthenticated, so it now returns
-  **401** (`REFRESH_TOKEN_INVALID`) — consistent with an *invalid* refresh token,
+  **401** (`REFRESH_TOKEN_INVALID`) — consistent with an _invalid_ refresh token,
   which already 401s. Authenticated flows are unchanged.
   - @ackplus/nest-auth-contracts@2.10.1
 
@@ -75,7 +81,7 @@
   (a user with MFA off has no challenge in progress).
 
   Behavior note: if a custom UI called `setup-totp` / `generate-recovery-code`
-  with the *pending* challenge token during the login challenge, it must now
+  with the _pending_ challenge token during the login challenge, it must now
   complete `mfa/verify` first. No standard flow is affected.
 
 - **Fixed (MFA) — `reset-totp` could permanently lock out a TOTP-only user.**
@@ -164,7 +170,6 @@
 ### Patch Changes
 
 - **MFA fixes:**
-
   - **TOTP QR shows your app name, not "SecretKey".** `setupTotpDevice` built the
     `otpauth://` URI with no issuer/label (speakeasy's default is `"SecretKey"`), so
     `mfa.totp.issuer` was never used. The URI now carries the configured issuer
@@ -194,7 +199,6 @@
 ### Patch Changes
 
 - **Fixes from consumer feedback on 2.8.0:**
-
   - **`forRootAsync` can mint tokens again.** JwtService (and TokenResponseInterceptor /
     BaseAuthProvider) now read module options LAZILY instead of capturing them at
     construction. Under `forRootAsync`, CoreModule initialises before the async options
@@ -260,7 +264,6 @@
 ### Patch Changes
 
 - @ackplus/nest-auth-contracts@2.8.0
-
 
 ## 2.7.6
 

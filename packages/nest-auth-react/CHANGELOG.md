@@ -1,5 +1,12 @@
 # @ackplus/nest-auth-react
 
+## 2.10.2
+
+### Patch Changes
+
+- Updated dependencies
+  - @ackplus/nest-auth-client@2.10.2
+
 ## 2.10.1
 
 ### Patch Changes
