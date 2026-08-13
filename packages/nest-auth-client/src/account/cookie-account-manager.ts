@@ -124,7 +124,10 @@ export class CookieAccountManager implements IAccountSwitcher {
         const active = this.requireActive();
         if (options?.meta) this.mergeMeta(active.accountId, options.meta);
         this.notify();
-        return this.accounts.find((a) => a.accountId === active.accountId) ?? active;
+        const snap = this.accounts.find((a) => a.accountId === active.accountId) ?? active;
+        // One-shot force-change signal, straight off the login response (see
+        // AccountSnapshot.mustChangePassword) — never merged into `this.accounts`.
+        return (res as any)?.mustChangePassword === true ? { ...snap, mustChangePassword: true } : snap;
     }
 
     /**
@@ -138,7 +141,18 @@ export class CookieAccountManager implements IAccountSwitcher {
         const active = this.requireActive();
         if (meta) this.mergeMeta(active.accountId, meta);
         this.notify();
-        return this.accounts.find((a) => a.accountId === active.accountId) ?? active;
+        const snap = this.accounts.find((a) => a.accountId === active.accountId) ?? active;
+        // The verify2fa response that carried the flag isn't in hand here (cookie
+        // mode has one shared client), so read it from /auth/me. Best-effort: a
+        // failed lookup must not fail the commit.
+        let mustChangePassword: boolean | undefined;
+        try {
+            const u = (await this.client.getSessionUserData()) as any;
+            if (u?.mustChangePassword === true) mustChangePassword = true;
+        } catch {
+            /* the account is committed either way; the guard still enforces */
+        }
+        return mustChangePassword ? { ...snap, mustChangePassword: true } : snap;
     }
 
     /** Update an account's app-supplied display metadata (label / tenantName). */

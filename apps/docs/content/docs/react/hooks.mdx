@@ -168,6 +168,7 @@ Each entry in `accounts` (and `activeAccount`) is an `AccountSnapshot`:
 | `label` | `string?` | Display label (best-effort from name/email, or your override) |
 | `tenantName` | `string?` | App-supplied tenant/property name for the switcher UI |
 | `isActive` | `boolean` | Whether this is the active account |
+| `mustChangePassword` | `boolean?` | Set on the snapshot returned by `addAccount` / `completeMfa` when the member is on an admin-issued temporary password. **One-shot** — never on `accounts[]` (see below) |
 
 `tenantName` is **app-supplied** — the server session carries no tenant display name. Pass it via `addAccount`/`completeMfa` options (`{ meta: { tenantName } }`) or stamp it later with `setAccountMeta`. It lets a switcher show "Green Valley" vs "Sunrise" instead of an identical shared-owner email on every row.
 
@@ -179,6 +180,17 @@ await setAccountMeta(accountId, { label: 'Work', tenantName: 'Green Valley' });
 ```
 
 `AccountMeta` is `{ label?: string; tenantName?: string }` — both optional, merged over the existing snapshot.
+
+### Forced password change — `mustChangePassword`
+
+An admin-issued temporary password sets `mustChangePassword` on the member. The sign-in call reports it, so a multi-account app can route to its change-password screen without a follow-up `/auth/me`:
+
+```tsx
+const account = await addAccount(loginDto);
+if (account.mustChangePassword) router.push('/change-password');
+```
+
+> **One-shot, on purpose.** It is only on the snapshot returned by `addAccount` / `completeMfa` — **not** on `accounts[]` or `activeAccount`, and it is not persisted. A cached `true` would outlive the password change and bounce the user back to the change-password screen forever. Re-check later with `getSessionUserData()` (`GET /auth/me`), which is always current; `undefined` means "not observed here", not "false". See [Force password change](/docs/recipes/force-password-change).
 
 ### MFA on add — `completeMfa`
 

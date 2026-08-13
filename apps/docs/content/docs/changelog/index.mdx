@@ -5,12 +5,18 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.10.1`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.10.2`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/migration/within-v2)**. Bump every package to the same version.
 
 ---
+
+## 2.10.2 — `mustChangePassword` on the multi-account sign-in
+
+- **Fixed (client):** a forced-password-change prompt was dead in any app with `allowMultipleAccounts: true`. The backend returns `mustChangePassword: true` on the login response and the single-account `login()` exposed it, but `AccountManager.addAccount()` resolved to an `AccountSnapshot` with no such field and discarded the login response — so the sign-in call could never tell you the member was on an admin-issued temporary password.
+- **Added:** `AccountSnapshot.mustChangePassword`, set on the snapshot returned by `addAccount()` / `commitAccount()` (and the React `addAccount` / `completeMfa`), in both `AccountManager` and `CookieAccountManager`. Header mode reads it from the `/auth/me` lookup `commitAccount` **already** performs, so there's **no extra round-trip**, and the MFA-commit path is covered too.
+- **By design, one-shot:** it rides the returned snapshot only — never `listAccounts()`, never persisted. A cached `true` would outlive the password change and trap the user on the change-password screen. Re-check later with `getSessionUserData()` (`GET /auth/me`); `undefined` means "not observed here", not "false", and the `mustChangePassword.enforce` guard is still the real enforcement. See [Force password change](/docs/recipes/force-password-change) and [multi-account switching](/docs/recipes/multi-account-switching).
 
 ## 2.10.1 — fix: fresh visitor stuck on load
 

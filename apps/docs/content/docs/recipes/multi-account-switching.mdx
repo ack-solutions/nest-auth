@@ -104,6 +104,17 @@ await setAccountMeta(accountId, { tenantName: 'Sunrise' });
 
 `tenantName` and `label` land on each [`AccountSnapshot`](/docs/react/hooks#accountsnapshot); render whichever you prefer in the switcher.
 
+#### Temporary passwords (`mustChangePassword`)
+
+If an admin issued the member a **temporary password**, the sign-in call says so — route straight to your change-password screen:
+
+```tsx
+const account = await addAccount(loginDto, { meta: { tenantName } });
+if (account.mustChangePassword) router.push('/change-password');
+```
+
+`completeMfa` / `commitAccount` report it too. The flag is **one-shot**: it rides the snapshot returned by the sign-in call only, never `listAccounts()`, and is not persisted — a cached `true` would survive the password change and trap the user on that screen. Re-check later with `getSessionUserData()` (`GET /auth/me`). See [Force password change](/docs/recipes/force-password-change).
+
 #### MFA on add (`completeMfa`)
 
 If a login needs a second factor, `addAccount` throws `AccountMfaRequiredError` (carrying the pending client). Catch it, show your OTP UI, then call `completeMfa(error, verifyDto)` — it verifies the challenge on that client and registers the account:

@@ -54,6 +54,25 @@ export interface AccountSnapshot {
     tenantName?: string;
     /** Whether this is the currently-active account. */
     isActive: boolean;
+    /**
+     * True when this account signed in on an admin-issued temporary password and
+     * must set a new one (the server's `mustChangePassword`). Route straight to
+     * your change-password screen when you see it.
+     *
+     * **One-shot, by design.** It is only populated on the snapshot returned by
+     * {@link IAccountSwitcher.addAccount} / {@link IAccountSwitcher.commitAccount}
+     * — i.e. the sign-in call that observed it. It is deliberately NOT persisted
+     * in the account index and never appears on `listAccounts()` snapshots: a
+     * cached `true` that outlived the password change would bounce the user back
+     * to the change-password screen forever. Re-check it later with
+     * `client.getSessionUserData()` (`GET /auth/me`), which is always current.
+     *
+     * `undefined` means "not observed here", not "false" — the backend
+     * `mustChangePassword.enforce` guard remains the actual enforcement, so a
+     * missed client-side redirect degrades to a server-side block, never to
+     * unrestricted access.
+     */
+    mustChangePassword?: boolean;
 }
 
 /** App-supplied display metadata for an account (not derivable from the session). */
@@ -249,6 +268,11 @@ export class AccountManager implements IAccountSwitcher {
      * Log into a NEW account without disturbing the existing ones, then register
      * it and make it active. Throws {@link AccountMfaRequiredError} if the login
      * needs an MFA challenge first.
+     *
+     * The returned snapshot carries {@link AccountSnapshot.mustChangePassword}
+     * when the member is on an admin-issued temporary password, so a
+     * multi-account app can route to its change-password screen from the
+     * sign-in call itself (the single-account `login()` already exposed this).
      */
     async addAccount(dto: ILoginRequest, options?: AddAccountOptions): Promise<AccountSnapshot> {
         await this.ready();
@@ -262,12 +286,22 @@ export class AccountManager implements IAccountSwitcher {
                 res,
             );
         }
-        return this.commitAccount(client, meta);
+        const snap = await this.commitAccount(client, meta);
+        // `commitAccount` reads the flag from /auth/me; keep the login response as
+        // a fallback for when that best-effort lookup failed.
+        return (res as any)?.mustChangePassword === true && snap.mustChangePassword !== true
+            ? { ...snap, mustChangePassword: true }
+            : snap;
     }
 
     /**
      * Register a client that has finished authenticating (after `login`/`verify2fa`)
      * as an account, and make it active. Re-committing the same account replaces it.
+     *
+     * The returned snapshot carries {@link AccountSnapshot.mustChangePassword}
+     * (read from the `/auth/me` lookup this already performs, so no extra
+     * round-trip) — which also covers the MFA path, where the login response
+     * that first reported the flag is no longer in hand.
      */
     async commitAccount(client: AuthClient, meta?: AccountMeta): Promise<AccountSnapshot> {
         await this.ready();
@@ -286,13 +320,16 @@ export class AccountManager implements IAccountSwitcher {
             await this.removeAccount(accountId);
         }
 
-        // Best-effort label for the switcher UI.
+        // Best-effort label for the switcher UI. The same payload also carries
+        // `mustChangePassword`, so the force-change signal costs no extra call.
         let email: string | undefined;
         let label: string | undefined;
+        let mustChangePassword: boolean | undefined;
         try {
             const u = (await client.getSessionUserData()) as any;
             email = u?.email ?? undefined;
             label = u?.name ?? u?.displayName ?? email;
+            if (u?.mustChangePassword === true) mustChangePassword = true;
         } catch {
             /* labels are optional; identity still works */
         }
@@ -316,7 +353,11 @@ export class AccountManager implements IAccountSwitcher {
         this.index.activeAccountId = accountId;
         await this.persist();
         this.notify();
-        return this.snapshotOf(entry);
+        // Deliberately merged onto the RETURNED snapshot only — `entry` (and thus
+        // the persisted index and every `listAccounts()` snapshot) stays free of
+        // it, so the flag can never go stale after the user changes the password.
+        const snap = this.snapshotOf(entry);
+        return mustChangePassword ? { ...snap, mustChangePassword: true } : snap;
     }
 
     /** Repoint the active account. Pure client operation — no server call. */
