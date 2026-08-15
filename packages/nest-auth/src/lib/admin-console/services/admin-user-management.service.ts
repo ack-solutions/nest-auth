@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { TenantService } from '../../tenant/services/tenant.service';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { NestAuthUserAccess } from '../../user/entities/user-access.entity';
-import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
+import { NestAuthUserAccessStatusEnum, TenantModeEnum } from '@ackplus/nest-auth-contracts';
 
 /**
  * Admin-only service for managing user access (tenant + roles).
@@ -27,6 +27,10 @@ export class AdminUserManagementService {
     return mode === TenantModeEnum.SHARED ? TenantModeEnum.SHARED : TenantModeEnum.ISOLATED;
   }
 
+  private isActiveMembership(access: NestAuthUserAccess): boolean {
+    return access.status === NestAuthUserAccessStatusEnum.ACTIVE;
+  }
+
   private async ensureUserAccess(
     userId: string,
     tenantId: string,
@@ -39,8 +43,8 @@ export class AdminUserManagementService {
     });
 
     if (existing) {
-      if (!existing.isActive) {
-        existing.isActive = true;
+      if (existing.status !== NestAuthUserAccessStatusEnum.ACTIVE) {
+        existing.status = NestAuthUserAccessStatusEnum.ACTIVE;
         await this.userAccessRepository.save(existing);
       }
       return existing;
@@ -48,6 +52,7 @@ export class AdminUserManagementService {
     const access = this.userAccessRepository.create({
       userId,
       tenantId,
+      status: NestAuthUserAccessStatusEnum.ACTIVE,
     });
     return await this.userAccessRepository.save(access);
   }
@@ -72,14 +77,14 @@ export class AdminUserManagementService {
         const resolvedTenantId = await this.tenantService.resolveTenantId(tenantIds[0]);
         if (resolvedTenantId) {
           const existing = await this.userAccessRepository.find({ where: { userId } });
-          const toDeactivate = existing.filter((a) => a.tenantId !== resolvedTenantId && a.isActive);
+          const toDeactivate = existing.filter((a) => a.tenantId !== resolvedTenantId && this.isActiveMembership(a));
           if (toDeactivate.length) {
-            toDeactivate.forEach((a) => { a.isActive = false; });
+            toDeactivate.forEach((a) => { a.status = NestAuthUserAccessStatusEnum.INACTIVE; });
             await this.userAccessRepository.save(toDeactivate);
           }
           await this.ensureUserAccess(userId, resolvedTenantId);
           return this.userAccessRepository.find({
-            where: { userId, isActive: true },
+            where: { userId, status: NestAuthUserAccessStatusEnum.ACTIVE },
             relations: ['tenant'],
           });
         }
@@ -99,9 +104,9 @@ export class AdminUserManagementService {
     if (resolvedTenantIds.length === 0) {
       const existingList = await this.userAccessRepository.find({ where: { userId } });
       const updates = existingList
-        .filter((a) => a.isActive)
+        .filter((a) => this.isActiveMembership(a))
         .map((a) => {
-          a.isActive = false;
+          a.status = NestAuthUserAccessStatusEnum.INACTIVE;
           return a;
         });
       if (updates.length) {
@@ -118,8 +123,11 @@ export class AdminUserManagementService {
 
     for (const access of existingList) {
       const shouldBeActive = tenantIdSet.has(access.tenantId);
-      if (access.isActive !== shouldBeActive) {
-        access.isActive = shouldBeActive;
+      const isActive = this.isActiveMembership(access);
+      if (isActive !== shouldBeActive) {
+        access.status = shouldBeActive
+          ? NestAuthUserAccessStatusEnum.ACTIVE
+          : NestAuthUserAccessStatusEnum.INACTIVE;
         updates.push(access);
       }
     }
@@ -130,7 +138,7 @@ export class AdminUserManagementService {
           this.userAccessRepository.create({
             userId,
             tenantId,
-            isActive: true,
+            status: NestAuthUserAccessStatusEnum.ACTIVE,
           }),
         );
       }
@@ -141,7 +149,7 @@ export class AdminUserManagementService {
     }
 
     return this.userAccessRepository.find({
-      where: { userId, isActive: true },
+      where: { userId, status: NestAuthUserAccessStatusEnum.ACTIVE },
       relations: ['tenant'],
     });
   }

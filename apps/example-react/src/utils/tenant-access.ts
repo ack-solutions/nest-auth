@@ -1,4 +1,4 @@
-import type { INestAuthUserAccess } from '@ackplus/nest-auth-client';
+import { type INestAuthUserAccess, NestAuthUserAccessStatusEnum } from '@ackplus/nest-auth-client';
 
 /**
  * Unique tenant ids from memberships (nested tenant or access-level tenantId).
@@ -8,6 +8,7 @@ export function distinctTenantIdsFromUserAccesses(
 ): string[] {
     const ids = new Set<string>();
     for (const access of accesses ?? []) {
+        if (access.status && access.status !== NestAuthUserAccessStatusEnum.ACTIVE) continue;
         const id = access?.tenant?.id ?? access?.tenantId;
         if (id) ids.add(id);
     }

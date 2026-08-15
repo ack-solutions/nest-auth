@@ -29,7 +29,7 @@ See [Database Setup](/docs/getting-started/database-setup) for migration and sch
 | `NestAuthPermission` | `nest_auth_permissions` | Permissions, scoped per `guard` |
 | `NestAuthRolePermission` | `nest_auth_role_permissions` | Role↔permission many-to-many |
 | `NestAuthTenant` | `nest_auth_tenants` | Tenant rows |
-| `NestAuthUserAccess` | `nest_auth_user_accesses` | Per-tenant user membership + roles |
+| `NestAuthUserAccess` | `nest_auth_user_accesses` | Per-tenant user membership + roles (`status`: `active` \| `inactive`) |
 | `NestAuthPlatformAccess` | `nest_auth_platform_accesses` | Cross-tenant roles for staff |
 | `NestAuthMFASecret` | `nest_auth_mfa_secrets` | TOTP secrets, per device |
 | `NestAuthOTP` | `nest_auth_otps` | One-time codes (email/phone verify, password reset, MFA) |

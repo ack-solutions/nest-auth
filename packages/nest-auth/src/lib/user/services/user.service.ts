@@ -13,7 +13,7 @@ import { AuthConfigService } from '../../core/services/auth-config.service';
 import { NestAuthUserAccess } from '../entities/user-access.entity';
 import { NestAuthTenant } from '../../tenant/entities/tenant.entity';
 import { NestAuthRole } from '../../role/entities/role.entity';
-import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
+import { TenantModeEnum, NestAuthUserAccessStatusEnum } from '@ackplus/nest-auth-contracts';
 import { normalizedEmail, normalizedPhone } from '../../utils';
 
 @Injectable()
@@ -486,6 +486,10 @@ export class UserService {
         });
 
         if (existing) {
+            if (existing.status !== NestAuthUserAccessStatusEnum.ACTIVE) {
+                existing.status = NestAuthUserAccessStatusEnum.ACTIVE;
+                return repo.save(existing);
+            }
             return existing;
         }
 
@@ -501,8 +505,9 @@ export class UserService {
             return false;
         }
         const access = await this.getUserRepo(manager).createQueryBuilder('u')
-            .innerJoin('u.userAccesses', 'm', 'm.tenantId = :tenantId', {
+            .innerJoin('u.userAccesses', 'm', 'm.tenantId = :tenantId AND m.status = :status', {
                 tenantId,
+                status: NestAuthUserAccessStatusEnum.ACTIVE,
             })
             .where('u.id = :userId', { userId })
             .select('m.id')
@@ -544,7 +549,7 @@ export class UserService {
             return [];
         }
         const accessList = await this.getUserAccessRepo(manager).find({
-            where: { userId, isActive: true },
+            where: { userId, status: NestAuthUserAccessStatusEnum.ACTIVE },
             relations: ['tenant']
         });
         return accessList
@@ -597,16 +602,16 @@ export class UserService {
     ): Promise<NestAuthTenant[]> {
         this.debugLogger.debug('Finding tenants by user identity', 'UserService', { field, hasValue: !!value });
 
-        const query = await this.getUserAccessRepo(manager)
-            .createQueryBuilder()
+        const query = this.getUserAccessRepo(manager)
+            .createQueryBuilder();
 
-        query.innerJoinAndSelect(`${query.alias}.tenant`, 'tenant')
+        const accessList = await query
+            .innerJoinAndSelect(`${query.alias}.tenant`, 'tenant')
             .innerJoin(`${query.alias}.user`, 'user')
             .where(`user.${field} = :value`, { value })
+            .andWhere(`${query.alias}.status = :status`, { status: NestAuthUserAccessStatusEnum.ACTIVE })
             .andWhere('tenant.isActive = :active', { active: true })
             .getMany();
-
-            const accessList = await query.getMany();
 
         const byId = new Map<string, NestAuthTenant>();
         for (const access of accessList) {

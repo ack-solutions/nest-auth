@@ -47,12 +47,14 @@ await qc.invalidateQueries();
 Make sure the `useUser()` hook surfaces a `tenants[]` field. The server's `user.getSessionUserData` hook is the place:
 
 ```ts
+import { NestAuthUserAccess, NestAuthUserAccessStatusEnum } from '@ackplus/nest-auth';
+
 user: {
   async getSessionUserData(authUser, helpers) {
     const tenants = await helpers.dataSource
       .getRepository(NestAuthUserAccess)
       .find({
-        where: { userId: authUser.id, isActive: true },
+        where: { userId: authUser.id, status: NestAuthUserAccessStatusEnum.ACTIVE },
         relations: { tenant: true },
       });
     return {

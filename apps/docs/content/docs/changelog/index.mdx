@@ -5,10 +5,29 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.10.2`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.10.3`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/migration/within-v2)**. Bump every package to the same version.
+
+---
+
+## 2.10.3 — user-access membership moves to `status`
+
+- **Changed (backend):** `NestAuthUserAccess` membership is gated by `status` (`active` | `inactive`, via the new `NestAuthUserAccessStatusEnum`) instead of `isActive`. The `status` column stays a string; the `isActive` column and `INestAuthUserAccess.isActive` are **removed**. Login, session resolution, `RequestContext.currentUserAccess()`, tenant listing, and admin tenant-sync all filter and set `status`.
+- **Changed (admin API):** the admin user-detail response no longer carries `isActive` on each access entry — read `status`.
+- **Fixed:** `UserService.getTenantsByUserIdentity` awaited the query builder and then ran `getMany()` twice, discarding the first result set. `ensureUserAccess` now reactivates an existing `inactive` membership instead of returning it unchanged.
+
+> **⚠️ Backfill before you drop `isActive`, or deactivated members silently regain access.** No previous version ever wrote `status`, so every existing row carries the column default `'active'` — *including* memberships an admin deactivated (which only set `isActive = false`). Moving the gate to `status` would re-activate all of them.
+
+```sql
+-- 1. backfill FIRST
+UPDATE nest_auth_user_accesses SET status = 'inactive' WHERE "isActive" = false;
+-- 2. then drop the old column (or let synchronize do it)
+ALTER TABLE nest_auth_user_accesses DROP COLUMN "isActive";
+```
+
+> Running `synchronize: true`? Take the backfill **before** booting the upgraded app — synchronize drops `isActive` on start, and with it the only record of who was deactivated.
 
 ---
 

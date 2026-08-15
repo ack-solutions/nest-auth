@@ -120,7 +120,8 @@ export type {
     IRoleResponse,
 } from './role';
 
-// Tenant (from tenant.ts) — all types
+// Tenant (from tenant.ts) — runtime enum + types
+export { NestAuthUserAccessStatusEnum } from './tenant';
 export type {
     INestAuthTenant,
     INestAuthUserAccess,

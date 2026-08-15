@@ -20,6 +20,7 @@ import { NestAuthUser } from './user.entity';
 import { NestAuthRole } from '../../role/entities/role.entity';
 import { chain } from 'lodash';
 import { getRolePermissionNames } from '../../role/utils/role-mapper.util';
+import { NestAuthUserAccessStatusEnum } from '@ackplus/nest-auth-contracts';
 
 @Entity('nest_auth_user_accesses')
 @Index('UQ_user_tenant_not_null', ['userId', 'tenantId'], {
@@ -59,14 +60,15 @@ export class NestAuthUserAccess extends BaseEntity {
     })
     roles: NestAuthRole[];
 
-    @Column({ default: true })
-    isActive: boolean;
-
     @Column({ default: false })
     isDefault: boolean;
 
-    @Column({ default: 'active' })
-    status: string;
+    /**
+     * Membership state (`active` | `inactive`). String column — not a DB enum.
+     * Login, session, and tenant listing only treat `active` as a current membership.
+     */
+    @Column({ type: 'varchar', default: NestAuthUserAccessStatusEnum.ACTIVE })
+    status: NestAuthUserAccessStatusEnum;
 
     @Column({ type: 'simple-json', nullable: true, default: '{}' })
     metadata?: Record<string, any>;

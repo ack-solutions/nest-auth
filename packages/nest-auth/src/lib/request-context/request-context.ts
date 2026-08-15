@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 import { Request, Response } from 'express';
 import { JWTTokenPayload, SessionPayload } from '../core/interfaces/token-payload.interface';
 import { NestAuthUserAccess } from '../user/entities/user-access.entity';
+import { NestAuthUserAccessStatusEnum } from '@ackplus/nest-auth-contracts';
 import { FindOneOptions, IsNull } from 'typeorm';
 import { NestAuthUser } from '../user/entities/user.entity';
 
@@ -55,6 +56,7 @@ export class RequestContext {
                 ...(findOptions?.where as object),
                 userId: session.userId,
                 tenantId: session.data?.tenantId || IsNull(),
+                status: NestAuthUserAccessStatusEnum.ACTIVE,
             },
         });
         return access;

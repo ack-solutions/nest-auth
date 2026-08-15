@@ -14,6 +14,7 @@ import { SessionManagerService } from '../../session/services/session-manager.se
 import { hmacSha256Hex } from '../../utils/has-token';
 import { JWTTokenPayload, SessionPayload } from '../../core/interfaces/token-payload.interface';
 import { AuthResponseDto, AuthTokensResponseDto } from '../dto/responses/auth.response.dto';
+import { NestAuthUserAccessStatusEnum } from '@ackplus/nest-auth-contracts';
 
 /**
  * Shared session/token/response helpers extracted from the (formerly 1226-LOC)
@@ -72,7 +73,7 @@ export class SessionTokenService {
         const userAccess = await NestAuthUserAccess.findOne({
             where: {
                 userId,
-                isActive: true,
+                status: NestAuthUserAccessStatusEnum.ACTIVE,
                 tenantId: tenantId ? Equal(tenantId) : IsNull(),
             },
             relations: ['roles', 'roles.rolePermissions', 'roles.rolePermissions.permission'],

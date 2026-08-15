@@ -31,7 +31,7 @@ import { SessionManagerService } from '../../session/services/session-manager.se
 import { NestAuthSession } from '../../session/entities/session.entity';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { NestAuthUserAccess } from '../../user/entities/user-access.entity';
-import { TenantModeEnum } from '@ackplus/nest-auth-contracts';
+import { TenantModeEnum, NestAuthUserAccessStatusEnum } from '@ackplus/nest-auth-contracts';
 import { mapRoleToResponse } from '../../role/utils/role-mapper.util';
 import { NestAuthTrustedDevice } from '../../auth/entities/trusted-device.entity';
 
@@ -600,13 +600,12 @@ export class AdminUsersController {
       });
     }
 
-    const activeAccesses = (userAccesses?.filter((access) => access.isActive) ?? []).map((access) => ({
+    const activeAccesses = (userAccesses?.filter((access) => access.status === NestAuthUserAccessStatusEnum.ACTIVE) ?? []).map((access) => ({
       id: access.id,
       userId: access.userId,
       tenantId: access.tenantId,
       tenant: access.tenant,
       roles: (access.roles ?? []).map((role) => mapRoleToResponse(role as any)),
-      isActive: access.isActive,
       isDefault: access.isDefault,
       status: access.status,
       metadata: access.metadata ?? {},

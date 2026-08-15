@@ -116,7 +116,7 @@ const user = await this.userService.getUserByEmail('user@example.com');
 
 ### getTenantsByEmail() / getTenantsByPhone()
 
-Cross-tenant: return every **active** tenant that has an active membership for this email or phone. For app-owned login pickers (especially ISOLATED). **No** public HTTP endpoint — call from your own controller.
+Cross-tenant: return every **active** tenant that has a membership with `status: active` for this email or phone. For app-owned login pickers (especially ISOLATED). **No** public HTTP endpoint — call from your own controller.
 
 **Signature**:
 \`\`\`typescript
