@@ -12,7 +12,14 @@ import { SocialCredentialsDto } from '../../auth/dto/credentials/social-credenti
 export class GoogleAuthProvider extends SocialAuthProvider {
     providerName = GOOGLE_AUTH_PROVIDER;
     skipMfa = true;
-    private googleConfig: IAuthModuleOptions['google'];
+    /** Live config — never captured (forRootAsync sets options after construction). */
+    private get googleConfig(): IAuthModuleOptions['google'] {
+        return this.options.google;
+    }
+
+    protected resolveEnabled(): boolean {
+        return Boolean(this.googleConfig);
+    }
 
     constructor(
         @InjectRepository(NestAuthUser)
@@ -22,8 +29,6 @@ export class GoogleAuthProvider extends SocialAuthProvider {
     ) {
         super(userRepository, authIdentityRepository);
 
-        this.googleConfig = this.options.google;
-        this.enabled = Boolean(this.googleConfig);
     }
 
     private getClient(clientId: string, clientSecret: string) {

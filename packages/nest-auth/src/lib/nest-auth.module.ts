@@ -76,7 +76,12 @@ export class NestAuthModule {
 
     return {
       module: NestAuthModule,
-      global: options.isGlobal,
+      // The module defaults to global (AuthConfigService defaults isGlobal: true),
+      // and forRoot honours that via the MERGED options. forRootAsync only has
+      // the async wrapper here — the real options resolve later — so fall back to
+      // the same default instead of silently coming up non-global, which left
+      // TenantService unable to resolve DebugLoggerService and broke boot.
+      global: options.isGlobal ?? AuthConfigService.getDefaultOptions().isGlobal ?? true,
       imports: [
         EventEmitterModule,
         CoreModule,

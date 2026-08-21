@@ -44,8 +44,31 @@ export type LinkUserWith = 'email' | 'phone';
 
 export abstract class BaseAuthProvider {
     abstract providerName: string;
-    enabled: boolean;
     skipMfa = false;
+
+    /** Explicit override set by a consumer (or a custom provider) via `enabled = x`. */
+    private explicitEnabled?: boolean;
+
+    /**
+     * Whether this provider is on. Read LIVE, never captured: under forRootAsync
+     * the provider is constructed before the async options factory runs
+     * setOptions(), so a value captured in the constructor is the package
+     * DEFAULT (e.g. phoneAuth.enabled: false) and the provider stays dead for
+     * the life of the process. Built-in providers override `resolveEnabled()`;
+     * assigning `enabled` still wins, so custom providers keep working.
+     */
+    get enabled(): boolean {
+        return this.explicitEnabled ?? this.resolveEnabled();
+    }
+
+    set enabled(value: boolean) {
+        this.explicitEnabled = value;
+    }
+
+    /** Live enabled state from module options. Default: on. */
+    protected resolveEnabled(): boolean {
+        return true;
+    }
 
     /**
      * Live module options — read lazily, never captured. Capturing at

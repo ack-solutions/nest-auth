@@ -12,7 +12,14 @@ import { SocialCredentialsDto } from '../../auth/dto/credentials/social-credenti
 export class FacebookAuthProvider extends SocialAuthProvider {
     providerName = FACEBOOK_AUTH_PROVIDER;
     skipMfa = true;
-    private facebookConfig: IAuthModuleOptions['facebook'];
+    /** Live config — never captured (forRootAsync sets options after construction). */
+    private get facebookConfig(): IAuthModuleOptions['facebook'] {
+        return this.options.facebook;
+    }
+
+    protected resolveEnabled(): boolean {
+        return Boolean(this.facebookConfig);
+    }
 
     constructor(
         @InjectRepository(NestAuthUser)
@@ -22,8 +29,6 @@ export class FacebookAuthProvider extends SocialAuthProvider {
     ) {
         super(userRepository, authIdentityRepository);
 
-        this.facebookConfig = this.options.facebook;
-        this.enabled = Boolean(this.facebookConfig);
     }
 
     async validate(credentials: SocialCredentialsDto, _tenantId?: string) {

@@ -65,7 +65,15 @@ import { NestAuthPlatformAccess } from '../../user/entities/platform-access.enti
 @Injectable()
 export class AuthService {
 
-    private readonly authConfig: IAuthModuleOptions;
+    /**
+     * Live module options — read lazily, never captured. Under forRootAsync this
+     * service is constructed before the async options factory runs setOptions(),
+     * so a captured value is the package DEFAULTS (e.g. phoneAuth.enabled: false,
+     * which made phone signup/login fail with PROVIDER_NOT_FOUND).
+     */
+    private get authConfig(): IAuthModuleOptions {
+        return this.authConfigService.getConfig();
+    }
 
     constructor(
         @InjectRepository(NestAuthUser)
@@ -101,8 +109,6 @@ export class AuthService {
         private readonly tenantContext: ITenantContextService,
 
     ) {
-
-        this.authConfig = this.authConfigService.getConfig();
     }
 
     // Shared user/token/response helpers extracted to SessionTokenService

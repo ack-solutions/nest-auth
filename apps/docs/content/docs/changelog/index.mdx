@@ -5,12 +5,20 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.10.3`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.10.4`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/migration/within-v2)**. Bump every package to the same version.
 
 ---
+
+## 2.10.4 — `forRootAsync` reads options lazily
+
+- **Fixed (backend):** phone login was dead under `forRootAsync` — `POST /auth/login` with `providerName: 'phone'` returned `INVALID_PROVIDER` / `PROVIDER_NOT_FOUND` despite `phoneAuth: { enabled: true }`. `AuthProviderRegistryService` lives in `CoreModule` (an *import* of `NestAuthModule`) and doesn't depend on the async options provider, so Nest constructed it **before** the async factory ran `setOptions()`. It read the package defaults (`phoneAuth.enabled: false`) in its constructor and never registered the provider. Same class as the 2.8.0 `JwtService` bug.
+- **Fixed:** the registry now reads options through a lazy getter and registers built-in providers in `onModuleInit` (after every provider, including the async factory, is instantiated). `BaseAuthProvider.enabled` is a live getter; assigning `enabled` still wins, so custom providers are unaffected. The `google` / `facebook` / `github` / `apple` / `jwt` providers also captured their **config objects** at construction — silently disabling them under `forRootAsync` — and now read live. `AuthService.authConfig` is a live getter too, which is what blocked phone *signup*.
+- **Fixed:** `forRootAsync` could fail to boot entirely. `forRoot` sets `global` from the merged options (default `isGlobal: true`), but `forRootAsync` read `isGlobal` off the async wrapper (`useClass` / `useFactory` / `inject`), normally `undefined` — so the module came up non-global and `TenantService` couldn't resolve `DebugLoggerService`. Apps that passed `isGlobal: true` (as the docs example does) were unaffected. See [Module reference](/docs/backend/module#async-form).
+
+No API changes, and `forRoot` behaviour is unchanged.
 
 ## 2.10.3 — user-access membership moves to `status`
 

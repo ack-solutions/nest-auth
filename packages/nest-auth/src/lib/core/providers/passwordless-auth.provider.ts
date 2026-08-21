@@ -22,6 +22,10 @@ import { PasswordlessOtpCredentialsDto } from '../../auth/dto/credentials/passwo
 @Injectable()
 export class PasswordlessAuthProvider extends BaseAuthProvider {
     providerName = PASSWORDLESS_AUTH_PROVIDER;
+
+    protected resolveEnabled(): boolean {
+        return this.options.passwordless?.enabled === true;
+    }
     skipMfa = true;
     otpRepository: Repository<NestAuthOTP>;
 
@@ -32,7 +36,6 @@ export class PasswordlessAuthProvider extends BaseAuthProvider {
         protected readonly authIdentityRepository: Repository<NestAuthIdentity>,
     ) {
         super(userRepository, authIdentityRepository);
-        this.enabled = this.options.passwordless?.enabled === true;
 
         this.otpRepository = NestAuthOTP.getRepository();
     }

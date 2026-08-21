@@ -13,7 +13,14 @@ import { SessionOptions } from '../interfaces/session-options.interface';
 @Injectable()
 export class JwtAuthProvider extends BaseAuthProvider {
     providerName = JWT_AUTH_PROVIDER;
-    private jwtConfig: SessionOptions['jwt'];
+    /** Live config — never captured (forRootAsync sets options after construction). */
+    private get jwtConfig(): SessionOptions['jwt'] {
+        return this.options.session?.jwt;
+    }
+
+    protected resolveEnabled(): boolean {
+        return this.jwtConfig?.enableLoginProvider === true;
+    }
 
 
     constructor(
@@ -25,11 +32,9 @@ export class JwtAuthProvider extends BaseAuthProvider {
     ) {
         super(userRepository, authIdentityRepository);
 
-        this.jwtConfig = this.options.session?.jwt;
         // Opt-in only (see AuthProviderRegistryService): a trust-any-signed-token
         // login path must be enabled deliberately, never by the mere presence of
         // a signing secret.
-        this.enabled = this.jwtConfig?.enableLoginProvider === true;
     }
 
     async validate(credentials: SocialCredentialsDto, _tenantId?: string) {

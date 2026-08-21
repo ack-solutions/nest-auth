@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NestAuthUser } from '../../user/entities/user.entity';
@@ -16,9 +16,19 @@ import { AuthConfigService } from './auth-config.service';
 import { PasswordlessAuthProvider } from '../providers/passwordless-auth.provider';
 
 @Injectable()
-export class AuthProviderRegistryService {
+export class AuthProviderRegistryService implements OnModuleInit {
     private providers: Map<string, BaseAuthProvider> = new Map();
-    private options: IAuthModuleOptions;
+    private defaultsRegistered = false;
+
+    /**
+     * Live module options — read lazily, never captured. Under forRootAsync the
+     * registry is constructed (it lives in CoreModule, an IMPORT of
+     * NestAuthModule) before the host module's async options factory runs
+     * setOptions(), so a captured value is the package DEFAULTS.
+     */
+    private get options(): IAuthModuleOptions {
+        return AuthConfigService.getOptions();
+    }
 
     constructor(
         private readonly emailAuthProvider: EmailAuthProvider,
@@ -35,8 +45,25 @@ export class AuthProviderRegistryService {
         private readonly authIdentityRepository: Repository<NestAuthIdentity>,
     ) {
 
-        this.options = AuthConfigService.getOptions();
+        // NOTE: deliberately NOT registering here. Under forRootAsync the async
+        // options factory has not run yet, so we would read the defaults and
+        // (for example) never register the phone provider. Registration happens
+        // in onModuleInit, which Nest runs after every provider — including that
+        // factory — has been instantiated.
+    }
 
+    onModuleInit(): void {
+        this.ensureDefaultsRegistered();
+    }
+
+    /**
+     * Register the built-in providers exactly once, from the options that are
+     * live at the time. Also called defensively from the read accessors so a
+     * registry used outside Nest's lifecycle still behaves.
+     */
+    private ensureDefaultsRegistered(): void {
+        if (this.defaultsRegistered) return;
+        this.defaultsRegistered = true;
         this.registerDefaultProviders();
     }
 
@@ -92,6 +119,7 @@ export class AuthProviderRegistryService {
      * Get a provider by ID
      */
     getProvider(providerName: string): BaseAuthProvider | undefined {
+        this.ensureDefaultsRegistered();
         return this.providers.get(providerName);
     }
 
@@ -99,6 +127,7 @@ export class AuthProviderRegistryService {
      * Get all registered providers
      */
     getAllProviders(): BaseAuthProvider[] {
+        this.ensureDefaultsRegistered();
         return Array.from(this.providers.values());
     }
 
@@ -115,6 +144,7 @@ export class AuthProviderRegistryService {
      * Check if a provider is registered
      */
     hasProvider(providerName: string): boolean {
+        this.ensureDefaultsRegistered();
         return this.providers.has(providerName);
     }
 }

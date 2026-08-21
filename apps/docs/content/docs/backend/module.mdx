@@ -42,6 +42,10 @@ NestAuthModule.forRootAsync({
 
 You can also use `useClass` or `useExisting` patterns — see [`IAuthModuleAsyncOptions`](/docs/api-reference/types).
 
+`isGlobal` defaults to `true` (same as `forRoot`) — passing it explicitly, as above, is optional.
+
+> **Since 2.10.4:** everything the module reads — provider registration, each provider's `enabled`, its OAuth/JWT config, and `AuthService`'s options — is resolved **lazily**, after your async factory has run. Before that, services constructed ahead of the factory captured the package defaults, so `phoneAuth: { enabled: true }` supplied asynchronously left phone login returning `INVALID_PROVIDER` (and the social providers silently off). No configuration change is needed.
+
 ## Top-level options
 
 ### Required

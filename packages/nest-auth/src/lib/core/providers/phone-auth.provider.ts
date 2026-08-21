@@ -12,6 +12,10 @@ import { normalizedPhone } from '../../utils';
 export class PhoneAuthProvider extends BaseAuthProvider {
     providerName = PHONE_AUTH_PROVIDER;
 
+    protected resolveEnabled(): boolean {
+        return this.options.phoneAuth?.enabled === true;
+    }
+
     constructor(
         @InjectRepository(NestAuthUser)
         protected readonly userRepository: Repository<NestAuthUser>,
@@ -20,7 +24,6 @@ export class PhoneAuthProvider extends BaseAuthProvider {
     ) {
         super(userRepository, authIdentityRepository);
 
-        this.enabled = this.options.phoneAuth?.enabled;
     }
 
     async findIdentity(providerUserId: string, tenantId?: string): Promise<NestAuthIdentity | null> {

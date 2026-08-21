@@ -39,7 +39,14 @@ const JWKS_TTL_MS = 10 * 60 * 1000;
 export class AppleAuthProvider extends SocialAuthProvider {
     providerName = APPLE_AUTH_PROVIDER;
     skipMfa = true;
-    private appleConfig: IAuthModuleOptions['apple'];
+    /** Live config — never captured (forRootAsync sets options after construction). */
+    private get appleConfig(): IAuthModuleOptions['apple'] {
+        return this.options.apple;
+    }
+
+    protected resolveEnabled(): boolean {
+        return Boolean(this.options.apple);
+    }
     private appleAuth?: AppleAuth;
     private jwksCache?: { keys: any[]; fetchedAt: number };
 
@@ -52,8 +59,6 @@ export class AppleAuthProvider extends SocialAuthProvider {
     ) {
         super(userRepository, authIdentityRepository);
 
-        this.appleConfig = this.options.apple;
-        this.enabled = Boolean(this.options.apple);
 
         // The web authorization-code exchange needs the Apple private key. A
         // native-only deployment (mobile identityToken verification) can skip it.

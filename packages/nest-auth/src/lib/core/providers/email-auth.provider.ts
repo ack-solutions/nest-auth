@@ -12,6 +12,10 @@ import { normalizedEmail } from '../../utils';
 export class EmailAuthProvider extends BaseAuthProvider {
     providerName = EMAIL_AUTH_PROVIDER;
 
+    protected resolveEnabled(): boolean {
+        return this.options.emailAuth?.enabled !== false;
+    }
+
     constructor(
         @InjectRepository(NestAuthUser)
         protected readonly userRepository: Repository<NestAuthUser>,
@@ -20,7 +24,6 @@ export class EmailAuthProvider extends BaseAuthProvider {
     ) {
         super(userRepository, authIdentityRepository);
 
-        this.enabled = this.options.emailAuth?.enabled;
     }
 
     /**

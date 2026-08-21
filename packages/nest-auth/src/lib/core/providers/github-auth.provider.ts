@@ -11,7 +11,14 @@ import { SocialCredentialsDto } from '../../auth/dto/credentials/social-credenti
 @Injectable()
 export class GitHubAuthProvider extends SocialAuthProvider {
     providerName = GITHUB_AUTH_PROVIDER;
-    private githubConfig: IAuthModuleOptions['github'];
+    /** Live config — never captured (forRootAsync sets options after construction). */
+    private get githubConfig(): IAuthModuleOptions['github'] {
+        return this.options.github;
+    }
+
+    protected resolveEnabled(): boolean {
+        return Boolean(this.githubConfig);
+    }
 
     constructor(
         @InjectRepository(NestAuthUser)
@@ -21,8 +28,6 @@ export class GitHubAuthProvider extends SocialAuthProvider {
     ) {
         super(userRepository, authIdentityRepository);
 
-        this.githubConfig = this.options.github;
-        this.enabled = Boolean(this.githubConfig);
     }
 
     private get userApiUrl(): string {
