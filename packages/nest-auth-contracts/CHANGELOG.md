@@ -1,5 +1,7 @@
 # @ackplus/nest-auth-contracts
 
+## 2.10.4
+
 ## 2.10.3
 
 ### Patch Changes

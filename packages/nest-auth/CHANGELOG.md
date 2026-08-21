@@ -1,5 +1,24 @@
 # @ackplus/nest-auth
 
+## 2.10.4
+
+### Patch Changes
+
+- fix(forRootAsync): providers and options are read live, not captured at construction
+
+  Phone login was dead under `forRootAsync`: `POST /auth/login` with `providerName: 'phone'` returned `INVALID_PROVIDER` / `PROVIDER_NOT_FOUND` even with `phoneAuth: { enabled: true }`. Same class of bug as the 2.8.0 `JwtService` "captured options at construction" issue.
+
+  `AuthProviderRegistryService` lives in `CoreModule` — an **import** of `NestAuthModule` — and does not depend on `NEST_AUTH_ASYNC_OPTIONS_PROVIDER`, so Nest constructs it _before_ the async options factory calls `AuthConfigService.setOptions()`. It read `getOptions()` in its constructor and registered the defaults there (`emailAuth.enabled: true`, `phoneAuth.enabled: false`), so the phone provider was never registered. Every provider repeated the capture (`this.enabled = this.options.x?.enabled`), and `AuthService` captured the whole options object, so the signup path rejected phone as well.
+  - `AuthProviderRegistryService` reads options through a lazy getter and registers the built-in providers in **`onModuleInit`** — which Nest runs after every provider (including the async options factory) has been instantiated. The read accessors also register on demand, so a registry used outside Nest's lifecycle still behaves.
+  - `BaseAuthProvider.enabled` is now a live getter backed by `resolveEnabled()`, overridden by each built-in provider to read current options. Assigning `enabled` still wins, so custom providers are unaffected.
+  - The social/JWT providers (`google`, `facebook`, `github`, `apple`, `jwt`) also captured their **config objects** at construction — all now read live. Under `forRootAsync` they were silently disabled too.
+  - `AuthService.authConfig` is a live getter instead of a constructor capture.
+
+  **Also fixed: `forRootAsync` could not boot at all.** `forRoot` sets `global` from the _merged_ options (default `isGlobal: true`), but `forRootAsync` read `isGlobal` off the async wrapper (`useClass`/`useFactory`/`inject`), which is normally `undefined` — so the module came up non-global and `TenantService` could not resolve `DebugLoggerService`, failing app startup with a DI error. It now falls back to the same default. Passing `isGlobal` explicitly still wins.
+
+  No API changes. `forRoot` behaviour is unchanged.
+  - @ackplus/nest-auth-contracts@2.10.4
+
 ## 2.10.3
 
 ### Patch Changes
