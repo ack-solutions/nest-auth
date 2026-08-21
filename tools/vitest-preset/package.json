@@ -1,6 +1,6 @@
 {
   "name": "@ackplus/vitest-preset",
-  "version": "2.10.3",
+  "version": "2.10.4",
   "private": true,
   "type": "module",
   "description": "Shared Vitest config + real-test helpers (Testcontainers Postgres/Redis, OAuth stub server, email/SMS capture transports). Internal package, never published.",
