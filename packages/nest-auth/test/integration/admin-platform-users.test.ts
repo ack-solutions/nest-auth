@@ -212,7 +212,7 @@ describe('Admin console — platform user management', () => {
     expect(detail.body.user.isPlatformUser).toBe(true);
   });
 
-  it('platformRoleIds on a non-platform user is refused (console never mints super-admins)', async () => {
+  it('platformRoleIds without platform access is refused (grant it first)', async () => {
     const res = await patch(`/api/users/${tenantOnlyId}`).send({
       platformRoleIds: [superAdminRoleId],
     });
@@ -224,10 +224,148 @@ describe('Admin console — platform user management', () => {
     expect(detail.body.user.isPlatformUser).toBe(false);
   });
 
+  it('grants platform access to an existing tenant user, keeping tenant access intact', async () => {
+    const before = await get(`/api/users/${tenantOnlyId}`);
+    const tenantsBefore = (before.body.user.userAccesses ?? []).map((a: any) => a.tenantId).sort();
+
+    const res = await patch(`/api/users/${tenantOnlyId}`).send({ isPlatformUser: true });
+    expect(res.status).toBeLessThan(300);
+
+    const after = await get(`/api/users/${tenantOnlyId}`);
+    expect(after.body.user.isPlatformUser).toBe(true);
+    expect(after.body.user.platformAccess).toBeTruthy();
+    // Tenant scope untouched by the grant.
+    expect((after.body.user.userAccesses ?? []).map((a: any) => a.tenantId).sort()).toEqual(tenantsBefore);
+  });
+
+  it('grant + set roles in ONE request (grant is applied first)', async () => {
+    const fresh = await users.createUser({ email: 'grant-combo@test.local', isActive: true }, acmeId);
+
+    const res = await patch(`/api/users/${fresh.id}`).send({
+      isPlatformUser: true,
+      platformRoleIds: [superAdminRoleId],
+    });
+    expect(res.status).toBeLessThan(300);
+
+    const detail = await get(`/api/users/${fresh.id}`);
+    expect(detail.body.user.isPlatformUser).toBe(true);
+    expect((detail.body.user.platformAccess.roles ?? []).map((r: any) => r.name)).toEqual([
+      'platform-super-admin',
+    ]);
+  });
+
+  it('granting twice is idempotent (no duplicate marker)', async () => {
+    const first = await get(`/api/users/${tenantOnlyId}`);
+    const accessId = first.body.user.platformAccess.id;
+
+    await patch(`/api/users/${tenantOnlyId}`).send({ isPlatformUser: true });
+
+    const second = await get(`/api/users/${tenantOnlyId}`);
+    expect(second.body.user.platformAccess.id).toBe(accessId);
+  });
+
+  it('revokes platform access, dropping platform roles but keeping tenant access', async () => {
+    // Give it a platform role first so we can prove the roles go with the marker.
+    await patch(`/api/users/${tenantOnlyId}`).send({ platformRoleIds: [superAdminRoleId] });
+    const withRole = await get(`/api/users/${tenantOnlyId}`);
+    expect((withRole.body.user.platformAccess.roles ?? []).length).toBe(1);
+    const tenantsBefore = (withRole.body.user.userAccesses ?? []).map((a: any) => a.tenantId).sort();
+
+    const res = await patch(`/api/users/${tenantOnlyId}`).send({ isPlatformUser: false });
+    expect(res.status).toBeLessThan(300);
+
+    const after = await get(`/api/users/${tenantOnlyId}`);
+    expect(after.body.user.isPlatformUser).toBe(false);
+    expect(after.body.user.platformAccess).toBeNull();
+    // Tenant scope survives the revoke.
+    expect((after.body.user.userAccesses ?? []).map((a: any) => a.tenantId).sort()).toEqual(tenantsBefore);
+    // And it drops back out of the platform-scoped list.
+    const list = await get('/api/users?scope=platform&limit=100');
+    expect(list.body.data.map((u: any) => u.id)).not.toContain(tenantOnlyId);
+  });
+
+  it('creates a platform user directly (tenant-less, marker included)', async () => {
+    const res = await request(handle.httpServer)
+      .post(`${ADMIN_API}/api/users`)
+      .set('Cookie', cookie)
+      .send({ email: 'created-platform@test.local', isPlatformUser: true });
+    expect(res.status).toBeLessThan(300);
+
+    const created = res.body.user;
+    expect(created.isPlatformUser).toBe(true);
+    expect(created.platformAccess).toBeTruthy();
+    // Tenant-less: no tenant memberships despite SHARED mode being on.
+    expect((created.userAccesses ?? []).filter((a: any) => a.tenantId)).toEqual([]);
+
+    // It shows up under scope=platform.
+    const list = await get('/api/users?scope=platform&limit=100');
+    expect(list.body.data.map((u: any) => u.id)).toContain(created.id);
+  });
+
   it('scope filter composes with search', async () => {
     const res = await get(`/api/users?scope=platform&search=hybrid&limit=100`);
     expect(res.status).toBe(200);
     const ids = res.body.data.map((u: any) => u.id);
     expect(ids).toEqual([hybridId]);
+  });
+});
+
+describe('Admin console — platform management requires platformAccess.enabled', () => {
+  let handle: TestAppHandle;
+  let cookie: string;
+  let userId: string;
+
+  beforeAll(async () => {
+    // Same app, but platform access is NOT switched on.
+    handle = await bootTestApp({
+      nestAuth: {
+        adminConsole: { enabled: true, secretKey: SECRET },
+        tenant: { enabled: true, mode: TenantModeEnum.SHARED },
+      } as any,
+    });
+
+    const users = handle.get<UserService>(UserService);
+    userId = (await users.createUser({ email: 'no-platform@test.local', isActive: true })).id;
+
+    await request(handle.httpServer)
+      .post('/auth/admin/signup')
+      .send({ email: 'console2@test.local', password: ADMIN_PW, secretKey: SECRET });
+    const login = await request(handle.httpServer)
+      .post('/auth/admin/login')
+      .send({ email: 'console2@test.local', password: ADMIN_PW });
+    const setCookie = login.headers['set-cookie'];
+    cookie = (Array.isArray(setCookie) ? setCookie : [setCookie]).map((c) => c.split(';')[0]).join('; ');
+  });
+
+  afterAll(async () => {
+    await handle.close();
+  });
+
+  it('refuses to grant platform access', async () => {
+    const res = await request(handle.httpServer)
+      .patch(`/auth/admin/api/users/${userId}`)
+      .set('Cookie', cookie)
+      .send({ isPlatformUser: true });
+    expect(res.status).toBe(400);
+    expect(JSON.stringify(res.body)).toContain('PLATFORM_ACCESS_DISABLED');
+  });
+
+  it('refuses to create a platform user', async () => {
+    const res = await request(handle.httpServer)
+      .post('/auth/admin/api/users')
+      .set('Cookie', cookie)
+      .send({ email: 'nope-platform@test.local', isPlatformUser: true });
+    expect(res.status).toBe(400);
+    expect(JSON.stringify(res.body)).toContain('PLATFORM_ACCESS_DISABLED');
+  });
+
+  it('ordinary user management still works', async () => {
+    const res = await request(handle.httpServer)
+      .patch(`/auth/admin/api/users/${userId}`)
+      .set('Cookie', cookie)
+      .send({ isActive: false });
+    expect(res.status).toBeLessThan(300);
+    expect(res.body.user.isActive).toBe(false);
+    expect(res.body.user.isPlatformUser).toBe(false);
   });
 });

@@ -44,7 +44,7 @@ It composes with the existing `search`, `status`, `tenantId`, and `roleName` fil
 
 ## Assigning platform roles
 
-Open a user and use **Platform Access → Manage roles**. Only **global** (tenant-less) roles are eligible — a platform role applies everywhere, so a tenant-scoped role would be meaningless there.
+Open a user and use **Platform Access → Manage roles**. Only **global** (tenant-less) roles are eligible — a platform role applies everywhere, so a tenant-scoped role would be meaningless there. The user must already hold platform access (see below).
 
 Via the API, `PATCH` the user with `platformRoleIds`:
 
@@ -57,14 +57,38 @@ Content-Type: application/json
 
 This replaces the platform roles wholesale (send `[]` to clear them) and **never** touches tenant roles — those stay under `tenantRoles`.
 
-## The console cannot grant platform access
+## Granting and revoking platform access
 
-By design, the console manages the **roles** of an existing platform user; it cannot create or remove the platform-access marker itself. Sending `platformRoleIds` for a non-platform user is refused with `400 NOT_PLATFORM_USER`, and clearing every platform role leaves the marker intact.
+There are two ways to make someone a platform user from the console:
 
-This keeps the admin console off the path to minting super-admins — a console operator can't escalate themselves or anyone else to platform-wide access. Provisioning stays in application code, where it can be reviewed and audited:
+1. **On an existing user** — open them and click **Platform Access → Grant access**. Their tenant memberships and tenant roles are untouched.
+2. **At creation** — tick **Platform user (super-admin)** in the Create User dialog. That provisions a tenant-less account with the marker in one step; tenant selection is skipped (you can add tenants afterwards).
+
+**Revoke** removes the marker and, with it, that user's platform roles. Tenant access is unaffected — the user simply stops being a platform user.
+
+On the API, both are the same field:
+
+```http
+PATCH /auth/admin/api/users/:id   { "isPlatformUser": true }   # grant
+PATCH /auth/admin/api/users/:id   { "isPlatformUser": false }  # revoke
+POST  /auth/admin/api/users       { "email": "…", "isPlatformUser": true }
+```
+
+Granting is idempotent, and `isPlatformUser` is applied **before** `platformRoleIds`, so one request can grant access and set roles together:
+
+```http
+PATCH /auth/admin/api/users/:id
+{ "isPlatformUser": true, "platformRoleIds": ["<global-role-id>"] }
+```
+
+Assigning `platformRoleIds` to a user who holds no platform access is still refused with `400 NOT_PLATFORM_USER` — grant it first (or in the same request).
+
+> **This is a privilege-escalation surface.** Any console admin can make any user — including themselves — a platform super-admin. The only gate is `platformAccess.enabled`: with it unset or `false`, both grant and platform-user creation are refused with `400 PLATFORM_ACCESS_DISABLED`, and the UI hides the controls entirely. Restrict who can reach the admin console accordingly.
+
+Provisioning from application code still works and is the right choice for bootstrapping the first super-admin, where there's no console session yet:
 
 ```ts
-// Bootstrap / seeder — the only place platform access is granted.
+// Bootstrap / seeder.
 let user = await this.users.getPlatformUserByEmail(email);
 if (!user) {
   user = await this.users.createPlatformUser({ email, isActive: true });

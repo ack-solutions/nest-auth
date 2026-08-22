@@ -61,6 +61,19 @@ export class AdminCreateUserDto {
   @IsOptional()
   @IsObject()
   metadata?: Record<string, any>;
+
+  /**
+   * Provision this user as a PLATFORM (super-admin) user — a tenant-less account
+   * carrying a `NestAuthPlatformAccess` marker (see
+   * {@link AdminUpdateUserDto.isPlatformUser}). Platform users are tenant-less,
+   * so `tenantId` is ignored when this is set.
+   *
+   * Requires `platformAccess.enabled` in the module config; otherwise rejected
+   * with 400 PLATFORM_ACCESS_DISABLED.
+   */
+  @IsOptional()
+  @IsBoolean()
+  isPlatformUser?: boolean;
 }
 
 export class AdminUpdateUserDto {
@@ -144,4 +157,18 @@ export class AdminUpdateUserDto {
   @IsArray()
   @IsString({ each: true })
   platformRoleIds?: string[];
+
+  /**
+   * Grant (`true`) or revoke (`false`) PLATFORM access — the
+   * `NestAuthPlatformAccess` marker that makes a user a platform (super-admin)
+   * user. Revoking deletes the marker and, with it, that user's platform roles;
+   * their tenant memberships and roles are untouched.
+   *
+   * Requires `platformAccess.enabled` in the module config; otherwise rejected
+   * with 400 PLATFORM_ACCESS_DISABLED. Applied BEFORE `platformRoleIds`, so a
+   * single request can grant access and set roles together.
+   */
+  @IsOptional()
+  @IsBoolean()
+  isPlatformUser?: boolean;
 }

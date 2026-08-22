@@ -103,7 +103,7 @@ export interface UserDetailViewProps {
     tenantEnabled?: boolean;
     /** Backend has `platformAccess.enabled` — show the platform access scope. */
     platformAccessEnabled?: boolean;
-    onUpdate: (id: string, updates: Partial<User> & { tenantIds?: string[]; tenantRoles?: { tenantId: string; roleIds: string[] }[]; roleIds?: string[]; platformRoleIds?: string[] }) => Promise<void>;
+    onUpdate: (id: string, updates: Partial<User> & { tenantIds?: string[]; tenantRoles?: { tenantId: string; roleIds: string[] }[]; roleIds?: string[]; platformRoleIds?: string[]; isPlatformUser?: boolean }) => Promise<void>;
     onRefresh?: () => void | Promise<void>;
     onClose?: () => void;
 }
@@ -212,6 +212,40 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
     // platform access (so an existing platform user is never invisible).
     const showPlatformSection = platformAccessEnabled || isPlatformUser;
 
+    const handleGrantPlatformAccess = async () => {
+        const confirmed = await confirm(
+            'Grant platform access to this user? They will be able to sign in through the ' +
+            'platform login path with any platform roles you assign.',
+        );
+        if (!confirmed) return;
+        setSaving(true);
+        try {
+            await onUpdate(currentUser.id, { isPlatformUser: true });
+            await onRefresh?.();
+        } catch (error) {
+            console.error('Failed to grant platform access:', error);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleRevokePlatformAccess = async () => {
+        const confirmed = await confirm(
+            'Revoke platform access? Their platform roles are removed with it. ' +
+            'Tenant memberships and tenant roles are not affected.',
+        );
+        if (!confirmed) return;
+        setSaving(true);
+        try {
+            await onUpdate(currentUser.id, { isPlatformUser: false });
+            await onRefresh?.();
+        } catch (error) {
+            console.error('Failed to revoke platform access:', error);
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleRemoveTenant = async (tenantId: string) => {
         const confirmed = await confirm('Remove this user from the tenant? Their roles in this tenant will be removed.');
         if (!confirmed) return;
@@ -256,19 +290,51 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                                     icon={<Icon component={Globe} sx={{ fontSize: 16, color: 'primary.main' }} />}
                                     action={
                                         isPlatformUser ? (
-                                            <Tooltip title="Manage platform-wide roles" slotProps={tooltipSlotProps}>
-                                                <Button
-                                                    size="small"
-                                                    variant="outlined"
-                                                    color="primary"
-                                                    onClick={() => setShowPlatformRolesEdit(true)}
-                                                    startIcon={<Icon component={Pencil} />}
-                                                    sx={{ minWidth: 0, py: 0.5 }}
-                                                >
-                                                    Manage roles
-                                                </Button>
+                                            <Stack direction="row" spacing={0.75}>
+                                                <Tooltip title="Manage platform-wide roles" slotProps={tooltipSlotProps}>
+                                                    <Button
+                                                        size="small"
+                                                        variant="outlined"
+                                                        color="primary"
+                                                        onClick={() => setShowPlatformRolesEdit(true)}
+                                                        startIcon={<Icon component={Pencil} />}
+                                                        sx={{ minWidth: 0, py: 0.5 }}
+                                                    >
+                                                        Manage roles
+                                                    </Button>
+                                                </Tooltip>
+                                                <Tooltip title="Remove platform access (tenant access is unaffected)" slotProps={tooltipSlotProps}>
+                                                    <span>
+                                                        <Button
+                                                            size="small"
+                                                            variant="outlined"
+                                                            color="error"
+                                                            onClick={handleRevokePlatformAccess}
+                                                            disabled={saving}
+                                                            sx={{ minWidth: 0, py: 0.5 }}
+                                                        >
+                                                            Revoke
+                                                        </Button>
+                                                    </span>
+                                                </Tooltip>
+                                            </Stack>
+                                        ) : (
+                                            <Tooltip title="Make this user a platform (super-admin) user" slotProps={tooltipSlotProps}>
+                                                <span>
+                                                    <Button
+                                                        size="small"
+                                                        variant="contained"
+                                                        color="primary"
+                                                        onClick={handleGrantPlatformAccess}
+                                                        disabled={saving}
+                                                        startIcon={<Icon component={ShieldCheck} />}
+                                                        sx={{ minWidth: 0, py: 0.5 }}
+                                                    >
+                                                        Grant access
+                                                    </Button>
+                                                </span>
                                             </Tooltip>
-                                        ) : null
+                                        )
                                     }
                                 >
                                     {isPlatformUser ? (
@@ -314,10 +380,9 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                                                 Not a platform user.
                                             </Typography>
                                             <Typography variant="caption" color="text.disabled">
-                                                Platform access is provisioned in application code via
-                                                {' '}<Box component="code" sx={{ fontFamily: 'monospace' }}>UserService.createPlatformUser()</Box>,
-                                                {' '}so the console cannot grant super-admin rights. Once a user holds platform
-                                                access, their roles can be managed here.
+                                                Grant platform access to let this user sign in through the platform login
+                                                path with platform-wide roles. This is independent of their tenant
+                                                memberships — granting it changes nothing about their tenant access.
                                             </Typography>
                                         </Stack>
                                     )}

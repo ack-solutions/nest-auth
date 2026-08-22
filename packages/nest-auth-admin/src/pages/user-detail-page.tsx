@@ -67,6 +67,7 @@ export const UserDetailPage: React.FC = () => {
             tenantRoles?: { tenantId: string; roleIds: string[] }[];
             roleIds?: string[];
             platformRoleIds?: string[];
+            isPlatformUser?: boolean;
         }
     ) => {
         await api.patch(`/api/users/${userId}`, updates);

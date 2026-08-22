@@ -25,6 +25,7 @@ import { NestAuthUser } from '../user/entities/user.entity';
 import { PermissionModule } from '../permission/permission.module';
 import { SessionModule } from '../session/session.module';
 import { NestAuthUserAccess } from '../user/entities/user-access.entity';
+import { NestAuthPlatformAccess } from '../user/entities/platform-access.entity';
 import { AdminUserManagementService } from './services/admin-user-management.service';
 
 @Module({
@@ -35,6 +36,7 @@ import { AdminUserManagementService } from './services/admin-user-management.ser
       NestAuthTrustedDevice,
       NestAuthUser,
       NestAuthUserAccess,
+      NestAuthPlatformAccess,
     ]),
     forwardRef(() => AuthModule),
     forwardRef(() => UserModule),

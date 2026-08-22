@@ -154,8 +154,11 @@ export const UsersPage: React.FC = () => {
     const handleCreateUser = async (data: UserFormData) => {
         setCreateError('');
         try {
-            const body: { email: string; tenantId?: string } = { email: data.email.trim() };
-            if (tenantMode === 'isolated' && data.tenantId) {
+            const body: { email: string; tenantId?: string; isPlatformUser?: boolean } = { email: data.email.trim() };
+            if (data.isPlatformUser) {
+                // Platform users are tenant-less — never send a tenantId with one.
+                body.isPlatformUser = true;
+            } else if (tenantMode === 'isolated' && data.tenantId) {
                 body.tenantId = data.tenantId;
             }
             await api.post('/api/users', body);
@@ -535,6 +538,7 @@ export const UsersPage: React.FC = () => {
                     tenantMode={tenantMode}
                     tenants={tenants}
                     roles={roles}
+                    platformAccessEnabled={platformAccessEnabled}
                     error={createError}
                 />
             </Stack>

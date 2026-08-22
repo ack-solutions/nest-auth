@@ -89,6 +89,8 @@ export class AdminUsersController {
     private readonly userAccessRepository: Repository<NestAuthUserAccess>,
     @InjectRepository(NestAuthTrustedDevice)
     private readonly trustedDeviceRepository: Repository<NestAuthTrustedDevice>,
+    @InjectRepository(NestAuthPlatformAccess)
+    private readonly platformAccessRepository: Repository<NestAuthPlatformAccess>,
   ) { }
 
   private async ensureUserExists(id: string): Promise<NestAuthUser> {
@@ -261,6 +263,21 @@ export class AdminUsersController {
     };
   }
 
+  /**
+   * Platform access must be switched on in the module config before the console
+   * can hand it out — otherwise we'd write markers the login path never reads.
+   */
+  private assertPlatformAccessEnabled(): void {
+    if (this.authConfigService.getConfig().platformAccess?.enabled !== true) {
+      throw new BadRequestException({
+        message:
+          'Platform access is disabled. Set `platformAccess.enabled: true` in the ' +
+          'NestAuthModule config to manage platform users.',
+        code: 'PLATFORM_ACCESS_DISABLED',
+      });
+    }
+  }
+
   /** Normalize `?scope=`; anything unrecognized falls back to `all`. */
   private resolveScope(scope?: string): UserListScope {
     const normalized = scope?.trim().toLowerCase();
@@ -273,6 +290,24 @@ export class AdminUsersController {
     const config = this.authConfigService.getConfig();
     const tenantEnabled = config.tenant?.enabled === true;
     const tenantMode = config.tenant?.mode ?? TenantModeEnum.ISOLATED;
+
+    // PLATFORM user — tenant-less by definition, so it bypasses the tenant
+    // requirement entirely and is provisioned with its marker atomically.
+    if (dto.isPlatformUser) {
+      this.assertPlatformAccessEnabled();
+      const platformUser = await this.users.createPlatformUser({
+        email: dto.email,
+        phone: dto.phone,
+        metadata: dto.metadata ?? {},
+        isActive: dto.isActive ?? true,
+        emailVerifiedAt: dto.emailVerifiedAt ?? null,
+        phoneVerifiedAt: dto.phoneVerifiedAt ?? null,
+      });
+      const reloaded = await this.users.getUserById(platformUser.id, {
+        relations: ALL_ACCESS_RELATIONS,
+      });
+      return { user: await this.toSafeUser(reloaded) };
+    }
 
     let tenantId: string | undefined;
     if (tenantEnabled && tenantMode === TenantModeEnum.ISOLATED) {
@@ -547,17 +582,31 @@ export class AdminUsersController {
       }
     }
 
-    // Set PLATFORM roles — a scope of its own, stored on the platform-access
-    // row rather than on any tenant access. Roles-only: an existing platform
-    // user is required, and the marker itself is never created or removed here
-    // (see AdminUpdateUserDto.platformRoleIds for why).
+    // Grant / revoke PLATFORM access. Runs BEFORE the role assignment below so
+    // one request can both grant access and set the platform roles.
+    if (dto.isPlatformUser !== undefined) {
+      this.assertPlatformAccessEnabled();
+      const existingAccess = await user.getPlatformAccess(false);
+      if (dto.isPlatformUser) {
+        // Idempotent — getPlatformAccess(true) returns the existing row or creates one.
+        await user.getPlatformAccess(true);
+      } else if (existingAccess) {
+        // Dropping the marker also drops its platform roles (the join rows
+        // cascade). Tenant memberships and their roles are untouched.
+        await this.platformAccessRepository.remove(existingAccess);
+      }
+    }
+
+    // Set PLATFORM roles — a scope of its own, stored on the platform-access row
+    // rather than on any tenant access. Requires the user to hold platform
+    // access (grant it in the same request via `isPlatformUser: true`).
     if (dto.platformRoleIds !== undefined) {
       const platformAccess = await user.getPlatformAccess(false);
       if (!platformAccess) {
         throw new BadRequestException({
           message:
-            'User is not a platform user. Platform access is provisioned in ' +
-            'application code (UserService.createPlatformUser), not from the admin console.',
+            'User is not a platform user. Grant platform access first ' +
+            '(send `isPlatformUser: true`) before assigning platform roles.',
           code: 'NOT_PLATFORM_USER',
         });
       }

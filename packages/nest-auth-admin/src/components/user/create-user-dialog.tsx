@@ -5,7 +5,7 @@ import { RHFSelect } from '../form/hook-form-fields/rhf-select';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { Button, Stack, Typography } from '@mui/material';
+import { Alert, Button, Checkbox, FormControlLabel, Stack, Typography } from '@mui/material';
 import { RHFTextField } from '../form/hook-form-fields/rhf-text-field';
 
 export interface CreateUserDialogProps {
@@ -16,21 +16,34 @@ export interface CreateUserDialogProps {
     tenants: Tenant[];
     roles: Role[];
     error?: string;
+    /** Backend has `platformAccess.enabled` — offer the platform-user option. */
+    platformAccessEnabled?: boolean;
 }
 
 
-/** Create user form data: shared = email only; isolated = email + tenantId. */
+/**
+ * Create user form data: shared = email only; isolated = email + tenantId.
+ * `isPlatformUser` provisions a tenant-less platform (super-admin) account
+ * instead — tenant selection does not apply to it.
+ */
 export interface UserFormData {
     email: string;
     tenantId?: string;
+    isPlatformUser?: boolean;
 }
 
 const makeSchema = (requireTenantId: boolean) =>
     yup.object({
         email: yup.string().email('Invalid email address').required('Email is required'),
+        // A platform user is tenant-less, so the tenant requirement lifts when it's checked.
         tenantId: requireTenantId
-            ? yup.string().required('Tenant is required')
+            ? yup.string().when('isPlatformUser', {
+                is: true,
+                then: (sch) => sch.optional(),
+                otherwise: (sch) => sch.required('Tenant is required'),
+            })
             : yup.string().optional(),
+        isPlatformUser: yup.boolean().optional(),
     });
 
 export type TenantMode = 'isolated' | 'shared' | null;
@@ -42,6 +55,7 @@ export const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     onSubmit,
     tenantMode,
     tenants,
+    platformAccessEnabled = false,
 }) => {
     const isIsolated = tenantMode === 'isolated';
     const schema = React.useMemo(() => makeSchema(isIsolated), [isIsolated]);
@@ -51,8 +65,11 @@ export const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
         defaultValues: {
             email: '',
             tenantId: '',
+            isPlatformUser: false,
         },
     });
+
+    const isPlatformUser = methods.watch('isPlatformUser');
 
     const handleFormSubmit = async (data: UserFormData) => {
         try {
@@ -100,7 +117,35 @@ export const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                     placeholder="user@example.com"
                 />
 
-                {isIsolated && (
+                {platformAccessEnabled && (
+                    <FormControlLabel
+                        control={
+                            <Checkbox
+                                checked={!!isPlatformUser}
+                                onChange={(e) => methods.setValue('isPlatformUser', e.target.checked)}
+                                disabled={methods.formState.isSubmitting}
+                            />
+                        }
+                        label={
+                            <Stack spacing={0.25}>
+                                <Typography variant="body2">Platform user (super-admin)</Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    Creates a tenant-less account with platform access. Assign platform roles after creation.
+                                </Typography>
+                            </Stack>
+                        }
+                        sx={{ alignItems: 'flex-start', m: 0 }}
+                    />
+                )}
+
+                {isPlatformUser && (
+                    <Alert severity="info" sx={{ typography: 'caption' }}>
+                        Platform users belong to no tenant. You can still add tenant memberships later
+                        from the user's detail page — the two scopes are independent.
+                    </Alert>
+                )}
+
+                {isIsolated && !isPlatformUser && (
                     <RHFSelect
                         name="tenantId"
                         label="Tenant"
@@ -114,7 +159,7 @@ export const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                     />
                 )}
 
-                {tenantMode === 'shared' && (
+                {tenantMode === 'shared' && !isPlatformUser && (
                     <Typography variant="body2" color="text.secondary">
                         Tenant and roles can be assigned when editing the user after creation.
                     </Typography>
