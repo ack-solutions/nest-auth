@@ -128,4 +128,20 @@ export class AdminUpdateUserDto {
   @IsArray()
   @IsString({ each: true })
   roleIds?: string[];
+
+  /**
+   * Platform-wide role IDs, stored on the user's `NestAuthPlatformAccess` row —
+   * a scope entirely separate from tenant roles (`tenantRoles`) and from the
+   * tenant-less global roles (`roleIds`).
+   *
+   * Roles-only by design: this sets the roles of an EXISTING platform user and
+   * never creates or removes the platform-access marker. Provisioning a platform
+   * user stays in application code (`UserService.createPlatformUser`) so the
+   * admin console is not a privilege-escalation path to minting super-admins.
+   * Sending this for a non-platform user is rejected with 400 NOT_PLATFORM_USER.
+   */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  platformRoleIds?: string[];
 }

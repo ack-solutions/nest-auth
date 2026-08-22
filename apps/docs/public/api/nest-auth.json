@@ -459,6 +459,64 @@
         ]
       }
     },
+    "/auth/mfa/verify-recovery-code": {
+      "post": {
+        "description": "Redeem a single-use recovery (backup) code to COMPLETE the sign-in. Unlike reset-totp, MFA stays enabled and the enrolled factors are untouched — the code acts as a backup authenticator. Returns a full session; the now-verified session can re-enrol a new authenticator via setup-totp inline.",
+        "operationId": "AuthController_verifyRecoveryCode",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthVerifyRecoveryCodeRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Header mode: message + tokens in body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Verify2faWithTokensResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed (bad input).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired authentication.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "access-token": []
+          }
+        ],
+        "summary": "Verify MFA recovery code",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
     "/auth/logout": {
       "post": {
         "operationId": "AuthController_logout",
@@ -1657,6 +1715,16 @@
       "post": {
         "operationId": "MfaController_setupTotp",
         "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NestAuthSetupTotpRequestDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": ""
@@ -2377,6 +2445,20 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "scope",
+            "required": false,
+            "in": "query",
+            "description": "Access scope. `all` (default) lists every user; `platform` lists only platform (super-admin) users — those holding a `NestAuthPlatformAccess` marker; `tenant` lists only users WITHOUT that marker. The two scopes are independent, so a user may hold both.",
+            "schema": {
+              "enum": [
+                "all",
+                "platform",
+                "tenant"
+              ],
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -2429,7 +2511,7 @@
             "admin-session": []
           }
         ],
-        "summary": "List users (paginated, cross-tenant; filter by status/tenant/role/search)",
+        "summary": "List users (paginated, cross-tenant; filter by scope/status/tenant/role/search)",
         "tags": [
           "Admin · Users"
         ]
@@ -4446,7 +4528,7 @@
   "info": {
     "title": "@ackplus/nest-auth API",
     "description": "Authentication & authorization API for **@ackplus/nest-auth**.\n\n### Conventions\n- **Base URL** — routes are shown relative to your app’s global prefix. The reference example app uses `/api`, so a route like `POST /auth/login` is called at `POST /api/auth/login`.\n- **Auth** — most endpoints require a Bearer access token: `Authorization: Bearer <accessToken>`. The **Admin** endpoints use an httpOnly session cookie set by `POST /auth/admin/login`.\n- **Token modes** — in *header* mode (default) tokens are returned in the response body; in *cookie* mode they are set as httpOnly cookies. Controlled by `accessTokenType`.\n- **Errors** — failures return `{ statusCode, error, message, code }`; the machine-readable `code` is the value to branch on.\n\nBrowse by section in the sidebar: **Authentication**, **Password**, **Verification**, **Passwordless**, **MFA**, and the **Admin** groups.",
-    "version": "2.8.0",
+    "version": "2.10.4",
     "contact": {}
   },
   "tags": [
@@ -5084,6 +5166,24 @@
         "required": [
           "accessToken",
           "refreshToken"
+        ]
+      },
+      "NestAuthVerifyRecoveryCodeRequestDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "A single-use MFA recovery (backup) code",
+            "example": "aZ8xK2m9Qp"
+          },
+          "trustDevice": {
+            "type": "boolean",
+            "description": "Whether to trust this device for future logins",
+            "example": true
+          }
+        },
+        "required": [
+          "code"
         ]
       },
       "NestAuthLogoutResponseDto": {
@@ -5941,6 +6041,23 @@
         "required": [
           "method"
         ]
+      },
+      "NestAuthSetupTotpRequestDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Account label shown in the authenticator app (under the issuer). Defaults to the user's email. Use it to disambiguate multiple accounts of the same person — e.g. `\"ada@acme.com (Acme Corp)\"` in a multi-tenant app.",
+            "example": "ada@acme.com (Acme Corp)",
+            "maxLength": 128
+          },
+          "deviceName": {
+            "type": "string",
+            "description": "Human-readable name stored for this authenticator device (not shown in the app). Defaults to `{appName} : {email}`.",
+            "example": "iPhone Authenticator",
+            "maxLength": 128
+          }
+        }
       },
       "NestAuthVerifyTotpSetupRequestDto": {
         "type": "object",

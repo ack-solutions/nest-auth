@@ -16,6 +16,7 @@
     "post-auth-logout",
     "post-auth-logout-all",
     "post-auth-mfa-verify",
+    "post-auth-mfa-verify-recovery-code",
     "post-auth-passwordless-send",
     "post-auth-refresh-token",
     "post-auth-reset-password",

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, CheckCircle, XCircle, Eye, Trash2, UserPlus, Building2, Shield } from 'lucide-react';
+import { Plus, CheckCircle, XCircle, Eye, Trash2, UserPlus, Building2, Shield, ShieldCheck, Globe } from 'lucide-react';
 import Icon from '@mui/material/Icon';
 import { api } from '../services/api';
 import { useConfirm } from '../hooks/use-confirm';
@@ -31,7 +31,7 @@ export const UsersPage: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [tenants, setTenants] = useState<Tenant[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
-    const { tenantMode } = useClientConfig();
+    const { tenantMode, platformAccessEnabled } = useClientConfig();
     const showTenants = tenantMode !== null;
     const [error, setError] = useState('');
     const [createError, setCreateError] = useState('');
@@ -41,6 +41,9 @@ export const UsersPage: React.FC = () => {
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'verified' | 'unverified'>('all');
     const [filterTenant, setFilterTenant] = useState<string>('');
     const [filterRole, setFilterRole] = useState<string>('');
+    // Access scope: platform users and tenant users are separate scopes on the
+    // same user row, so this filters by which scope a user holds.
+    const [filterScope, setFilterScope] = useState<'all' | 'platform' | 'tenant'>('all');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [pagination, setPagination] = useState<PaginationInfo>({
         page: 1,
@@ -79,6 +82,10 @@ export const UsersPage: React.FC = () => {
                 params.append('roleName', filterRole);
             }
 
+            if (filterScope !== 'all') {
+                params.append('scope', filterScope);
+            }
+
             const response = await api.get<{
                 data: User[];
                 meta?: {
@@ -109,7 +116,7 @@ export const UsersPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [page, limit, searchTerm, filterStatus, filterTenant, filterRole, showTenants]);
+    }, [page, limit, searchTerm, filterStatus, filterTenant, filterRole, filterScope, showTenants]);
 
     const loadTenants = useCallback(async () => {
         try {
@@ -200,7 +207,18 @@ export const UsersPage: React.FC = () => {
             label: 'User',
             render: (user) => (
                 <Box>
-                    <Typography variant="body2" fontWeight={500}>{user.email}</Typography>
+                    <Stack direction="row" alignItems="center" spacing={0.75} flexWrap="wrap" useFlexGap>
+                        <Typography variant="body2" fontWeight={500}>{user.email}</Typography>
+                        {user.isPlatformUser && (
+                            <Chip
+                                size="small"
+                                icon={<Icon component={ShieldCheck} sx={{ fontSize: 12 }} />}
+                                label="Platform"
+                                color="primary"
+                                sx={{ height: 20, fontSize: '0.7rem' }}
+                            />
+                        )}
+                    </Stack>
                     {user.phone && <Typography variant="caption" color="text.secondary">{user.phone}</Typography>}
                 </Box>
             ),
@@ -234,21 +252,36 @@ export const UsersPage: React.FC = () => {
             render: (user) => {
                 const accesses = user.userAccesses ?? [];
                 const roleNames = accesses.flatMap((a) => (a.roles ?? []).map((r: any) => (typeof r === 'string' ? r : r.name)));
+                // Platform roles live on a separate access row — never merge them
+                // into the tenant role list, or a super-admin looks like a tenant role.
+                const platformRoleNames = (user.platformAccess?.roles ?? []).map((r: any) => (typeof r === 'string' ? r : r.name));
                 const totalRoles = roleNames.length;
-                const tenantCount = accesses.length;
+                const tenantCount = accesses.filter((a) => a.tenantId != null).length;
+                const hasAny = totalRoles > 0 || platformRoleNames.length > 0;
                 return (
-                    <Stack direction="row" flexWrap="wrap" useFlexGap spacing={0.5} alignItems="center">
-                        {totalRoles > 0 ? (
-                            <>
-                                {roleNames.slice(0, 2).map((role, i) => (
-                                    <Chip key={`${role}-${i}`} size="small" label={role} sx={{ bgcolor: 'secondary.50', color: 'secondary.dark', fontSize: '0.75rem', height: 22 }} />
+                    <Stack spacing={0.5}>
+                        {platformRoleNames.length > 0 && (
+                            <Stack direction="row" flexWrap="wrap" useFlexGap spacing={0.5} alignItems="center">
+                                <Icon component={Globe} sx={{ fontSize: 12, color: 'primary.main' }} />
+                                {platformRoleNames.slice(0, 2).map((role, i) => (
+                                    <Chip key={`platform-${role}-${i}`} size="small" label={role} sx={{ bgcolor: 'primary.50', color: 'primary.dark', fontSize: '0.75rem', height: 22 }} />
                                 ))}
-                                {totalRoles > 2 && <Typography variant="caption" color="text.secondary">+{totalRoles - 2}</Typography>}
-                                {showTenants && tenantCount > 1 && <Typography variant="caption" color="text.disabled">· {tenantCount} tenants</Typography>}
-                            </>
-                        ) : (
-                            <Typography variant="body2" color="text.disabled">No roles</Typography>
+                                {platformRoleNames.length > 2 && <Typography variant="caption" color="text.secondary">+{platformRoleNames.length - 2}</Typography>}
+                            </Stack>
                         )}
+                        <Stack direction="row" flexWrap="wrap" useFlexGap spacing={0.5} alignItems="center">
+                            {totalRoles > 0 ? (
+                                <>
+                                    {roleNames.slice(0, 2).map((role, i) => (
+                                        <Chip key={`${role}-${i}`} size="small" label={role} sx={{ bgcolor: 'secondary.50', color: 'secondary.dark', fontSize: '0.75rem', height: 22 }} />
+                                    ))}
+                                    {totalRoles > 2 && <Typography variant="caption" color="text.secondary">+{totalRoles - 2}</Typography>}
+                                    {showTenants && tenantCount > 1 && <Typography variant="caption" color="text.disabled">· {tenantCount} tenants</Typography>}
+                                </>
+                            ) : (
+                                !hasAny && <Typography variant="body2" color="text.disabled">No roles</Typography>
+                            )}
+                        </Stack>
                     </Stack>
                 );
             },
@@ -388,6 +421,20 @@ export const UsersPage: React.FC = () => {
                                 />
 
                                 <Stack direction="row" alignItems="center" spacing={1.5} useFlexGap >
+                                    {platformAccessEnabled && (
+                                        <TextField
+                                            select
+                                            sx={{ minWidth: 160 }}
+                                            value={filterScope}
+                                            onChange={(e) => { setFilterScope(e.target.value as typeof filterScope); setPage(1); }}
+                                            helperText="Access scope"
+                                            SelectProps={{ displayEmpty: true }}
+                                        >
+                                            <MenuItem value="all">All users</MenuItem>
+                                            <MenuItem value="platform">Platform users</MenuItem>
+                                            <MenuItem value="tenant">Non-platform users</MenuItem>
+                                        </TextField>
+                                    )}
                                     <TextField
                                         select
                                         sx={{ minWidth: 130 }}
@@ -426,16 +473,26 @@ export const UsersPage: React.FC = () => {
                                             <MenuItem key={r.id} value={r.name}>{`${r.name} (${r.guard})`}</MenuItem>
                                         ))}
                                     </TextField>
-                                    {(filterStatus !== 'all' || (showTenants && filterTenant) || filterRole) && (
-                                        <Button size="small" onClick={() => { setFilterStatus('all'); setFilterTenant(''); setFilterRole(''); setPage(1); }} sx={{ typography: 'body2', fontWeight: 500, flexShrink: 0 }}>
+                                    {(filterStatus !== 'all' || (showTenants && filterTenant) || filterRole || filterScope !== 'all') && (
+                                        <Button size="small" onClick={() => { setFilterStatus('all'); setFilterTenant(''); setFilterRole(''); setFilterScope('all'); setPage(1); }} sx={{ typography: 'body2', fontWeight: 500, flexShrink: 0 }}>
                                             Clear all
                                         </Button>
                                     )}
                                 </Stack>
                             </Stack>
-                            {(filterStatus !== 'all' || (showTenants && filterTenant) || filterRole) && (
+                            {(filterStatus !== 'all' || (showTenants && filterTenant) || filterRole || filterScope !== 'all') && (
                                 <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1} alignItems="center" sx={{ pt: 1, borderTop: 1, borderColor: 'divider' }}>
                                     <Typography variant="caption" fontWeight={500} color="text.secondary">Active:</Typography>
+                                    {filterScope !== 'all' && (
+                                        <Chip
+                                            size="small"
+                                            icon={<Icon component={Globe} sx={{ fontSize: 12 }} />}
+                                            label={filterScope === 'platform' ? 'Platform users' : 'Non-platform users'}
+                                            onDelete={() => { setFilterScope('all'); setPage(1); }}
+                                            color="primary"
+                                            sx={{ height: 24 }}
+                                        />
+                                    )}
                                     {filterStatus !== 'all' && (
                                         <Chip size="small" label={filterStatus} onDelete={() => { setFilterStatus('all'); setPage(1); }} color="primary" sx={{ height: 24 }} />
                                     )}

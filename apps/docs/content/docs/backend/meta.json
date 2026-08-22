@@ -10,6 +10,7 @@
     "hooks-reference",
     "events",
     "error-codes",
-    "admin-console"
+    "admin-console",
+    "admin-platform-users"
   ]
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Phone, Building2, Shield, CheckCircle, XCircle, Calendar, Pencil, Lock, Key, Smartphone, Trash2, AlertCircle, User as UserIcon } from 'lucide-react';
+import { Mail, Phone, Building2, Shield, ShieldCheck, Globe, CheckCircle, XCircle, Calendar, Pencil, Lock, Key, Smartphone, Trash2, AlertCircle, User as UserIcon } from 'lucide-react';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
@@ -10,7 +10,7 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import Chip from '@mui/material/Chip';
-import { EditBasicInfoModal, EditStatusSecurityModal, EditRolesModal, EditGlobalRolesModal, EditMetadataModal, EditPasswordModal, EditTenantsModal } from './user-edit-dialogs';
+import { EditBasicInfoModal, EditStatusSecurityModal, EditRolesModal, EditGlobalRolesModal, EditPlatformRolesModal, EditMetadataModal, EditPasswordModal, EditTenantsModal } from './user-edit-dialogs';
 import { UserTenantCard } from './user-tenant-card';
 import { UserSessionsDisplay } from './user-sessions-display';
 import { UserIdentitiesDisplay } from './user-identities-display';
@@ -101,12 +101,14 @@ export interface UserDetailViewProps {
     tenants: Tenant[];
     tenantMode?: TenantMode;
     tenantEnabled?: boolean;
-    onUpdate: (id: string, updates: Partial<User> & { tenantIds?: string[]; tenantRoles?: { tenantId: string; roleIds: string[] }[]; roleIds?: string[] }) => Promise<void>;
+    /** Backend has `platformAccess.enabled` — show the platform access scope. */
+    platformAccessEnabled?: boolean;
+    onUpdate: (id: string, updates: Partial<User> & { tenantIds?: string[]; tenantRoles?: { tenantId: string; roleIds: string[] }[]; roleIds?: string[]; platformRoleIds?: string[] }) => Promise<void>;
     onRefresh?: () => void | Promise<void>;
     onClose?: () => void;
 }
 
-export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, roles, tenants, tenantMode = null, tenantEnabled = false, onUpdate, onRefresh, onClose }) => {
+export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, roles, tenants, tenantMode = null, tenantEnabled = false, platformAccessEnabled = false, onUpdate, onRefresh, onClose }) => {
     const [saving, setSaving] = useState(false);
     const [sessionError, setSessionError] = useState<string>('');
     const [sessionActionId, setSessionActionId] = useState<string | null>(null);
@@ -115,6 +117,7 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
     const [showPasswordEdit, setShowPasswordEdit] = useState(false);
     const [showRolesEdit, setShowRolesEdit] = useState(false);
     const [showGlobalRolesEdit, setShowGlobalRolesEdit] = useState(false);
+    const [showPlatformRolesEdit, setShowPlatformRolesEdit] = useState(false);
     const [showTenantsEdit, setShowTenantsEdit] = useState(false);
     const [showMetadataEdit, setShowMetadataEdit] = useState(false);
     const [showAddTenant, setShowAddTenant] = useState(false);
@@ -140,6 +143,7 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
             setShowRolesEdit(false);
             setShowTenantsEdit(false);
             setShowMetadataEdit(false);
+            setShowPlatformRolesEdit(false);
         } catch (error) {
             console.error('Failed to update user:', error);
         } finally {
@@ -189,10 +193,24 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
         }
     };
 
+    // TENANT scope — one entry per tenant (plus an optional tenant-less/global one).
     const accessList = currentUser.userAccesses ?? [];
     const currentTenantIds = accessList.map((a) => a.tenantId).filter(Boolean);
+    // Only real tenant memberships get a tenant card — the tenant-less access row
+    // (which every platform user has) belongs to the global/platform scope instead.
+    const tenantAccessList = accessList.filter((a) => a.tenantId != null);
     const globalAccess = accessList.find((a) => a.tenantId == null);
     const globalRoles = globalAccess?.roles ?? [];
+
+    // PLATFORM scope — completely independent of the tenant scope above. A user
+    // may hold both at once; which one applies is decided per login by the
+    // backend's `platformAccess.validate(request)`.
+    const platformAccess = currentUser.platformAccess ?? null;
+    const isPlatformUser = currentUser.isPlatformUser ?? !!platformAccess;
+    const platformRoles = platformAccess?.roles ?? [];
+    // Show the section whenever the feature is on, or the user already holds
+    // platform access (so an existing platform user is never invisible).
+    const showPlatformSection = platformAccessEnabled || isPlatformUser;
 
     const handleRemoveTenant = async (tenantId: string) => {
         const confirmed = await confirm('Remove this user from the tenant? Their roles in this tenant will be removed.');
@@ -229,9 +247,128 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                     </Stack>
                 )}
                 <Grid container spacing={2}>
-                    {/* Left: wide content (sessions / tenants) */}
+                    {/* Left: wide content — access scopes first, then activity */}
                     <Grid size={{ xs: 12, md: 8 }}>
                         <Stack spacing={2}>
+                            {showPlatformSection && (
+                                <Section
+                                    title="Platform Access"
+                                    icon={<Icon component={Globe} sx={{ fontSize: 16, color: 'primary.main' }} />}
+                                    action={
+                                        isPlatformUser ? (
+                                            <Tooltip title="Manage platform-wide roles" slotProps={tooltipSlotProps}>
+                                                <Button
+                                                    size="small"
+                                                    variant="outlined"
+                                                    color="primary"
+                                                    onClick={() => setShowPlatformRolesEdit(true)}
+                                                    startIcon={<Icon component={Pencil} />}
+                                                    sx={{ minWidth: 0, py: 0.5 }}
+                                                >
+                                                    Manage roles
+                                                </Button>
+                                            </Tooltip>
+                                        ) : null
+                                    }
+                                >
+                                    {isPlatformUser ? (
+                                        <Stack spacing={1.25}>
+                                            <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
+                                                <Chip
+                                                    size="small"
+                                                    icon={<Icon component={ShieldCheck} sx={{ fontSize: 12 }} />}
+                                                    label="Platform user"
+                                                    color="primary"
+                                                    sx={{ height: 22 }}
+                                                />
+                                                <StatusBadge
+                                                    status={platformAccess?.isActive !== false}
+                                                    activeLabel="Access active"
+                                                    inactiveLabel="Access inactive"
+                                                />
+                                            </Stack>
+                                            <Typography variant="caption" color="text.secondary">
+                                                Platform-wide roles. Applied when this user signs in through the platform
+                                                login path — independent of the tenant roles below.
+                                            </Typography>
+                                            <Stack direction="row" flexWrap="wrap" useFlexGap spacing={0.5}>
+                                                {platformRoles.length > 0 ? (
+                                                    platformRoles.map((role: any) => (
+                                                        <Chip
+                                                            key={role.id ?? role.name}
+                                                            size="small"
+                                                            label={role.guard ? `${role.name} (${role.guard})` : role.name}
+                                                            sx={{ bgcolor: 'primary.50', color: 'primary.dark', height: 22 }}
+                                                        />
+                                                    ))
+                                                ) : (
+                                                    <Typography variant="body2" color="text.disabled" fontStyle="italic">
+                                                        No platform roles assigned.
+                                                    </Typography>
+                                                )}
+                                            </Stack>
+                                        </Stack>
+                                    ) : (
+                                        <Stack spacing={0.75}>
+                                            <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                                                Not a platform user.
+                                            </Typography>
+                                            <Typography variant="caption" color="text.disabled">
+                                                Platform access is provisioned in application code via
+                                                {' '}<Box component="code" sx={{ fontFamily: 'monospace' }}>UserService.createPlatformUser()</Box>,
+                                                {' '}so the console cannot grant super-admin rights. Once a user holds platform
+                                                access, their roles can be managed here.
+                                            </Typography>
+                                        </Stack>
+                                    )}
+                                </Section>
+                            )}
+
+                            {tenantEnabled && (
+                                <Section
+                                    title={`Tenants (${tenantAccessList.length})`}
+                                    icon={<Icon component={Building2} sx={{ fontSize: 16, color: 'primary.main' }} />}
+                                    action={
+                                        tenantMode === 'shared' ? (
+                                            <Button
+                                                size="small"
+                                                variant="outlined"
+                                                color="primary"
+                                                onClick={() => setShowAddTenant(true)}
+                                                sx={{ py: 0.5 }}
+                                            >
+                                                Add tenant
+                                            </Button>
+                                        ) : null
+                                    }
+                                >
+                                    <Stack spacing={1}>
+                                        <Typography variant="caption" color="text.secondary">
+                                            {tenantMode === 'shared'
+                                                ? 'Per-tenant roles. A user can belong to several tenants at once; roles are set separately for each.'
+                                                : 'Per-tenant roles. Isolated mode allows one tenant per user.'}
+                                        </Typography>
+                                        {tenantAccessList.length === 0 ? (
+                                            <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                                                No tenants assigned. {tenantMode === 'shared' ? 'Click "Add tenant" to assign one or more tenants — each carries its own roles.' : 'In isolated mode a user belongs to exactly one tenant, assigned at creation.'}
+                                            </Typography>
+                                        ) : (
+                                            tenantAccessList.map((access) => (
+                                                <UserTenantCard
+                                                    key={access.tenantId}
+                                                    access={access}
+                                                    rolesForTenant={roles.filter((r) => !r.tenantId || r.tenantId === access.tenantId)}
+                                                    tenantMode={tenantMode}
+                                                    onEditRoles={() => setShowRolesEdit(true)}
+                                                    onRemove={tenantMode === 'shared' ? () => handleRemoveTenant(access.tenantId) : undefined}
+                                                    loading={saving}
+                                                />
+                                            ))
+                                        )}
+                                    </Stack>
+                                </Section>
+                            )}
+
                             <Section
                                 title={`Active Sessions (${sessions.length})`}
                                 icon={<Icon component={Lock} sx={{ fontSize: 16, color: 'primary.main' }} />}
@@ -342,45 +479,6 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                                 </Stack>
                             </Section>
 
-                            {tenantEnabled && (
-                                <Section
-                                    title="Tenants"
-                                    icon={<Icon component={Building2} sx={{ fontSize: 16, color: 'primary.main' }} />}
-                                    action={
-                                        tenantMode === 'shared' ? (
-                                            <Button
-                                                size="small"
-                                                variant="outlined"
-                                                color="primary"
-                                                onClick={() => setShowAddTenant(true)}
-                                                sx={{ py: 0.5 }}
-                                            >
-                                                Add tenant
-                                            </Button>
-                                        ) : null
-                                    }
-                                >
-                                    <Stack spacing={1}>
-                                        {accessList.length === 0 ? (
-                                            <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                                                No tenants assigned. {tenantMode === 'shared' ? 'Click "Add tenant" to assign.' : 'In isolated mode the user is assigned a tenant at creation.'}
-                                            </Typography>
-                                        ) : (
-                                            accessList.map((access) => (
-                                                <UserTenantCard
-                                                    key={access.tenantId}
-                                                    access={access}
-                                                    rolesForTenant={roles.filter((r) => !r.tenantId || r.tenantId === access.tenantId)}
-                                                    tenantMode={tenantMode}
-                                                    onEditRoles={() => setShowRolesEdit(true)}
-                                                    onRemove={tenantMode === 'shared' ? () => handleRemoveTenant(access.tenantId) : undefined}
-                                                    loading={saving}
-                                                />
-                                            ))
-                                        )}
-                                    </Stack>
-                                </Section>
-                            )}
 
                             <Section
                                 title="Status & Security"
@@ -488,6 +586,7 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
             <EditPasswordModal open={showPasswordEdit} onClose={() => setShowPasswordEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} />
             <EditRolesModal open={showRolesEdit} onClose={() => setShowRolesEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} roles={roles} tenants={tenants} />
             <EditGlobalRolesModal open={showGlobalRolesEdit} onClose={() => setShowGlobalRolesEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} roles={roles} />
+            <EditPlatformRolesModal open={showPlatformRolesEdit} onClose={() => setShowPlatformRolesEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} roles={roles} />
             <EditTenantsModal open={showTenantsEdit} onClose={() => setShowTenantsEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} tenants={tenants} />
             <EditMetadataModal open={showMetadataEdit} onClose={() => setShowMetadataEdit(false)} user={currentUser} onSave={handlePartialUpdate} loading={saving} />
             <AddTenantDialog

@@ -11,6 +11,8 @@ export interface ClientConfigState {
     phoneAuth?: { enabled: boolean };
     registration?: { enabled: boolean; requireInvitation?: boolean };
     mfa?: { enabled: boolean; methods?: string[]; allowUserToggle?: boolean; allowMethodSelection?: boolean };
+    /** Whether the platform-admin login path is configured (`platformAccess.enabled`). */
+    platformAccess?: { enabled: boolean };
 }
 
 interface ClientConfigContextValue {
@@ -21,6 +23,8 @@ interface ClientConfigContextValue {
     roleGuards: string[];
     tenantMode: TenantMode;
     tenantEnabled: boolean;
+    /** Platform access scope is configured on the backend — show platform UI. */
+    platformAccessEnabled: boolean;
 }
 
 const defaultState: ClientConfigState = {
@@ -56,6 +60,7 @@ export function ClientConfigProvider({ children }: { children: React.ReactNode }
                 phoneAuth: data.phoneAuth,
                 registration: data.registration,
                 mfa: data.mfa,
+                platformAccess: data.platformAccess,
             };
             setConfig(normalized);
         } catch (err: any) {
@@ -93,6 +98,7 @@ export function ClientConfigProvider({ children }: { children: React.ReactNode }
         // that set `tenant.mode` without `tenant.enabled: true` got the Tenants nav
         // hidden while the user-list tenant column still showed.
         tenantEnabled: (config?.tenantMode ?? null) !== null,
+        platformAccessEnabled: config?.platformAccess?.enabled === true,
     };
 
     return (

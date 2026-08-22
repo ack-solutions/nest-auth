@@ -16,7 +16,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Not, Repository } from 'typeorm';
 import { AdminSessionGuard } from '../guards/admin-session.guard';
 import { AuthExceptionFilter } from '../../auth/filters/auth-exception.filter';
-import { ApiTags, ApiCookieAuth, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiCookieAuth, ApiOperation, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { ApiUnauthorized, ApiForbidden, ApiValidationError, ApiNotFoundError, Public } from '../../core';
 import { AdminCreateUserDto, AdminUpdateUserDto } from '../dto/admin-user.dto';
 import { UserService } from '../../user/services/user.service';
@@ -31,9 +31,39 @@ import { SessionManagerService } from '../../session/services/session-manager.se
 import { NestAuthSession } from '../../session/entities/session.entity';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { NestAuthUserAccess } from '../../user/entities/user-access.entity';
+import { NestAuthPlatformAccess } from '../../user/entities/platform-access.entity';
 import { TenantModeEnum, NestAuthUserAccessStatusEnum } from '@ackplus/nest-auth-contracts';
 import { mapRoleToResponse } from '../../role/utils/role-mapper.util';
 import { NestAuthTrustedDevice } from '../../auth/entities/trusted-device.entity';
+
+/**
+ * Relations needed to hydrate a user's TENANT access scope (`userAccesses`) —
+ * one row per tenant, each carrying its own roles.
+ */
+const TENANT_ACCESS_RELATIONS = [
+  'userAccesses',
+  'userAccesses.tenant',
+  'userAccesses.roles',
+  'userAccesses.roles.rolePermissions',
+  'userAccesses.roles.rolePermissions.permission',
+];
+
+/**
+ * Relations needed to hydrate a user's PLATFORM access scope (`platformAccess`)
+ * — a tenant-less 1:1 marker carrying platform-wide roles. Independent of
+ * `TENANT_ACCESS_RELATIONS`: a user may hold both, either, or neither.
+ */
+const PLATFORM_ACCESS_RELATIONS = [
+  'platformAccess',
+  'platformAccess.roles',
+  'platformAccess.roles.rolePermissions',
+  'platformAccess.roles.rolePermissions.permission',
+];
+
+const ALL_ACCESS_RELATIONS = [...TENANT_ACCESS_RELATIONS, ...PLATFORM_ACCESS_RELATIONS];
+
+/** `?scope=` values for the user list. */
+type UserListScope = 'all' | 'platform' | 'tenant';
 
 @Controller('api/users')
 @UseFilters(AuthExceptionFilter)
@@ -120,7 +150,17 @@ export class AdminUsersController {
     return resolvedSet;
   }
 
-  @ApiOperation({ summary: 'List users (paginated, cross-tenant; filter by status/tenant/role/search)' })
+  @ApiOperation({ summary: 'List users (paginated, cross-tenant; filter by scope/status/tenant/role/search)' })
+  @ApiQuery({
+    name: 'scope',
+    required: false,
+    enum: ['all', 'platform', 'tenant'],
+    description:
+      'Access scope. `all` (default) lists every user; `platform` lists only ' +
+      'platform (super-admin) users — those holding a `NestAuthPlatformAccess` ' +
+      'marker; `tenant` lists only users WITHOUT that marker. The two scopes are ' +
+      'independent, so a user may hold both.',
+  })
   @Get()
   async listUsers(
     @Query('page') page?: string,
@@ -129,7 +169,9 @@ export class AdminUsersController {
     @Query('status') status?: string,
     @Query('tenantId') tenantId?: string,
     @Query('roleName') roleName?: string,
+    @Query('scope') scope?: string,
   ) {
+    const resolvedScope = this.resolveScope(scope);
     // Validate and sanitize pagination parameters
     let pageNum = parseInt(page || '1', 10);
     let limitNum = parseInt(limit || '10', 10);
@@ -164,6 +206,12 @@ export class AdminUsersController {
       (baseFilter as any).roles = { name: roleName.trim() };
     }
 
+    // `scope=tenant` excludes platform users. (`scope=platform` is handled by
+    // UserService.getPlatformUsersAndCount below, which owns the marker filter.)
+    if (resolvedScope === 'tenant') {
+      baseFilter.platformAccess = { id: IsNull() } as FindOptionsWhere<NestAuthPlatformAccess>;
+    }
+
     // Build where clause with proper TypeORM typing
     let where: FindOptionsWhere<NestAuthUser>[] | FindOptionsWhere<NestAuthUser> = baseFilter;
 
@@ -181,20 +229,23 @@ export class AdminUsersController {
       ];
     }
 
-    // Get users and total count in a single query
-    const [users, total] = await this.users.getUsersAndCount({
+    const findOptions = {
       where,
-      relations: [
-        'userAccesses',
-        'userAccesses.tenant',
-        'userAccesses.roles',
-        'userAccesses.roles.rolePermissions',
-        'userAccesses.roles.rolePermissions.permission',
-      ],
-      order: { createdAt: 'DESC' },
+      // Always hydrate BOTH access scopes so the list can show which users hold
+      // platform access alongside their tenant memberships.
+      relations: ALL_ACCESS_RELATIONS,
+      order: { createdAt: 'DESC' as const },
       skip,
       take: limitNum,
-    });
+    };
+
+    // Get users and total count in a single query. `scope=platform` routes
+    // through the service helper that owns the platform-marker filter (and
+    // paginates correctly across the 1:1 join).
+    const [users, total] =
+      resolvedScope === 'platform'
+        ? await this.users.getPlatformUsersAndCount(findOptions)
+        : await this.users.getUsersAndCount(findOptions);
 
     const safeUsers = await Promise.all(users.map((user) => this.toSafeUser(user)));
 
@@ -205,8 +256,15 @@ export class AdminUsersController {
         limit: limitNum,
         total,
         totalPages: Math.ceil(total / limitNum),
+        scope: resolvedScope,
       },
     };
+  }
+
+  /** Normalize `?scope=`; anything unrecognized falls back to `all`. */
+  private resolveScope(scope?: string): UserListScope {
+    const normalized = scope?.trim().toLowerCase();
+    return normalized === 'platform' || normalized === 'tenant' ? normalized : 'all';
   }
 
   @ApiOperation({ summary: 'Create a user' })
@@ -249,15 +307,7 @@ export class AdminUsersController {
   @Get(':id')
   async getUser(@Param('id') id: string) {
     const user = await this.users.getUserById(id, {
-      relations: [
-        'mfaSecrets',
-        'identities',
-        'userAccesses',
-        'userAccesses.tenant',
-        'userAccesses.roles',
-        'userAccesses.roles.rolePermissions',
-        'userAccesses.roles.rolePermissions.permission',
-      ]
+      relations: ['mfaSecrets', 'identities', ...ALL_ACCESS_RELATIONS],
     });
     if (!user) {
       throw new NotFoundException('User not found');
@@ -367,14 +417,7 @@ export class AdminUsersController {
   @Patch(':id')
   async updateUser(@Param('id') id: string, @Body() dto: AdminUpdateUserDto) {
     let user = await this.users.getUserById(id, {
-      relations: [
-        'identities',
-        'userAccesses',
-        'userAccesses.tenant',
-        'userAccesses.roles',
-        'userAccesses.roles.rolePermissions',
-        'userAccesses.roles.rolePermissions.permission',
-      ],
+      relations: ['identities', ...ALL_ACCESS_RELATIONS],
     });
     if (!user) {
       throw new NotFoundException('User not found');  
@@ -504,15 +547,26 @@ export class AdminUsersController {
       }
     }
 
-    // Reload user with fresh memberships
+    // Set PLATFORM roles — a scope of its own, stored on the platform-access
+    // row rather than on any tenant access. Roles-only: an existing platform
+    // user is required, and the marker itself is never created or removed here
+    // (see AdminUpdateUserDto.platformRoleIds for why).
+    if (dto.platformRoleIds !== undefined) {
+      const platformAccess = await user.getPlatformAccess(false);
+      if (!platformAccess) {
+        throw new BadRequestException({
+          message:
+            'User is not a platform user. Platform access is provisioned in ' +
+            'application code (UserService.createPlatformUser), not from the admin console.',
+          code: 'NOT_PLATFORM_USER',
+        });
+      }
+      await platformAccess.assignRoles(dto.platformRoleIds ?? []);
+    }
+
+    // Reload user with fresh memberships (both access scopes)
     const reloadedUser = await this.users.getUserById(user.id, {
-      relations: [
-        'userAccesses',
-        'userAccesses.tenant',
-        'userAccesses.roles',
-        'userAccesses.roles.rolePermissions',
-        'userAccesses.roles.rolePermissions.permission',
-      ],
+      relations: ALL_ACCESS_RELATIONS,
     });
     const safeUser = await this.toSafeUser(reloadedUser);
     return { user: safeUser };
@@ -613,11 +667,26 @@ export class AdminUsersController {
       updatedAt: access.updatedAt,
     }));
 
+    // PLATFORM scope — independent of the tenant memberships above. `null` when
+    // the user holds no platform-access marker (i.e. is not a platform user).
+    const platformAccess = user.platformAccess
+      ? {
+          id: user.platformAccess.id,
+          userId: user.platformAccess.userId,
+          roles: (user.platformAccess.roles ?? []).map((role) => mapRoleToResponse(role as any)),
+          isActive: user.platformAccess.isActive,
+          createdAt: user.platformAccess.createdAt,
+          updatedAt: user.platformAccess.updatedAt,
+        }
+      : null;
+
     return {
       id: user.id,
       email: user.email,
       phone: user.phone,
       userAccesses: activeAccesses,
+      platformAccess,
+      isPlatformUser: !!platformAccess,
       isActive: user.isActive,
       emailVerifiedAt: user.emailVerifiedAt,
       phoneVerifiedAt: user.phoneVerifiedAt,

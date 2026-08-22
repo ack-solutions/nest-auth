@@ -3,7 +3,7 @@ title: All Endpoints
 description: Generated reference for every operation in the OpenAPI spec.
 ---
 
-The library exposes 75 endpoints, grouped below by tag. Each page documents the request body, query / path parameters, every response status code, and a copy-pasteable curl example.
+The library exposes 76 endpoints, grouped below by tag. Each page documents the request body, query / path parameters, every response status code, and a copy-pasteable curl example.
 
 ## Admin-blocked-email-domains
 
@@ -54,7 +54,7 @@ The library exposes 75 endpoints, grouped below by tag. Each page documents the 
 
 ## Admin-users
 
-- [`GET /auth/admin/api/users`](/docs/api-reference/admin-users/get-auth-admin-api-users) — List users (paginated, cross-tenant; filter by status/tenant/role/search)
+- [`GET /auth/admin/api/users`](/docs/api-reference/admin-users/get-auth-admin-api-users) — List users (paginated, cross-tenant; filter by scope/status/tenant/role/search)
 - [`GET /auth/admin/api/users/{id}`](/docs/api-reference/admin-users/get-auth-admin-api-users-id) — Get a user (with roles, sessions, identities)
 - [`GET /auth/admin/api/users/{id}/sessions`](/docs/api-reference/admin-users/get-auth-admin-api-users-id-sessions) — List a user's active sessions
 - [`POST /auth/admin/api/users`](/docs/api-reference/admin-users/post-auth-admin-api-users) — Create a user
@@ -81,6 +81,7 @@ The library exposes 75 endpoints, grouped below by tag. Each page documents the 
 - [`POST /auth/logout`](/docs/api-reference/authentication/post-auth-logout) — Logout
 - [`POST /auth/logout-all`](/docs/api-reference/authentication/post-auth-logout-all) — Logout All
 - [`POST /auth/mfa/verify`](/docs/api-reference/authentication/post-auth-mfa-verify) — Verify MFA
+- [`POST /auth/mfa/verify-recovery-code`](/docs/api-reference/authentication/post-auth-mfa-verify-recovery-code) — Verify MFA recovery code
 - [`POST /auth/passwordless/send`](/docs/api-reference/authentication/post-auth-passwordless-send) — Passwordless — send login code (email or SMS)
 - [`POST /auth/refresh-token`](/docs/api-reference/authentication/post-auth-refresh-token) — Refresh Token
 - [`POST /auth/reset-password`](/docs/api-reference/authentication/post-auth-reset-password) — Reset password

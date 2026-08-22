@@ -13,6 +13,7 @@ import type {
     INestAuthSession,
     INestAuthTenant,
     INestAuthTrustedDevice,
+    INestAuthPlatformAccess,
     INestAuthUser,
     INestAuthUserAccess,
 } from '@ackplus/nest-auth-contracts';
@@ -30,9 +31,24 @@ export type Tenant = INestAuthTenant;
  */
 export type UserAccess = INestAuthUserAccess & { roleIds?: string[] };
 
-/** Admin dashboard user model; `userAccesses` includes optional `roleIds` from the API. */
-export type User = Omit<INestAuthUser, 'userAccesses'> & {
+/**
+ * Platform (super-admin) access — the user's PLATFORM scope. Independent of
+ * {@link UserAccess} (the tenant scope): a user may hold both, either, or
+ * neither. Platform roles live here, never on a tenant access.
+ */
+export type PlatformAccess = INestAuthPlatformAccess & { roleIds?: string[] };
+
+/**
+ * Admin dashboard user model.
+ * - `userAccesses` — TENANT scope, one entry per tenant (plus an optional
+ *   tenant-less/global entry when tenants are disabled).
+ * - `platformAccess` — PLATFORM scope, `null` when the user is not a platform
+ *   user. `isPlatformUser` is the admin API's convenience flag for the same thing.
+ */
+export type User = Omit<INestAuthUser, 'userAccesses' | 'platformAccess'> & {
     userAccesses?: UserAccess[];
+    platformAccess?: PlatformAccess | null;
+    isPlatformUser?: boolean;
 };
 
 /** @deprecated Use UserAccess instead */

@@ -1,0 +1,10 @@
+---
+title: 'POST /auth/mfa/verify-recovery-code'
+description: 'Redeem a single-use recovery (backup) code to COMPLETE the sign-in. Unlike reset-totp, MFA stays enabled and the enrolled factors are untouched — the code acts as a backup authenticator. Returns a ...'
+---
+
+import { EndpointDocs } from '@/components/endpoint-docs';
+
+# Verify MFA recovery code
+
+<EndpointDocs method="post" path="/auth/mfa/verify-recovery-code" />

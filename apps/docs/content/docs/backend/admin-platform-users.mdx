@@ -1,0 +1,85 @@
+---
+title: Managing Platform Users
+description: Find, inspect, and assign roles to platform (super-admin) users from the admin console.
+---
+
+Platform access and tenant access are two **independent** scopes on the same `NestAuthUser` row. The admin console surfaces both, side by side, so you can tell a super-admin apart from a tenant user and manage their roles without dropping into code.
+
+See [User Access & Platform Access](/docs/concepts/user-access-and-platform-access) for the conceptual split; this page covers the console.
+
+## The two scopes
+
+| | Tenant scope | Platform scope |
+| --- | --- | --- |
+| Table | `nest_auth_user_accesses` | `nest_auth_platform_accesses` |
+| Rows per user | One per tenant (plus an optional tenant-less row) | At most one |
+| Roles | Per tenant | Platform-wide (global, tenant-less roles only) |
+| Console location | **Tenants** section | **Platform Access** section |
+
+A user's `platformAccess` marker is what makes them a platform user — a tenant-less `userAccess` alone does not. This is the same marker the login path enforces.
+
+> **A user can hold both.** Nothing couples the two scopes — the same account can be a platform super-admin **and** a member of several tenants, each with its own roles. Which scope applies is decided **per login**, by your `platformAccess.validate(request)`, not by the user record: a platform login resolves `platformAccess.roles`, a tenant login resolves that tenant's `userAccess.roles`. The two never merge into one session.
+
+## Finding platform users
+
+The **Users** list has an **Access scope** filter (shown when `platformAccess.enabled` is `true`):
+
+| Filter | Shows |
+| --- | --- |
+| All users | Everyone (default) |
+| Platform users | Only holders of a platform-access marker |
+| Non-platform users | Only users **without** that marker |
+
+Platform users carry a **Platform** chip next to their email, and their platform roles render separately from tenant roles so a super-admin can never be mistaken for someone with a tenant role of the same name.
+
+The same filter is available on the API:
+
+```http
+GET /auth/admin/api/users?scope=platform
+GET /auth/admin/api/users?scope=tenant
+GET /auth/admin/api/users?scope=all      # default
+```
+
+It composes with the existing `search`, `status`, `tenantId`, and `roleName` filters, and the response `meta.scope` echoes the resolved value. Every user payload now includes `platformAccess` (or `null`) plus an `isPlatformUser` convenience flag.
+
+## Assigning platform roles
+
+Open a user and use **Platform Access → Manage roles**. Only **global** (tenant-less) roles are eligible — a platform role applies everywhere, so a tenant-scoped role would be meaningless there.
+
+Via the API, `PATCH` the user with `platformRoleIds`:
+
+```http
+PATCH /auth/admin/api/users/:id
+Content-Type: application/json
+
+{ "platformRoleIds": ["<global-role-id>"] }
+```
+
+This replaces the platform roles wholesale (send `[]` to clear them) and **never** touches tenant roles — those stay under `tenantRoles`.
+
+## The console cannot grant platform access
+
+By design, the console manages the **roles** of an existing platform user; it cannot create or remove the platform-access marker itself. Sending `platformRoleIds` for a non-platform user is refused with `400 NOT_PLATFORM_USER`, and clearing every platform role leaves the marker intact.
+
+This keeps the admin console off the path to minting super-admins — a console operator can't escalate themselves or anyone else to platform-wide access. Provisioning stays in application code, where it can be reviewed and audited:
+
+```ts
+// Bootstrap / seeder — the only place platform access is granted.
+let user = await this.users.getPlatformUserByEmail(email);
+if (!user) {
+  user = await this.users.createPlatformUser({ email, isActive: true });
+}
+const access = await user.getPlatformAccess(true);
+await access.assignRoles([role.id]);
+```
+
+See the [platform-admin portal recipe](/docs/recipes/platform-admin-portal) for a full walkthrough, and [`UserService`](/docs/backend/services) for `createPlatformUser`, `getPlatformUserByEmail`, `getPlatformUsers`, and `getPlatformUsersByRole`.
+
+## Multiple tenants alongside platform access
+
+Granting a platform user tenant memberships is the ordinary tenant flow — the **Tenants** section on the same detail page:
+
+- **SHARED mode** — **Add tenant** assigns as many tenants as you need; each card carries its own roles.
+- **ISOLATED mode** — one tenant per user, assigned at creation.
+
+Because the scopes are independent, adding or removing tenants never affects platform roles, and vice versa.

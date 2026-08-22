@@ -106,8 +106,8 @@ export type {
     IClientConfig,
 } from './config';
 
-// User (from user.ts) — type
-export type { INestAuthUser } from './user';
+// User (from user.ts) — types
+export type { INestAuthUser, INestAuthPlatformAccess } from './user';
 
 // Role & Permission (from role.ts) — all types
 export type {

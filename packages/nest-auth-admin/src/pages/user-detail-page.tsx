@@ -17,7 +17,7 @@ export type TenantMode = 'isolated' | 'shared' | null;
 export const UserDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { tenantMode, tenantEnabled } = useClientConfig();
+    const { tenantMode, tenantEnabled, platformAccessEnabled } = useClientConfig();
     const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
     const [roles, setRoles] = useState<Role[]>([]);
     const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -66,6 +66,7 @@ export const UserDetailPage: React.FC = () => {
             tenantIds?: string[];
             tenantRoles?: { tenantId: string; roleIds: string[] }[];
             roleIds?: string[];
+            platformRoleIds?: string[];
         }
     ) => {
         await api.patch(`/api/users/${userId}`, updates);
@@ -128,6 +129,7 @@ export const UserDetailPage: React.FC = () => {
                 tenants={tenants}
                 tenantMode={tenantMode}
                 tenantEnabled={tenantEnabled}
+                platformAccessEnabled={platformAccessEnabled}
                 onUpdate={handleUpdate}
                 onRefresh={loadUserDetails}
             />
