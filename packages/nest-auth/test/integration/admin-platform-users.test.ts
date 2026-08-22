@@ -369,3 +369,106 @@ describe('Admin console — platform management requires platformAccess.enabled'
     expect(res.body.user.isPlatformUser).toBe(false);
   });
 });
+
+/**
+ * ISOLATED mode is where the platform paths are most likely to break: plain
+ * user creation/lookup HARD-REQUIRES a tenantId there (TENANT_ID_REQUIRED), but
+ * platform users are tenant-less by definition. Every platform path must
+ * therefore bypass that requirement and behave exactly as it does in SHARED.
+ */
+describe('ISOLATED tenant mode — platform user management', () => {
+  let handle: TestAppHandle;
+  let users: UserService;
+  let cookie: string;
+  let acmeId: string;
+  let tenantUserId: string;
+  let platformRoleId: string;
+
+  const ADMIN_API = '/auth/admin';
+  const get = (path: string) => request(handle.httpServer).get(`${ADMIN_API}${path}`).set('Cookie', cookie);
+  const patch = (path: string) => request(handle.httpServer).patch(`${ADMIN_API}${path}`).set('Cookie', cookie);
+  const post = (path: string) => request(handle.httpServer).post(`${ADMIN_API}${path}`).set('Cookie', cookie);
+
+  beforeAll(async () => {
+    handle = await bootTestApp({
+      nestAuth: {
+        adminConsole: { enabled: true, secretKey: SECRET },
+        tenant: { enabled: true, mode: TenantModeEnum.ISOLATED },
+        platformAccess: { enabled: true },
+      } as any,
+    });
+
+    users = handle.get<UserService>(UserService);
+    const roles = handle.get<RoleService>(RoleService);
+    const tenants = handle.get<TenantService>(TenantService);
+
+    acmeId = (await tenants.createTenant({ slug: 'iso-acme', name: 'Iso Acme' })).id!;
+    platformRoleId = (await roles.createRole('iso-platform-admin', null, null, true)).id;
+    tenantUserId = (await users.createUser({ email: 'iso-tenant@test.local', isActive: true }, acmeId)).id;
+
+    await request(handle.httpServer)
+      .post('/auth/admin/signup')
+      .send({ email: 'iso-console@test.local', password: ADMIN_PW, secretKey: SECRET });
+    const login = await request(handle.httpServer)
+      .post('/auth/admin/login')
+      .send({ email: 'iso-console@test.local', password: ADMIN_PW });
+    const setCookie = login.headers['set-cookie'];
+    cookie = (Array.isArray(setCookie) ? setCookie : [setCookie]).map((c) => c.split(';')[0]).join('; ');
+  });
+
+  afterAll(async () => await handle.close());
+
+  it('creates a platform user WITHOUT a tenantId (which plain creation requires here)', async () => {
+    // Baseline: a normal create with no tenantId is refused in ISOLATED.
+    const plain = await post('/api/users').send({ email: 'iso-plain@test.local' });
+    expect(plain.status).toBe(400);
+
+    // The platform path bypasses that requirement entirely.
+    const res = await post('/api/users').send({ email: 'iso-platform@test.local', isPlatformUser: true });
+    expect(res.status).toBeLessThan(300);
+    expect(res.body.user.isPlatformUser).toBe(true);
+    expect((res.body.user.userAccesses ?? []).filter((a: any) => a.tenantId)).toEqual([]);
+  });
+
+  it('grants and revokes platform access on an existing tenant user', async () => {
+    const granted = await patch(`/api/users/${tenantUserId}`).send({ isPlatformUser: true });
+    expect(granted.status).toBeLessThan(300);
+
+    let detail = await get(`/api/users/${tenantUserId}`);
+    expect(detail.body.user.isPlatformUser).toBe(true);
+    // The single ISOLATED tenant membership survives.
+    expect((detail.body.user.userAccesses ?? []).map((a: any) => a.tenantId)).toContain(acmeId);
+
+    const revoked = await patch(`/api/users/${tenantUserId}`).send({ isPlatformUser: false });
+    expect(revoked.status).toBeLessThan(300);
+
+    detail = await get(`/api/users/${tenantUserId}`);
+    expect(detail.body.user.isPlatformUser).toBe(false);
+    expect((detail.body.user.userAccesses ?? []).map((a: any) => a.tenantId)).toContain(acmeId);
+  });
+
+  it('grant + platform roles in one request', async () => {
+    const res = await patch(`/api/users/${tenantUserId}`).send({
+      isPlatformUser: true,
+      platformRoleIds: [platformRoleId],
+    });
+    expect(res.status).toBeLessThan(300);
+
+    const detail = await get(`/api/users/${tenantUserId}`);
+    expect((detail.body.user.platformAccess.roles ?? []).map((r: any) => r.name)).toEqual([
+      'iso-platform-admin',
+    ]);
+  });
+
+  it('scope filters work the same as in SHARED', async () => {
+    const platform = await get('/api/users?scope=platform&limit=100');
+    expect(platform.status).toBe(200);
+    expect(platform.body.data.every((u: any) => u.isPlatformUser === true)).toBe(true);
+    expect(platform.body.data.map((u: any) => u.email)).toContain('iso-platform@test.local');
+
+    const tenant = await get('/api/users?scope=tenant&limit=100');
+    expect(tenant.status).toBe(200);
+    expect(tenant.body.data.every((u: any) => u.isPlatformUser === false)).toBe(true);
+    expect(tenant.body.data.map((u: any) => u.email)).not.toContain('iso-platform@test.local');
+  });
+});
