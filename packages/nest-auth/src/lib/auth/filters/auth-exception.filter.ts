@@ -37,7 +37,21 @@ export class AuthExceptionFilter implements ExceptionFilter {
                 ? exception.name
                 : (exceptionResponse as any)?.error ?? exception.name;
 
+        // Forward any structured keys the handler attached (`errors`, `problems`,
+        // per-row import failures, …). Nest's default body would have carried
+        // them; normalizing the envelope must not strip them. The normalized
+        // keys below still win, so `message` stays a SINGLE string (clients
+        // parse it) and `statusCode`/`error`/`code` keep their shape.
+        const extras: Record<string, unknown> = {};
+        if (exceptionResponse && typeof exceptionResponse === 'object') {
+            for (const [key, value] of Object.entries(exceptionResponse)) {
+                if (key === 'statusCode' || key === 'error' || key === 'message' || key === 'code') continue;
+                extras[key] = value;
+            }
+        }
+
         response.status(status).json({
+            ...extras,
             statusCode: status,
             error,
             message,

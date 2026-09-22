@@ -15,6 +15,8 @@ When `AuthExceptionFilter` is registered, the library's exceptions become struct
 
 The `errorCode` field is what your frontend should branch on — never the human-readable `message`.
 
+Since **2.12**, any *extra* structured keys a handler attaches (`errors`, `problems`, per-row import failures, …) pass through alongside the normalized envelope instead of being stripped. `message` is still always a single string (the first entry of a validation array), so existing clients keep parsing it.
+
 ## Auth
 
 | Code | Status | Meaning |
