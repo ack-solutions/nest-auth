@@ -14,6 +14,7 @@ import { NestAuthRole } from '../../role/entities/role.entity';
 import { NestAuthUserAccess } from '../../user/entities/user-access.entity';
 import { chain } from 'lodash';
 import { NestAuthPlatformAccess } from '../../user/entities/platform-access.entity';
+import { withFreshSessionAuthz } from '../../role/utils/session-authz.util';
 
 export const SESSION_STORE = 'SESSION_STORE';
 export const SESSION_REPOSITORY = 'SESSION_REPOSITORY';
@@ -233,7 +234,11 @@ export class SessionManagerService {
             id: uuidv4(),
             userId: session.userId,
             refreshToken: session.refreshToken,
-            data: session.data,
+            // Rotation used to copy the sign-in-time roles/permissions forward
+            // verbatim, re-persisting a stale authorization snapshot for another
+            // full session lifetime. Re-resolve them from the live rows;
+            // best-effort — a failed read keeps the existing copy.
+            data: await withFreshSessionAuthz(session.userId, session.data),
             expiresAt: this.calculateExpiration(),
             userAgent: session.userAgent,
             deviceName: session.deviceName,

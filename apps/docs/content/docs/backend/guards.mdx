@@ -54,6 +54,8 @@ What it does, in order, on every request:
 
 If anything fails, the guard throws — your `AuthExceptionFilter` (registered in `main.ts`) turns that into a structured response with an error code from [`AUTH_ERROR_CODES`](/docs/backend/error-codes).
 
+> **Live roles & permissions (since 2.12).** Role and permission checks read `session.data.roles` / `.permissions`, which sign-in copies from the database. The guard now re-resolves that copy from the live rows (30s per-instance cache, tunable or disableable via [`authorization.liveSessionRoles`](/docs/backend/hooks-reference#authorizationlivesessionroles-boolean--ttl-)), so granting or revoking a role, changing a role's permissions, or deactivating a membership reaches already-signed-in sessions within the cache window instead of at their next sign-in.
+
 ## `AdminSessionGuard`
 
 Protects the embedded admin console. Applied automatically to every route under `adminConsole.basePath`. Validates the admin session cookie and (optionally) the admin's MFA status.

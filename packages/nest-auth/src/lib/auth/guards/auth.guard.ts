@@ -18,6 +18,8 @@ import { CookieHelper } from '../../utils/cookie.helper';
 import { uniq } from 'lodash';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
 import { NestAuthUser } from '../../user/entities/user.entity';
+import { resolveSessionAuthz, type ResolvedSessionAuthz } from '../../role/utils/session-authz.util';
+import ms from 'ms';
 import { RequestContext } from '../../request-context/request-context';
 import { getRolePermissionNames } from '../../role/utils/role-mapper.util';
 
@@ -324,6 +326,11 @@ export class NestAuthAuthGuard implements CanActivate {
 
             request.session = session;
 
+            // Bring the session's authorization copy up to date BEFORE any
+            // permission check (and before guards.afterAuth, so an app hook
+            // still has the last word). See refreshSessionAuthz().
+            await this.refreshSessionAuthz(session);
+
             const user = await NestAuthUser.findOne({
                 where: { id: session.userId },
                 select: ['id', 'isActive', 'mustChangePassword', 'emailVerifiedAt'],
@@ -445,6 +452,59 @@ export class NestAuthAuthGuard implements CanActivate {
                     code: ERROR_CODES.MFA_REQUIRED
                 });
             }
+        }
+    }
+
+    /**
+     * Per-instance cache of freshly resolved session authz. `session.data.roles`
+     * / `.permissions` are a SIGN-IN-TIME copy (createSessionFromUser) that the
+     * store persists for the session's whole life — so role/permission changes
+     * and revoked memberships never reached signed-in users. Re-resolve them
+     * from the same rows sign-in reads, cached per session for a short window.
+     */
+    private readonly sessionAuthzCache = new Map<string, { at: number; authz: ResolvedSessionAuthz }>();
+    private static readonly SESSION_AUTHZ_CACHE_MAX = 10_000;
+
+    private async refreshSessionAuthz(session: any): Promise<void> {
+        const option = this.authConfigService.getConfig().authorization?.liveSessionRoles;
+        if (option === false) return;
+
+        const data = session?.data;
+        if (!session?.id || !session?.userId || !data) return;
+        // Only touch sessions whose data createSessionFromUser shaped; leave
+        // custom session payloads alone.
+        if (!Array.isArray(data.roles) && !Array.isArray(data.permissions)) return;
+
+        const rawTtl = typeof option === 'object' && option !== null ? option.ttl : undefined;
+        const ttlMs = rawTtl === undefined ? 30_000 : typeof rawTtl === 'string' ? ms(rawTtl as any) : rawTtl;
+
+        const cached = this.sessionAuthzCache.get(session.id);
+        if (cached && ttlMs > 0 && Date.now() - cached.at < ttlMs) {
+            // The store handed us the stale sign-in copy again — apply the
+            // already-resolved values so EVERY request in the window is fresh,
+            // not just the one that did the read.
+            data.roles = cached.authz.roles;
+            data.permissions = cached.authz.permissions;
+            return;
+        }
+
+        try {
+            const authz = await resolveSessionAuthz(session.userId, data.tenantId, data.isPlatformAccess === true);
+            data.roles = authz.roles;
+            data.permissions = authz.permissions;
+
+            if (this.sessionAuthzCache.size >= NestAuthAuthGuard.SESSION_AUTHZ_CACHE_MAX) {
+                const oldest = this.sessionAuthzCache.keys().next().value;
+                if (oldest !== undefined) this.sessionAuthzCache.delete(oldest);
+            }
+            this.sessionAuthzCache.delete(session.id); // re-insert at the tail (LRU-ish)
+            this.sessionAuthzCache.set(session.id, { at: Date.now(), authz });
+        } catch (error) {
+            // A refresh must never break authentication: keep the sign-in copy.
+            this.debugLogger.warn('Live session authz refresh failed - using sign-in copy', 'AuthGuard', {
+                sessionId: session.id,
+                error: (error as Error)?.message,
+            });
         }
     }
 

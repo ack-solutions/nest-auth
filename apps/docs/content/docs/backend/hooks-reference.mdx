@@ -210,7 +210,17 @@ Replaces the default DB lookup. Return whatever roles the user has.
 
 ### `authorization.resolvePermissions(user, roles) => Promise<string[]>`
 
-Replaces the default role→permission expansion.
+Replaces the default role→permission expansion. Note: this feeds nest-auth's own permission check only — it does not rewrite `session.data.permissions` (see `liveSessionRoles` below for keeping that copy current).
+
+### `authorization.liveSessionRoles: boolean | { ttl }`
+
+Keeps a signed-in session's `session.data.roles` / `.permissions` in sync with the database. Sign-in copies them into the session, and before 2.12 nothing refreshed that copy — a permission added to a role, a role granted or revoked, or a membership going `inactive` never reached anyone already signed in. The guard now re-resolves them from the same rows sign-in reads, on a per-instance cache.
+
+- `true` (**default**) — refresh with a 30s cache window.
+- `{ ttl: '10s' }` — tune the window (`ms`-style string or milliseconds; `0` re-resolves every request).
+- `false` — restore the pre-2.12 behavior (frozen at sign-in).
+
+Only `roles` and `permissions` are replaced (in memory, per request); everything else in `session.data` — including fields from `session.customizeSessionData` — is untouched. Apps that inject **extra** roles/permissions at sign-in via that hook should re-apply them in `guards.afterAuth` (which runs after the refresh) or set this to `false`. A failed read keeps the sign-in copy; it never turns into a 401. The cache is per process, so on multi-instance deployments a change propagates within `ttl` on each instance.
 
 ### `guards.beforeAuth(request) => { reject?, reason? } | Promise<…>`
 

@@ -345,6 +345,32 @@ export interface IAuthorizationHooks {
     resolveRoles?: (user: NestAuthUser) => Promise<string[]>;
     /** Custom permission resolution */
     resolvePermissions?: (user: NestAuthUser, roles: string[]) => Promise<string[]>;
+    /**
+     * Keep a signed-in session's roles/permissions in sync with the database.
+     *
+     * Sign-in copies the caller's roles and permission names into
+     * `session.data`, and historically nothing refreshed that copy — so a
+     * permission added to a role, a role granted or revoked, or a membership
+     * going `inactive` never reached anyone already signed in, for the life of
+     * their session. The guard now re-resolves them from the same rows sign-in
+     * reads, on a small per-instance cache.
+     *
+     * - `true` (the default): refresh with a 30s cache window.
+     * - `{ ttl }`: tune the window (`'30s'`-style string or milliseconds;
+     *   `0` re-resolves on every request).
+     * - `false`: restore the pre-2.12 behavior (frozen at sign-in).
+     *
+     * The refresh replaces ONLY `session.data.roles` / `.permissions` (in
+     * memory, for the current request); other session data — including fields
+     * added by `session.customizeSessionData` — is untouched. Apps that inject
+     * EXTRA roles/permissions at sign-in via that hook should re-apply them in
+     * `guards.afterAuth` (which runs after the refresh) or set this to `false`.
+     * A failed read keeps the sign-in copy — it never breaks authentication.
+     *
+     * Multi-instance note: the cache is per process, so a change propagates
+     * within `ttl` on each instance independently.
+     */
+    liveSessionRoles?: boolean | { ttl?: string | number };
 }
 
 /**
