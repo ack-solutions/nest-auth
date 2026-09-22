@@ -5,12 +5,32 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.10.4`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.12.0`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/migration/within-v2)**. Bump every package to the same version.
 
 ---
+
+## 2.12.0 — live session roles & permissions; filter and rate-limit fixes
+
+- **Changed (backend, default on):** a session's roles/permissions are **no longer frozen at sign-in**. The guard re-resolves `session.data.roles` / `.permissions` from the same rows sign-in reads (tenant access row, or the platform marker), on a 30s per-instance cache — so a permission added to a role, a role granted/revoked, or a membership going `inactive` now reaches already-signed-in sessions within the window, and the guard finally agrees with `GET /auth/me`. A missing/`inactive` access row resolves to **no grants** (plain `@Auth()` routes still authenticate — this revokes grants, not the session). Tune or disable via [`authorization.liveSessionRoles`](/docs/backend/hooks-reference) (`{ ttl }` / `false`). Only `roles`/`permissions` are refreshed; `customizeSessionData` fields are untouched, `guards.afterAuth` still runs after the refresh (existing workaround hooks keep working), and a failed read keeps the sign-in copy. `rotateSession` also re-resolves instead of copying the stale snapshot forward.
+- **Fixed (backend):** `AuthExceptionFilter` no longer strips structured exception fields — `errors`, `problems`, and any other keys a handler attaches now pass through (per-row import errors were the reported case). `message` stays a **single string** and untouched responses are byte-identical.
+- **Fixed (backend):** registering `RateLimitGuard` twice can no longer halve a limit. `@RateLimit(bucket)` already carries `UseGuards(RateLimitGuard)`; listing the guard again made every request count twice (`signup` max 5 allowed 2). The guard is now idempotent per request. See [Rate limiting](/docs/production/cors-and-security#rate-limiting).
+
+> **Upgrade note:** the live refresh adds one lightweight query per session per 30s per instance. Set `authorization.liveSessionRoles: false` to keep the old frozen-at-sign-in behavior.
+
+## 2.11.1 — grant, revoke & create platform users from the console
+
+- **Added (admin API):** `PATCH /api/users/:id` accepts `isPlatformUser: true | false` to grant or revoke the `NestAuthPlatformAccess` marker (grant is idempotent and applied before `platformRoleIds`, so one request can grant + set roles). `POST /api/users` accepts `isPlatformUser: true` to provision a tenant-less platform user directly. Both require `platformAccess.enabled` (`400 PLATFORM_ACCESS_DISABLED` otherwise).
+- **Added (admin console UI):** "Grant access" / "Revoke" on the user detail page and a "Platform user (super-admin)" option in Create User — shown only when `platformAccess.enabled`.
+- **Note:** this is a deliberate privilege-escalation surface — with `platformAccess.enabled`, any console operator can mint a super-admin. Restrict console access accordingly.
+
+## 2.11.0 — platform users in the admin console
+
+- **Added (admin API):** `GET /api/users?scope=all|platform|tenant` filters by access scope; list/detail responses hydrate both scopes and include `platformAccess` + `isPlatformUser`. `PATCH /api/users/:id` accepts `platformRoleIds` (roles-only; refused with `400 NOT_PLATFORM_USER` for non-platform users).
+- **Added (admin console UI):** access-scope filter and "Platform" chip on the users list; a "Platform Access" section with role management on the user detail page.
+- **Contracts:** new `INestAuthPlatformAccess`; `INestAuthUser` gains optional `platformAccess`.
 
 ## 2.10.4 — `forRootAsync` reads options lazily
 

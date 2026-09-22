@@ -1,5 +1,27 @@
 # @ackplus/nest-auth
 
+## 2.12.0
+
+### Minor Changes
+
+- feat(guard): a session's roles/permissions are no longer frozen at sign-in
+
+  `createSessionFromUser` copied the caller's roles and permission names into `session.data`, the store persisted that copy for the session's whole life, and `NestAuthAuthGuard` authorized from it. So a permission added to a role, a role granted or revoked, or a membership going `inactive` **never reached anyone already signed in** — for up to the full refresh lifetime. `GET /auth/me` recomputed from the database, which is why it and the guard disagreed.
+  - The guard now **re-resolves `session.data.roles` / `.permissions` from the same rows sign-in reads** (tenant access row, or the platform marker for platform sessions), on a small per-instance cache. New option **`authorization.liveSessionRoles`**: `true` (the default, 30s window), `{ ttl }` to tune (`'10s'` or milliseconds; `0` = every request), or `false` to restore the frozen-at-sign-in behavior.
+  - A **missing or `inactive` access row resolves to no roles and no permissions** — a member removed from a tenant stops passing role/permission checks instead of keeping the grants their sign-in copy carried. Plain `@Auth()` routes (no role/permission requirement) still authenticate; this revokes grants, not the session.
+  - Only `roles`/`permissions` are replaced, in memory, per request. Other session data — including fields from `session.customizeSessionData` — is untouched. Apps that inject **extra** roles/permissions at sign-in via that hook should re-apply them in `guards.afterAuth` (which runs **after** the refresh, so existing afterAuth-based workarounds keep working unchanged) or opt out.
+  - A failed read keeps the sign-in copy — the refresh can never turn into a 401.
+  - `SessionManagerService.rotateSession` re-resolves before persisting, instead of copying the stale snapshot forward for another session lifetime.
+
+  Minor (not patch) because the **default behavior changes**: authorization now reflects the database within the cache window, and one extra query runs per session per window per instance. Set `authorization.liveSessionRoles: false` for the old behavior.
+
+### Patch Changes
+
+- fix: AuthExceptionFilter keeps structured fields; RateLimitGuard is idempotent per request
+  - **`AuthExceptionFilter` no longer strips structured exception fields.** A handler throwing `new UnprocessableEntityException({ message, errors })` (or `problems`, or any structured payload — per-row import errors were the reported case) had its body rebuilt as only `{ statusCode, error, message, code? }`. Extra keys now pass through, while the envelope stays normalized — in particular `message` remains a **single string** (the first entry of a validation array), so clients that parse it are unaffected. Responses that carried no extra keys are byte-identical.
+  - **Registering `RateLimitGuard` twice can no longer halve a limit.** `@RateLimit(bucket)` already carries `UseGuards(RateLimitGuard)`; naming the guard again in a controller's own `@UseGuards(...)` made Nest run it twice per request, double-counting every bucket so each limit silently became half of what it said (`signup` max 5 allowed 2, `passwordlessSend` max 3 allowed 1). The guard now stamps the request per bucket and counts once regardless of how many times it is registered. The decorator alone remains the intended usage.
+  - @ackplus/nest-auth-contracts@2.12.0
+
 ## 2.11.1
 
 ### Patch Changes
