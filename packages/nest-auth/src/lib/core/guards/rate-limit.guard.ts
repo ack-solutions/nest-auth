@@ -5,6 +5,14 @@ import { RATE_LIMIT_BUCKET_KEY } from '../../auth.constants';
 import { RateLimitBucket } from '../interfaces/rate-limit.interface';
 
 /**
+ * Request-scoped stamp of buckets already counted, so registering the guard
+ * twice (`@RateLimit()` already carries `UseGuards(RateLimitGuard)`; listing it
+ * again in a controller's own `@UseGuards(...)` makes Nest run it twice) cannot
+ * double-increment a bucket and silently halve every configured limit.
+ */
+const COUNTED_BUCKETS = Symbol('nestAuthRateLimitCountedBuckets');
+
+/**
  * Enforces the rate-limit bucket a route was tagged with via `@RateLimit(...)`.
  * No-op unless `security.rateLimit.enabled`. Runs before the auth guard, so it
  * throttles unauthenticated endpoints (login/signup/forgot-password) too.
@@ -24,7 +32,15 @@ export class RateLimitGuard implements CanActivate {
         if (!bucket) return true;
 
         const http = context.switchToHttp();
-        await this.rateLimit.enforce(bucket, http.getRequest(), http.getResponse());
+        const request = http.getRequest();
+
+        // Idempotent per request: count each bucket at most once, no matter how
+        // many times the guard ended up registered for the route.
+        const counted: Set<string> = (request[COUNTED_BUCKETS] ??= new Set<string>());
+        if (counted.has(bucket)) return true;
+
+        await this.rateLimit.enforce(bucket, request, http.getResponse());
+        counted.add(bucket);
         return true;
     }
 }

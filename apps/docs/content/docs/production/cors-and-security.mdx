@@ -113,6 +113,7 @@ NestAuthModule.forRoot({
 - **Response.** Over-limit requests get `429 Too Many Requests` with a `Retry-After` header and `{ code: 'RATE_LIMITED', retryAfter }`.
 - **Multi-instance.** The default store is in-memory (per-process). Behind more than one instance, supply a shared `store` (e.g. Redis-backed) that implements the small `IRateLimitStore` interface — `increment(key, windowMs) => { count, resetAt }` — so limits are global.
 - The limiter runs before authentication, so unauthenticated brute-force (login/signup/forgot-password) is covered.
+- **`@RateLimit(bucket)` already applies the guard** — it carries `UseGuards(RateLimitGuard)`, so never list `RateLimitGuard` in your own `@UseGuards(...)`. (Before 2.12, doing so ran the guard twice per request and silently **halved** every limit; the guard is now idempotent per request, so a duplicate registration counts once — but the decorator alone remains the intended usage.)
 
 ## Account lockout
 
