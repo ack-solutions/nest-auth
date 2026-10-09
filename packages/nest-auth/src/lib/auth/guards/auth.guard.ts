@@ -19,6 +19,8 @@ import { uniq } from 'lodash';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
 import { NestAuthUser } from '../../user/entities/user.entity';
 import { resolveSessionAuthz, type ResolvedSessionAuthz } from '../../role/utils/session-authz.util';
+import { mapRoleToSessionSnapshot } from '../../role/utils/role-mapper.util';
+import { NestAuthUserAccessStatusEnum } from '@ackplus/nest-auth-contracts';
 import ms from 'ms';
 import { RequestContext } from '../../request-context/request-context';
 import { getRolePermissionNames } from '../../role/utils/role-mapper.util';
@@ -377,6 +379,20 @@ export class NestAuthAuthGuard implements CanActivate {
     }
 
     private async handleApiKeyAuth(request: any, token: string, isOptional: boolean = false): Promise<boolean> {
+        // API-key sign-in can be switched off wholesale (accessKeys.enabled: false).
+        // Checked before the key is even parsed, so a disabled deployment never
+        // touches the key table for an ApiKey credential.
+        if (this.authConfigService.getConfig().accessKeys?.enabled === false) {
+            this.debugLogger.warn('API key authentication is disabled', 'AuthGuard');
+            if (isOptional) {
+                return true;
+            }
+            throw new UnauthorizedException({
+                message: 'API key authentication is disabled',
+                code: ERROR_CODES.API_KEY_AUTH_DISABLED,
+            });
+        }
+
         // Split the token into public and private parts
         const [publicKey, privateKey] = token.split('.');
         if (!publicKey || !privateKey) {
@@ -411,6 +427,20 @@ export class NestAuthAuthGuard implements CanActivate {
             // Get access key details
             const accessKey = await this.accessKeyService.getAccessKey(publicKey);
 
+            // Same rule as the JWT path: a deactivated (or deleted) user cannot
+            // authenticate. Previously a key kept working after its owner was
+            // disabled, because only the key's own isActive flag was checked.
+            if (!accessKey.user || accessKey.user.isActive === false) {
+                this.debugLogger.warn('API key owner is missing or inactive', 'AuthGuard');
+                if (isOptional) {
+                    return true;
+                }
+                throw new UnauthorizedException({
+                    message: !accessKey.user ? 'User not found' : 'User is not active',
+                    code: ERROR_CODES.ACCOUNT_INACTIVE,
+                });
+            }
+
             // Update last used timestamp
             await this.accessKeyService.updateAccessKeyLastUsed(publicKey);
 
@@ -418,6 +448,11 @@ export class NestAuthAuthGuard implements CanActivate {
             request.user = accessKey.user;
             request.accessKey = accessKey;
             request.authType = 'api-key';
+
+            // Give the request a session for the key's user, so RequestContext
+            // (currentTenantId / currentUserId / currentUserAccess) and app guards
+            // can scope a key request exactly like a signed-in one.
+            request.session = await this.buildAccessKeySession(accessKey);
 
             return true;
         } catch (error) {
@@ -429,6 +464,71 @@ export class NestAuthAuthGuard implements CanActivate {
         }
     }
 
+
+    /**
+     * Build the per-request session for an API-key request.
+     *
+     * It is NOT persisted and has no `id` — it exists only for this request, is
+     * rebuilt from live rows every time (so it can never go stale), and cannot be
+     * refreshed, rotated, switched or logged out; the endpoints that mutate a
+     * stored session treat it as "no session".
+     *
+     * Tenant: the key's own `tenantId` when it is pinned; otherwise the user's
+     * only ACTIVE membership. A user with several active memberships and an
+     * unpinned key gets no tenant (pin the key to choose one).
+     *
+     * Roles/permissions come from that one membership — the same rows sign-in
+     * reads — and only from ACTIVE memberships. A pinned key whose membership
+     * has gone inactive keeps its tenant but carries no grants.
+     */
+    private async buildAccessKeySession(accessKey: any): Promise<any> {
+        const user = accessKey.user;
+        const activeAccesses: any[] = (user.userAccesses ?? []).filter(
+            (access: any) => access.status === NestAuthUserAccessStatusEnum.ACTIVE,
+        );
+
+        let tenantId: string | null = null;
+        let roles: any[] = [];
+
+        if (accessKey.tenantId) {
+            tenantId = accessKey.tenantId;
+            roles = activeAccesses.find((access) => access.tenantId === tenantId)?.roles ?? [];
+        } else if (activeAccesses.length === 1) {
+            tenantId = activeAccesses[0].tenantId ?? null;
+            roles = activeAccesses[0].roles ?? [];
+        } else {
+            // Ambiguous (several memberships, unpinned key): no tenant can be
+            // chosen. Keep the long-standing union of roles so existing keys do
+            // not lose access — but only across ACTIVE memberships.
+            const byId = new Map<string, any>();
+            for (const access of activeAccesses) {
+                for (const role of access.roles ?? []) byId.set(role.id, role);
+            }
+            roles = Array.from(byId.values());
+        }
+
+        const permissions = new Set<string>();
+        for (const role of roles) {
+            for (const name of getRolePermissionNames(role)) permissions.add(name);
+        }
+
+        return {
+            userId: user.id,
+            lastActive: new Date(),
+            data: {
+                user,
+                // A key is a single, already-complete credential; MFA is a
+                // property of interactive sign-in and does not apply to it.
+                isMfaVerified: true,
+                roles: roles.map((role) => mapRoleToSessionSnapshot(role)),
+                permissions: Array.from(permissions),
+                tenantId,
+                isPlatformAccess: false,
+                authType: 'api-key',
+                accessKeyId: accessKey.id,
+            },
+        };
+    }
 
     private async checkMfa(context: ExecutionContext, payload: JWTTokenPayload, isOptional: boolean = false): Promise<void> {
         // Check if MFA should be skipped

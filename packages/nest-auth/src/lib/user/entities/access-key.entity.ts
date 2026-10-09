@@ -37,6 +37,15 @@ export class NestAuthAccessKey extends BaseEntity {
     @Column({ nullable: true })
     lastUsedAt?: Date;
 
+    /**
+     * Tenant this key acts in. Optional: when unset, the key acts in the user's
+     * only ACTIVE membership (always the case in ISOLATED mode). Pin it for a
+     * user who belongs to several tenants — otherwise the request carries no
+     * tenant and cannot be scoped.
+     */
+    @Column({ type: 'varchar', nullable: true })
+    tenantId?: string | null;
+
     @Column()
     @RelationId((accessKey: NestAuthAccessKey) => accessKey.user)
     userId: string;

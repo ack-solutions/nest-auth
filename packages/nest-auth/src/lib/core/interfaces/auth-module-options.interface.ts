@@ -340,6 +340,18 @@ export interface IGuardHooks {
 /**
  * Authorization customization hooks
  */
+export interface IAccessKeyOptions {
+    /**
+     * Accept `Authorization: ApiKey …` on guarded routes. Default `true`.
+     *
+     * Set `false` to switch API-key sign-in off entirely: the guard then
+     * rejects every `ApiKey` credential with `401 API_KEY_AUTH_DISABLED`
+     * (optional-auth routes proceed unauthenticated, as for any bad credential)
+     * and `AccessKeyService.createAccessKey` refuses to mint new keys.
+     */
+    enabled?: boolean;
+}
+
 export interface IAuthorizationHooks {
     /** Custom role resolution */
     resolveRoles?: (user: NestAuthUser) => Promise<string[]>;
@@ -780,6 +792,11 @@ export interface IAuthModuleOptions {
      * Custom role and permission resolution
      */
     authorization?: IAuthorizationHooks;
+
+    /**
+     * API-key ("access key") authentication — `Authorization: ApiKey <public>.<private>`.
+     */
+    accessKeys?: IAccessKeyOptions;
 
     /**
      * Audit logging

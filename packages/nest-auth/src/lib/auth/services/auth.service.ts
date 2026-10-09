@@ -646,7 +646,7 @@ export class AuthService {
             let user = await RequestContext.currentUser();
             const session = RequestContext.currentSession();
 
-            if (!session) {
+            if (!session?.id) {
                 throw new UnauthorizedException({
                     message: 'Session not found',
                     code: ERROR_CODES.SESSION_NOT_FOUND,
@@ -722,7 +722,7 @@ export class AuthService {
             const user = await RequestContext.currentUser();
             const session = RequestContext.currentSession();
 
-            if (!session) {
+            if (!session?.id) {
                 throw new UnauthorizedException({
                     message: 'Session not found',
                     code: ERROR_CODES.SESSION_NOT_FOUND,
@@ -793,7 +793,7 @@ export class AuthService {
 
     async switchTenant(tenantId?: string | null): Promise<AuthResponseDto> {
         const session = RequestContext.currentSession();
-        if (!session) {
+        if (!session?.id) {
             throw new UnauthorizedException({
                 message: 'Session not found',
                 code: ERROR_CODES.SESSION_NOT_FOUND,

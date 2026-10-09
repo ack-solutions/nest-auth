@@ -9,14 +9,12 @@ For machine-to-machine auth — CLIs, integrations, internal tooling — Nest Au
 
 ```http
 GET /api/orders HTTP/1.1
-Authorization: Bearer <publicKey>:<privateKey>
+Authorization: ApiKey <publicKey>.<privateKey>
 ```
 
-The `NestAuthAuthGuard` accepts API keys on the same `Authorization` header it accepts JWTs — which key style is in use is detected from the value's shape.
+`NestAuthAuthGuard` reads the scheme: `Bearer` is a JWT, `ApiKey` is a key pair (public and private joined by a dot).
 
 ## Generating a key
-
-Through the admin console, or programmatically:
 
 ```ts
 import { AccessKeyService } from '@ackplus/nest-auth';
@@ -25,51 +23,82 @@ import { AccessKeyService } from '@ackplus/nest-auth';
 export class IntegrationsService {
   constructor(private readonly keys: AccessKeyService) {}
 
-  async issueKey(userId: string) {
-    const key = await this.keys.create({
-      userId,
-      name: 'Slack integration',
-      description: 'Used by the Slack bot to post updates',
-      expiresAt: new Date(Date.now() + 90 * 86400_000),     // 90 days
-    });
+  async issueKey(userId: string, tenantId?: string) {
+    const key = await this.keys.createAccessKey(userId, 'Slack integration', { tenantId });
+    await this.keys.setAccessKeyExpiry(key.publicKey, new Date(Date.now() + 90 * 86400_000));
 
-    // Show key.privateKey to the user ONCE. We only store the hash.
+    // Show key.privateKey to the user ONCE. Only its hash is stored.
     return key;
   }
 }
 ```
 
-`privateKey` is returned **only once** at creation time. After that, the library has only a hash and cannot reveal the original.
+`privateKey` is returned **only once**, at creation. After that the library holds only a hash.
 
 ## Lifecycle
 
 | Operation | Method |
 |---|---|
-| Create | `keys.create({ userId, name, description?, expiresAt? })` |
-| List for user | `keys.findByUser(userId)` |
-| Update metadata | `keys.update(id, { name, description })` |
-| Deactivate | `keys.deactivate(id)` (key still exists, but rejects auth) |
-| Delete | `keys.delete(id)` |
+| Create | `createAccessKey(userId, name, { tenantId? })` |
+| List for user | `getUserAccessKeys(userId)` |
+| Set expiry | `setAccessKeyExpiry(publicKey, expiresAt)` |
+| Deactivate | `deactivateAccessKey(publicKey)` (key still exists, but rejects auth) |
+| Delete | `deleteAccessKey(publicKey)` |
 
-Each operation emits a corresponding event: `AccessKeyCreatedEvent`, `AccessKeyUpdatedEvent`, `AccessKeyDeactivatedEvent`, `AccessKeyDeletedEvent` — wire them to your audit log.
+Lifecycle operations emit `NestAuthEvents.ACCESS_KEY_*` events — wire them to your audit log.
+
+## What a key request looks like to your app
+
+Since **2.13**, a request authenticated by key carries a **session for the key's user**, built fresh for that request. So `RequestContext.currentUserId()`, `currentTenantId()`, `currentUserAccess()` and `request.session.data` work exactly as they do for a signed-in user, and your own guards and services can tenant-scope a key request without special-casing it.
+
+```ts
+const session = RequestContext.currentSession();
+session.data.authType;     // 'api-key'
+session.data.accessKeyId;  // the key that authenticated
+session.data.tenantId;     // see "Which tenant" below
+session.id;                // undefined — see below
+```
+
+That session is **never stored**: it has no `id`, it is rebuilt from the live rows on every request (so it cannot go stale), and it cannot be refreshed, switched or logged out. Endpoints that change a stored session (`logout`, `switch-tenant`, MFA) treat a key request as having no session.
+
+### Which tenant
+
+| Key | User's active memberships | `tenantId` |
+|---|---|---|
+| Pinned (`{ tenantId }` at creation) | — | the pinned tenant |
+| Unpinned | exactly one | that membership's tenant |
+| Unpinned | several | `null` — pin the key to choose one |
+
+In **ISOLATED** mode every user has exactly one membership, so an unpinned key is always scoped. In **SHARED** mode, pin keys for users who belong to more than one tenant. A key can only be pinned to a tenant its user is an active member of (`400 API_KEY_TENANT_MISMATCH` otherwise).
+
+### Roles & permissions
+
+A key acts with the roles of that **one** membership — the same rows sign-in reads — and only while the membership is `active`. A pinned key whose membership has been deactivated keeps its tenant but carries no grants. (An unpinned key for a multi-tenant user still gets the union of roles across its *active* memberships, as before.)
+
+A key also stops working when its owner is deactivated (`401 ACCOUNT_INACTIVE`), not only when the key itself is.
+
+## Turning API keys off
+
+```ts
+NestAuthModule.forRoot({
+  accessKeys: { enabled: false },
+});
+```
+
+The guard then rejects every `ApiKey` credential with `401 API_KEY_AUTH_DISABLED` (optional-auth routes proceed unauthenticated), and `createAccessKey` refuses to mint new keys. Default is `true`.
 
 ## Key validation flow
 
-1. Guard parses `Authorization: Bearer <publicKey>:<privateKey>`.
-2. Service looks up `nest_auth_access_keys` by `publicKey`.
-3. Compares the hash of the supplied `privateKey` against the stored hash.
-4. Checks `isActive`, `expiresAt`.
-5. Updates `lastUsedAt`.
-6. Loads the owning user; the request proceeds as that user.
+1. Guard checks `accessKeys.enabled`, then parses `Authorization: ApiKey <publicKey>.<privateKey>`.
+2. Looks up `nest_auth_access_keys` by `publicKey`; checks `isActive` and `expiresAt`.
+3. Compares the hash of the supplied private key against the stored hash (constant-time).
+4. Checks the owning user is active.
+5. Updates `lastUsedAt` and builds the request's session.
 
-If any step fails, the guard returns `401 INVALID_API_KEY`.
-
-## Scoping with roles & permissions
-
-API keys inherit the owning user's roles and permissions. If you want a key to have *fewer* privileges than its owner, store an explicit scope on the key's `metadata` and read it in your handlers (or in a `guards.beforeAuth` hook).
+A bad key returns `401 INVALID_API_KEY`.
 
 ## Related
 
-- [Backend services reference](/docs/backend/services) — full `AccessKeyService` API.
-- [Backend events reference](/docs/backend/events) — `AccessKey*` events.
-- [Admin console](/docs/backend/admin-console) — UI for managing keys.
+- [Backend services reference](/docs/backend/services) — `AccessKeyService`.
+- [Request context](/docs/concepts/request-context).
+- [Admin console](/docs/backend/admin-console).

@@ -5,7 +5,10 @@ import { NestAuthAccessKey } from '../entities/access-key.entity';
 import { NestAuthUser } from '../entities/user.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { randomBytes, createHash, timingSafeEqual } from 'crypto';
-import { NestAuthEvents } from '../../auth.constants';
+import { NestAuthEvents, ERROR_CODES } from '../../auth.constants';
+import { NestAuthUserAccess } from '../entities/user-access.entity';
+import { NestAuthUserAccessStatusEnum } from '@ackplus/nest-auth-contracts';
+import { AuthConfigService } from '../../core/services/auth-config.service';
 
 /**
  * Domain-separation prefix so the stored secret hash differs from `publicKey`
@@ -42,13 +45,40 @@ export class AccessKeyService {
         return createHash('sha256').update(ACCESS_KEY_SECRET_DOMAIN + privateKey).digest('hex');
     }
 
-    async createAccessKey(userId: string, name: string): Promise<NestAuthAccessKey> {
+    /**
+     * Mint a key for `userId`. Pass `options.tenantId` to pin the key to one of
+     * the user's tenants — required for the key to be tenant-scoped when the
+     * user belongs to more than one (see `NestAuthAccessKey.tenantId`).
+     */
+    async createAccessKey(userId: string, name: string, options?: { tenantId?: string | null }): Promise<NestAuthAccessKey> {
+        if (AuthConfigService.getOptions().accessKeys?.enabled === false) {
+            throw new BadRequestException({
+                message: 'API key authentication is disabled',
+                code: ERROR_CODES.API_KEY_AUTH_DISABLED,
+            });
+        }
+
         const user = await this.userRepository.findOne({ where: { id: userId } });
         if (!user) {
             throw new NotFoundException({
                 message: `User with ID ${userId} not found`,
                 code: 'USER_NOT_FOUND'
             });
+        }
+
+        const tenantId = options?.tenantId?.trim() || null;
+        if (tenantId) {
+            // A key may only be pinned to a tenant its user is an ACTIVE member of.
+            const membership = await NestAuthUserAccess.findOne({
+                where: { userId, tenantId, status: NestAuthUserAccessStatusEnum.ACTIVE },
+                select: { id: true },
+            });
+            if (!membership) {
+                throw new BadRequestException({
+                    message: 'The user is not an active member of that tenant',
+                    code: ERROR_CODES.API_KEY_TENANT_MISMATCH,
+                });
+            }
         }
 
         const { publicKey, privateKey } = this.generateKeyPair();
@@ -60,6 +90,7 @@ export class AccessKeyService {
             // (below) and is never recoverable from the DB after that.
             privateKey: this.hashSecret(privateKey),
             userId,
+            tenantId,
         });
 
         const savedKey = await this.accessKeyRepository.save(accessKey);

@@ -33,7 +33,7 @@ export class LogoutService {
         const session = RequestContext.currentSession();
         const user = await RequestContext.currentUser();
 
-        if (session) {
+        if (session?.id) {
             await this.eventEmitter.emitAsync(
                 NestAuthEvents.LOGGED_OUT,
                 new LoggedOutEvent({

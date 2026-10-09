@@ -59,6 +59,8 @@ export interface INestAuthAccessKey {
     isActive: boolean;
     expiresAt?: Date;
     lastUsedAt?: Date;
+    /** Tenant the key acts in; unset = the user's only active membership. */
+    tenantId?: string | null;
     userId: string;
     createdAt: Date;
     updatedAt: Date;
