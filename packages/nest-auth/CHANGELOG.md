@@ -1,5 +1,29 @@
 # @ackplus/nest-auth
 
+## 2.13.0
+
+### Minor Changes
+
+- feat(access-keys): an off switch, and a session for API-key requests
+
+  Signing in by API key (`Authorization: ApiKey <public>.<private>`) could not be switched off, and a request let through by key had **no session** — so `RequestContext.currentTenantId()` was `null` and an app could not tenant-scope it without a guard of its own.
+  - **`accessKeys: { enabled: false }`** turns API-key sign-in off: the guard rejects every `ApiKey` credential with `401 API_KEY_AUTH_DISABLED` (optional-auth routes proceed unauthenticated) and `AccessKeyService.createAccessKey` refuses to mint keys. Default `true`.
+  - **Key requests now carry a session for the key's user**, built per request: `RequestContext.currentUserId()` / `currentTenantId()` / `currentUserAccess()` and `request.session.data` work as for a signed-in user. `session.data.authType` is `'api-key'` and `session.data.accessKeyId` names the key. The session is never stored and has no `id`; `logout`, `switch-tenant` and the MFA endpoints treat a key request as having no session. `GET /auth/me` now works with a key (it used to 500).
+  - **Tenant:** the key's own `tenantId` when pinned — new optional `createAccessKey(userId, name, { tenantId })`, validated against an active membership (`400 API_KEY_TENANT_MISMATCH`) — otherwise the user's only active membership (always the case in ISOLATED mode). An unpinned key for a user with several memberships has no tenant.
+
+  Two fixes in the same path:
+  - **A deactivated user's key no longer authenticates** (`401 ACCOUNT_INACTIVE`). Only the key's own `isActive` flag was checked before.
+  - **Role checks for a key no longer count `inactive` memberships.** They used to union roles across every membership the user had, inactive ones included. A scoped key now acts with the roles of its one membership.
+
+  **Migration:** adds one nullable column, `nest_auth_access_keys.tenantId` (varchar). Apps on `synchronize: false` must add it; existing keys keep working unpinned.
+
+  **Behaviour change to check:** a key whose user belongs to exactly one tenant used to reach role checks with that tenant's roles and no tenant context; it now has the tenant context too. A key whose only membership is inactive now passes no role/permission check.
+
+### Patch Changes
+
+- Updated dependencies
+  - @ackplus/nest-auth-contracts@2.13.0
+
 ## 2.12.0
 
 ### Minor Changes

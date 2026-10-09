@@ -5,12 +5,21 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.12.0`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.13.0`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/migration/within-v2)**. Bump every package to the same version.
 
 ---
+
+## 2.13.0 — API keys: an off switch, and a session for key requests
+
+- **Added (backend):** `accessKeys: { enabled: false }` switches API-key sign-in off — the guard rejects every `ApiKey` credential with `401 API_KEY_AUTH_DISABLED` and `createAccessKey` refuses to mint keys. Default `true`.
+- **Changed (backend):** a request authenticated by key now carries a **session for the key's user**, built per request — `RequestContext.currentTenantId()` / `currentUserId()` / `currentUserAccess()` and `request.session.data` work as for a signed-in user, so key requests can be tenant-scoped. `session.data.authType` is `'api-key'`. It is never stored and has no `id`; `logout`, `switch-tenant` and MFA endpoints treat a key request as having no session. `GET /auth/me` now works with a key (it used to 500).
+- **Added:** `createAccessKey(userId, name, { tenantId })` pins a key to one of the user's tenants. Unpinned keys act in the user's only active membership (always the case in ISOLATED mode).
+- **Fixed:** a **deactivated user's key** no longer authenticates (`401 ACCOUNT_INACTIVE`), and role checks for a key no longer count **`inactive` memberships**.
+
+> **Migration:** one nullable column, `nest_auth_access_keys.tenantId` (varchar). Apps on `synchronize: false` must add it; existing keys keep working unpinned. See [API Keys](/docs/authentication/api-keys).
 
 ## 2.12.0 — live session roles & permissions; filter and rate-limit fixes
 
