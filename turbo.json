@@ -43,6 +43,8 @@
       "inputs": [
         "src/**",
         "test/**",
+        "skill/**",
+        "bin/**",
         "vitest.config.*",
         "jest.config.*",
         "tsconfig*.json",

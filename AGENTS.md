@@ -13,6 +13,7 @@ A monorepo for `@ackplus/nest-auth` — full-featured authentication for NestJS,
 | `@ackplus/nest-auth` | `packages/nest-auth` | **NestJS backend module.** Controllers, guards, decorators, services, hooks, embedded admin console UI. |
 | `@ackplus/nest-auth-client` | `packages/nest-auth-client` | **Framework-agnostic JS client.** Calls the backend; handles tokens, refresh, MFA flows. |
 | `@ackplus/nest-auth-react` | `packages/nest-auth-react` | **React layer.** Provider, hooks, guards, Next.js helpers. Wraps `nest-auth-client`. |
+| `@ackplus/nest-auth-skill` | `packages/nest-auth-skill` | **AI agent skill + installer** (`npx @ackplus/nest-auth-skill`). Source in `skill/nest-auth/`. |
 
 Build dependency order: **contracts → nest-auth → nest-auth-client → nest-auth-react**.
 
@@ -64,6 +65,7 @@ Build dependency order: **contracts → nest-auth → nest-auth-client → nest-
 4. **Add an event for new lifecycle moments.** Don't leak side effects through hooks — hooks block the auth flow, events don't. Pick events for fan-out (email/audit/cache invalidation), hooks for gating.
 5. **Don't break basePath.** Docs site runs under `/nest-auth` on GH Pages. Use `<Link>` (or the `MdxLink` shim) for internal hrefs; `fetch()` URLs need `${process.env.NEXT_PUBLIC_BASE_PATH}` prefix.
 6. **Issue log lives in `.tasks/`** — see `.tasks/README.md` for format. New bugs/incomplete work should be filed there before fixing so the diff is reviewable.
+7. **Keep the agent skill in step with the API.** When a public option, method or flow changes, update `packages/nest-auth-skill/skill/nest-auth/`. Its examples are compiled against the workspace packages by `pnpm --filter @ackplus/nest-auth-skill test`, so a stale example fails CI.
 
 ## Common pitfalls
 

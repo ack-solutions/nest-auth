@@ -9,6 +9,7 @@
     "quickstart-backend",
     "quickstart-react",
     "quickstart-nextjs",
-    "quickstart-vanilla"
+    "quickstart-vanilla",
+    "ai-skill"
   ]
 }

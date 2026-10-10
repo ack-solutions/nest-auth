@@ -1,0 +1,46 @@
+---
+title: AI coding skill
+description: 'One command teaches Claude Code, Codex, Cursor and other AI agents how to use Nest Auth.'
+---
+
+`@ackplus/nest-auth-skill` installs an agent skill into your project. After that you can ask your AI coding agent for auth features in plain language and it uses the official SDKs with the correct, current APIs.
+
+## Install
+
+Run in your project root:
+
+```bash
+npx @ackplus/nest-auth-skill
+```
+
+It detects which agents the project uses and writes only agent instruction files:
+
+| Agent | What is written |
+|---|---|
+| Claude Code | `.claude/skills/nest-auth/` |
+| Codex and other `AGENTS.md` agents | `.agents/skills/nest-auth/` and a small marked block in `AGENTS.md` |
+| Cursor | `.cursor/rules/nest-auth.mdc` |
+
+Installing the skill does **not** add authentication to your app. No dependency is installed and no application file is changed. Commit the generated files so the whole team gets the skill.
+
+## Use
+
+- "Add Google login to my React app."
+- "Set up email/password authentication."
+- "Add MFA to my existing login."
+- "Make this application multi-tenant."
+- "Add role-based permissions."
+
+The agent inspects your stack first, reads only the reference files the task needs, and enables only the features you asked for.
+
+## Update, check, remove
+
+```bash
+npx @ackplus/nest-auth-skill@latest update
+npx @ackplus/nest-auth-skill validate
+npx @ackplus/nest-auth-skill uninstall
+```
+
+Updating keeps any file you edited and tells you about it; `--force` replaces it and saves your copy as `.bak`. Other options: `--agent claude,codex,cursor`, `--dir <path>`, `--global`, `--dry-run`.
+
+The skill is released with the Nest Auth packages. Keep it on the same version as the `@ackplus/nest-auth*` packages you use.

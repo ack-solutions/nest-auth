@@ -1,0 +1,54 @@
+{
+  "name": "@ackplus/nest-auth-skill",
+  "version": "2.13.1",
+  "description": "AI coding skill for ACKPlus Nest Auth — one command installs it for Claude Code, Codex, Cursor and other agents.",
+  "type": "module",
+  "bin": {
+    "nest-auth-skill": "bin/cli.mjs"
+  },
+  "files": [
+    "bin",
+    "skill",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "keywords": [
+    "nest-auth",
+    "agent-skill",
+    "claude-code",
+    "codex",
+    "cursor",
+    "authentication",
+    "nestjs"
+  ],
+  "author": "Ackplus",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ack-solutions/nest-auth",
+    "directory": "packages/nest-auth-skill"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@ackplus/nest-auth": "workspace:*",
+    "@ackplus/nest-auth-client": "workspace:*",
+    "@ackplus/nest-auth-contracts": "workspace:*",
+    "@ackplus/nest-auth-react": "workspace:*",
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/event-emitter": "^3.0.0",
+    "@nestjs/typeorm": "^11.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.0.0",
+    "react": "^18.0.0",
+    "typeorm": "^0.3.21",
+    "typescript": "^5.7.3"
+  }
+}
