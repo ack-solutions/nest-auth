@@ -1,6 +1,6 @@
 # JS/TS client (`@ackplus/nest-auth-client`)
 
-Framework-agnostic. Use it directly in plain JS/TS, Vue, Svelte, Angular, Solid or Node. React apps normally use `react.md`, which wraps this client. Not using JavaScript, or prefer raw HTTP? See `rest-api.md`.
+Framework-agnostic. Use it directly in plain JS/TS, Vue, Svelte, Angular, Solid or Node. React apps normally use `@ackplus/nest-auth-react`, which wraps this client (see the `nest-auth-react` skill). Not using JavaScript, or prefer raw HTTP? See `rest-api.md`.
 
 ```bash
 npm i @ackplus/nest-auth-client
@@ -36,7 +36,7 @@ export async function boot(auth: AuthClient) {
 }
 ```
 
-Every auth call is a method on the client. State listeners: `onLogout`, `onTokenRefreshed`, `onTokensSet`, `onTokensRemoved`, `onError`, `subscribeTokenState`. Methods: `signup`, `login`, `logout`, `logoutAll`, `refresh`, `verifySession`, `passwordlessSend`, `passwordlessLogin`, `forgotPassword`, `verifyForgotPasswordOtp`, `resetPassword`, `changePassword`, `sendEmailVerification`, `verifyEmail`, `send2fa`, `verify2fa`, `setupTotp`, `switchTenant`, `getClientConfig`. Request shapes are in the feature reference files.
+Every auth call is a method on the client. State listeners: `onLogout`, `onTokenRefreshed`, `onTokensSet`, `onTokensRemoved`, `onError`, `subscribeTokenState`. Methods: `signup`, `login`, `socialLogin`, `logout`, `logoutAll`, `refresh`, `verifySession`, `passwordlessSend`, `passwordlessLogin`, `forgotPassword`, `verifyForgotPasswordOtp`, `resetPassword`, `changePassword`, `sendEmailVerification`, `verifyEmail`, `send2fa`, `verify2fa`, `setupTotp`, `switchTenant`, `getClientConfig`. Request shapes are in the feature reference files.
 
 ## Send auth on the app's own API calls
 

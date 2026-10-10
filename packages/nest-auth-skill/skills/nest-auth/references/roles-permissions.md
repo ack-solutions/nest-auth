@@ -71,27 +71,10 @@ export class RbacSeeder implements OnApplicationBootstrap {
 
 ## Frontend
 
-The session user carries `roles` and `permissions`. UI checks are for display only; the backend decorators are the enforcement.
+The session user (`GET /auth/me`) carries `roles` and `permissions`. UI checks are for display; the backend decorators are the enforcement.
 
-```tsx
-import { RequirePermission, RequireRole, useHasPermission } from '@ackplus/nest-auth-react';
-
-export function OrdersToolbar() {
-  const canDelete = useHasPermission('orders.delete');
-  return (
-    <div>
-      <RequireRole role={['admin', 'manager']} fallback={null}>
-        <a href="/orders/report">Report</a>
-      </RequireRole>
-      <RequirePermission permission="orders.read" fallback={<p>No access</p>}>
-        <button disabled={!canDelete}>Delete all</button>
-      </RequirePermission>
-    </div>
-  );
-}
-```
-
-Without React: `hasRole(user, 'admin')` / `hasPermission(user, 'orders.read')` from `@ackplus/nest-auth-client`.
+- Any JS client: `hasRole(user, 'admin')` / `hasPermission(user, 'orders.read')` from `@ackplus/nest-auth-client`.
+- React components and hooks (`RequireRole`, `RequirePermission`, `useHasPermission`): see the `nest-auth-react` skill.
 
 ## Other ways to authorize
 

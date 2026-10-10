@@ -41,6 +41,16 @@ Optional, only if you enable the matching feature:
 
 [Full install guide →](https://ack-solutions.github.io/nest-auth/docs/getting-started/installation/)
 
+## AI coding agents
+
+Using Claude Code, Codex, Cursor or another AI coding agent? Install the Nest Auth skill so it knows this SDK's real API:
+
+```bash
+npx @ackplus/nest-auth-skill
+```
+
+It detects your stack (or pass `--stack backend`) and only adds agent instruction files; your app is not changed.
+
 ## What's included
 
 | Capability | Notes |

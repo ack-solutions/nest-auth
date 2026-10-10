@@ -13,15 +13,27 @@ Run in your project root:
 npx @ackplus/nest-auth-skill
 ```
 
-It detects which agents the project uses and writes only agent instruction files:
+One command for every project. It reads `package.json` / `pubspec.yaml` (monorepo folders included) and installs only the skills that match your stack:
+
+| Your project uses | Skill | Covers |
+|---|---|---|
+| NestJS | `nest-auth` | backend setup and every option, the plain JS/TS client, the REST API |
+| React, Next.js, React Native / Expo | `nest-auth-react` | provider, hooks, guards, login/signup/MFA screens, Next.js server auth |
+| Flutter | `nest-auth-flutter` | the Dart client and controller, native sign-in, auth-gated navigation |
+
+To choose yourself, add `--stack react`, `--stack flutter`, `--stack backend` or `--stack all` (several can be comma separated).
+
+It also detects which agents the project uses and writes only agent instruction files:
 
 | Agent | What is written |
 |---|---|
-| Claude Code | `.claude/skills/nest-auth/` |
-| Codex and other `AGENTS.md` agents | `.agents/skills/nest-auth/` and a small marked block in `AGENTS.md` |
-| Cursor | `.cursor/rules/nest-auth.mdc` |
+| Claude Code | `.claude/skills/<skill>/` |
+| Codex and other `AGENTS.md` agents | `.agents/skills/<skill>/` and a small marked block in `AGENTS.md` |
+| Cursor | `.cursor/rules/<skill>.mdc` |
 
-Installing the skill does **not** add authentication to your app. No dependency is installed and no application file is changed. Commit the generated files so the whole team gets the skill.
+Installing a skill does **not** add authentication to your app. No dependency is installed and no application file is changed. Commit the generated files so the whole team gets the skills.
+
+The skills recommend defaults but leave the choice to you: ask for a specific approach (header tokens, your own HTTP client, a different state library) and the agent uses it.
 
 ## Use
 
@@ -30,6 +42,7 @@ Installing the skill does **not** add authentication to your app. No dependency 
 - "Add MFA to my existing login."
 - "Make this application multi-tenant."
 - "Add role-based permissions."
+- "Add a login screen to my Flutter app."
 
 The agent inspects your stack first, reads only the reference files the task needs, and enables only the features you asked for.
 
@@ -41,6 +54,6 @@ npx @ackplus/nest-auth-skill validate
 npx @ackplus/nest-auth-skill uninstall
 ```
 
-Updating keeps any file you edited and tells you about it; `--force` replaces it and saves your copy as `.bak`. Other options: `--agent claude,codex,cursor`, `--dir <path>`, `--global`, `--dry-run`.
+Updating keeps any file you edited and tells you about it; `--force` replaces it and saves your copy as `.bak`. `update` refreshes every installed skill. Other options: `--stack`, `--agent claude,codex,cursor`, `--dir <path>`, `--global`, `--dry-run`.
 
-The skill is released with the Nest Auth packages. Keep it on the same version as the `@ackplus/nest-auth*` packages you use.
+The skills are released with the Nest Auth packages. Keep them on the same version as the `@ackplus/nest-auth*` packages you use.

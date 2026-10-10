@@ -26,6 +26,16 @@ pnpm add @ackplus/nest-auth-react @ackplus/nest-auth-client
 | --- | --- |
 | `react` | `^18.0.0 \|\| ^19.0.0` |
 
+## AI coding agents
+
+Using Claude Code, Codex, Cursor or another AI coding agent? Install the Nest Auth skill so it knows this SDK's real API:
+
+```bash
+npx @ackplus/nest-auth-skill
+```
+
+It detects your stack (or pass `--stack react`) and only adds agent instruction files; your app is not changed.
+
 ## What's included
 
 | Surface | API |

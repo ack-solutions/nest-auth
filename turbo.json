@@ -43,7 +43,7 @@
       "inputs": [
         "src/**",
         "test/**",
-        "skill/**",
+        "skills/**",
         "bin/**",
         "vitest.config.*",
         "jest.config.*",

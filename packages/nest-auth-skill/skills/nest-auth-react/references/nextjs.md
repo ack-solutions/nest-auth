@@ -1,10 +1,10 @@
 # Next.js (App Router)
 
-Uses `@ackplus/nest-auth-react` (read `react.md` first).
+Uses `@ackplus/nest-auth-react` (read `setup.md` first).
 
 **Cookie mode is recommended** because server components and middleware can then read the session. For cookies to reach both apps, the NestJS API and the Next app share a site: the same domain, or a Next `rewrites` rule such as `/api/:path*` → the API.
 
-**Header mode also works**, as a client-only setup: use `AuthProvider` exactly as in `react.md`, protect pages with the client guards, and skip the server helpers below (the server cannot see tokens kept in browser storage).
+**Header mode also works**, as a client-only setup: use `AuthProvider` exactly as in `setup.md`, protect pages with the client guards, and skip the server helpers below (the server cannot see tokens kept in browser storage).
 
 ## Client provider
 
@@ -105,6 +105,6 @@ The cookie check is a routing hint for a fast redirect; the API still verifies e
 
 ## Notes
 
-- Client components use the hooks and guards from `react.md` unchanged.
+- Client components use the hooks and guards from `setup.md` and `guards-and-roles.md` unchanged.
 - Mark any file that uses hooks or `AuthClient` with `'use client'`.
 - Pages Router: use `AuthProvider` in `_app.tsx` and call `getServerAuth(req)` from `getServerSideProps`.

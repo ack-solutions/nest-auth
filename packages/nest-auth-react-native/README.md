@@ -23,6 +23,16 @@ npx expo install expo-secure-store                       # Expo, keychain-backed
 
 This package never imports the native storage module directly — you pass it in — so it stays dependency-light and testable.
 
+## AI coding agents
+
+Using Claude Code, Codex, Cursor or another AI coding agent? Install the Nest Auth skill so it knows this SDK's real API:
+
+```bash
+npx @ackplus/nest-auth-skill
+```
+
+It detects your stack (or pass `--stack react`) and only adds agent instruction files; your app is not changed.
+
 ## Quick start
 
 ```tsx

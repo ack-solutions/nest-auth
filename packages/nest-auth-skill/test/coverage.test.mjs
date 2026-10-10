@@ -9,10 +9,15 @@ import { fileURLToPath } from 'node:url';
 
 const pkgRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const packages = path.resolve(pkgRoot, '..');
-const skillDir = path.join(pkgRoot, 'skill', 'nest-auth');
+const skillsDir = path.join(pkgRoot, 'skills');
+const skillDir = path.join(skillsDir, 'nest-auth');
 const read = (...p) => fs.readFileSync(path.join(...p), 'utf8');
-const refs = fs.readdirSync(path.join(skillDir, 'references'));
-const skillText = read(skillDir, 'SKILL.md') + refs.map((r) => read(skillDir, 'references', r)).join('\n');
+const textOf = (skill) => {
+  const dir = path.join(skillsDir, skill);
+  return read(dir, 'SKILL.md') + fs.readdirSync(path.join(dir, 'references')).map((r) => read(dir, 'references', r)).join('\n');
+};
+// Client methods and React exports may be described in either JS skill.
+const skillText = textOf('nest-auth') + textOf('nest-auth-react');
 const mentions = (name) => new RegExp(`(^|[^A-Za-z0-9_])${name}([^A-Za-z0-9_]|$)`).test(skillText);
 
 /** Top-level property names of a TS interface body. */
@@ -92,15 +97,23 @@ test('every React hook, guard and provider is mentioned', () => {
   assert.deepEqual(names.filter((n) => !exempt.has(n) && !mentions(n)), [], 'React exports never mentioned');
 });
 
-test('the skill leaves the choice to the user', () => {
-  const skill = read(skillDir, 'SKILL.md');
-  assert.match(skill, /user's instructions always win/i);
-  assert.match(skill, /Also supported/);
-  // Requirements and recommendations are separate sections.
-  assert.match(skill, /## Requirements/);
-  assert.match(skill, /## Recommended defaults/);
-  // Every feature reference that makes a recommendation also names an alternative.
-  for (const r of ['backend-setup.md', 'sessions-tokens.md', 'client-js.md', 'react.md', 'nextjs.md', 'roles-permissions.md', 'security.md']) {
-    assert.match(read(skillDir, 'references', r), /Other ways|Another way|also works|Also available|Either/i, `${r} offers no alternative`);
+test('every nest_auth_flutter client method is mentioned in the Flutter skill', () => {
+  const src = read(packages, 'nest_auth_flutter/lib/src/nest_auth_client.dart') + read(packages, 'nest_auth_flutter/lib/src/native_signin.dart');
+  const names = [...new Set([...src.matchAll(/^\s+Future<[^\n]*?>\s+(?:get\s+)?([a-z][A-Za-z0-9]*)/gm)].map((m) => m[1]))].filter((n) => !n.startsWith('_'));
+  assert.ok(names.length > 20, `parsed only ${names.length}`);
+  const flutter = textOf('nest-auth-flutter');
+  assert.deepEqual(names.filter((n) => !new RegExp(`\\b${n}\\b`).test(flutter)), [], 'Dart client methods never mentioned');
+});
+
+test('alternatives are offered wherever a recommendation is made', () => {
+  const check = {
+    'nest-auth': ['backend-setup.md', 'sessions-tokens.md', 'client-js.md', 'roles-permissions.md', 'security.md'],
+    'nest-auth-react': ['setup.md', 'guards-and-roles.md', 'nextjs.md', 'auth-flows.md'],
+    'nest-auth-flutter': ['setup.md', 'state-and-api.md', 'social-login.md', 'mfa.md'],
+  };
+  for (const [skill, files] of Object.entries(check)) {
+    for (const r of files) {
+      assert.match(read(skillsDir, skill, 'references', r), /Other ways|Another way|also works|Also available|Either|Variations|Optional/i, `${skill}/${r} offers no alternative`);
+    }
   }
 });

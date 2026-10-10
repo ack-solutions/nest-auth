@@ -1,6 +1,6 @@
 ---
 name: nest-auth
-description: Implement authentication with ACKPlus Nest Auth (@ackplus/nest-auth) in NestJS backends and React, Next.js, React Native, Flutter or plain JS/TS clients. Use when adding or changing login, signup, email/password, social login (Google, GitHub, Facebook, Apple), OTP or passwordless, MFA, sessions and tokens, roles and permissions, multi-tenancy or API keys, or when the project already depends on an @ackplus/nest-auth package.
+description: Set up and configure ACKPlus Nest Auth (@ackplus/nest-auth) in a NestJS backend, or call it from a plain JS/TS client or any HTTP client. Use when adding or changing login, signup, email/password, social login (Google, GitHub, Facebook, Apple), OTP or passwordless, MFA, sessions and tokens, roles and permissions, multi-tenancy, API keys or other auth configuration on the server, or when the project depends on @ackplus/nest-auth.
 ---
 
 # ACKPlus Nest Auth
@@ -16,6 +16,15 @@ Nest Auth is a NestJS auth module with a REST API and official client SDKs.
 | `nest_auth_flutter` (pub.dev) | Flutter / Dart |
 
 Any other client (Vue, Angular, Svelte, a mobile app in another language, another backend) can use the JS client or call the REST API directly.
+
+## Companion skills
+
+This skill covers the **backend** and framework-agnostic clients. Frontend work has its own skills, installed by the same command when the project uses that stack:
+
+- **`nest-auth-react`** — React, Next.js, React Native / Expo UI: provider, hooks, guards, screens.
+- **`nest-auth-flutter`** — Flutter / Dart apps.
+
+If the task is frontend work and the matching skill is installed, use it. If it is not installed, either run `npx @ackplus/nest-auth-skill --stack react` (or `--stack flutter`), or work from `client-js.md` / `rest-api.md` here.
 
 ## Who decides
 
@@ -47,14 +56,11 @@ Ask a question only when the answer changes the design and the code cannot tell 
 | Roles, permissions, guards on routes or UI | [references/roles-permissions.md](references/roles-permissions.md) |
 | Multi-tenant, organizations, workspaces, tenant switch | [references/multi-tenancy.md](references/multi-tenancy.md) |
 | Rate limiting, lockout, CAPTCHA, CSRF, password policy, API keys, audit | [references/security.md](references/security.md) |
-| Plain JS/TS client, axios/fetch integration | [references/client-js.md](references/client-js.md) |
-| React provider, hooks, route guards | [references/react.md](references/react.md) |
-| Next.js App Router or Pages Router, server auth, middleware | [references/nextjs.md](references/nextjs.md) |
-| React Native, Expo, Flutter | [references/mobile.md](references/mobile.md) |
+| Plain JS/TS client (Vue, Angular, Svelte, Node), axios/fetch integration | [references/client-js.md](references/client-js.md) |
 | Calling the API without an SDK (any language or HTTP client) | [references/rest-api.md](references/rest-api.md) |
 | Events, hooks, async config, custom providers, admin console, platform admins | [references/advanced.md](references/advanced.md) |
 
-A new backend needs `backend-setup.md` first. A frontend task needs the matching client file plus the feature file.
+A new backend needs `backend-setup.md` first. Feature files show the server options and the framework-agnostic client calls; React and Flutter screens are in the companion skills.
 
 ## Requirements (set by the library, not preferences)
 

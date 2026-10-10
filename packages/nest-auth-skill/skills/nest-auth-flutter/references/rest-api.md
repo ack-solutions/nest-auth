@@ -19,7 +19,7 @@ A 401 on a protected call means: refresh once, retry once, and only then treat t
 | Method and path | Body | Notes |
 |---|---|---|
 | `POST /auth/signup` | `{ email? , phone?, password, tenantId?, ...extra }` | |
-| `POST /auth/login` | `{ providerName, credentials, tenantId?, rememberMe? }` | see below |
+| `POST /auth/login` | `{ providerName, credentials, tenantId?, rememberMe?, createUserIfNotExists? }` | see below |
 | `POST /auth/logout`, `POST /auth/logout-all` | — | |
 | `POST /auth/refresh-token` | `{ refreshToken }` in header mode | |
 | `GET /auth/me` | — | user + roles + permissions |
@@ -44,9 +44,11 @@ Login `credentials` by `providerName`:
 ```json
 { "providerName": "email", "credentials": { "email": "a@b.com", "password": "..." } }
 { "providerName": "phone", "credentials": { "phone": "+15551234567", "password": "..." } }
-{ "providerName": "google", "credentials": { "token": "<id token>", "type": "idToken" } }
+{ "providerName": "google", "credentials": { "token": "<id token>", "type": "idToken" }, "createUserIfNotExists": true }
 { "providerName": "passwordless", "credentials": { "identifier": "a@b.com", "code": "123456", "channels": ["email"] } }
 ```
+
+`createUserIfNotExists` defaults to `false`: a social login for an unknown user is rejected unless it is `true`.
 
 A login response with `isRequiresMfa: true` is not finished: call `mfa/verify` with the same session before using protected routes.
 

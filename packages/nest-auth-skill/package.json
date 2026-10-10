@@ -8,7 +8,7 @@
   },
   "files": [
     "bin",
-    "skill",
+    "skills",
     "README.md"
   ],
   "scripts": {

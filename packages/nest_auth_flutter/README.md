@@ -14,6 +14,16 @@ dependencies:
   nest_auth_flutter: ^2.0.0
 ```
 
+## AI coding agents
+
+Using Claude Code, Codex, Cursor or another AI coding agent? Install the Nest Auth skill so it knows this SDK's real API:
+
+```bash
+npx @ackplus/nest-auth-skill
+```
+
+It detects your stack (or pass `--stack flutter`) and only adds agent instruction files; your app is not changed. The installer runs on Node.js.
+
 ## Backend setup
 
 Run your nest-auth backend in **header token mode** so tokens come back in the response body:
