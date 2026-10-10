@@ -1,10 +1,10 @@
-# Social login (Google, GitHub, Facebook, Apple)
+# Social login (Google, GitHub, Facebook, Apple, custom)
 
-Flow: the frontend gets a token from the provider with the provider's own SDK, then posts it to Nest Auth, which verifies it and creates the session. A user is created on first login. Enable only the provider that was asked for.
+How it works: the frontend obtains a token from the provider, posts it to Nest Auth, and Nest Auth verifies it and creates the session. The user is created on first login. Providers are independent; add the ones requested.
 
 ## Backend
 
-A provider is on when its config block is present. Read credentials from env.
+A built-in provider is on when its config block is present.
 
 ```ts
 import type { IAuthModuleOptions } from '@ackplus/nest-auth';
@@ -29,16 +29,14 @@ export const social: Partial<IAuthModuleOptions> = {
 };
 ```
 
-Apple also needs `teamId`, `keyId`, `privateKey` and `redirectUri`; `audiences` lists the Service ID and the iOS bundle ID.
-
-Install the provider's server library if the project lacks it: Google needs `google-auth-library`.
+Apple also takes `teamId`, `keyId`, `privateKey`, `redirectUri`, and `audiences` (Service ID and iOS bundle ID). Google needs the `google-auth-library` package installed on the backend.
 
 ## Client
 
 ```ts
 import { AuthClient } from '@ackplus/nest-auth-client';
 
-// `idToken` comes from the provider SDK, e.g. Google Identity Services `credential`.
+// `idToken` comes from the provider's SDK, e.g. the Google Identity Services `credential`.
 export async function loginWithGoogle(auth: AuthClient, idToken: string) {
   return auth.login({
     providerName: 'google',
@@ -47,31 +45,43 @@ export async function loginWithGoogle(auth: AuthClient, idToken: string) {
 }
 ```
 
-- Google: `type: 'idToken'` (default, preferred) or `'accessToken'`.
-- GitHub / Facebook: `credentials: { token: accessToken }`.
-- Apple: `credentials: { token: identityToken, firstName, lastName }`. Apple returns the name only on the first authorization, so pass it then.
-- The response is the normal login response, so handle `isRequiresMfa` the same way.
+| Provider | `credentials` |
+|---|---|
+| Google | `{ token: idToken, type: 'idToken' }` (default) or `{ token: accessToken, type: 'accessToken' }` |
+| GitHub, Facebook | `{ token: accessToken }` |
+| Apple | `{ token: identityToken, firstName?, lastName? }` — Apple gives the name only on the first authorization |
 
-### React + Google example
+The result is the normal login response (`isRequiresMfa` applies).
 
-Use any Google button library the project already has. With `@react-oauth/google`:
+### Getting the provider token
+
+Any method that yields a provider token works. Pick what suits the project:
+
+- A provider button library the project already uses (for React + Google: `@react-oauth/google`, or Google Identity Services directly).
+- A popup or redirect OAuth flow the project implements; the backend also exposes `GET /auth/callback/:provider`, which relays the provider's redirect query back to the opener window.
+- Native SDKs on mobile (`mobile.md`).
+
+React example, independent of the button library:
 
 ```tsx
 import { useNestAuth } from '@ackplus/nest-auth-react';
 
 export function useGoogleLogin() {
   const { login } = useNestAuth();
-  // pass this to <GoogleLogin onSuccess={...} />
+  // call this from the Google button's success callback
   return (response: { credential?: string }) =>
     login({ providerName: 'google', credentials: { token: response.credential as string, type: 'idToken' } });
 }
 ```
 
-Wrap the app in `<GoogleOAuthProvider clientId={...}>` with the **same** client ID the backend has. Client IDs are public; client secrets stay on the server.
+The frontend uses the same client ID as the backend. Client IDs are public; client secrets stay on the server.
+
+## Other providers (Microsoft, Okta, your own SSO)
+
+Add a custom provider class and pass it in `customAuthProviders`; the client then logs in with that `providerName`. Example in `advanced.md`.
 
 ## Notes
 
-- `GET /auth/client-config` (`auth.getClientConfig()`) lists which providers are enabled and their public IDs. Use it to decide which buttons to render.
-- Account linking by email only happens for provider-verified emails by default. Do not weaken `social.requireVerifiedEmailForLinking`.
-- React Native: `signInWithGoogle` / `signInWithApple` helpers are in `mobile.md`.
-- Tell the user to register the redirect URI and JS origin in the provider console.
+- `auth.getClientConfig()` lists the enabled providers and their public IDs, so the UI can render only the buttons that exist.
+- By default an existing account is linked only when the provider reports the email as verified (`social.requireVerifiedEmailForLinking`). Turning that off lets an unverified provider email take over an account; change it only on request.
+- Remind the user to register the redirect URI and JavaScript origin in the provider's console.

@@ -60,7 +60,9 @@ Requires Node.js 18+. The installer has no dependencies.
 
 ## What is in the skill
 
-A short `SKILL.md` (workflow, feature map, safety rules) and one reference file per feature, loaded on demand: backend setup, email/password, social login, passwordless/OTP, MFA, sessions and tokens, roles and permissions, multi-tenancy, the JS client, React, Next.js, mobile (React Native, Flutter) and advanced configuration.
+A short `SKILL.md` and one reference file per topic, loaded on demand: backend setup, a full configuration reference, email/password, social login, passwordless/OTP, MFA, sessions and tokens, roles and permissions, multi-tenancy, security options, the JS client, React, Next.js, mobile (React Native, Flutter), the REST API for use without an SDK, and advanced configuration.
+
+**It recommends; it does not dictate.** The skill tells the agent that your instructions always win. It separates what the library actually requires (a JWT secret, TypeORM, a listener that sends codes) from recommended defaults, and for every default it lists the other supported ways: cookie or header tokens, per-route or global guards, the SDK or raw REST calls, events or hooks, the built-in session store or your own. Ask for a specific approach and the agent uses it.
 
 The skill is versioned and released with the Nest Auth packages. Keep it on the same version as the `@ackplus/nest-auth*` packages you use.
 
@@ -68,4 +70,5 @@ The skill is versioned and released with the Nest Auth packages. Keep it on the 
 
 - Source: `skill/nest-auth/`. Keep `SKILL.md` short; put detail in `references/`.
 - Every `ts`/`tsx` example that imports an `@ackplus/*` package is compiled against the workspace packages by `pnpm test`. If an API changes, the test fails until the example is fixed. Mark a block `nocheck` only when it needs a framework that is not installed here (Next.js, Expo).
-- `pnpm --filter @ackplus/nest-auth-skill test` runs the structure, installer and example tests.
+- A coverage test reads the library source and fails if a module option, event, client method or React export is not described in the skill. Add the description (or an explicit exemption with a reason) when you add a feature.
+- `pnpm --filter @ackplus/nest-auth-skill test` runs the structure, coverage, installer and example tests.

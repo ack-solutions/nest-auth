@@ -25,7 +25,7 @@ export class OrdersController {
 }
 ```
 
-Missing role/permission → 403. Prefer permissions on routes and group them into roles; check role names directly only for coarse gates.
+Missing role/permission → 403. Either style is fine: permissions give finer control and let roles change without touching code; role checks are simpler for small apps. Follow what the project already does.
 
 ## Create roles and assign them
 
@@ -66,7 +66,8 @@ export class RbacSeeder implements OnApplicationBootstrap {
 
 - `isSystem: true` makes a role global; `false` with a `tenantId` makes it belong to one tenant.
 - Default role for new users: assign it in a `REGISTERED` event listener (see `advanced.md`).
-- The admin console can also manage roles, permissions and assignments.
+- Seeding can live wherever the project keeps it: a bootstrap service (above), a migration, a CLI script, or the admin console UI.
+- Other calls: `roles.updateRolePermissions(roleId, names)`, `roles.getRoles()`, `users.getUsersByRole(name, guard)`.
 
 ## Frontend
 
@@ -92,8 +93,15 @@ export function OrdersToolbar() {
 
 Without React: `hasRole(user, 'admin')` / `hasPermission(user, 'orders.read')` from `@ackplus/nest-auth-client`.
 
+## Other ways to authorize
+
+- Your own guard or policy code: read `RequestContext.currentSession()?.data.permissions` / `.roles` and decide yourself (ownership checks, attribute rules).
+- `authorization.resolveRoles` / `resolvePermissions` to compute them from another system instead of the database.
+- Roles and permissions from an external identity provider: map them in a custom auth provider or a login hook.
+
 ## Notes
 
 - Changes to roles or a role's permissions reach signed-in users within 30s; no re-login needed.
-- Several guard namespaces (e.g. separate `admin` and `web` roles): list them in `roleGuards: ['web', 'admin']`, pass the guard to `createRole`, and to `NestAuthRoles(roles, 'admin')`. Only when the request needs separate role sets.
+- Several role namespaces (for example separate `admin` and `web` role sets): list them in `roleGuards: ['web', 'admin']`, pass the guard to `createRole`, and to `NestAuthRoles(roles, 'admin')`.
+- `authorization.liveSessionRoles`: `true` (default, 30s), `{ ttl }`, or `false` to freeze roles at sign-in.
 - Cross-tenant super-admins use `platformAccess`, not a tenant role. See `advanced.md`.

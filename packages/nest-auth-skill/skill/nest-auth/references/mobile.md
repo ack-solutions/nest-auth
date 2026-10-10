@@ -1,6 +1,6 @@
 # Mobile (React Native / Expo, Flutter)
 
-Mobile clients use **header mode**: tokens are stored on the device and sent in `Authorization`. The backend must not force cookie mode (`session.accessTokenType` unset or `'header'`).
+Mobile clients use **header mode**: tokens are stored on the device and sent in `Authorization`. The backend should leave `session.accessTokenType` unset or set it to `'header'` (a backend forced to `'cookie'` cannot serve native apps).
 
 ## React Native / Expo
 
@@ -33,7 +33,7 @@ export default function App() {
 }
 ```
 
-- Prefer `SecureStoreAdapter` (keychain/keystore) for tokens.
+- Storage: `SecureStoreAdapter` (keychain/keystore, recommended), `AsyncStorageAdapter`, or any object implementing `StorageAdapter` (MMKV, for example).
 - `AuthProvider`, `useNestAuth`, `useUser`, `AuthGuard` and the other hooks/guards from `react.md` are re-exported from `@ackplus/nest-auth-react-native` and work the same. Import them from there, not from the web package. Next.js helpers are not available.
 - Use a device-reachable `baseUrl` in development (not `localhost` on a physical device).
 
@@ -72,5 +72,10 @@ await auth.logout();
 
 - `NestAuthController` is a `ChangeNotifier` with `status`, `user`, `isAuthenticated`, `isBusy`, `lastError`. Rebuild with `ListenableBuilder` or the project's state library (provider, Riverpod).
 - `NestAuthClient` has `signup`, `login`, `loginWithEmail`, `socialLogin(provider, token)`, `getSessionUserData`, `refresh`, `logout`. It refreshes once and retries on a 401.
+- Storage: `SecureTokenStorage` (recommended), `InMemoryTokenStorage`, or your own `TokenStorage`.
 - Errors throw `NestAuthException` with `statusCode`, `message`, `code`.
-- Check the installed package's API for MFA and passwordless methods before using them; fall back to the documented REST endpoints (`/auth/mfa/verify`, `/auth/passwordless/send`) through the client's HTTP layer if a method is missing.
+- For a flow the Dart client has no method for, call the REST endpoint directly (`rest-api.md`).
+
+## Other mobile stacks
+
+Native iOS/Android, Kotlin Multiplatform, .NET MAUI and others use the REST API in header mode: see `rest-api.md`.

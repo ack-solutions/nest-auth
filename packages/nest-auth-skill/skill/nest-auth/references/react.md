@@ -25,7 +25,7 @@ export function AppAuthProvider({ children }: { children: ReactNode }) {
 }
 ```
 
-Export `client` and attach it to the project's axios/fetch layer (see `client-js.md`) so API calls carry the session.
+Export `client` and attach it to the project's axios/fetch layer (see `client-js.md`) so API calls carry the session. `AuthProvider` also accepts `onUnauthenticated`, `onTokensSet`, `onTokensRemoved` and `initialState`.
 
 ## Hooks
 
@@ -67,10 +67,10 @@ export function Greeting() {
 }
 ```
 
-Build forms with the project's existing form and UI libraries; the snippet only shows the calls.
+The snippet only shows the calls. Build the real form with whatever the project uses (react-hook-form, Formik, MUI, shadcn, plain inputs).
 
 - `useNestAuth()` — state (`status`, `isAuthenticated`, `isLoading`, `sessionData`, `error`) and every action (`login`, `signup`, `logout`, `passwordlessSend`, `verify2fa`, `forgotPassword`, `switchTenant`, …).
-- `useUser()`, `useSession()`, `useAuthStatus()`, `useHasRole(role)`, `useHasPermission(permission)`, `useClientConfig()`.
+- `useUser()`, `useSession()`, `useAuthStatus()`, `useAccessToken()`, `useHasRole(role)`, `useHasPermission(permission)`, `useClientConfig()`, `useAuthHeaderFn()`.
 
 ## Route guards
 
@@ -93,10 +93,18 @@ export function GuestOnly({ children, toHome }: { children: ReactNode; toHome: (
 }
 ```
 
-Wire `toLogin` / `toHome` to the project's router (`useNavigate`, `router.push`, …). Always pass `loadingFallback`: without it a guard renders nothing while the session loads. Role/permission guards (`RequireRole`, `RequirePermission`) are in `roles-permissions.md`.
+Wire `toLogin` / `toHome` to the project's router (`useNavigate`, `router.push`, …). Pass `loadingFallback` so something shows while the session loads. Role/permission guards (`RequireRole`, `RequirePermission`) are in `roles-permissions.md`.
+
+Other ways to protect routes: the HOCs `withRequireRole` / `withRequirePermission`; a router-level check (React Router loader, TanStack Router `beforeLoad`) using the shared `client`; or the project's existing `ProtectedRoute` component reading `useAuthStatus()`.
+
+## Also available
+
+- Cross-tab sync (logout in one tab signs out the others): `createCrossTabSync`.
+- Account switcher: `AccountSwitcherProvider`, `useAccountSwitcher`, `AddAccountGuard`.
+- No provider at all: call the `AuthClient` directly and keep state in the project's own store (Redux, Zustand, signals).
 
 ## Pitfalls
 
-- One `AuthProvider`, one `AuthClient`. Creating the client inside a component without `useMemo` resets the session on every render.
+- Use one `AuthClient` per app. If it is created inside a component, wrap it in `useMemo`, or the session resets on every render.
 - `sessionData` is `null` until the session loads; gate on `isLoading`.
 - Two installed copies of `@ackplus/nest-auth-react` (version mismatch in a monorepo) cause endless loading. Deduplicate.

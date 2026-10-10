@@ -6,8 +6,10 @@ Every login creates a server-side session plus a short-lived access token and a 
 
 | Mode | Use for | How tokens travel |
 |---|---|---|
-| `cookie` | browser apps (default choice) | http-only cookies; JS never sees the tokens |
-| `header` | mobile, server-to-server, cross-site APIs | `Authorization: Bearer`, stored by the client |
+| `cookie` | browser apps (recommended) | http-only cookies; JavaScript never sees the tokens |
+| `header` | mobile, server-to-server, cross-site APIs, or a browser app that prefers it | `Authorization: Bearer`; the client stores the tokens |
+
+Both work in every client. Cookie mode protects tokens from XSS but needs same-site (or correctly configured cross-site) cookies. Header mode is simpler across domains but the tokens live in JavaScript-readable storage. Use what the user asks for.
 
 `session.accessTokenType` on the backend: leave it unset to let each client choose (the SDK sends its mode in `x-access-token-type`), or set `'cookie'` / `'header'` to force one. Set the same value in the client config.
 
@@ -28,27 +30,39 @@ export const session: Partial<IAuthModuleOptions> = {
 };
 ```
 
-Only set the keys that differ from the defaults.
+Set only the keys that differ from the defaults.
+
+### Session store
+
+- `SessionStorageType.DATABASE` (default): no extra infrastructure.
+- `SessionStorageType.REDIS`: add `redisUrl` (or `redis: { host, port, ... }`) and install `ioredis`.
+- `SessionStorageType.MEMORY`: tests and single-process development only.
+- `SessionStorageType.CUSTOM` with `store`: your own `SessionStore` implementation.
+
+Other session options: `slidingExpiration` (extend on activity), `touchInterval`, `refreshTokenReuse`, and the hooks `customizeSessionData`, `customizeTokenPayload`, `validateToken`, `onCreated`, `onRefreshed`, `onRevoked` (see `advanced.md`).
 
 ### Cookie mode checklist
 
 - `app.use(cookieParser())` in `main.ts`.
 - CORS: `credentials: true`, explicit `origin` list.
-- Frontend and API on different sites (not just different ports/subdomains): cookies need `sameSite: 'none'` + `secure: true`, or put the API behind the same site with a proxy/rewrite. Prefer the proxy.
+- Frontend and API on different sites (not just different ports or subdomains): either set `sameSite: 'none'` with `secure: true`, or serve the API from the same site through a proxy/rewrite, or use header mode.
 - CSRF: `security: { csrf: { enabled: true, allowedOrigins: [...] } }` adds double-submit protection for cookie-authenticated writes.
 
 ## Client behaviour
 
 - `autoRefresh` is on: the client refreshes shortly before expiry and retries once on a 401.
 - Only a 401/403 from refresh/verify ends the session. Network errors and 5xx keep the tokens and throw an error with `error.kind === 'indeterminate'`; treat that as "retry", not "logged out".
-- Header mode storage: `LocalStorageAdapter` (default in browsers), `SessionStorageAdapter`, `MemoryStorage`, or a custom `StorageAdapter`.
+- Header mode storage: `LocalStorageAdapter` (default), `SessionStorageAdapter`, `CookieStorageAdapter`, `MemoryStorage`, or your own `StorageAdapter`.
+- `autoRefresh: false` if the app wants to drive refresh itself with `auth.refresh()`.
 
 ## Session management
 
 `auth.logout()` ends this session. `auth.logoutAll()` ends every session of the user. `auth.verifySession()` checks it. `GET /auth/me` (`getSessionData()` in React) returns the user with roles and permissions.
 
+A "your devices" screen: there is no built-in endpoint for listing sessions. Add a small controller in the app that uses `SessionManagerService` (`getUserSessions(userId)`, `revokeSession(id)`, `revokeOtherSessions(userId, currentSessionId)`).
+
 Deactivating a user revokes their sessions. Role and permission changes reach signed-in users within 30 seconds (`authorization.liveSessionRoles`).
 
 ## Multiple accounts on one device
 
-`session.allowMultipleAccounts: true` plus `AccountManager` (header) / `CookieAccountManager` on the client. Only add when a Gmail-style account switcher is requested. Docs: https://ack-solutions.github.io/nest-auth/docs/recipes/multi-account-switching
+For a Gmail-style account switcher: `session.allowMultipleAccounts: true` plus `AccountManager` (header) / `CookieAccountManager` on the client, and `AccountSwitcherProvider` / `useAccountSwitcher` in React. Docs: https://ack-solutions.github.io/nest-auth/docs/recipes/multi-account-switching

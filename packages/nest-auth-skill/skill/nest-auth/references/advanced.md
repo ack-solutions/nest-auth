@@ -2,9 +2,9 @@
 
 Read only the section you need.
 
-## Events (sending codes, syncing app data)
+## Events
 
-The library emits events through `@nestjs/event-emitter`. Each handler receives an event object; the data is on `event.payload`.
+The library emits events through `@nestjs/event-emitter`. A handler receives an event object with the data on `event.payload`.
 
 ```ts
 import { Injectable } from '@nestjs/common';
@@ -13,6 +13,7 @@ import { NestAuthEvents } from '@ackplus/nest-auth';
 import type {
   EmailVerificationRequestedEvent,
   PasswordResetRequestedEvent,
+  UserInvitedEvent,
   UserRegisteredEvent,
 } from '@ackplus/nest-auth';
 
@@ -21,7 +22,7 @@ export class AuthMailListener {
   @OnEvent(NestAuthEvents.EMAIL_VERIFICATION_REQUESTED)
   async verification(event: EmailVerificationRequestedEvent) {
     const { user, code } = event.payload;
-    // send `code` to user.email with the project's mailer
+    // send `code` to user.email
   }
 
   @OnEvent(NestAuthEvents.PASSWORD_RESET_REQUESTED)
@@ -30,54 +31,70 @@ export class AuthMailListener {
     // send `code` to user.email or user.phone
   }
 
+  @OnEvent(NestAuthEvents.USER_INVITED)
+  async invited(event: UserInvitedEvent) {
+    const { user, token } = event.payload;
+    // email a set-password link containing `token`
+  }
+
   @OnEvent(NestAuthEvents.REGISTERED)
   async registered(event: UserRegisteredEvent) {
     const { user } = event.payload;
-    // create the app's own profile row for user.id, assign a default role, send a welcome mail
+    // create the app's profile row for user.id, assign a default role, send a welcome mail
   }
 }
 ```
 
-Register the listener class in a module's `providers`.
+Register the listener in a module's `providers`. How the message is sent is up to the project: its existing mailer, a queue, a third-party API, or a log line in local development.
 
 | Event (`NestAuthEvents.*`) | When | Payload includes |
 |---|---|---|
-| `EMAIL_VERIFICATION_REQUESTED` / `PHONE_VERIFICATION_REQUESTED` | a verification code was issued | `user`, `code` |
+| `EMAIL_VERIFICATION_REQUESTED`, `PHONE_VERIFICATION_REQUESTED` | a verification code was issued | `user`, `code` |
+| `EMAIL_VERIFIED`, `PHONE_VERIFIED` | verification succeeded | `user` |
 | `PASSWORD_RESET_REQUESTED` | forgot-password | `user`, `code` |
 | `PASSWORDLESS_CODE_REQUESTED` | passwordless send | `user`, `channel`, `code` |
 | `TWO_FACTOR_CODE_SENT` | MFA email/SMS challenge | `user`, `method`, `code` |
-| `REGISTERED`, `LOGGED_IN`, `LOGIN_FAILED`, `LOGGED_OUT` | lifecycle | `user`, context |
-| `PASSWORD_CHANGED`, `PASSWORD_RESET`, `TWO_FACTOR_ENABLED`, `TWO_FACTOR_DISABLED` | security changes | `user` |
-
-Use events for side effects (mail, audit, sync). Use hooks (below) only when the auth flow must wait for or be changed by your code.
-
-If the project has no mail/SMS service, ask which provider to use. For local development only, a listener may log the code.
+| `USER_INVITED` | invitation issued | `user`, `token`, `isNewUser` |
+| `REGISTERED`, `LOGGED_IN`, `LOGIN_FAILED`, `LOGGED_OUT`, `LOGGED_OUT_ALL`, `REFRESH_TOKEN` | session lifecycle | `user`, context |
+| `PASSWORD_CHANGED`, `PASSWORD_RESET`, `TWO_FACTOR_ENABLED`, `TWO_FACTOR_DISABLED`, `TWO_FACTOR_VERIFIED`, `MFA_RECOVERY_CODE_USED` | security changes | `user` |
+| `REFRESH_TOKEN_REUSE_DETECTED`, `DISPOSABLE_EMAIL_DETECTED` | security signals | ids / email |
+| `USER_CREATED/UPDATED/DELETED`, `TENANT_*`, `ROLE_*`, `PERMISSION_*`, `ACCESS_KEY_*` | data changes | the entity |
 
 ## Hooks
 
-Options on `NestAuthModule.forRoot`. They run inside the request and can block it.
+Options on the module. They run inside the request, so they can change or reject it. Use events for fire-and-forget side effects, hooks when the flow must wait for your code. Either is valid.
 
 ```ts
 import type { IAuthModuleOptions } from '@ackplus/nest-auth';
 
 export const hooks: Partial<IAuthModuleOptions> = {
   registrationHooks: {
-    beforeSignup: async (input) => input,          // validate or reshape the signup input; throw to reject
+    beforeSignup: async (input) => input,          // validate/reshape signup input; throw to reject
+    onSignup: async (user) => {},
+  },
+  loginHooks: {
+    onLogin: async (user) => {},                    // before the session is created; throw to reject
   },
   user: {
+    beforeCreate: async (data) => data,
     getSessionUserData: async (user) => ({ displayName: user.metadata?.firstName }), // extra fields on GET /auth/me
+  },
+  auth: {
+    transformResponse: async (response) => response, // reshape login/signup responses
   },
   session: {
     jwt: { secret: process.env.JWT_SECRET as string },
-    customizeTokenPayload: async (payload) => payload, // add claims to the access token
+    customizeSessionData: async (data) => data,     // extra server-side session data
+    customizeTokenPayload: async (payload) => payload, // extra access-token claims
   },
   guards: {
-    afterAuth: async (request, user, session) => {}, // runs on every authenticated request
+    afterAuth: async (request, user, session) => {}, // every authenticated request
   },
+  errorHandler: (error) => error,                   // reshape auth errors
 };
 ```
 
-Keep hooks fast; `afterAuth` runs on every request.
+Also available: `user.afterCreate/beforeUpdate/afterUpdate/beforeDelete/afterDelete`, `guards.beforeAuth`, `session.validateToken/onCreated/onRefreshed/onRevoked`, `clientConfig.factory` (change what `GET /auth/client-config` returns), and `resolveConfig(request)` to override options per request (per domain, per client type).
 
 ## Async configuration
 
@@ -92,52 +109,52 @@ NestAuthModule.forRootAsync({
 });
 ```
 
-`routePrefix` and `adminConsole.path` are read at module definition time and need `forRoot`.
+`useClass` and `useExisting` (a class implementing `IAuthModuleOptionsFactory`) work too. `routePrefix` and `adminConsole.path` are read when the module is defined, so they need `forRoot`.
 
-## Abuse protection
+## Custom login provider
 
-All off by default. Add the part that was asked for.
+For Microsoft, Okta, an internal SSO, or any credential type the built-ins do not cover.
 
 ```ts
-import type { IAuthModuleOptions } from '@ackplus/nest-auth';
+import { SocialAuthProvider } from '@ackplus/nest-auth';
+import type { AuthProviderUser, IAuthModuleOptions } from '@ackplus/nest-auth';
 
-export const security: Partial<IAuthModuleOptions> = {
-  security: {
-    rateLimit: { enabled: true },                         // per-IP + per-account limits on auth endpoints
-    lockout: { enabled: true, maxFailedAttempts: 10, window: '15m', lockDuration: '15m' },
-    captcha: {
-      enabled: true,
-      verify: async (token) => token.length > 0,          // call Turnstile / hCaptcha / reCAPTCHA siteverify here
-    },
-    csrf: { enabled: true, allowedOrigins: ['https://app.example.com'] }, // cookie mode
-  },
+class CompanySsoProvider extends SocialAuthProvider {
+  providerName = 'company-sso';
+
+  getRequiredFields(): string[] {
+    return ['token'];
+  }
+
+  async validate(credentials: { token?: string }): Promise<AuthProviderUser | null> {
+    if (!credentials.token) return null;
+    // verify the token with the identity provider, then describe the user:
+    return { userId: 'external-user-id', email: 'user@company.com', emailVerified: true };
+  }
+}
+
+export const custom: Partial<IAuthModuleOptions> = {
+  customAuthProviders: [new CompanySsoProvider()],
 };
 ```
 
-- Rate-limit and lockout counters are in memory per instance. With more than one instance, supply `rateLimit.store` backed by Redis.
-- Behind a proxy set Express `trust proxy` so the client IP is real.
-- CAPTCHA tokens arrive in the `x-captcha-token` header; allow it in CORS.
-- On the app's own routes use `@RateLimit('login')` alone. It already applies its guard.
-
-## API keys (server-to-server)
-
-`AccessKeyService.createAccessKey(userId, name, { tenantId? })` returns the private key once. Callers send `Authorization: ApiKey <publicKey>.<privateKey>`; `@Auth()` routes accept it and act as the key's user (and tenant). Turn the feature off with `accessKeys: { enabled: false }` when the app does not issue keys.
+Clients log in with `login({ providerName: 'company-sso', credentials: { token } })`.
 
 ## Admin console
 
-An embedded dashboard for users, roles, permissions and tenants, served at `/auth/admin`. It is **enabled by default**.
+An embedded dashboard for users, roles, permissions and tenants at `/auth/admin`. Enabled by default.
 
-- Not wanted: `adminConsole: { enabled: false }`.
-- Wanted: `adminConsole: { enabled: true, secretKey: process.env.ADMIN_CONSOLE_SECRET_KEY }`. The secret gates creation of the first admin; keep it out of the repo and restrict network access to the path in production.
+- Keep it: `adminConsole: { enabled: true, secretKey: process.env.ADMIN_CONSOLE_SECRET_KEY }`. The secret gates creation of the first admin. Restrict network access to the path in production.
+- Turn it off: `adminConsole: { enabled: false }`. The same management can be done in the app with `UserService`, `RoleService`, `PermissionService`, `TenantService`.
 
 ## Platform (cross-tenant) admins
 
-`platformAccess: { enabled: true, validate: (request) => boolean }` plus `UserService.createPlatformUser(...)`. Only for multi-tenant products that need super-admins above all tenants. `validate` should restrict where platform roles apply (for example an internal origin or header).
+For multi-tenant products that need super-admins above all tenants: `platformAccess: { enabled: true, validate: (request) => boolean }` and `UserService.createPlatformUser(...)`. `validate` decides on which requests platform roles apply (for example only from an internal origin).
 
-## Custom login providers
+## Debugging
 
-Extend `BaseAuthProvider` and pass instances in `customAuthProviders`. Only when none of the built-in providers fit.
+`debug: { enabled: true }` prints the library's decisions (which guard step rejected a request, and why). Development only.
 
 ## Error codes
 
-Errors are `{ statusCode, message, code }`. Branch on `code` (`INVALID_CREDENTIALS`, `MFA_REQUIRED`, `ACCOUNT_INACTIVE`, `RATE_LIMITED`, …). The full list is the `NestAuthErrorCode` export of `@ackplus/nest-auth-contracts`.
+Errors are `{ statusCode, message, code }`. Branch on `code`; the full list is the `NestAuthErrorCode` export of `@ackplus/nest-auth-contracts`.

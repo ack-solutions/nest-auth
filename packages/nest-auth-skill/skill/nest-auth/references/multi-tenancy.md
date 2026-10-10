@@ -1,6 +1,6 @@
 # Multi-tenancy
 
-Off by default. Do not enable it for "users have a company field" or simple team features; enable it when users, roles and data must be separated per organization/workspace.
+Off by default. It fits products where users, roles and data are separated per organization or workspace. For a lighter need (a company name on a profile, simple teams) an ordinary column in the app may be enough; say so, and enable tenancy if the user wants it.
 
 ## Choose the mode first
 
@@ -12,7 +12,7 @@ Off by default. Do not enable it for "users have a company field" or simple team
 | Switch tenant without re-login | yes, `switchTenant` | no |
 | Typical product | Slack/Notion-style workspaces | white-label / per-customer portals |
 
-If the request does not make the mode clear, ask. It cannot be changed later without migrating users. Nest Auth isolates identities and roles in one database; it does not switch databases per tenant, and it does not filter the app's own tables.
+If the request does not make the mode clear, ask: switching later means migrating users. Nest Auth separates identities, memberships and roles per tenant in one database. Filtering the app's own tables by tenant is done in the app (below); if the project wants a database or schema per tenant, that is the app's data layer and can sit alongside Nest Auth.
 
 ## Backend
 
@@ -63,7 +63,7 @@ export function requireTenantId(): string {
 }
 ```
 
-Use `RequestContext.currentTenantId()` (it reads the session). Never trust a tenant id from the request body or query for authorization.
+`RequestContext.currentTenantId()` reads the tenant from the signed-in session, so it cannot be spoofed by the caller. Apply the filter however the project prefers: in each service, a base repository, a TypeORM subscriber, or a request-scoped helper.
 
 ## Client
 
@@ -84,7 +84,9 @@ export async function isolatedLogin(auth: AuthClient, baseUrl: string, slug: str
 }
 ```
 
-In ISOLATED mode also pass `tenantId` to `signup`, `passwordlessSend`, `passwordlessLogin` and `verifyForgotPasswordOtp`. A common pattern is one subdomain per tenant: read the slug from the host and look it up once.
+In ISOLATED mode also pass `tenantId` to `signup`, `passwordlessSend`, `passwordlessLogin` and `verifyForgotPasswordOtp`.
+
+Ways to find the tenant before login (ISOLATED): a subdomain per tenant, a slug field on the login form, a path segment, or an email-first step where your own endpoint calls `UserService.getTenantsByEmail(email)` and lets the user pick.
 
 ## Roles per tenant
 

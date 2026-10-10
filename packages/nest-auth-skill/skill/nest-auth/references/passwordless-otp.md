@@ -1,6 +1,6 @@
 # Passwordless / OTP login
 
-A one-time code is sent by email or SMS; the user logs in with the code. No password.
+A one-time code is sent by email or SMS and the user signs in with it. Can be the only login method or sit next to passwords and social login.
 
 ## Backend
 
@@ -16,9 +16,11 @@ export const passwordless: Partial<IAuthModuleOptions> = {
 };
 ```
 
-`otp` settings are shared by every code the library issues. Only set them if the request needs non-default values (default: 6 digits, 30 minutes).
+`otp` is optional and shared by every code the library issues (default: 6 digits, 30 minutes). `otp.generate` accepts your own generator.
 
-## Deliver the code (required)
+## Deliver the code
+
+The app sends the code with its own mail/SMS service.
 
 ```ts
 import { Injectable } from '@nestjs/common';
@@ -40,7 +42,7 @@ export class PasswordlessListener {
 }
 ```
 
-Register the class in a module's `providers`. Use the project's existing mail/SMS service; if there is none, ask which provider to use instead of inventing one.
+Register the class in a module's `providers`. Use the project's existing mail/SMS service. If it has none, ask the user which one they want; for local development a listener that logs the code is enough.
 
 ## Client
 
@@ -49,13 +51,19 @@ import { AuthClient } from '@ackplus/nest-auth-client';
 
 export async function passwordlessLogin(auth: AuthClient, email: string, code: string) {
   await auth.passwordlessSend({ identifier: email, channel: 'email' }); // or channel: 'sms'
-  // ...user types the code...
+  // ...the user types the code...
   return auth.passwordlessLogin({ identifier: email, code, channel: 'email' });
 }
 ```
 
-`passwordlessLogin` returns the normal login response (handle `isRequiresMfa`). In React the same two functions are on `useNestAuth()`.
+`passwordlessLogin` returns the normal login response. In React both functions are on `useNestAuth()`.
 
-## Protect the send endpoint
+## Variations
 
-It sends mail/SMS for anonymous callers. Turn on rate limiting when exposing it publicly: `security: { rateLimit: { enabled: true } }` (see `advanced.md`).
+- **Magic link:** there is no separate link endpoint. Put the identifier and code in a URL in your email, and have the page it opens call `passwordlessLogin`.
+- **SMS:** `channel: 'sms'` with a phone number as `identifier`.
+- **Sign-up by code:** `allowSignUp: true`.
+
+## Worth suggesting
+
+The send endpoint emails or texts on behalf of anonymous callers. Rate limiting (`security.md`) is a sensible addition when it is public; offer it rather than adding it silently.

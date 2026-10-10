@@ -1,6 +1,6 @@
 # MFA (two-factor)
 
-Off by default. Methods: `TOTP` (authenticator app), `EMAIL`, `SMS`. Enable only the methods asked for. TOTP needs no delivery service; EMAIL and SMS need a listener.
+Off by default. Methods: `TOTP` (authenticator app), `EMAIL`, `SMS`, in any combination. TOTP needs no delivery service; EMAIL and SMS need a listener that sends the code. If the user did not name a method, TOTP is the simplest to add; offer the others.
 
 ## Backend
 
@@ -14,6 +14,8 @@ export const mfa: Partial<IAuthModuleOptions> = {
     methods: [NestAuthMFAMethodEnum.TOTP],       // this list replaces the default
     required: false,                              // true = every user must use MFA
     allowUserToggle: true,                        // users can turn their own MFA on/off
+    allowMethodSelection: true,                   // users can pick among the enabled methods
+    recoveryCodeCount: 10,                        // backup codes per user
     trustedDeviceSecret: process.env.TRUSTED_DEVICE_SECRET, // needed for "remember this device"
     trustedDeviceDuration: '30d',
   },
@@ -75,10 +77,18 @@ export async function enrolTotp(auth: AuthClient, readCode: () => Promise<string
 }
 ```
 
-Other calls: `getMfaStatus()`, `listTotpDevices()`, `removeTotpDevice(id)`, `toggleMfa({ enabled: false })`.
+Other calls: `getMfaStatus()`, `listTotpDevices()`, `removeTotpDevice(id)`, `toggleMfa({ enabled: false })`, and `resetMfa(recoveryCode)` to clear a lost authenticator using a recovery code.
+
+Trusted devices: pass `trustDevice: true` to `verify2fa` to skip MFA on that device for `trustedDeviceDuration`. Routes that must work before the second step can be marked `@SkipMfa()`.
 
 ## Adding MFA to an existing login screen
 
-Keep the existing form. Add one branch after `login()` for `isRequiresMfa`, a code input, and (if TOTP) an enrolment screen in account settings. Do not set `required: true` unless asked: it forces every existing user through enrolment.
+Keep the existing form. Add one branch after `login()` for `isRequiresMfa`, a code input, and (if TOTP) an enrolment screen in account settings.
+
+## Policy choices
+
+- **Optional per user** (default): `required: false`; each user turns it on.
+- **Mandatory:** `required: true`. Every existing user is sent through enrolment at next login, so confirm before enabling it on a live app.
+- **Only for some users** (admins, a tenant): keep `required: false` and enforce it in the app, for example a guard on admin routes that checks the user's MFA status.
 
 In React all functions above are on `useNestAuth()`.

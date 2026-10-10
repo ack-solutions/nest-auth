@@ -1,6 +1,6 @@
 # JS/TS client (`@ackplus/nest-auth-client`)
 
-Framework-agnostic. Use it directly in plain JS/TS, Vue, Svelte, Angular or Node. React apps use `react.md`, which wraps this client.
+Framework-agnostic. Use it directly in plain JS/TS, Vue, Svelte, Angular, Solid or Node. React apps normally use `react.md`, which wraps this client. Not using JavaScript, or prefer raw HTTP? See `rest-api.md`.
 
 ```bash
 npm i @ackplus/nest-auth-client
@@ -19,6 +19,8 @@ export const auth = new AuthClient({
 
 Create it once and share it. `baseUrl` is the origin plus any Nest global prefix; the client appends `/auth/...`. If the backend changed `routePrefix`, pass matching paths in `endpoints`.
 
+Optional config: `storage` (where header-mode tokens live), `httpAdapter` (`FetchAdapter` by default; `createAxiosAdapter(instance)` to route auth calls through the project's axios), `autoRefresh`, `refreshThreshold`, `logger`, and the callbacks `onTokenRefreshed`, `onLogout`, `onError`.
+
 ## Use it
 
 ```ts
@@ -34,11 +36,11 @@ export async function boot(auth: AuthClient) {
 }
 ```
 
-Every auth call is a method on the client: `signup`, `login`, `logout`, `logoutAll`, `refresh`, `verifySession`, `passwordlessSend`, `passwordlessLogin`, `forgotPassword`, `verifyForgotPasswordOtp`, `resetPassword`, `changePassword`, `sendEmailVerification`, `verifyEmail`, `send2fa`, `verify2fa`, `setupTotp`, `switchTenant`, `getClientConfig`. Request shapes are in the feature reference files.
+Every auth call is a method on the client. State listeners: `onLogout`, `onTokenRefreshed`, `onTokensSet`, `onTokensRemoved`, `onError`, `subscribeTokenState`. Methods: `signup`, `login`, `logout`, `logoutAll`, `refresh`, `verifySession`, `passwordlessSend`, `passwordlessLogin`, `forgotPassword`, `verifyForgotPasswordOtp`, `resetPassword`, `changePassword`, `sendEmailVerification`, `verifyEmail`, `send2fa`, `verify2fa`, `setupTotp`, `switchTenant`, `getClientConfig`. Request shapes are in the feature reference files.
 
 ## Send auth on the app's own API calls
 
-Do not copy tokens around by hand. Attach the client to the HTTP layer the project already uses:
+The simplest way is to attach the client to the HTTP layer the project already uses:
 
 ```ts
 import { AuthClient } from '@ackplus/nest-auth-client';
@@ -57,7 +59,11 @@ export function wireHttp(auth: AuthClient, api: AxiosLikeInstance) {
 }
 ```
 
-Manual alternative: `await auth.getAuthHeaders()` returns the headers to spread into a request.
+Other ways:
+
+- `await auth.getAuthHeaders()` returns the headers to add to any request (GraphQL clients, WebSocket handshakes, tRPC, a generated API client).
+- `await auth.getAccessToken()` when a library wants the raw token.
+- Cookie mode needs nothing beyond sending requests with credentials.
 
 ## Errors
 
