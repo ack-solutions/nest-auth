@@ -3,6 +3,45 @@ import { NestAuthUser } from '../../user/entities/user.entity';
 import { SessionDataPayload, SessionPayload, JWTTokenPayload } from './token-payload.interface';
 import type { SessionStore } from '../../session/interfaces/session-store.interface';
 
+/**
+ * Context handed to a {@link MaxSessionsResolver} when the per-account session
+ * cap is being resolved for a specific sign-in.
+ */
+export interface MaxSessionsContext {
+    /** The account the session is being created for. */
+    userId: string;
+    /**
+     * The session data about to be stored. Carries the account's `roles` and
+     * `permissions`, so a resolver can vary the cap by role, tenant or plan.
+     *
+     * When resolved from `hasReachedMaxSessions(userId)` with no data supplied,
+     * this is an empty object — a resolver should tolerate missing fields.
+     */
+    data: SessionDataPayload;
+}
+
+/**
+ * Resolves the maximum number of concurrent sessions allowed for one account.
+ * Returning anything that is not a positive whole number falls back to the
+ * default of 10.
+ */
+export type MaxSessionsResolver = (
+    context: MaxSessionsContext,
+) => number | Promise<number>;
+
+/**
+ * Why a session ended. `'evicted'` is emitted when a new sign-in pushes the
+ * account past `maxSessionsPerUser` and the least-recently-active sessions are
+ * dropped to make room.
+ */
+export type SessionRevokeReason =
+    | 'logout'
+    | 'expired'
+    | 'admin'
+    | 'security'
+    | 'password_change'
+    | 'evicted';
+
 export enum SessionStorageType {
     REDIS = 'redis',
     DATABASE = 'database',
@@ -135,7 +174,26 @@ export interface SessionOptions {
         validateToken?: (payload: JWTTokenPayload, session: SessionPayload) => Promise<boolean>;
     };
 
-    maxSessionsPerUser?: number; // Maximum number of active sessions per user (default: 10)
+    /**
+     * Maximum number of concurrent sessions per account (default: 10). Creating
+     * a session beyond the cap evicts the least-recently-active ones, each of
+     * which fires `onRevoked` with reason `'evicted'`.
+     *
+     * Pass a function to vary the cap per account — it receives the account id
+     * and the session data about to be stored (including roles and
+     * permissions). A result that is not a positive whole number falls back to
+     * the default.
+     *
+     * @example
+     * // One number for everyone (as before)
+     * maxSessionsPerUser: 5
+     *
+     * @example
+     * // Staff get more devices than customers
+     * maxSessionsPerUser: ({ data }) =>
+     *     data.roles?.some((r) => r.name === 'staff') ? 20 : 3
+     */
+    maxSessionsPerUser?: number | MaxSessionsResolver;
     slidingExpiration?: boolean; // Whether to extend session on activity (default: false)
 
     /**
@@ -226,7 +284,7 @@ export interface SessionOptions {
     /**
      * Called when a session is revoked (logout, admin action, security)
      */
-    onRevoked?: (session: SessionPayload, reason: 'logout' | 'expired' | 'admin' | 'security' | 'password_change') => Promise<void> | void;
+    onRevoked?: (session: SessionPayload, reason: SessionRevokeReason) => Promise<void> | void;
 }
 
 

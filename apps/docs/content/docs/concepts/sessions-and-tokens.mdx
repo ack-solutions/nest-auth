@@ -60,7 +60,46 @@ This is how "log out all devices on password change" works without scanning the 
 
 ## `maxSessionsPerUser`
 
-Caps how many concurrent sessions one user can hold (default `10`). When a new login pushes the count over the limit, the **oldest** session is evicted. Set to a low number like `3` for high-security flows; set to `0` to disable the cap entirely.
+Caps how many concurrent sessions one user can hold (default `10`). When a new login pushes the count over the limit, the **least-recently-active** session is evicted. Set a low number like `3` for high-security flows.
+
+```ts
+session: { maxSessionsPerUser: 3 }
+```
+
+### A different cap per account
+
+Pass a function instead of a number to decide the cap per sign-in. It receives the account id and the session data about to be stored — which carries that account's `roles` and `permissions` — and may be async:
+
+```ts
+session: {
+  maxSessionsPerUser: ({ userId, data }) =>
+    data.roles?.some((r) => r.name === 'staff') ? 20 : 3,
+},
+```
+
+```ts
+// Async is fine — look the plan up wherever it lives.
+session: {
+  maxSessionsPerUser: async ({ userId }) => {
+    const plan = await billing.planFor(userId);
+    return plan === 'pro' ? 10 : 2;
+  },
+},
+```
+
+The cap must be a **positive whole number**. Anything else — unset, `0`, negative, fractional, `NaN`, or a non-number returned by the function — falls back to the default of `10`. There is no way to disable the cap; set it high if you do not want one.
+
+### Evictions fire `onRevoked`
+
+An evicted session goes through the normal revoke path, so [`session.onRevoked`](/docs/backend/hooks-reference) fires with reason `'evicted'`. Use it to audit or clean up:
+
+```ts
+session: {
+  onRevoked: (session, reason) => {
+    if (reason === 'evicted') audit.log('session evicted', session.userId);
+  },
+},
+```
 
 ## Where to look in the code
 

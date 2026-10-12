@@ -2,6 +2,7 @@ import { Injectable, Inject, UnauthorizedException } from '@nestjs/common';
 import { SessionStore } from '../interfaces/session-store.interface';
 import { NestAuthSession } from '../entities/session.entity';
 import { IAuthModuleOptions } from '../../core/interfaces/auth-module-options.interface';
+import type { MaxSessionsContext, SessionRevokeReason } from '../../core/interfaces/session-options.interface';
 import { SessionPayload, SessionDataPayload } from '../../core/interfaces/token-payload.interface';
 import { AuthConfigService } from '../../core/services/auth-config.service';
 import { RequestContext } from '../../request-context/request-context';
@@ -15,6 +16,9 @@ import { NestAuthUserAccess } from '../../user/entities/user-access.entity';
 import { chain } from 'lodash';
 import { NestAuthPlatformAccess } from '../../user/entities/platform-access.entity';
 import { withFreshSessionAuthz } from '../../role/utils/session-authz.util';
+
+/** Fallback cap when `session.maxSessionsPerUser` is unset or invalid. */
+export const DEFAULT_MAX_SESSIONS_PER_USER = 10;
 
 export const SESSION_STORE = 'SESSION_STORE';
 export const SESSION_REPOSITORY = 'SESSION_REPOSITORY';
@@ -34,8 +38,26 @@ export class SessionManagerService {
         return AuthConfigService.getOptions();
     }
 
-    private get maxSessionsPerUser(): number {
-        return this.options.session?.maxSessionsPerUser || 10;
+    /**
+     * Resolve the session cap for ONE account. `maxSessionsPerUser` may be a
+     * plain number (one cap for everyone, as before) or a function that is
+     * asked per sign-in and can vary the cap by role, tenant or plan.
+     */
+    private async resolveMaxSessionsPerUser(context: MaxSessionsContext): Promise<number> {
+        const configured = this.options.session?.maxSessionsPerUser;
+        const resolved = typeof configured === 'function' ? await configured(context) : configured;
+        return SessionManagerService.normalizeMaxSessions(resolved);
+    }
+
+    /**
+     * A cap must be a positive whole number. Anything else — unset, zero,
+     * negative, fractional, NaN, Infinity, or a non-number from a resolver —
+     * falls back to the default.
+     */
+    private static normalizeMaxSessions(value: unknown): number {
+        return typeof value === 'number' && Number.isInteger(value) && value > 0
+            ? value
+            : DEFAULT_MAX_SESSIONS_PER_USER;
     }
 
     private get slidingExpiration(): boolean {
@@ -55,8 +77,10 @@ export class SessionManagerService {
     }): Promise<NestAuthSession> {
         const { userId, refreshToken, data, userAgent, deviceName, ipAddress } = payload;
 
-        // Check max sessions limit
-        await this.enforceMaxSessions(userId);
+        // Check max sessions limit. The data about to be stored is handed to the
+        // resolver so a per-account cap can key off roles/permissions/tenant.
+        const sessionData: SessionDataPayload = data || ({} as SessionDataPayload);
+        await this.enforceMaxSessions(userId, sessionData);
 
         const sessionPayload: SessionPayload = {
             id: uuidv4(),
@@ -156,7 +180,7 @@ export class SessionManagerService {
      */
     async revokeSession(
         sessionId: string,
-        reason: 'logout' | 'expired' | 'admin' | 'security' | 'password_change' = 'admin',
+        reason: SessionRevokeReason = 'admin',
     ): Promise<void> {
         // Get session before deleting to pass to hook
         let session: NestAuthSession | null = null;
@@ -270,29 +294,36 @@ export class SessionManagerService {
     /**
      * Check if user has reached max sessions limit
      */
-    async hasReachedMaxSessions(userId: string): Promise<boolean> {
+    async hasReachedMaxSessions(userId: string, data?: SessionDataPayload): Promise<boolean> {
         const count = await this.store.countActiveByUserId(userId);
-        return count >= this.maxSessionsPerUser;
+        const limit = await this.resolveMaxSessionsPerUser({
+            userId,
+            data: data || ({} as SessionDataPayload),
+        });
+        return count >= limit;
     }
 
     /**
      * Enforce max sessions per user by removing oldest sessions
      */
-    private async enforceMaxSessions(userId: string): Promise<void> {
+    private async enforceMaxSessions(userId: string, data: SessionDataPayload): Promise<void> {
+        const limit = await this.resolveMaxSessionsPerUser({ userId, data });
         const activeSessions = await this.store.findActiveByUserId(userId);
 
-        if (activeSessions.length >= this.maxSessionsPerUser) {
+        if (activeSessions.length >= limit) {
             // Sort by lastActive (oldest first)
-            const sorted = activeSessions.sort((a, b) => {
+            const sorted = [...activeSessions].sort((a, b) => {
                 const aTime = a.lastActive?.getTime() || 0;
                 const bTime = b.lastActive?.getTime() || 0;
                 return aTime - bTime;
             });
 
-            // Remove oldest session(s)
-            const toRemove = sorted.slice(0, activeSessions.length - this.maxSessionsPerUser + 1);
+            // Remove oldest session(s). Go through revokeSession so eviction is
+            // a first-class ending that fires `session.onRevoked` — a raw
+            // store.delete() here skipped the hook entirely.
+            const toRemove = sorted.slice(0, activeSessions.length - limit + 1);
             for (const session of toRemove) {
-                await this.store.delete(session.id);
+                await this.revokeSession(session.id, 'evicted');
             }
         }
     }

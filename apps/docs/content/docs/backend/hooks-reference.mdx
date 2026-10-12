@@ -204,6 +204,8 @@ Final claims for the JWT. Anything you add here is in the access token. Keep it 
 
 Fire-and-forget. For audit, cache invalidation, etc.
 
+`onRevoked(session, reason)` receives one of `'logout'`, `'expired'`, `'admin'`, `'security'`, `'password_change'` or `'evicted'`. `'evicted'` means a new sign-in pushed the account past [`maxSessionsPerUser`](/docs/concepts/sessions-and-tokens) and the least-recently-active session was dropped to make room — before 2.14 evictions bypassed this hook and were silent.
+
 ### `authorization.resolveRoles(user) => Promise<string[]>`
 
 Replaces the default DB lookup. Return whatever roles the user has.
