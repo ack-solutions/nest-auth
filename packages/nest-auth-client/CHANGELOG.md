@@ -1,5 +1,11 @@
 # @ackplus/nest-auth-client
 
+## 2.14.0
+
+### Patch Changes
+
+- @ackplus/nest-auth-contracts@2.14.0
+
 ## 2.13.1
 
 ### Patch Changes
