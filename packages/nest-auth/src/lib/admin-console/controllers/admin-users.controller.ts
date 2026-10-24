@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -278,6 +279,30 @@ export class AdminUsersController {
     }
   }
 
+  /**
+   * `adminConsole.allowPlatformUserManagement: false` keeps platform (super-admin)
+   * users out of the console's reach: no minting, granting or revoking, and no
+   * edits to an existing platform user (a password or email change there is an
+   * account takeover by another name). Listing and viewing still work.
+   */
+  private assertPlatformUserManagementAllowed(): void {
+    if (this.authConfigService.getConfig().adminConsole?.allowPlatformUserManagement === false) {
+      throw new ForbiddenException({
+        message:
+          'Platform user management is disabled in the admin console ' +
+          '(`adminConsole.allowPlatformUserManagement: false`).',
+        code: 'PLATFORM_USER_MANAGEMENT_DISABLED',
+      });
+    }
+  }
+
+  /** {@link assertPlatformUserManagementAllowed}, but only when the user holds platform access. */
+  private async assertMayModifyUser(user: NestAuthUser): Promise<void> {
+    if (this.authConfigService.getConfig().adminConsole?.allowPlatformUserManagement !== false) return;
+    const platformAccess = user.platformAccess ?? (await user.getPlatformAccess(false));
+    if (platformAccess) this.assertPlatformUserManagementAllowed();
+  }
+
   /** Normalize `?scope=`; anything unrecognized falls back to `all`. */
   private resolveScope(scope?: string): UserListScope {
     const normalized = scope?.trim().toLowerCase();
@@ -294,6 +319,7 @@ export class AdminUsersController {
     // PLATFORM user — tenant-less by definition, so it bypasses the tenant
     // requirement entirely and is provisioned with its marker atomically.
     if (dto.isPlatformUser) {
+      this.assertPlatformUserManagementAllowed();
       this.assertPlatformAccessEnabled();
       const platformUser = await this.users.createPlatformUser({
         email: dto.email,
@@ -457,6 +483,11 @@ export class AdminUsersController {
     if (!user) {
       throw new NotFoundException('User not found');  
     }
+    // Checked before any write, so a refused request changes nothing.
+    if (dto.isPlatformUser !== undefined || dto.platformRoleIds !== undefined) {
+      this.assertPlatformUserManagementAllowed();
+    }
+    await this.assertMayModifyUser(user);
 
     const oldEmail = user.email;
     const oldPhone = user.phone;
@@ -628,6 +659,8 @@ export class AdminUsersController {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+    // Dropping a platform user's MFA device weakens a super-admin account.
+    await this.assertMayModifyUser(user);
 
     const device = await this.mfaSecretRepository.findOne({
       where: { id: deviceId, userId: user.id },
@@ -686,6 +719,8 @@ export class AdminUsersController {
   @ApiOperation({ summary: 'Delete a user' })
   @Delete(':id')
   async deleteUser(@Param('id') id: string) {
+    const user = await this.users.getUserById(id);
+    if (user) await this.assertMayModifyUser(user);
     await this.users.deleteUser(id);
     return { message: 'User removed' };
   }

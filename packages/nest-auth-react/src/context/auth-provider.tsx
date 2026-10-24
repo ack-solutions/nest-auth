@@ -103,6 +103,26 @@ export function AuthProvider({
 
     const [error, setError] = useState<AuthError | null>(null);
 
+    // A new `client` is a different account (the multi-account recipe switches
+    // by swapping this prop). Drop everything the old one told us, synchronously
+    // during render, so no frame shows the previous account's permissions and
+    // the verify below starts from 'loading' — an indeterminate answer for the
+    // NEW client then fails closed to 'unknown' instead of inheriting the old
+    // account's 'authenticated'.
+    const [renderedClient, setRenderedClient] = useState(client);
+    if (renderedClient !== client) {
+        setRenderedClient(client);
+        setSessionData(null);
+        setSession(client.getSession());
+        setStatus('loading');
+        setError(null);
+        setSessionDataLoading(false);
+    }
+    // The client results may still be applied for. Anything an older client
+    // resolves after a switch (a slow /auth/me, a refresh) is dropped.
+    const clientRef = useRef(client);
+    clientRef.current = client;
+
     // Track if we've done the initial load
     const initialLoadRef = useRef(false);
     const onUnauthenticatedRef = useRef(onUnauthenticated);
@@ -116,19 +136,22 @@ export function AuthProvider({
         setSessionDataLoading(true);
         try {
             const nextSessionData = await client.getSessionUserData();
+            if (clientRef.current !== client) return nextSessionData; // switched away meanwhile
             setSessionData(nextSessionData);
             setSession(client.getSession());
             setStatus('authenticated');
             return nextSessionData;
         } catch (err) {
-            setSessionData(null);
-            setSession(client.getSession());
-            if (!client.getIsAuthenticated()) {
-                setStatus('unauthenticated');
+            if (clientRef.current === client) {
+                setSessionData(null);
+                setSession(client.getSession());
+                if (!client.getIsAuthenticated()) {
+                    setStatus('unauthenticated');
+                }
             }
             throw err;
         } finally {
-            setSessionDataLoading(false);
+            if (clientRef.current === client) setSessionDataLoading(false);
         }
     }, [client]);
 
@@ -265,6 +288,10 @@ export function AuthProvider({
             // failure.
             outcome = verifyOutcomeFromError(err as AuthError);
         }
+
+        // The provider moved to another client while this verify was in flight;
+        // its answer is about an account we no longer show.
+        if (clientRef.current !== client) return false;
 
         const decision = decideVerifyOutcome(outcome, statusRef.current);
 

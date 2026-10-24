@@ -224,6 +224,8 @@ const client = useSyncExternalStore(
 <AuthProvider client={client}>{children}</AuthProvider>
 ```
 
+Permissions follow the active account. When `client` changes, `AuthProvider` clears the previous account's `sessionData` and `session` and goes back to `status: 'loading'` before verifying the new one, and it ignores any late answer from the old client. If the new account can't be verified (the API is down), the provider reports `'unknown'` with no permissions; it never carries the previous account's over. It does not retry by itself: call `verifySession()` again (for example on reconnect) to recover.
+
 Pass `onNoActiveAccount: ({ method }) => …` if you'd rather be told (log / redirect to login) than silently send an anonymous request.
 
 > `reset()` and `removeAccount()` never touch the `fallbackClient` — it isn't a managed account, so auth keeps resolving through it afterwards. Log it out yourself if "reset" should mean *signed out everywhere*.
@@ -251,6 +253,8 @@ try {
   }
 }
 ```
+
+  From React, `useAccountSwitcher().manager` is typed `IAccountSwitcher`, where both methods are optional (`CookieAccountManager` has a single client and implements neither), so call them as `manager.createPendingClient?.()` and `manager.discardPendingClient?.(client)`.
 
 - **Automatic orphan GC** — on `ready()` the manager sweeps storage and drops any per-account namespace the index no longer references (e.g. an interrupted add-account or a lost index), so the leak self-heals on the next boot. It needs a persistent storage adapter that exposes `keys()` (the built-in local/session adapters do). Set `reapOrphanStorageOnReady: false` only if several managers share one storage **and** you drive un-indexed pending clients across reloads — then reap manually with `discardPendingClient` / `reset`.
 

@@ -109,6 +109,11 @@ export class AdminConsoleConfigService {
     return this.getConfig().allowAdminManagement !== false;
   }
 
+  /** Whether the console may create/grant/revoke platform users (default true). */
+  allowPlatformUserManagement(): boolean {
+    return this.getConfig().allowPlatformUserManagement !== false;
+  }
+
   /** Whether the always-on admin auth brute-force throttle is active (default true). */
   bruteForceProtectionEnabled(): boolean {
     return this.getConfig().bruteForce?.enabled !== false;

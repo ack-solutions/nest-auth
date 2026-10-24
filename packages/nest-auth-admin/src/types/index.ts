@@ -143,6 +143,8 @@ export interface ApiResponse<T> {
 
 export interface DashboardConfig {
     allowAdminManagement: boolean;
+    /** `adminConsole.allowPlatformUserManagement` — absent on older backends (treated as true). */
+    allowPlatformUserManagement?: boolean;
 }
 
 export interface BlockedDomain {

@@ -9,6 +9,7 @@ import Icon from '@mui/material/Icon';
 import { PageHeader } from '../components/page-header';
 import { UserDetailView } from '../components/user/user-detail-view';
 import { useClientConfig } from '../hooks/use-client-config';
+import { useAllowPlatformUserManagement } from '../hooks/use-dashboard-config';
 import { api } from '../services/api';
 import type { UserDetails, Role, Tenant } from '../types';
 
@@ -18,6 +19,7 @@ export const UserDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { tenantMode, tenantEnabled, platformAccessEnabled } = useClientConfig();
+    const allowPlatformUserManagement = useAllowPlatformUserManagement();
     const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
     const [roles, setRoles] = useState<Role[]>([]);
     const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -131,6 +133,7 @@ export const UserDetailPage: React.FC = () => {
                 tenantMode={tenantMode}
                 tenantEnabled={tenantEnabled}
                 platformAccessEnabled={platformAccessEnabled}
+                platformManagementAllowed={allowPlatformUserManagement}
                 onUpdate={handleUpdate}
                 onRefresh={loadUserDetails}
             />

@@ -77,7 +77,7 @@ Tell the user if any of these is missing; they are server settings, not frontend
 ## Other ways to set this up
 
 - **No provider:** use `authClient` directly and keep auth state in the project's store (Redux, Zustand, signals). Subscribe with `authClient.onLogout`, `onTokensSet`, `subscribeTokenState`.
-- **Several accounts at once:** `AccountSwitcherProvider`, `useAccountSwitcher`, `AddAccountGuard` (needs `session.allowMultipleAccounts` on the backend).
+- **Several accounts at once:** `AccountSwitcherProvider`, `useAccountSwitcher`, `AddAccountGuard` (needs `session.allowMultipleAccounts` on the backend). Feed `AuthProvider` the active account's client; on a switch it drops the previous account's `sessionData` and goes back to `'loading'`, so permissions always follow the active account. For a custom add-account sign-in, `manager.createPendingClient?.()`, then `commitAccount(client)` on success or `manager.discardPendingClient?.(client)` if the user abandons an OTP/MFA step (header mode only; both are `undefined` on `CookieAccountManager`).
 - **Cross-tab sync** (logout in one tab signs out the others): `createCrossTabSync`.
 
 ## Pitfalls

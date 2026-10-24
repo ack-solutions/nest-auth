@@ -6,6 +6,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { api, ApiError } from './services/api';
 import { ConfirmProvider } from './hooks/use-confirm';
 import { ClientConfigProvider } from './hooks/use-client-config';
+import { DashboardConfigContext } from './hooks/use-dashboard-config';
 import type { DashboardConfig } from './types';
 import { Layout } from './components/layout';
 import { LoginPage } from './pages/login-page';
@@ -125,6 +126,7 @@ export const App: React.FC = () => {
     return (
         <ConfirmProvider>
             <ClientConfigProvider>
+            <DashboardConfigContext.Provider value={config}>
             <HashRouter>
                 <Routes>
                     <Route
@@ -251,6 +253,7 @@ export const App: React.FC = () => {
                     />
                 </Routes>
             </HashRouter>
+            </DashboardConfigContext.Provider>
             </ClientConfigProvider>
         </ConfirmProvider>
     );
