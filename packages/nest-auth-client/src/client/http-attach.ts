@@ -64,8 +64,13 @@ export interface AxiosLikeInstance {
     request: AxiosLikeInterceptorManager<AxiosLikeRequestConfig>;
     response: AxiosLikeInterceptorManager<AxiosLikeResponse>;
   };
-  /** Re-issue a request with the given config. axios' `instance.request(config)`. */
-  request<T = any>(config: AxiosLikeRequestConfig): Promise<T>;
+  /**
+   * Re-issue a request with the given config. axios' `instance.request(config)`.
+   * Deliberately non-generic: axios >= 1.20 types `request<T, R>` as returning
+   * `Promise<AxiosResponseResult<…>>`, which a generic `Promise<T>` can't accept.
+   * The retry only awaits the result, so `Promise<unknown>` fits every version.
+   */
+  request(config: AxiosLikeRequestConfig): Promise<unknown>;
 }
 
 // ─── Options ──────────────────────────────────────────────────────────────────
