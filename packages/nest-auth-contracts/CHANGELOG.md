@@ -1,5 +1,7 @@
 # @ackplus/nest-auth-contracts
 
+## 2.15.0
+
 ## 2.14.1
 
 ## 2.14.0

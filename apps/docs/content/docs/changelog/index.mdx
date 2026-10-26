@@ -5,12 +5,33 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.13.1`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.15.0`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/migration/within-v2)**. Bump every package to the same version.
 
 ---
+
+## 2.15.0 — account-switch fix, console platform-user lock, custom rate-limit buckets
+
+- **Fixed (React, security):** `AuthProvider` no longer shows the previous account after its `client` changes, which is how the [multi-account recipe](/docs/recipes/multi-account-switching) switches accounts. It now clears `sessionData` and `session` and returns to `status: 'loading'` before verifying the new client, and ignores late answers from the old one. If the new account can't be verified (the API is down) it reports `'unknown'` with no permissions, instead of keeping the old account's.
+- **Added (client types):** `IAccountSwitcher` declares optional `createPendingClient?()` and `discardPendingClient?(client)`, so the add-account flow type-checks through `useAccountSwitcher().manager` without a cast. `CookieAccountManager` implements neither.
+- **Added (admin console, security):** `adminConsole.allowPlatformUserManagement` (default `true`). Set it to `false` to keep platform (super-admin) users out of the console: creating one, granting or revoking platform access and setting platform roles answer `403 PLATFORM_USER_MANAGEMENT_DISABLED`, and existing platform users are read-only there. See [Admin console](/docs/backend/admin-console).
+- **Added (backend):** app-defined [rate-limit buckets](/docs/production/rate-limiting). Any key in `security.rateLimit.buckets` with `windowMs` and `max` is a bucket of its own, usable as `@RateLimit('<name>')`. Built-in overrides may be partial (`{ max: 10 }` keeps the default window).
+- **Changed (backend):** a `@RateLimit` naming a bucket that is neither built-in nor configured now **fails at boot**, even with rate limiting disabled. Such a name used to leave the route unthrottled without an error.
+
+> **Upgrade note:** if an app passed an unknown bucket name to `@RateLimit` through a cast, declare it in `security.rateLimit.buckets` (or use a built-in name), or the app won't start.
+
+## 2.14.1 — axios 1.20 typing
+
+- **Fixed (client):** `attachToAxios` accepts axios 1.20+ instances again. `AxiosLikeInstance.request` was generic and conflicted with axios 1.20's `request` typing; it is now `request(config): Promise<unknown>`. Types only.
+
+## 2.14.0 — per-account session caps; evictions fire `onRevoked`
+
+- **Added (backend):** `session.maxSessionsPerUser` also accepts a resolver, `({ userId, data }) => number`, asked once per sign-in, so the cap can depend on role, tenant or plan. It may be async. A plain number behaves as before, and an invalid result falls back to `10`.
+- **Changed (backend):** evicting a session to make room now goes through the normal revoke path and fires `session.onRevoked(session, 'evicted')`. `'evicted'` is a new member of `SessionRevokeReason`.
+
+> **Upgrade note:** if your `onRevoked` switches exhaustively on `reason`, add a case for `'evicted'`.
 
 ## 2.13.1 — AI coding skill
 

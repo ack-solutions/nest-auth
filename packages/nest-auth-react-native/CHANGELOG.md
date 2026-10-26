@@ -1,5 +1,14 @@
 # @ackplus/nest-auth-react-native
 
+## 2.14.2
+
+### Patch Changes
+
+- Updated dependencies [2faf2cb]
+  - @ackplus/nest-auth-client@2.15.0
+  - @ackplus/nest-auth-react@2.15.0
+  - @ackplus/nest-auth-contracts@2.15.0
+
 ## 2.14.1
 
 ### Patch Changes

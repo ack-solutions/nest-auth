@@ -1,6 +1,6 @@
 {
   "name": "@ackplus/nest-auth-skill",
-  "version": "2.14.1",
+  "version": "2.15.0",
   "description": "AI coding skill for ACKPlus Nest Auth — one command installs it for Claude Code, Codex, Cursor and other agents.",
   "type": "module",
   "bin": {
