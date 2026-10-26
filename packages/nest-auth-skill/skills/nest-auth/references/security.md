@@ -12,7 +12,10 @@ export const security: Partial<IAuthModuleOptions> = {
     rateLimit: {
       enabled: true,
       keyBy: 'both',                                        // 'ip' | 'identifier' | 'both'
-      buckets: { login: { windowMs: 60_000, max: 5 } },     // override any built-in bucket
+      buckets: {
+        login: { windowMs: 60_000, max: 5 },                // override a built-in bucket
+        lookup: { windowMs: 60_000, max: 20 },              // app-defined, for @RateLimit('lookup')
+      },
     },
     lockout: { enabled: true, maxFailedAttempts: 10, window: '15m', lockDuration: '15m' },
     captcha: {
@@ -24,14 +27,14 @@ export const security: Partial<IAuthModuleOptions> = {
 };
 ```
 
-- **Rate limit** buckets: `login`, `signup`, `forgotPassword`, `verifyOtp`, `passwordlessSend`, `mfaVerify`, `adminLogin`, `adminReset`. Over the limit → 429 with `Retry-After`.
+- **Rate limit** built-in buckets: `login`, `signup`, `forgotPassword`, `verifyOtp`, `passwordlessSend`, `mfaVerify`, `adminLogin`, `adminReset`. Any other key in `buckets` (with both `windowMs` and `max`) is an app-defined bucket. Over the limit → 429 with `Retry-After`.
 - **Lockout** rejects logins for an account after repeated failures (keyed by identifier + IP).
 - **CAPTCHA** is provider-agnostic: you supply `verify`. The client sends the token in the `x-captcha-token` header or a `captchaToken` body field.
 - **CSRF** is double-submit protection for cookie-authenticated writes. Not needed in header mode.
 - Counters are in memory per instance by default. For several instances pass `rateLimit.store` (an `IRateLimitStore`, for example Redis-backed).
 - Behind a proxy, set Express `trust proxy` so the client IP is correct.
 
-Your own routes can reuse these: `@RateLimit('login')`, `@Lockout()`, `@Captcha()`. `@RateLimit` already applies its guard, so do not also list `RateLimitGuard`.
+Your own routes can use these too: `@RateLimit('<bucket>')`, `@Lockout()`, `@Captcha()`. Prefer an app-defined bucket named for what the route does (`@RateLimit('lookup')`) over borrowing a built-in one: a bucket is one counter, so a borrowed name shares its budget with the library's route. A `@RateLimit` name that is neither built-in nor in `buckets` fails at boot. `@RateLimit` already applies its guard, so do not also list `RateLimitGuard`.
 
 Another way: keep these off and use an existing gateway/WAF or `@nestjs/throttler` if the project already has one.
 

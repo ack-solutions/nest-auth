@@ -128,6 +128,20 @@ export interface IAccountSwitcher extends AuthHeaderProvider {
      * {@link AccountMfaRequiredError} flow.
      */
     commitAccount(client: AuthClient, meta?: AccountMeta): Promise<AccountSnapshot>;
+    /**
+     * Build a fresh client that is not yet a registered account, to run a custom
+     * sign-in on (then {@link commitAccount}, or {@link discardPendingClient}).
+     * Header-mode `AccountManager` only — `CookieAccountManager` has a single
+     * client, so it leaves this undefined; call it as `createPendingClient?.()`.
+     */
+    createPendingClient?(): AuthClient;
+    /**
+     * Discard a pending client whose sign-in was abandoned (an OTP or MFA step
+     * the user walked away from), so its tokens and storage namespace don't
+     * leak. A no-op once the client is committed. Header-mode only, like
+     * {@link createPendingClient}.
+     */
+    discardPendingClient?(client: AuthClient): Promise<void>;
     switchAccount(accountId: string): Promise<AccountSnapshot>;
     removeAccount(accountId: string): Promise<void>;
     /** Remove every account (revoke sessions best-effort) and wipe their storage. */

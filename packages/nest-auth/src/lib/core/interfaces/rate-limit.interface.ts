@@ -11,6 +11,13 @@ export type RateLimitBucket =
     | 'adminLogin'
     | 'adminReset';
 
+/**
+ * Any bucket `@RateLimit` can name: a built-in {@link RateLimitBucket}, or an
+ * app-defined one declared in `security.rateLimit.buckets`. Built-in names keep
+ * their autocompletion; an app-defined name must exist in config or boot fails.
+ */
+export type RateLimitBucketName = RateLimitBucket | (string & {});
+
 export interface RateLimitBucketConfig {
     /** Rolling window length in milliseconds. */
     windowMs: number;
@@ -50,6 +57,20 @@ export interface IRateLimitOptions {
     keyBy?: 'ip' | 'identifier' | 'both';
     /** Custom counter store. Defaults to an in-memory (per-instance) store. */
     store?: IRateLimitStore;
-    /** Per-bucket window/max overrides (merged over the built-in defaults). */
-    buckets?: Partial<Record<RateLimitBucket, RateLimitBucketConfig>>;
+    /**
+     * Per-bucket window/max. A built-in name is merged over its default; any
+     * other name declares an app-defined bucket with its own counter, for use
+     * with `@RateLimit('<name>')` on your own routes. An app-defined bucket
+     * needs both `windowMs` and `max`.
+     *
+     * @example
+     * ```ts
+     * buckets: {
+     *   login: { windowMs: 60_000, max: 10 },    // override a built-in
+     *   lookup: { windowMs: 60_000, max: 20 },   // app-defined
+     * }
+     * ```
+     */
+    buckets?: Partial<Record<RateLimitBucket, Partial<RateLimitBucketConfig>>> &
+        Record<string, Partial<RateLimitBucketConfig> | undefined>;
 }

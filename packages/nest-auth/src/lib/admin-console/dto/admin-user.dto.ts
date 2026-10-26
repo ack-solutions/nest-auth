@@ -69,7 +69,9 @@ export class AdminCreateUserDto {
    * so `tenantId` is ignored when this is set.
    *
    * Requires `platformAccess.enabled` in the module config; otherwise rejected
-   * with 400 PLATFORM_ACCESS_DISABLED.
+   * with 400 PLATFORM_ACCESS_DISABLED. Rejected with 403
+   * PLATFORM_USER_MANAGEMENT_DISABLED when
+   * `adminConsole.allowPlatformUserManagement` is `false`.
    */
   @IsOptional()
   @IsBoolean()
@@ -151,7 +153,9 @@ export class AdminUpdateUserDto {
    * never creates or removes the platform-access marker. Provisioning a platform
    * user stays in application code (`UserService.createPlatformUser`) so the
    * admin console is not a privilege-escalation path to minting super-admins.
-   * Sending this for a non-platform user is rejected with 400 NOT_PLATFORM_USER.
+   * Sending this for a non-platform user is rejected with 400 NOT_PLATFORM_USER,
+   * and with 403 PLATFORM_USER_MANAGEMENT_DISABLED when
+   * `adminConsole.allowPlatformUserManagement` is `false`.
    */
   @IsOptional()
   @IsArray()
@@ -165,8 +169,11 @@ export class AdminUpdateUserDto {
    * their tenant memberships and roles are untouched.
    *
    * Requires `platformAccess.enabled` in the module config; otherwise rejected
-   * with 400 PLATFORM_ACCESS_DISABLED. Applied BEFORE `platformRoleIds`, so a
-   * single request can grant access and set roles together.
+   * with 400 PLATFORM_ACCESS_DISABLED, and with 403
+   * PLATFORM_USER_MANAGEMENT_DISABLED when
+   * `adminConsole.allowPlatformUserManagement` is `false`. Applied BEFORE
+   * `platformRoleIds`, so a single request can grant access and set roles
+   * together.
    */
   @IsOptional()
   @IsBoolean()

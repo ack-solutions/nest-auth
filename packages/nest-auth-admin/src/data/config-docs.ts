@@ -615,6 +615,19 @@ NestAuthModule.forRoot({
 }
 \`\`\`
 
+### adminConsole.allowPlatformUserManagement
+- **Type**: \`boolean\`
+- **Default**: \`true\`
+- **Description**: Allow the console to create platform (super-admin) users, grant or revoke platform access and set platform roles. When \`false\`, those requests get 403 PLATFORM_USER_MANAGEMENT_DISABLED and existing platform users are read-only in the console.
+
+\`\`\`typescript
+{
+  adminConsole: {
+    allowPlatformUserManagement: false,
+  },
+}
+\`\`\`
+
 
 ## Debug Configuration
 

@@ -5,6 +5,7 @@ import {
     IRateLimitStore,
     RateLimitBucket,
     RateLimitBucketConfig,
+    RateLimitBucketName,
     RateLimitHit,
 } from '../interfaces/rate-limit.interface';
 import { ERROR_CODES } from '../../auth.constants';
@@ -71,15 +72,56 @@ export class RateLimitService {
         return this.cfg()?.store ?? this.memoryStore;
     }
 
-    private bucketConfig(bucket: RateLimitBucket): RateLimitBucketConfig {
-        return { ...DEFAULT_RATE_LIMIT_BUCKETS[bucket], ...this.cfg()?.buckets?.[bucket] };
+    /**
+     * Resolve a bucket's window/max: a built-in default with any override merged
+     * over it, or an app-defined bucket from `security.rateLimit.buckets`.
+     * Returns `null` for a name that is neither (or an app-defined one missing
+     * `windowMs`/`max`) — see {@link assertBucketsDefined}.
+     */
+    resolveBucket(bucket: RateLimitBucketName): RateLimitBucketConfig | null {
+        const builtIn = Object.prototype.hasOwnProperty.call(DEFAULT_RATE_LIMIT_BUCKETS, bucket)
+            ? DEFAULT_RATE_LIMIT_BUCKETS[bucket as RateLimitBucket]
+            : undefined;
+        const override = this.cfg()?.buckets?.[bucket];
+        const merged = { ...builtIn, ...override };
+        if (typeof merged.windowMs !== 'number' || typeof merged.max !== 'number') return null;
+        return merged as RateLimitBucketConfig;
+    }
+
+    /**
+     * Throw if any of `buckets` is neither built-in nor declared in config. Run
+     * at boot over every `@RateLimit(...)` name, so a typo or a missing config
+     * entry fails startup instead of leaving the route unthrottled.
+     */
+    assertBucketsDefined(buckets: Iterable<RateLimitBucketName>): void {
+        const missing = [...new Set(buckets)].filter((b) => !this.resolveBucket(b));
+        if (missing.length === 0) return;
+        throw new Error(
+            `[NestAuth] @RateLimit names undefined bucket(s): ${missing.map((b) => `'${b}'`).join(', ')}. ` +
+            'Declare each in security.rateLimit.buckets with { windowMs, max }, ' +
+            `or use a built-in bucket (${Object.keys(DEFAULT_RATE_LIMIT_BUCKETS).join(', ')}).`,
+        );
+    }
+
+    private bucketConfig(bucket: RateLimitBucketName): RateLimitBucketConfig {
+        const config = this.resolveBucket(bucket);
+        // Fail closed: an undefined bucket used to resolve to `{}` and skip the
+        // limit silently. Boot validation catches decorator names; this covers
+        // direct `enforce()` calls with a dynamic name.
+        if (!config) {
+            throw new Error(
+                `[NestAuth] Rate-limit bucket '${bucket}' is not defined. ` +
+                'Declare it in security.rateLimit.buckets with { windowMs, max }.',
+            );
+        }
+        return config;
     }
 
     /**
      * Enforce the limit for `bucket` on this request. No-op when disabled. Sets a
      * `Retry-After` header and throws 429 when the limit is exceeded.
      */
-    async enforce(bucket: RateLimitBucket, req: Request, res?: Response): Promise<void> {
+    async enforce(bucket: RateLimitBucketName, req: Request, res?: Response): Promise<void> {
         return this.enforceBucket(bucket, req, res, false);
     }
 
@@ -90,11 +132,11 @@ export class RateLimitService {
      * still tune the window/max via `security.rateLimit.buckets` or disable it via
      * `adminConsole.bruteForce.enabled: false`.
      */
-    async enforceAlways(bucket: RateLimitBucket, req: Request, res?: Response): Promise<void> {
+    async enforceAlways(bucket: RateLimitBucketName, req: Request, res?: Response): Promise<void> {
         return this.enforceBucket(bucket, req, res, true);
     }
 
-    private async enforceBucket(bucket: RateLimitBucket, req: Request, res: Response | undefined, force: boolean): Promise<void> {
+    private async enforceBucket(bucket: RateLimitBucketName, req: Request, res: Response | undefined, force: boolean): Promise<void> {
         if (!force && !this.isEnabled()) return;
 
         const { windowMs, max } = this.bucketConfig(bucket);

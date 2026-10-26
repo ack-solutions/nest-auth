@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import { DiscoveryModule, Reflector } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthProviderRegistryService } from './services/auth-provider-registry.service';
 import { AppleAuthProvider } from './providers/apple-auth.provider';
@@ -13,6 +13,7 @@ import { JwtService } from './services/jwt.service';
 import { AuthConfigService } from './services/auth-config.service';
 import { CsrfService } from './services/csrf.service';
 import { RateLimitService } from './services/rate-limit.service';
+import { RateLimitBucketValidator } from './services/rate-limit-bucket-validator.service';
 import { RateLimitGuard } from './guards/rate-limit.guard';
 import { LockoutService } from './services/lockout.service';
 import { LockoutGuard } from './guards/lockout.guard';
@@ -30,7 +31,8 @@ import { PasswordlessAuthProvider } from './providers/passwordless-auth.provider
 @Module({
     imports: [
         TypeOrmModule.forFeature([NestAuthUser, NestAuthIdentity]),
-        TenantModule
+        TenantModule,
+        DiscoveryModule,
     ],
     providers: [
         Reflector,
@@ -38,6 +40,7 @@ import { PasswordlessAuthProvider } from './providers/passwordless-auth.provider
         DebugLoggerService,
         CsrfService,
         RateLimitService,
+        RateLimitBucketValidator,
         RateLimitGuard,
         LockoutService,
         LockoutGuard,

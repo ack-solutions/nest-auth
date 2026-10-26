@@ -264,6 +264,7 @@ export class AdminAuthController {
     // Only return properties that are actually used by the UI
     return {
       allowAdminManagement: this.config.allowAdminManagement(),
+      allowPlatformUserManagement: this.config.allowPlatformUserManagement(),
     };
   }
 

@@ -4,6 +4,7 @@ import Icon from '@mui/material/Icon';
 import { api } from '../services/api';
 import { useConfirm } from '../hooks/use-confirm';
 import { useClientConfig } from '../hooks/use-client-config';
+import { useAllowPlatformUserManagement } from '../hooks/use-dashboard-config';
 import { usePagination } from '../hooks/use-pagination';
 import type { User, Tenant, Role } from '../types';
 import { PageHeader } from '../components/page-header';
@@ -32,6 +33,7 @@ export const UsersPage: React.FC = () => {
     const [tenants, setTenants] = useState<Tenant[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
     const { tenantMode, platformAccessEnabled } = useClientConfig();
+    const allowPlatformUserManagement = useAllowPlatformUserManagement();
     const showTenants = tenantMode !== null;
     const [error, setError] = useState('');
     const [createError, setCreateError] = useState('');
@@ -538,7 +540,7 @@ export const UsersPage: React.FC = () => {
                     tenantMode={tenantMode}
                     tenants={tenants}
                     roles={roles}
-                    platformAccessEnabled={platformAccessEnabled}
+                    platformAccessEnabled={platformAccessEnabled && allowPlatformUserManagement}
                     error={createError}
                 />
             </Stack>

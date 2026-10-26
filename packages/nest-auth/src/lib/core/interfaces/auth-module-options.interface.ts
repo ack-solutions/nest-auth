@@ -905,6 +905,20 @@ export interface IAdminConsoleOptions {
      */
     allowAdminManagement?: boolean;
     /**
+     * Allow the console to manage PLATFORM (super-admin) users (default: true):
+     * create platform users, grant or revoke `NestAuthPlatformAccess`, and set
+     * platform roles. Only has an effect when `platformAccess.enabled` is on.
+     *
+     * Set `false` when your app needs platform access (for its own admin
+     * sign-in) but manages platform users in its own UI, so the console secret
+     * can't make an account a platform user. The console then hides those
+     * controls, and its user endpoints answer `403
+     * PLATFORM_USER_MANAGEMENT_DISABLED` to `isPlatformUser` / `platformRoleIds`.
+     * Tenant users, sessions and roles stay manageable, and existing platform
+     * users are still listed (read-only).
+     */
+    allowPlatformUserManagement?: boolean;
+    /**
      * Brute-force protection for the admin console's auth endpoints (login and the
      * secret-key-gated signup/reset-password). ENABLED BY DEFAULT and independent
      * of `security.rateLimit.enabled` — the admin console is the highest-value

@@ -2,7 +2,7 @@ import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RateLimitService } from '../services/rate-limit.service';
 import { RATE_LIMIT_BUCKET_KEY } from '../../auth.constants';
-import { RateLimitBucket } from '../interfaces/rate-limit.interface';
+import { RateLimitBucketName } from '../interfaces/rate-limit.interface';
 
 /**
  * Request-scoped stamp of buckets already counted, so registering the guard
@@ -25,7 +25,7 @@ export class RateLimitGuard implements CanActivate {
     ) { }
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
-        const bucket = this.reflector.getAllAndOverride<RateLimitBucket | undefined>(
+        const bucket = this.reflector.getAllAndOverride<RateLimitBucketName | undefined>(
             RATE_LIMIT_BUCKET_KEY,
             [context.getHandler(), context.getClass()],
         );

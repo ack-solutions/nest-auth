@@ -149,7 +149,7 @@ An embedded dashboard for users, roles, permissions and tenants at `/auth/admin`
 
 ## Platform (cross-tenant) admins
 
-For multi-tenant products that need super-admins above all tenants: `platformAccess: { enabled: true, validate: (request) => boolean }` and `UserService.createPlatformUser(...)`. `validate` decides on which requests platform roles apply (for example only from an internal origin).
+For multi-tenant products that need super-admins above all tenants: `platformAccess: { enabled: true, validate: (request) => boolean }` and `UserService.createPlatformUser(...)`. `validate` decides on which requests platform roles apply (for example only from an internal origin). If the app manages platform users in its own UI, set `adminConsole.allowPlatformUserManagement: false` so the bundled console can't mint, grant, revoke or edit them.
 
 ## Debugging
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Mail, Phone, Building2, Shield, ShieldCheck, Globe, CheckCircle, XCircle, Calendar, Pencil, Lock, Key, Smartphone, Trash2, AlertCircle, User as UserIcon } from 'lucide-react';
+import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
@@ -103,12 +104,17 @@ export interface UserDetailViewProps {
     tenantEnabled?: boolean;
     /** Backend has `platformAccess.enabled` — show the platform access scope. */
     platformAccessEnabled?: boolean;
+    /**
+     * `adminConsole.allowPlatformUserManagement` — when false, platform access
+     * can't be granted, revoked or edited here, and a platform user is read-only.
+     */
+    platformManagementAllowed?: boolean;
     onUpdate: (id: string, updates: Partial<User> & { tenantIds?: string[]; tenantRoles?: { tenantId: string; roleIds: string[] }[]; roleIds?: string[]; platformRoleIds?: string[]; isPlatformUser?: boolean }) => Promise<void>;
     onRefresh?: () => void | Promise<void>;
     onClose?: () => void;
 }
 
-export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, roles, tenants, tenantMode = null, tenantEnabled = false, platformAccessEnabled = false, onUpdate, onRefresh, onClose }) => {
+export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, roles, tenants, tenantMode = null, tenantEnabled = false, platformAccessEnabled = false, platformManagementAllowed = true, onUpdate, onRefresh, onClose }) => {
     const [saving, setSaving] = useState(false);
     const [sessionError, setSessionError] = useState<string>('');
     const [sessionActionId, setSessionActionId] = useState<string | null>(null);
@@ -211,6 +217,9 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
     // Show the section whenever the feature is on, or the user already holds
     // platform access (so an existing platform user is never invisible).
     const showPlatformSection = platformAccessEnabled || isPlatformUser;
+    // The backend refuses every edit to a platform user when the console may not
+    // manage them, so say so up front instead of failing on each save.
+    const platformUserReadOnly = isPlatformUser && !platformManagementAllowed;
 
     const handleGrantPlatformAccess = async () => {
         const confirmed = await confirm(
@@ -275,6 +284,12 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
     return (
         <>
             <Stack spacing={2}>
+                {platformUserReadOnly && (
+                    <Alert severity="info">
+                        This is a platform (super-admin) user. Platform users are managed outside the admin
+                        console here, so this account is read-only.
+                    </Alert>
+                )}
                 {onClose && (
                     <Stack direction="row" justifyContent="flex-end">
                         <Button variant="outlined" color="inherit" onClick={onClose}>Close</Button>
@@ -289,7 +304,7 @@ export const UserDetailView: React.FC<UserDetailViewProps> = ({ userDetails, rol
                                     title="Platform Access"
                                     icon={<Icon component={Globe} sx={{ fontSize: 16, color: 'primary.main' }} />}
                                     action={
-                                        isPlatformUser ? (
+                                        !platformManagementAllowed ? undefined : isPlatformUser ? (
                                             <Stack direction="row" spacing={0.75}>
                                                 <Tooltip title="Manage platform-wide roles" slotProps={tooltipSlotProps}>
                                                     <Button

@@ -18,6 +18,7 @@ NestAuthModule.forRoot({
     sessionCookieName: 'nest_auth_admin',
     cookie: { secure: true, sameSite: 'lax' },
     allowAdminManagement: true,                  // can admins create more admins?
+    allowPlatformUserManagement: true,           // can the console mint/grant/revoke platform users?
   },
 });
 ```
@@ -185,6 +186,18 @@ adminConsole: {
 ```
 
 Set `allowPublicSignupAfterFirstAdmin: true` only to restore the legacy "additional admins via the shared secret key" behaviour. `allowAdminManagement: false` turns off admin creation/management entirely — the signup endpoint then also refuses with `ADMIN_MANAGEMENT_DISABLED`.
+
+### Keeping platform users out of the console
+
+When `platformAccess.enabled` is on, the console can create platform (super-admin) users, grant or revoke their access and set their platform roles. If your app manages platform users in its own UI, turn that off so the console secret can't make an account a super-admin:
+
+```ts
+adminConsole: {
+  allowPlatformUserManagement: false, // default: true
+},
+```
+
+With it off, the console hides the platform controls and its user endpoints answer `403 PLATFORM_USER_MANAGEMENT_DISABLED` to `isPlatformUser` and `platformRoleIds`. Existing platform users are still listed and viewable, but read-only: editing, deleting or removing the MFA device of one is refused too, since a password or email change there would be an account takeover by another route. Tenant users, sessions, roles and tenants stay fully manageable.
 
 ### Admin account safety
 
