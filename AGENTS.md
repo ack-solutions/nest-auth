@@ -52,10 +52,17 @@ Build dependency order: **contracts → nest-auth → nest-auth-client → nest-
 
 ## Release process
 
-- Version pinned across all four packages.
-- Tag-based: `git tag v2.0.0-beta.27 && git push origin v2.0.0-beta.27` triggers `publish.yml`.
-- Pre-stable releases use `-beta.N` suffix (npm dist-tag `beta`).
-- Stable releases get `latest` dist-tag.
+- One version across every package: the npm packages and `nest_auth_flutter` on pub.dev.
+- Every PR that changes a published package carries a changeset (`pnpm changeset`, in `.changeset/`). CI checks for it. The fixed group in `.changeset/config.json` keeps the npm packages on one version.
+- To release, on an up-to-date `main` after the PRs are merged:
+  1. `pnpm changeset version` consumes the changesets, bumps the packages and writes their `CHANGELOG.md`.
+  2. Sync everything else to the same version `X`: `pnpm -r exec npm version X --no-git-tag-version --allow-same-version`, `version:` in `packages/nest_auth_flutter/pubspec.yaml`, and the `"version"` field of `apps/docs/public/api/nest-auth.json`, `apps/docs/src/data/openapi/nest-auth.json` and `packages/nest-auth-admin/src/data/nest-auth.json`.
+  3. Add the release to `apps/docs/content/docs/changelog/index.mdx`, including its "Current stable" line.
+  4. Commit as `chore(release): vX` and push `main`.
+  5. Tag `main` HEAD with the **bare** version and push it: `git tag -a 2.15.0 -m 2.15.0 && git push origin 2.15.0`. This triggers `publish.yml`.
+- **No `v` prefix on tags.** pub.dev's automated publishing only accepts a tag that matches the pubspec version, so a `v2.15.0` tag publishes to npm but fails the Flutter job.
+- `publish.yml` refuses a tag that isn't `main` HEAD. `pnpm -r publish` skips versions already on npm, so pushing a corrected tag on the same commit only publishes what's missing.
+- Pre-releases use a `-beta.N` suffix (npm dist-tag `beta`). Stable releases get `latest`.
 
 ## Conventions for an agent making changes
 
