@@ -9,6 +9,12 @@ import { RedisSessionStore, RedisSessionStoreOptions } from './repositories/redi
 import { CoreModule } from '../core/core.module';
 import { SessionOptions, SessionStorageType, RedisSessionOptions } from '../core/interfaces/session-options.interface';
 import { AuthConfigService } from '../core/services/auth-config.service';
+import { AUTH_STATE_CACHE, NestAuthCacheService } from '../core/services/nest-auth-cache.service';
+import {
+    InProcessAuthStateCache,
+    RedisAuthStateCache,
+    type AuthStateCache,
+} from '../core/services/auth-state-cache';
 import ms from 'ms';
 
 /**
@@ -61,12 +67,24 @@ import ms from 'ms';
             useExisting: SESSION_STORE,
         },
 
+        // Backend for the auth-state cache. Reuses the session store's Redis
+        // connection when there is one, so the library holds ONE pool and one
+        // configuration; otherwise falls back to a per-process cache.
+        {
+            provide: AUTH_STATE_CACHE,
+            useFactory: (store: any): AuthStateCache => SessionModule.createAuthStateCache(store),
+            inject: [SESSION_STORE],
+        },
+        NestAuthCacheService,
+
         // Session Manager
         SessionManagerService,
     ],
     exports: [
         SESSION_STORE,
         SESSION_REPOSITORY,
+        AUTH_STATE_CACHE,
+        NestAuthCacheService,
         SessionManagerService,
         TypeORMSessionRepository,
         MemorySessionRepository,
@@ -86,12 +104,16 @@ export class SessionModule {
         try {
             const redisOptions = SessionModule.resolveRedisOptions(session);
 
+            let ownsClient = false;
+
             if (redisOptions.client) {
                 // The app supplied its own connection. Do NOT require ioredis
                 // ourselves and do NOT own this client's lifecycle — the app
                 // created it and the app closes it.
                 redisClient = redisOptions.client;
             } else {
+                // We open it, so we must also close it on shutdown.
+                ownsClient = true;
                 RedisClient = require('ioredis').default || require('ioredis');
                 const clientOptions = SessionModule.buildRedisClientOptions(redisOptions);
 
@@ -103,6 +125,7 @@ export class SessionModule {
             const storeOptions: RedisSessionStoreOptions = {
                 keyPrefix: redisOptions.keyPrefix,
                 ttlSeconds: redisOptions.ttlSeconds ?? SessionModule.resolveDefaultTtlSeconds(session),
+                ownsClient,
             };
 
             return new RedisSessionStore(redisClient, storeOptions);
@@ -121,6 +144,35 @@ export class SessionModule {
                 '   Make sure Redis server is running and accessible.'
             );
         }
+    }
+
+    /**
+     * Pick the backend for the auth-state cache.
+     *
+     * Prefers the session store's own Redis connection — one pool, one
+     * configuration, and an invalidation that every API instance sees. Any
+     * other store (database, memory, or a consumer-supplied one) gets the
+     * per-process cache, which is why user-state caching is opt-in there.
+     */
+    private static createAuthStateCache(store: any): AuthStateCache {
+        const client = typeof store?.getClient === 'function' ? store.getClient() : undefined;
+
+        // Duck-type the client rather than trusting the method name: a
+        // consumer-supplied store may expose an unrelated getClient().
+        const usable =
+            client &&
+            typeof client.get === 'function' &&
+            typeof client.set === 'function' &&
+            typeof client.del === 'function';
+
+        if (!usable) {
+            return new InProcessAuthStateCache();
+        }
+
+        const config = AuthConfigService.getOptions();
+        const base = SessionModule.resolveRedisOptions(config.session).keyPrefix || 'nest-auth:';
+        const prefix = base.endsWith(':') ? base : `${base}:`;
+        return new RedisAuthStateCache(client, `${prefix}cache:`);
     }
 
     private static resolveStorageType(session?: SessionOptions): SessionStorageType {

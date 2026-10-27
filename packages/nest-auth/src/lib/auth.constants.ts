@@ -287,6 +287,15 @@ export const NestAuthEvents = {
     USER_CREATED: 'nest_auth.user.created',
     USER_UPDATED: 'nest_auth.user.updated',
     USER_DELETED: 'nest_auth.user.deleted',
+    /**
+     * A user's cached auth state was dropped, so the next request for that
+     * account re-reads it from the database. Payload: { userId }.
+     *
+     * Emitted by every automatic invalidation (the TypeORM subscriber on
+     * `NestAuthUser`) and by an explicit `NestAuthCacheService.invalidateUser()`.
+     * Useful for warming a cache of your own, or for auditing.
+     */
+    USER_STATE_INVALIDATED: 'nest_auth.user.state_invalidated',
 
     // Tenant events
     TENANT_CREATED: 'nest_auth.tenant.created',

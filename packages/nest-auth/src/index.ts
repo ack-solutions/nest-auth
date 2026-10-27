@@ -29,6 +29,19 @@ export { AuthConfigService } from './lib/core/services/auth-config.service';
 
 // Debug logging
 export { DebugLoggerService, DebugLogLevel } from './lib/core/services/debug-logger.service';
+
+// Auth-state cache — lets the guard skip its per-request user read.
+// `invalidateUser()` is the escape hatch for writes TypeORM cannot see
+// (raw SQL, QueryBuilder bulk updates, migrations, another app on the same DB).
+export { NestAuthCacheService, AUTH_STATE_CACHE } from './lib/core/services/nest-auth-cache.service';
+export type { CachedUserState } from './lib/core/services/nest-auth-cache.service';
+export {
+    DEFAULT_DISTRIBUTED_USER_STATE_TTL_SECONDS,
+    DEFAULT_IN_PROCESS_USER_STATE_TTL_SECONDS,
+} from './lib/core/services/nest-auth-cache.service';
+export { RedisAuthStateCache, InProcessAuthStateCache } from './lib/core/services/auth-state-cache';
+export type { AuthStateCache } from './lib/core/services/auth-state-cache';
+export { NestAuthUserCacheSubscriber } from './lib/user/subscribers/user-cache.subscriber';
 export type { DebugLogOptions } from './lib/core/services/debug-logger.service';
 
 // Admin console exports

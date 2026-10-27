@@ -78,6 +78,76 @@ NestAuthModule.forRoot({
 
 When `client` is set, the other connection fields (`url`, `host`, `port`, `password`, `tls`, …) are ignored; `keyPrefix` and `ttlSeconds` still apply. **Lifecycle stays with your app** — the library never calls `quit()` on a client it did not create, so shutting down Nest will not close a connection the rest of your app is still using.
 
+The reverse also holds, as of 2.17.0: a connection the library *did* open is closed when the Nest application shuts down. Before that it was left open, so each app instance leaked a socket that ioredis kept trying to reconnect — noticeable as `ECONNRESET` noise on teardown, and as connections piling up in a process that boots more than one app (test runs, workers).
+
+### User-state cache
+
+The guard enforces three user fields on every authenticated request: `isActive`, `mustChangePassword` and `emailVerifiedAt`. Reading them from the database meant one `SELECT` per API call for data that almost never changes — so with the Redis session store they are cached too, and **a warm authenticated request costs zero database queries**.
+
+```ts
+session: {
+  storageType: SessionStorageType.REDIS,
+  redis: { url: process.env.REDIS_URL },
+  userStateCache: {
+    enabled: true,     // default: true on Redis, false on database/memory
+    ttlSeconds: 300,   // default: 300 when shared, 5 when per-process
+  },
+}
+```
+
+#### Why the default depends on your store
+
+A stale `isActive` is an authentication bypass — a deactivated account would keep working until the entry expired. So the default follows whether an invalidation can actually reach every instance:
+
+| Session store | Cache | Default | Why |
+|---|---|---|---|
+| **Redis** | shared by all instances | **on** | Invalidating on one instance is seen by all of them. |
+| **Database** / **Memory** | per Node process | **off** | Deactivating on instance A would not reach instance B until the TTL expired. |
+
+On a database or memory store you can still opt in with `enabled: true` — a single-instance deployment loses nothing, and a multi-instance one accepts a staleness window of `ttlSeconds` on the instances that did not make the write.
+
+#### How entries are invalidated
+
+Writes that go **through TypeORM** are handled for you. An entity subscriber on `NestAuthUser` drops the account's entry on every ORM insert, update or remove, so both `UserService` calls and a bare `user.save()` are covered — a deactivation takes effect on the very next request, on every instance.
+
+Writes TypeORM **cannot see** are not, and must invalidate explicitly:
+
+- `repository.update(...)` and any other bulk `UPDATE` (TypeORM runs no subscriber for these)
+- raw SQL and migrations
+- another application writing the same database
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
+import { NestAuthCacheService } from '@ackplus/nest-auth';
+
+@Injectable()
+export class ComplianceService {
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly nestAuthCache: NestAuthCacheService,
+  ) {}
+
+  async banUser(userId: string) {
+    await this.dataSource.query(
+      'UPDATE nest_auth_users SET "isActive" = false WHERE id = $1',
+      [userId],
+    );
+    // Without this the account keeps working until ttlSeconds elapses.
+    await this.nestAuthCache.invalidateUser(userId);
+  }
+}
+```
+
+`invalidateUsers(userIds)` does the same for a batch. Every invalidation emits `NestAuthEvents.USER_STATE_INVALIDATED` with `{ userId }`.
+
+The TTL is a **backstop for those cases, not the mechanism** — it bounds how long a missed invalidation can hurt you. Lower it if you write user state outside the ORM and cannot call `invalidateUser()`.
+
+> **Never cached.** Two things always go to their source: an account that does not exist (so a deleted user is refused immediately, never from a stale entry), and the session itself — that is always a session-store read, which is why a store outage still fails closed.
+
+Set `userStateCache: { enabled: false }` to restore the pre-2.17.0 behaviour of reading the user row on every request.
+
 ### What happens if Redis goes down
 
 The guard **fails closed**. A store outage is infrastructure failure, not a failed sign-in, so it is never read as "no session":
@@ -94,7 +164,7 @@ The outage is logged **once** when it starts and once when it recovers, not once
 
 > **Security note.** Before 2.16.0 an optional-auth route silently fell back to **anonymous** during a Redis outage — the request was served with no user attached. Any such route that also carries `@NestAuthRoles` or `@NestAuthPermissions` was effectively open for the duration of the outage. Upgrading closes that.
 
-**Pros:** horizontal scale, fast, automatic key expiry, no DB write pressure.
+**Pros:** horizontal scale, fast, automatic key expiry, no DB write pressure, and — with the user-state cache above — no database read on an authenticated request at all.
 
 **Cons:** another service to operate. If Redis goes down, authenticated requests are refused with `503` until it returns — plan for failover.
 
@@ -105,10 +175,6 @@ See [Scaling](/docs/production/scaling) for the full `RedisSessionOptions` refer
 Sessions live in a `Map` inside the Node process. Lost on restart. Lost when you scale to a second instance.
 
 Use it for tests and local dev. **Never in production**, even single-instance — a deploy or crash logs every user out.
-
-## Custom store
-
-Implement a class that satisfies the session-store contract and pass it via the module config. The interface is small (create / find / refresh / revoke / list). See [`SessionManagerService`](/docs/backend/services).
 
 ## When sessions get cleaned up
 

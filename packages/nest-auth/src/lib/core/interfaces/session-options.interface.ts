@@ -85,6 +85,43 @@ export interface RedisSessionOptions {
     maxRetriesPerRequest?: number | null;
 }
 
+/**
+ * Caching of the small amount of user state the auth guard reads on every
+ * request (`isActive`, `mustChangePassword`, `emailVerifiedAt`).
+ *
+ * Without it, every authenticated request costs one database query for data
+ * that almost never changes. With it, a warm request costs none.
+ *
+ * Writes made through TypeORM invalidate the entry automatically. Writes the
+ * ORM cannot see — raw SQL, a QueryBuilder bulk `UPDATE`, a migration, another
+ * app sharing the database — must call `NestAuthCacheService.invalidateUser()`,
+ * or stay stale until `ttlSeconds` elapses.
+ */
+export interface UserStateCacheOptions {
+    /**
+     * Turn user-state caching on or off.
+     *
+     * Defaults to ON with the Redis session store, where the cache is shared
+     * and an invalidation on one instance is seen by all of them.
+     *
+     * Defaults to OFF with the database or memory session store, because the
+     * cache is then per process: deactivating an account on instance A would
+     * not be seen by instance B until the TTL expired. Set `true` to accept
+     * that window in exchange for the saved query.
+     */
+    enabled?: boolean;
+
+    /**
+     * How long a cached entry may live, in seconds.
+     *
+     * Defaults to 300 when the cache is shared (Redis) — invalidation is
+     * immediate there, so the TTL is only a backstop for writes that bypass
+     * the ORM. Defaults to 5 for the per-process cache, where the TTL is the
+     * only bound on cross-instance staleness.
+     */
+    ttlSeconds?: number;
+}
+
 export interface SessionOptions {
     /**
      * Preferred config for store selection.
@@ -101,6 +138,22 @@ export interface SessionOptions {
      * Redis connection and store options.
      */
     redis?: RedisSessionOptions;
+
+    /**
+     * Caching of the user state the auth guard reads on every request, so a
+     * warm authenticated request costs no database query. See
+     * {@link UserStateCacheOptions} for the defaults and the staleness rules.
+     *
+     * @example
+     * ```ts
+     * session: {
+     *   storageType: 'redis',
+     *   redis: { url: process.env.REDIS_URL },
+     *   userStateCache: { enabled: true, ttlSeconds: 120 },
+     * }
+     * ```
+     */
+    userStateCache?: UserStateCacheOptions;
 
     /**
      * Plug in a custom session store. Provide a ready {@link SessionStore}

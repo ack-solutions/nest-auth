@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { BaseSessionRepository } from './base-session.repository';
 import { NestAuthSession } from '../entities/session.entity';
 import { SessionPayload } from '../../core/interfaces/token-payload.interface';
@@ -9,6 +9,15 @@ import { SessionStoreUnavailableError } from '../errors/session-store-unavailabl
 export interface RedisSessionStoreOptions {
     keyPrefix?: string;
     ttlSeconds?: number;
+    /**
+     * Did WE create this connection?
+     *
+     * `true` when the library constructed the ioredis client itself, in which
+     * case it must also close it on shutdown. `false` when the app passed its
+     * own client via `session.redis.client` — that connection belongs to the
+     * app and closing it would break the rest of their application.
+     */
+    ownsClient?: boolean;
 }
 
 /**
@@ -18,11 +27,12 @@ export interface RedisSessionStoreOptions {
  * - npm install ioredis
  */
 @Injectable()
-export class RedisSessionStore extends BaseSessionRepository {
+export class RedisSessionStore extends BaseSessionRepository implements OnModuleDestroy {
     private readonly keyPrefix: string;
     private readonly userSessionsPrefix: string;
     private readonly defaultTtlSeconds?: number;
     private readonly redis: any;
+    private readonly ownsClient: boolean;
 
     constructor(redisClient: any, options: RedisSessionStoreOptions = {}) {
         super();
@@ -37,6 +47,47 @@ export class RedisSessionStore extends BaseSessionRepository {
         this.keyPrefix = this.normalizePrefix(options.keyPrefix || 'nest-auth:sess:');
         this.userSessionsPrefix = `${this.keyPrefix}user:`;
         this.defaultTtlSeconds = options.ttlSeconds;
+        this.ownsClient = options.ownsClient === true;
+    }
+
+    /**
+     * The underlying ioredis client.
+     *
+     * Exposed so other parts of the library can reuse the SAME connection
+     * instead of opening a second one — `NestAuthCacheService` reads the user
+     * state cache through it. Not for application use: treat the key layout as
+     * private.
+     */
+    getClient(): any {
+        return this.redis;
+    }
+
+    /**
+     * Close the connection on shutdown — but only if the library opened it.
+     *
+     * Without this, a client created by the library outlived the Nest
+     * application: the process kept an open socket (and ioredis kept
+     * reconnecting), which leaks a connection per app instance. It shows up as
+     * `[ioredis] Unhandled error event: ECONNRESET` noise when a test or
+     * worker process tears an app down, and as connections accumulating
+     * against Redis in a process that boots more than one app.
+     *
+     * A client supplied through `session.redis.client` is deliberately left
+     * alone — the app created it and the app closes it.
+     */
+    async onModuleDestroy(): Promise<void> {
+        if (!this.ownsClient) return;
+        try {
+            await this.redis.quit();
+        } catch {
+            // Already closing, or the connection is gone. Fall back to a hard
+            // disconnect so the socket cannot keep the process alive.
+            try {
+                this.redis.disconnect?.();
+            } catch {
+                /* nothing else to do on shutdown */
+            }
+        }
     }
 
     private static readonly logger = new Logger('RedisSessionStore');

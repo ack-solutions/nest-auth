@@ -41,6 +41,57 @@ Set only the keys that differ from the defaults.
 
 Other session options: `slidingExpiration` (extend on activity), `touchInterval`, `refreshTokenReuse`, and the hooks `customizeSessionData`, `customizeTokenPayload`, `validateToken`, `onCreated`, `onRefreshed`, `onRevoked` (see `advanced.md`).
 
+### User-state cache (`userStateCache`)
+
+The guard needs three user fields on every request (`isActive`, `mustChangePassword`, `emailVerifiedAt`). Caching them is what makes a warm authenticated request cost **zero database queries**.
+
+```ts
+session: {
+  storageType: SessionStorageType.REDIS,
+  redis: { url: process.env.REDIS_URL },
+  userStateCache: {
+    enabled: true,      // default: true on Redis, false on database/memory
+    ttlSeconds: 300,    // default: 300 shared, 5 per-process
+  },
+}
+```
+
+Defaults are chosen for safety, not speed:
+
+- **Redis store → ON.** The cache is shared, so an invalidation on one instance is seen by all of them.
+- **Database / memory store → OFF.** The cache would be per process; deactivating an account on instance A would not reach instance B until the TTL expired. Opt in only if you accept that window.
+
+Invalidation is automatic for **writes through TypeORM** — a `NestAuthUser` entity subscriber drops the entry, so `UserService` calls and a bare `user.save()` are both covered.
+
+It is **not** automatic for writes TypeORM cannot see: `repository.update()` and other bulk `UPDATE`s, raw SQL, migrations, or another app writing the same database. Those must invalidate explicitly, or the account stays stale until `ttlSeconds`:
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
+import { NestAuthCacheService } from '@ackplus/nest-auth';
+
+@Injectable()
+export class BulkDeactivateService {
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly nestAuthCache: NestAuthCacheService,
+  ) {}
+
+  async deactivate(userId: string): Promise<void> {
+    await this.dataSource.query(
+      'UPDATE nest_auth_users SET "isActive" = false WHERE id = $1',
+      [userId],
+    );
+    // Required: subscribers do not fire for raw SQL, so without this the
+    // account keeps working until the cached entry expires.
+    await this.nestAuthCache.invalidateUser(userId);
+  }
+}
+```
+
+Every invalidation emits `NestAuthEvents.USER_STATE_INVALIDATED` with `{ userId }`. Set `enabled: false` to restore the pre-2.17.0 behaviour of reading the user row on every request.
+
 ### Cookie mode checklist
 
 - `app.use(cookieParser())` in `main.ts`.

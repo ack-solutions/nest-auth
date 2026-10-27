@@ -48,6 +48,7 @@ These are not single tasks — they're reference documents that span many tasks.
 
 | ID | Area | Title |
 | --- | --- | --- |
+| [025](025-issue-13-per-request-db-reads-and-cross-instance-staleness.md) | backend / performance | Redis-backed auth: per-request DB read (fixed 2.17.0) + cross-instance authz staleness (open) — GitHub #13 |
 | [006](006-build-sql-snapshots-script-is-stub.md) | docs | `build-sql-snapshots.ts` is a stub — Database Setup page links to placeholder SQL |
 | [007](007-admin-controllers-missing-api-response-decorators.md) | backend | AdminUsersController endpoints have no `@ApiResponse` decorators |
 | [010](010-social-providers-skipmfa-inconsistent.md) | backend | Social providers inconsistently set `skipMfa` |

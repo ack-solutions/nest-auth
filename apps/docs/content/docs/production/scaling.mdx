@@ -59,6 +59,7 @@ When you run more than one app process:
 - **Memory sessions are out.** Use DATABASE or REDIS.
 - **Sticky sessions are not required** for either DATABASE or REDIS — both are shared state.
 - **Event listeners run on every instance.** If your listener does something user-visible (like sending an email), make sure it's idempotent or run only one instance as the "leader" for side effects.
+- **The user-state cache follows your store.** It is on by default for REDIS, where an invalidation reaches every instance, and off by default for DATABASE because a per-process cache would let instance B serve a deactivated account until the TTL expired. See [user-state cache](/docs/concepts/session-storage#user-state-cache).
 
 ## Sliding expiration trade-off
 
@@ -105,9 +106,9 @@ For high-traffic admin dashboards, write raw queries — TypeORM relation-loadin
 
 ## Connection pool
 
-If you switch to Redis but keep DB-backed everything else, the DB pool no longer absorbs auth traffic — but it still serves user lookups (`UserService.findById` runs on every authenticated request that hits user fields).
+If you switch to Redis but keep DB-backed everything else, the DB pool no longer absorbs auth traffic. As of 2.17.0 it does not absorb the guard's own user lookup either: the three fields the guard enforces (`isActive`, `mustChangePassword`, `emailVerifiedAt`) are served from the [user-state cache](/docs/concepts/session-storage#user-state-cache), so a warm authenticated request costs **zero** database queries.
 
-Cache the user record per session if you're hitting that limit. The session row already snapshots user fields via `customizeSessionData` — read from there instead of round-tripping to the DB.
+What remains is whatever *your* code loads. If a request reads user fields the library does not cache, snapshot them into the session via `customizeSessionData` and read from there instead of round-tripping to the DB — the session comes from Redis anyway.
 
 ## Benchmarking
 

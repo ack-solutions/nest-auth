@@ -50,6 +50,7 @@ See [Rate Limiting](/docs/production/rate-limiting).
 - [ ] If multi-instance: REDIS (or sticky sessions if you really must, but DATABASE is cleaner).
 - [ ] `session.maxSessionsPerUser` set to a reasonable cap (default 10).
 - [ ] Periodic cleanup of expired DB sessions if using `DATABASE`.
+- [ ] If any code changes `isActive`, `mustChangePassword` or `emailVerifiedAt` **outside TypeORM** (raw SQL, a bulk `UPDATE`, a migration, another service on the same database), it calls `NestAuthCacheService.invalidateUser(userId)`. Otherwise the [user-state cache](/docs/concepts/session-storage#user-state-cache) — on by default with REDIS — serves the old value for up to `ttlSeconds`, which means a deactivated account keeps working.
 - [ ] Refresh tokens rotated on every refresh (the default).
 
 ## MFA

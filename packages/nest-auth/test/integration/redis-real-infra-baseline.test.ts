@@ -11,11 +11,12 @@
  *   - a SQL counter, so "costs N database queries per request" is a measured
  *     number and not a guess.
  *
- * The baseline recorded here is the thing issue #13 wants driven to zero: with
- * the Redis session store, a warm authenticated request still reaches the
- * database, because the guard reads the user row on every request
- * (auth.guard.ts, `NestAuthUser.findOne`). That read is asserted below so the
- * fix has something concrete to move.
+ * The number this suite was built to move is now asserted at its target: with
+ * the Redis session store, a warm authenticated request reaches the database
+ * ZERO times. It used to cost one query, because the guard read the user row
+ * on every request (`auth.guard.ts`, `NestAuthUser.findOne`); that read is now
+ * served by the auth-state cache (`NestAuthCacheService`), and the assertion
+ * below is what keeps it that way.
  *
  * Skipped when Docker is unavailable — the default sqljs suites must keep
  * working on a bare machine.
@@ -101,7 +102,7 @@ describe.skipIf(!DOCKER_AVAILABLE)('issue #13 — real Redis + Postgres proving 
         expect(onB.status).toBe(200);
     });
 
-    it('BASELINE: a warm authenticated request still costs database queries (issue #13, problem 1)', async () => {
+    it('a warm authenticated request costs ZERO database queries (issue #13, problem 1)', async () => {
         const counter = createQueryCounter();
         const a = await infra.bootInstance(
             {},
@@ -114,7 +115,7 @@ describe.skipIf(!DOCKER_AVAILABLE)('issue #13 — real Redis + Postgres proving 
         expect(signup.status).toBeLessThan(300);
         const token = signup.body.accessToken ?? signup.body.tokens?.accessToken;
 
-        // Warm the session: the first guarded request populates whatever caches exist.
+        // Warm the session: the first guarded request populates the caches.
         await request(a.httpServer).get('/probe/ping').set('Authorization', `Bearer ${token}`);
 
         // Measure ONLY the second, warm request.
@@ -122,19 +123,23 @@ describe.skipIf(!DOCKER_AVAILABLE)('issue #13 — real Redis + Postgres proving 
         const probe = await request(a.httpServer).get('/probe/ping').set('Authorization', `Bearer ${token}`);
         expect(probe.status).toBe(200);
 
-        // This is the number issue #13 wants to become 0. Recorded, not hidden:
-        // if a future change drives it down, this assertion is what must be
-        // updated — deliberately, with the fix.
         // eslint-disable-next-line no-console
         console.info(
-            `[issue-13 baseline] warm authenticated request = ${counter.count} database queries:\n` +
-            counter.queries.map((q) => `    ${q}`).join('\n'),
+            `[issue-13] warm authenticated request = ${counter.count} database queries` +
+            (counter.count ? `:\n${counter.queries.map((q) => `    ${q}`).join('\n')}` : ''),
         );
-        expect(counter.count).toBeGreaterThan(0);
 
-        // And specifically: the guard reads the user row. That is the read to remove.
+        // This was 1 before the user-state cache landed: the guard read
+        // `SELECT id, isActive, mustChangePassword, emailVerifiedAt FROM
+        // nest_auth_users WHERE id = $1` on EVERY authenticated request. The
+        // session comes from Redis and the user state now comes from the
+        // auth-state cache, so a warm request touches the database not at all.
+        expect(counter.count).toBe(0);
+
+        // Stated separately, so a future regression names the culprit rather
+        // than just moving a number.
         const readsUserRow = counter.queries.some((q) => /from\s+"?nest_auth_users"?/i.test(q));
-        expect(readsUserRow).toBe(true);
+        expect(readsUserRow).toBe(false);
     });
 
     it('the SQL counter itself works — an unauthenticated 401 costs no user read', async () => {

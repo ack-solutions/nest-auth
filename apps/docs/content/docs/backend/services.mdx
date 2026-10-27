@@ -242,6 +242,41 @@ async revoke(@Param('id') id: string) {
 }
 ```
 
+## `NestAuthCacheService`
+
+Drops an account's cached auth state so the next request for it re-reads the database.
+
+The guard enforces `isActive`, `mustChangePassword` and `emailVerifiedAt` on every authenticated request, and caches them so a warm request costs no database query — see [user-state cache](/docs/concepts/session-storage#user-state-cache). Writes through TypeORM invalidate the entry for you. Writes the ORM cannot see do not, and must call this service:
+
+```ts
+@Injectable()
+export class ComplianceService {
+  constructor(
+    @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly nestAuthCache: NestAuthCacheService,
+  ) {}
+
+  async banUser(userId: string) {
+    // A bulk UPDATE fires no entity subscriber — the cache cannot know.
+    await this.dataSource.query(
+      'UPDATE nest_auth_users SET "isActive" = false WHERE id = $1',
+      [userId],
+    );
+    await this.nestAuthCache.invalidateUser(userId);
+  }
+}
+```
+
+| Member | What it does |
+|---|---|
+| `invalidateUser(userId)` | Drops that account's entry and emits `NestAuthEvents.USER_STATE_INVALIDATED`. |
+| `invalidateUsers(userIds)` | The same for a batch. |
+| `enabled` | Whether user-state caching is active for this configuration. |
+| `distributed` | `true` when the cache is shared across instances (Redis), `false` when per process. |
+| `ttlSeconds` | How long an entry may live before it is re-read regardless. |
+
+Safe to call when caching is off — it is then a no-op.
+
 ## `JwtService`
 
 Token sign/verify primitives. Customize signing via the `session.jwt.secret` config; you rarely need to call this service directly.

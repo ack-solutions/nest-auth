@@ -16,6 +16,7 @@ src/
 │   ├── core/                      ← module options, providers (OAuth/email/phone/passwordless), JWT
 │   │   └── providers/             ← BaseAuthProvider + Google / Facebook / Apple / GitHub
 │   ├── user/                      ← UserService, NestAuthUser entity, NestAuthIdentity, NestAuthAccessKey
+│   │   └── subscribers/           ← TypeORM entity subscribers (auth-state cache invalidation)
 │   ├── role/                      ← RoleService + NestAuthRole entity
 │   ├── permission/                ← PermissionService + NestAuthPermission entity
 │   ├── tenant/                    ← TenantService + tenant-context strategies
@@ -34,7 +35,7 @@ Roughly:
 - **Module** — `NestAuthModule`, `NestAuthEntities` (entity bundle)
 - **Decorators** — `@Auth`, `@Public`, `@SkipMfa`, `@NestAuthRoles`, `@NestAuthPermissions`, `@CurrentUser`, `@CurrentTenantId`, `@CurrentTenant`, `@CurrentUserAccess`, `@CurrentMembership`, `@CurrentAdmin`
 - **Guards** — `NestAuthAuthGuard`, `AdminSessionGuard`
-- **Services** — `AuthService`, `MfaService`, `PasswordService`, `UserService`, `RoleService`, `PermissionService`, `TenantService`, `AccessKeyService`, `SessionManagerService`, `JwtService`, `AuditService`, `AuthConfigService`, `AuthProviderRegistryService`, `DebugLoggerService`
+- **Services** — `AuthService`, `MfaService`, `PasswordService`, `UserService`, `RoleService`, `PermissionService`, `TenantService`, `AccessKeyService`, `SessionManagerService`, `JwtService`, `AuditService`, `AuthConfigService`, `AuthProviderRegistryService`, `DebugLoggerService`, `NestAuthCacheService`
 - **Providers** (extensible) — `BaseAuthProvider`, `JwtAuthProvider`, `EmailAuthProvider`, `PhoneAuthProvider`, `PasswordlessAuthProvider`, `GoogleAuthProvider`, `FacebookAuthProvider`, `AppleAuthProvider`, `GitHubAuthProvider`
 - **Entities** — `NestAuthUser`, `NestAuthIdentity`, `NestAuthSession`, `NestAuthAccessKey`, `NestAuthRole`, `NestAuthRolePermission`, `NestAuthPermission`, `NestAuthTenant`, `NestAuthUserAccess`, `NestAuthPlatformAccess`, `NestAuthMFASecret`, `NestAuthOTP`, `NestAuthTrustedDevice`, `NestAuthAdminUser`
 - **Events** — `UserRegisteredEvent`, `UserLoggedInEvent`, `User2faVerifiedEvent`, `UserRefreshTokenEvent`, `LoggedOutEvent`, `LoggedOutAllEvent`, `PasswordReset*Event`, `EmailVerification*Event`, `PhoneVerification*Event`, `PasswordlessCodeRequestedEvent`, `TwoFactorCodeSentEvent`, `Tenant*Event`, `AccessKey*Event`
@@ -55,7 +56,7 @@ Optional (lazy-loaded — only required when feature is enabled): `cookie-parser
 - **Required** — `appName`
 - **Auth methods** — `emailAuth`, `phoneAuth`, `passwordless`, `google`, `facebook`, `apple`, `github`, `customAuthProviders[]`
 - **Registration** — `registration`, `defaultTenantOptions`
-- **Sessions** — `session.{storageType, jwt, accessTokenValidity, refreshTokenValidity, accessTokenType, cookieOptions, maxSessionsPerUser, slidingExpiration, customizeSessionData, customizeTokenPayload, onCreated/onRefreshed/onRevoked}`
+- **Sessions** — `session.{storageType, jwt, accessTokenValidity, refreshTokenValidity, accessTokenType, cookieOptions, maxSessionsPerUser, userStateCache, slidingExpiration, customizeSessionData, customizeTokenPayload, onCreated/onRefreshed/onRevoked}`
 - **MFA** — `mfa.{enabled, required, methods, totp, sms, email, allowUserToggle, allowMethodSelection, trustedDeviceDuration, trustDeviceStorageName}`
 - **Tenant** — `tenant.{enabled, mode}`, `platformAccess.{enabled, validate}`
 - **Authorization** — `roleGuards[]`, `authorization.{resolveRoles, resolvePermissions}`
@@ -72,7 +73,10 @@ Optional (lazy-loaded — only required when feature is enabled): `cookie-parser
    - `@Public()` → bail with `next()`.
    - `guards.beforeAuth(request)` hook → can `{ reject: true, reason }`.
    - Read `Authorization` header / cookie → JWT or API key path.
-   - Validate → resolve user → resolve `userAccess` for active tenant.
+   - Validate → resolve user → resolve `userAccess` for active tenant. The
+     user-state read (`isActive`, `mustChangePassword`, `emailVerifiedAt`) goes
+     through `NestAuthCacheService`, so a warm request costs no DB query; see
+     the caching convention below.
    - `authorization.resolveRoles` / `resolvePermissions`.
    - Check `@NestAuthRoles` / `@NestAuthPermissions` constraints.
    - MFA enforcement (skipped under `@SkipMfa()`).
@@ -89,6 +93,7 @@ Optional (lazy-loaded — only required when feature is enabled): `cookie-parser
 - **New events:** declare in `auth.constants.ts` (`NestAuthEvents`), create the event class in the appropriate `events/` folder, emit via `eventEmitter.emit(...)`.
 - **New error codes:** add to the matching `*_ERROR_CODES` const in `auth.constants.ts`. The troubleshooting docs page is then auto-discoverable.
 - **New providers:** extend `BaseAuthProvider`, register via `customAuthProviders: [new YourProvider(...)]`.
+- **Writing to `NestAuthUser.isActive` / `mustChangePassword` / `emailVerifiedAt`?** Go through TypeORM (`save`/`remove`) and `NestAuthUserCacheSubscriber` invalidates the auth-state cache for you. If you add a code path that writes those columns with a QueryBuilder bulk `UPDATE` or raw SQL, you **must** call `NestAuthCacheService.invalidateUser(userId)` — subscribers do not fire for those, and a stale `isActive` is an authentication bypass, not a slow page.
 
 ## Embedded admin console
 

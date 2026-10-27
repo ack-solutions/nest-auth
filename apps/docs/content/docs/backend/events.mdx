@@ -89,6 +89,7 @@ export class AuthEventsListener {
 | `UserCreatedEvent` | `NestAuthEvents.USER_CREATED` | `user` |
 | `UserUpdatedEvent` | `NestAuthEvents.USER_UPDATED` | `user`, `previous` |
 | `UserDeletedEvent` | `NestAuthEvents.USER_DELETED` | `user` |
+| *(plain payload)* | `NestAuthEvents.USER_STATE_INVALIDATED` | `userId` — the account's cached auth state was dropped; the next request for it re-reads the database. See [user-state cache](/docs/concepts/session-storage#user-state-cache). |
 
 ## Tenants
 

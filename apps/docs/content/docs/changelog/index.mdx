@@ -5,12 +5,29 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.15.0`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.17.0`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/migration/within-v2)**. Bump every package to the same version.
 
 ---
+
+## 2.17.0 — zero database queries on an authenticated request
+
+- **Added (backend, performance):** `session.userStateCache`. The guard's per-request user read (`isActive`, `mustChangePassword`, `emailVerifiedAt`) is now cached, so with the Redis session store **a warm authenticated request costs no database query at all** — measured, down from one. Defaults to **on** for Redis and **off** for the database/memory stores, because only a shared cache can carry an invalidation to every instance. See [user-state cache](/docs/concepts/session-storage#user-state-cache).
+- **Added (backend):** `NestAuthCacheService`, exported from the package root. `invalidateUser(userId)` / `invalidateUsers(ids)` drop an account's cached state — **required** after any write the ORM cannot see (`repository.update()` and other bulk `UPDATE`s, raw SQL, migrations, another app on the same database). Writes through TypeORM, including a bare `user.save()`, are invalidated automatically by a `NestAuthUser` entity subscriber.
+- **Added (backend):** `NestAuthEvents.USER_STATE_INVALIDATED`, payload `{ userId }`, emitted on every invalidation.
+- **Fixed (backend):** a Redis connection the library opened is now closed when the Nest application shuts down. It used to be left open, leaking a socket per app instance that ioredis kept reconnecting — visible as `ECONNRESET` noise on teardown and as connections piling up in processes that boot more than one app. A client you supply via `session.redis.client` is still left alone.
+
+> **Upgrade note:** no action for most apps. If you change `isActive`, `mustChangePassword` or `emailVerifiedAt` with raw SQL, a bulk `UPDATE` or a migration while using the Redis store, add a `NestAuthCacheService.invalidateUser(userId)` call — otherwise that account keeps its old state for up to `ttlSeconds` (default 300). `session.userStateCache: { enabled: false }` restores the previous read-every-request behaviour.
+
+## 2.16.0 — Redis outages fail closed; share your own Redis connection
+
+- **Fixed (backend, security):** a session-store outage no longer opens optional-auth routes. The guard treated *any* error during authentication as a failed sign-in, so on a route with optional auth a Redis outage was read as "no session": the request was reset to anonymous and served. A route carrying `@NestAuthRoles` or `@NestAuthPermissions` alongside optional auth was therefore open for the duration of the outage. Two independent `catch` blocks did this and both are fixed.
+- **Changed (backend):** a store outage is now refused on every route — `503` `SESSION_STORE_UNAVAILABLE` for required auth, and for optional auth when a token is presented. A request with no token at all is unaffected. `503` rather than `401` is deliberate: a `401` makes clients sign the user out, so a brief blip would log out every user. The outage is logged once when it starts and once when it clears, not once per request.
+- **Added (backend):** `session.redis.client` reuses your existing ioredis connection instead of opening a second one, so TLS, password, sentinel and cluster are configured once. Other connection fields are ignored when `client` is set; `keyPrefix` and `ttlSeconds` still apply.
+- **Added (backend):** `SessionStoreUnavailableError`, exported from the package root, and the `SESSION_STORE_UNAVAILABLE` error code in both the server and `@ackplus/nest-auth-contracts`.
+- **Fixed (backend):** `session.redis.client` survives config merging. `getOptions` deep-merges caller options, which rebuilds a class instance as a plain object and strips its prototype; an injected client used to arrive with every method gone (`this.redis.smembers is not a function`). `session.store` and `customAuthProviders` were already protected.
 
 ## 2.15.0 — account-switch fix, console platform-user lock, custom rate-limit buckets
 

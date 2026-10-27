@@ -105,6 +105,10 @@ session?: {
   jwt?: { secret: string; validateToken?: (payload, session) => boolean };
   maxSessionsPerUser?: number                  // default: 10
     | ((ctx: { userId, data }) => number | Promise<number>); // or per account
+  userStateCache?: {                           // skip the guard's per-request user read
+    enabled?: boolean;                         // default: true on Redis, false on database/memory
+    ttlSeconds?: number;                       // default: 300 shared, 5 per-process
+  };
   slidingExpiration?: boolean;                 // default: false
   allowMultipleAccounts?: boolean;             // default: false — enable the account switcher
   customizeSessionData?: (defaultData, user) => SessionDataPayload;

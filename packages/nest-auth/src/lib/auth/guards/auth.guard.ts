@@ -18,7 +18,7 @@ import { CsrfService } from '../../core/services/csrf.service';
 import { CookieHelper } from '../../utils/cookie.helper';
 import { uniq } from 'lodash';
 import { DebugLoggerService } from '../../core/services/debug-logger.service';
-import { NestAuthUser } from '../../user/entities/user.entity';
+import { NestAuthCacheService } from '../../core/services/nest-auth-cache.service';
 import { resolveSessionAuthz, type ResolvedSessionAuthz } from '../../role/utils/session-authz.util';
 import { mapRoleToSessionSnapshot } from '../../role/utils/role-mapper.util';
 import { NestAuthUserAccessStatusEnum } from '@ackplus/nest-auth-contracts';
@@ -50,6 +50,7 @@ export class NestAuthAuthGuard implements CanActivate {
         private authConfigService: AuthConfigService,
         private csrfService: CsrfService,
         private debugLogger: DebugLoggerService,
+        private nestAuthCache: NestAuthCacheService,
     ) { }
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -342,25 +343,30 @@ export class NestAuthAuthGuard implements CanActivate {
             // still has the last word). See refreshSessionAuthz().
             await this.refreshSessionAuthz(session);
 
-            const user = await NestAuthUser.findOne({
-                where: { id: session.userId },
-                select: ['id', 'isActive', 'mustChangePassword', 'emailVerifiedAt'],
-            });
+            // The three user facts this guard enforces. Served from the
+            // auth-state cache when it is enabled, which is what makes a warm
+            // authenticated request cost NO database query; the entry is
+            // dropped on every ORM write to the account (see
+            // NestAuthUserCacheSubscriber), so a deactivation still takes
+            // effect on the very next request.
+            //
+            // `null` means the account does not exist, which is never cached.
+            const userState = await this.nestAuthCache.getUserState(session.userId);
 
             // Surface the force-change-password flag to the request so
             // checkMustChangePassword() can enforce it (JWT auth only — API keys
             // are a separate credential and aren't subject to it).
-            request.mustChangePassword = user?.mustChangePassword === true;
+            request.mustChangePassword = userState?.mustChangePassword === true;
             // Surface email-verified state for checkEmailVerified().
-            request.emailVerified = !!user?.emailVerifiedAt;
+            request.emailVerified = !!userState?.emailVerified;
 
-            if (!user || user.isActive === false) {
+            if (!userState || userState.isActive === false) {
                 if (isOptional) {
                     this.resetAuth(request);
                     return false;
                 }
                 throw new UnauthorizedException({
-                    message: !user ? 'User not found' : 'User is not active',
+                    message: !userState ? 'User not found' : 'User is not active',
                     code: ERROR_CODES.ACCOUNT_INACTIVE,
                 });
             }
