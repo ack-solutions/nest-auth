@@ -1,7 +1,7 @@
 {
   "name": "@ackplus/nest-auth",
-  "version": "2.15.0",
-  "description": "Authentication & authorization for NestJS \u2014 JWT/cookie sessions, refresh-token rotation, RBAC, multi-tenancy, MFA, OAuth/social login, passwordless, API keys, and a built-in admin console.",
+  "version": "2.16.0",
+  "description": "Authentication & authorization for NestJS — JWT/cookie sessions, refresh-token rotation, RBAC, multi-tenancy, MFA, OAuth/social login, passwordless, API keys, and a built-in admin console.",
   "type": "commonjs",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
