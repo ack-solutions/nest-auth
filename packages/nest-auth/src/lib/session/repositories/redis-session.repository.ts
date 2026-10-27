@@ -3,6 +3,8 @@ import { BaseSessionRepository } from './base-session.repository';
 import { NestAuthSession } from '../entities/session.entity';
 import { SessionPayload } from '../../core/interfaces/token-payload.interface';
 import { v4 as uuidv4 } from 'uuid';
+import { Logger } from '@nestjs/common';
+import { SessionStoreUnavailableError } from '../errors/session-store-unavailable.error';
 
 export interface RedisSessionStoreOptions {
     keyPrefix?: string;
@@ -35,6 +37,41 @@ export class RedisSessionStore extends BaseSessionRepository {
         this.keyPrefix = this.normalizePrefix(options.keyPrefix || 'nest-auth:sess:');
         this.userSessionsPrefix = `${this.keyPrefix}user:`;
         this.defaultTtlSeconds = options.ttlSeconds;
+    }
+
+    private static readonly logger = new Logger('RedisSessionStore');
+
+    /** True while Redis is known to be down, so we log once per outage. */
+    private outageActive = false;
+
+    /**
+     * Turn a Redis driver/connection failure into a
+     * {@link SessionStoreUnavailableError} so callers can tell "store is down"
+     * apart from "no such session" and fail CLOSED. Returning a plain Error
+     * here is what let a Redis outage be read as "no session" by the guard.
+     *
+     * Logs once when an outage starts — not once per request, which would
+     * flood the log for the whole outage.
+     */
+    protected toStoreError(error: unknown): SessionStoreUnavailableError {
+        if (error instanceof SessionStoreUnavailableError) return error;
+        if (!this.outageActive) {
+            this.outageActive = true;
+            RedisSessionStore.logger.error(
+                'Redis session store is unavailable; requests fail closed ' +
+                '(503 SESSION_STORE_UNAVAILABLE) until it recovers. ' +
+                `${error instanceof Error ? error.message : String(error)}`,
+            );
+        }
+        return new SessionStoreUnavailableError(error);
+    }
+
+    /** Note a successful command, so the next outage logs again. */
+    protected noteStoreHealthy(): void {
+        if (this.outageActive) {
+            this.outageActive = false;
+            RedisSessionStore.logger.log('Redis session store recovered.');
+        }
     }
 
     private normalizePrefix(prefix: string): string {
@@ -135,6 +172,7 @@ export class RedisSessionStore extends BaseSessionRepository {
             const data = await this.redis.hgetall(sessionKey);
 
             if (!data || Object.keys(data).length === 0) {
+                this.noteStoreHealthy();
                 return null;
             }
 
@@ -147,10 +185,10 @@ export class RedisSessionStore extends BaseSessionRepository {
                 return null;
             }
 
+            this.noteStoreHealthy();
             return session;
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            throw new Error(`Failed to retrieve session from Redis: ${errorMessage}`);
+            throw this.toStoreError(error);
         }
     }
 

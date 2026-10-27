@@ -50,6 +50,7 @@ Since **2.12**, any *extra* structured keys a handler attaches (`errors`, `probl
 |---|---|---|
 | `SESSION_NOT_FOUND` | 401 | Session row missing — usually means revoked |
 | `SESSION_EXPIRED` | 401 | Session past its expiry |
+| `SESSION_STORE_UNAVAILABLE` | 503 | The session store (Redis) is unreachable. The guard fails closed. **Retry — do not sign the user out**, unlike a 401. |
 | `MAX_SESSIONS_REACHED` | 400 | Login would exceed `maxSessionsPerUser` (only fires if eviction is disabled) |
 
 ## Guards / authorization

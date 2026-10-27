@@ -171,6 +171,16 @@ export class NestAuthModule {
       merged.session.store = options.session.store;
     }
 
+    // Same reasoning for a caller-supplied ioredis client: the deep-merge
+    // rebuilds the instance as a plain object and every command method
+    // disappears ("this.redis.smembers is not a function"). Keep the
+    // reference.
+    const redisClient = (options.session as any)?.redis?.client;
+    if (redisClient && merged.session) {
+      const mergedSession = merged.session as any;
+      mergedSession.redis = { ...(mergedSession.redis ?? {}), client: redisClient };
+    }
+
     // Same reasoning: `customAuthProviders` are BaseAuthProvider class instances.
     // The deep-merge would clone them into plain objects and strip their methods
     // (validate / attachRepositories / …). Preserve the caller's instances by

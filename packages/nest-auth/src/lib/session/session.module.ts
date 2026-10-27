@@ -84,14 +84,21 @@ export class SessionModule {
 
         // Try to load Redis modules
         try {
-            RedisClient = require('ioredis').default || require('ioredis');
-
             const redisOptions = SessionModule.resolveRedisOptions(session);
-            const clientOptions = SessionModule.buildRedisClientOptions(redisOptions);
 
-            redisClient = redisOptions.url
-                ? new RedisClient(redisOptions.url, clientOptions)
-                : new RedisClient(clientOptions);
+            if (redisOptions.client) {
+                // The app supplied its own connection. Do NOT require ioredis
+                // ourselves and do NOT own this client's lifecycle — the app
+                // created it and the app closes it.
+                redisClient = redisOptions.client;
+            } else {
+                RedisClient = require('ioredis').default || require('ioredis');
+                const clientOptions = SessionModule.buildRedisClientOptions(redisOptions);
+
+                redisClient = redisOptions.url
+                    ? new RedisClient(redisOptions.url, clientOptions)
+                    : new RedisClient(clientOptions);
+            }
 
             const storeOptions: RedisSessionStoreOptions = {
                 keyPrefix: redisOptions.keyPrefix,

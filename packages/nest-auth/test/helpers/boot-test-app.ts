@@ -54,8 +54,72 @@ export interface BootTestAppOptions {
   /** Drop the schema after init (re-creates clean). Default: true. */
   dropSchema?: boolean;
 
+  /**
+   * Run TypeORM schema synchronization. Default: true.
+   *
+   * Set false for a SECOND app instance sharing one database: the first
+   * instance already created the schema, and re-synchronizing from two
+   * connections at once races.
+   */
+  synchronize?: boolean;
+
   /** Whether to log SQL. Default: false. */
   logQueries?: boolean;
+
+  /**
+   * Count the SQL this app issues. Pass a counter from {@link createQueryCounter}
+   * to assert things like "a warm authenticated request costs zero queries".
+   */
+  queryCounter?: QueryCounter;
+}
+
+/**
+ * Counts the SQL statements an app issues, so a test can assert the number of
+ * database round trips a request costs. Only real queries are counted —
+ * schema sync and TypeORM's own bookkeeping are filtered out by `reset()`
+ * being called after boot and before the request under test.
+ */
+export interface QueryCounter {
+  /** Statements seen since the last {@link QueryCounter.reset}. */
+  readonly queries: string[];
+  /** How many statements since the last reset. */
+  readonly count: number;
+  /** Forget everything seen so far. Call immediately before the act step. */
+  reset(): void;
+  /** The TypeORM logger to hand to the DataSource. */
+  readonly logger: any;
+}
+
+/** Create a {@link QueryCounter} to pass as `bootTestApp({ queryCounter })`. */
+export function createQueryCounter(): QueryCounter {
+  const queries: string[] = [];
+  const record = (query: string) => {
+    // TypeORM issues its own metadata reads while connecting; they are not part
+    // of a request's cost. Tests reset() right before the act step anyway, but
+    // filtering the obvious noise keeps failure output readable.
+    if (/^\s*(START TRANSACTION|COMMIT|ROLLBACK)/i.test(query)) return;
+    queries.push(query);
+  };
+
+  const logger = {
+    logQuery: (query: string) => record(query),
+    logQueryError: (_e: any, query: string) => record(query),
+    logQuerySlow: (_t: number, query: string) => record(query),
+    logSchemaBuild: () => undefined,
+    logMigration: () => undefined,
+    log: () => undefined,
+  };
+
+  return {
+    queries,
+    get count() {
+      return queries.length;
+    },
+    reset() {
+      queries.length = 0;
+    },
+    logger,
+  };
 }
 
 const DEFAULT_NEST_AUTH_CONFIG: IAuthModuleOptions = {
@@ -81,9 +145,11 @@ function buildTypeOrmOptions(opts: BootTestAppOptions): TypeOrmModuleOptions {
   const db = opts.database ?? { driver: 'sqljs' };
   const common = {
     autoLoadEntities: true,
-    synchronize: true,
+    synchronize: opts.synchronize ?? true,
     dropSchema: opts.dropSchema ?? true,
-    logging: opts.logQueries ?? false,
+    ...(opts.queryCounter
+      ? { logging: 'all' as const, logger: opts.queryCounter.logger }
+      : { logging: opts.logQueries ?? false }),
   } as const;
 
   switch (db.driver) {
@@ -152,11 +218,18 @@ export async function bootTestApp(opts: BootTestAppOptions = {}): Promise<TestAp
   // `clone: false` matches the library's own AuthConfigService.setOptions merge
   // and preserves reference-type overrides (a live custom session store, hook
   // functions) that a deep clone would mangle.
+  const explicitRedisClient = (opts.nestAuth?.session as any)?.redis?.client;
   const nestAuthConfig: IAuthModuleOptions = deepmerge(
     DEFAULT_NEST_AUTH_CONFIG,
     (opts.nestAuth ?? {}) as IAuthModuleOptions,
     { clone: false },
   );
+  // See AuthConfigService.setOptions: deepmerge strips a class instance's
+  // prototype, so a live ioredis client must be put back by reference.
+  if (explicitRedisClient) {
+    const session = nestAuthConfig.session as any;
+    session.redis = { ...(session.redis ?? {}), client: explicitRedisClient };
+  }
 
   @Module({
     imports: [

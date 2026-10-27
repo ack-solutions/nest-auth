@@ -121,7 +121,18 @@ export class AuthConfigService {
         // Capture the caller's explicit mfa.methods BEFORE the merge: deepmerge
         // concatenates arrays, which would merge the default [EMAIL, TOTP] back in.
         const explicitMfaMethods = options.mfa?.methods;
+        // Capture a caller-supplied LIVE object before the merge. deepmerge
+        // treats a class instance as mergeable and rebuilds it as a plain
+        // object, which silently strips its prototype — an ioredis client
+        // arrives with every method gone ("this.redis.smembers is not a
+        // function"). Restore the original reference after merging.
+        const explicitRedisClient = (options.session as any)?.redis?.client;
         const mergedOptions = deepmerge(this.defaultOptions, options, { clone: false });
+
+        if (explicitRedisClient) {
+            const session = mergedOptions.session as any;
+            session.redis = { ...(session.redis ?? {}), client: explicitRedisClient };
+        }
 
         // A caller-provided mfa.methods list REPLACES the default rather than being
         // concatenated with it, so an app can restrict MFA to a subset (e.g.

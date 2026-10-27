@@ -51,6 +51,26 @@ export enum SessionStorageType {
 }
 
 export interface RedisSessionOptions {
+    /**
+     * An existing ioredis client (or cluster) to reuse.
+     *
+     * When set, the library uses this connection instead of opening its own,
+     * so one app can share a single pool and one configuration — TLS,
+     * password, sentinel, cluster — rather than configuring Redis twice. All
+     * other connection fields here (`url`, `host`, `password`, …) are ignored;
+     * `keyPrefix` and `ttlSeconds` still apply.
+     *
+     * Lifecycle stays with the app: the library never calls `quit()` on a
+     * client it did not create.
+     *
+     * @example
+     * const redis = new Redis(process.env.REDIS_URL);
+     * NestAuthModule.forRoot({
+     *   session: { storageType: 'redis', redis: { client: redis } },
+     * });
+     */
+    client?: any;
+
     url?: string;
     host?: string;
     port?: number;

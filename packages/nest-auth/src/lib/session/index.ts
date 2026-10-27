@@ -4,6 +4,9 @@ export * from './entities/session.entity';
 // Interfaces
 export * from './interfaces/session-store.interface';
 
+// Errors
+export * from './errors/session-store-unavailable.error';
+
 // Repositories
 export * from './repositories/base-session.repository';
 export * from './repositories/typeorm-session.repository';

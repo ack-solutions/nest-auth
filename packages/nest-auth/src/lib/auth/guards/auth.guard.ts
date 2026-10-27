@@ -1,5 +1,6 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { ERROR_CODES, OPTIONAL_AUTH_KEY, ACCESS_TOKEN_COOKIE_NAME, ACTIVE_ACCOUNT_COOKIE_NAME, accountAccessCookieName } from '../../auth.constants';
+import { SessionStoreUnavailableError } from '../../session/errors/session-store-unavailable.error';
 import { Reflector } from '@nestjs/core';
 import { Request, Response } from 'express';
 import { JwtService } from '../../core/services/jwt.service';
@@ -131,6 +132,14 @@ export class NestAuthAuthGuard implements CanActivate {
                     }
             }
         } catch (error) {
+            // A session-store outage is infrastructure failure, not a failed
+            // authentication, and must fail CLOSED on every route. Without
+            // this, "optional auth" turns a Redis outage into open access:
+            // the catch below would return true and serve the request
+            // anonymously. Checked here as well as in handleJwtAuth because
+            // BOTH catches independently swallow errors for optional routes.
+            if (error instanceof SessionStoreUnavailableError) throw error;
+
             if (isOptional) {
                 // If optional auth fails, silently proceed without user data (e.g. invalid token)
                 return true;
@@ -364,6 +373,13 @@ export class NestAuthAuthGuard implements CanActivate {
 
             return true;
         } catch (error) {
+            // An unreachable session store is INFRASTRUCTURE failure, not an
+            // authentication failure. It must never be read as "no session":
+            // on an optional-auth route that drops the caller to anonymous and
+            // lets the request through, so a Redis outage would silently open
+            // every optional route. Fail closed on every route.
+            if (error instanceof SessionStoreUnavailableError) throw error;
+
             if (isOptional) {
                 this.resetAuth(request);
                 return false;

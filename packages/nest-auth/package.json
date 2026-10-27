@@ -1,7 +1,7 @@
 {
   "name": "@ackplus/nest-auth",
   "version": "2.15.0",
-  "description": "Authentication & authorization for NestJS — JWT/cookie sessions, refresh-token rotation, RBAC, multi-tenancy, MFA, OAuth/social login, passwordless, API keys, and a built-in admin console.",
+  "description": "Authentication & authorization for NestJS \u2014 JWT/cookie sessions, refresh-token rotation, RBAC, multi-tenancy, MFA, OAuth/social login, passwordless, API keys, and a built-in admin console.",
   "type": "commonjs",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -88,6 +88,7 @@
     }
   },
   "devDependencies": {
+    "@ackplus/vitest-preset": "workspace:*",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/event-emitter": "^2.0.0",
@@ -95,6 +96,9 @@
     "@nestjs/swagger": "^8.0.0",
     "@nestjs/testing": "^11.0.0",
     "@nestjs/typeorm": "^10.0.0",
+    "@swc/core": "^1.7.0",
+    "@testcontainers/postgresql": "^11.0.0",
+    "@testcontainers/redis": "^11.0.0",
     "@types/deepmerge": "^2.2.0",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.5",
@@ -103,6 +107,7 @@
     "@types/qrcode": "^1.5.5",
     "@types/qs": "^6.9.12",
     "@types/speakeasy": "^2.0.9",
+    "@types/supertest": "^6.0.2",
     "@types/uuid": "^9.0.7",
     "apple-auth": "^1.0.9",
     "class-transformer": "^0.5.1",
@@ -110,18 +115,17 @@
     "express": "^4.21.2",
     "fb": "^2.0.0",
     "google-auth-library": "^9.0.0",
+    "ioredis": "^5.4.1",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
     "sql.js": "^1.13.0",
     "sqlite3": "^5.1.7",
+    "supertest": "^7.0.0",
+    "testcontainers": "^11.0.0",
     "typeorm": "^0.3.21",
     "typescript": "^5.7.3",
-    "uuid": "^9.0.0",
-    "@ackplus/vitest-preset": "workspace:*",
-    "vitest": "^3.0.0",
-    "supertest": "^7.0.0",
-    "@types/supertest": "^6.0.2",
     "unplugin-swc": "^1.5.0",
-    "@swc/core": "^1.7.0"
+    "uuid": "^9.0.0",
+    "vitest": "^3.0.0"
   }
 }

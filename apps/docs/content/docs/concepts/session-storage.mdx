@@ -59,9 +59,44 @@ session: {
 }
 ```
 
+### Reusing your own Redis connection
+
+Pass an existing ioredis client as `redis.client` and the library uses it instead of opening a second connection. One pool, one place to configure TLS, password, sentinel or cluster:
+
+```ts
+import Redis from 'ioredis';
+
+const redis = new Redis(process.env.REDIS_URL);   // your app's connection
+
+NestAuthModule.forRoot({
+  session: {
+    storageType: SessionStorageType.REDIS,
+    redis: { client: redis, keyPrefix: 'auth:' },
+  },
+});
+```
+
+When `client` is set, the other connection fields (`url`, `host`, `port`, `password`, `tls`, …) are ignored; `keyPrefix` and `ttlSeconds` still apply. **Lifecycle stays with your app** — the library never calls `quit()` on a client it did not create, so shutting down Nest will not close a connection the rest of your app is still using.
+
+### What happens if Redis goes down
+
+The guard **fails closed**. A store outage is infrastructure failure, not a failed sign-in, so it is never read as "no session":
+
+| | Response |
+| --- | --- |
+| Route with required auth | `503` · `SESSION_STORE_UNAVAILABLE` |
+| Route with **optional** auth, caller presents a token | `503` · `SESSION_STORE_UNAVAILABLE` |
+| Route with optional auth, no token at all | normal anonymous response |
+
+`503` rather than `401` is deliberate. A `401` tells clients to sign the user out, so a brief Redis blip would log out your entire user base. `503` says *retry*. Handle it in your client as a transient error, not an auth failure.
+
+The outage is logged **once** when it starts and once when it recovers, not once per request.
+
+> **Security note.** Before 2.16.0 an optional-auth route silently fell back to **anonymous** during a Redis outage — the request was served with no user attached. Any such route that also carries `@NestAuthRoles` or `@NestAuthPermissions` was effectively open for the duration of the outage. Upgrading closes that.
+
 **Pros:** horizontal scale, fast, automatic key expiry, no DB write pressure.
 
-**Cons:** another service to operate. If Redis goes down, every authenticated user loses their session simultaneously — plan for failover.
+**Cons:** another service to operate. If Redis goes down, authenticated requests are refused with `503` until it returns — plan for failover.
 
 See [Scaling](/docs/production/scaling) for the full `RedisSessionOptions` reference and recommended settings (sentinel / cluster / retry strategy / offline queue).
 

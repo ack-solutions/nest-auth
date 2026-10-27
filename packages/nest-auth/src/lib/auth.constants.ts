@@ -111,6 +111,14 @@ export const SESSION_ERROR_CODES = {
     SESSION_NOT_FOUND: 'SESSION_NOT_FOUND',
     SESSION_EXPIRED: 'SESSION_EXPIRED',
     SESSION_INVALID: 'SESSION_INVALID',
+    /**
+     * The session STORE could not be reached (e.g. Redis is down) — distinct
+     * from "this session does not exist". Returned as HTTP 503 so the guard
+     * fails CLOSED: a store outage must never be read as "no session" and let
+     * an anonymous request through, and a client must retry rather than sign
+     * the user out as it would on a 401.
+     */
+    SESSION_STORE_UNAVAILABLE: 'SESSION_STORE_UNAVAILABLE',
     MAX_SESSIONS_REACHED: 'MAX_SESSIONS_REACHED',
 } as const;
 
