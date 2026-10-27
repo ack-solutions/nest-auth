@@ -1,5 +1,79 @@
 # @ackplus/nest-auth
 
+## 2.17.0
+
+### Minor Changes
+
+- Zero database queries on an authenticated request. (Issue #13, problem 1, plus a connection leak found alongside it.)
+
+  **`session.userStateCache` — the guard stops reading the user row**
+
+  The guard enforces three user fields on every authenticated request (`isActive`, `mustChangePassword`, `emailVerifiedAt`), and until now it read them from the database each time — one `SELECT` per API call, for data that almost never changes. That is the cost Redis was supposed to remove, and with the Redis session store it now is: **a warm authenticated request costs no database query at all.** Measured, down from exactly one.
+
+  ```ts
+  session: {
+    storageType: 'redis',
+    redis: { url: process.env.REDIS_URL },
+    userStateCache: {
+      enabled: true,     // default: true on Redis, false on database/memory
+      ttlSeconds: 300,   // default: 300 when shared, 5 when per-process
+    },
+  }
+  ```
+
+  **The defaults follow correctness, not speed**
+
+  A stale `isActive` is an authentication bypass — a deactivated account would keep working until its entry expired — so the default depends on whether an invalidation can actually reach every instance:
+
+  | Session store     | Cache                   | Default |
+  | ----------------- | ----------------------- | ------- |
+  | Redis             | shared by all instances | **on**  |
+  | Database / Memory | per Node process        | **off** |
+
+  With a per-process cache, deactivating an account on instance A would not reach instance B until the TTL elapsed. Opt in with `enabled: true` if that window is acceptable (a single-instance deployment loses nothing).
+
+  **Invalidation on every ORM path**
+
+  `NestAuthUserCacheSubscriber`, a TypeORM entity subscriber on `NestAuthUser`, drops an account's entry on every ORM insert, update or remove. That is the real chokepoint: it covers `UserService` calls **and** a bare `user.save()`, such as the admin console's. A deactivation takes effect on the very next request, on every instance.
+
+  It does **not** cover writes TypeORM cannot see — `repository.update()` and other bulk `UPDATE`s, raw SQL, migrations, or another application writing the same database. Those must invalidate explicitly:
+
+  ```ts
+  import { NestAuthCacheService } from "@ackplus/nest-auth";
+
+  await this.dataSource.query(
+    'UPDATE nest_auth_users SET "isActive" = false WHERE id = $1',
+    [userId],
+  );
+  await this.nestAuthCache.invalidateUser(userId); // without this: stale until ttlSeconds
+  ```
+
+  The TTL is a backstop for that case, not the mechanism.
+
+  **Bug fix: the library leaked a Redis connection on shutdown**
+
+  A connection the library opened was never closed when the Nest application shut down, so each app instance left a socket open that ioredis kept trying to reconnect — visible as `[ioredis] Unhandled error event: ECONNRESET` on teardown, and as connections accumulating in a process that boots more than one app (test runs, workers). `RedisSessionStore` now closes a client it owns. A client you supply via `session.redis.client` is still left alone: your app created it, your app closes it.
+
+  **New**
+  - `NestAuthCacheService` (`invalidateUser`, `invalidateUsers`, `enabled`, `distributed`, `ttlSeconds`), exported from the package root.
+  - `NestAuthEvents.USER_STATE_INVALIDATED`, payload `{ userId }`, emitted on every invalidation.
+  - `AuthStateCache` with `RedisAuthStateCache` and `InProcessAuthStateCache`; the Redis backend reuses the session store's own connection, so there is one pool.
+  - `UserStateCacheOptions` on `SessionOptions`.
+
+  **Never cached**
+
+  An account that does not exist (so a deleted user is refused immediately, never from a stale entry), and the session itself — that is always a session-store read, which is why a store outage still fails closed with `503 SESSION_STORE_UNAVAILABLE`.
+
+  **Upgrade note**
+
+  No action for most apps. If you change `isActive`, `mustChangePassword` or `emailVerifiedAt` outside TypeORM while using the Redis store, add a `NestAuthCacheService.invalidateUser(userId)` call. `userStateCache: { enabled: false }` restores the previous read-every-request behaviour exactly.
+
+  **Not included** — issue #13 problems 2, 3 and 5 (cross-instance authz versioning for the per-process `sessionAuthzCache`, API-key read consolidation, and the live-vs-snapshotted consistency table) are unchanged and still to come. Tracked in `.tasks/025-issue-13-per-request-db-reads-and-cross-instance-staleness.md`.
+
+### Patch Changes
+
+- @ackplus/nest-auth-contracts@2.17.0
+
 ## 2.16.0
 
 ### Minor Changes
