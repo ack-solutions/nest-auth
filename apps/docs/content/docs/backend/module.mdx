@@ -110,6 +110,10 @@ session?: {
     ttlSeconds?: number;                       // default: 300 shared, 5 per-process
   };
   slidingExpiration?: boolean;                 // default: false
+  refreshTokenReuse?: {                        // a replayed (already-rotated) refresh token
+    revokeSession?: boolean;                   // default: true — end the session on reuse
+    graceSeconds?: number;                     // default: 0 — accept one retry with the token just replaced
+  };
   allowMultipleAccounts?: boolean;             // default: false — enable the account switcher
   customizeSessionData?: (defaultData, user) => SessionDataPayload;
   customizeTokenPayload?: (defaultPayload, session) => JWTTokenPayload;

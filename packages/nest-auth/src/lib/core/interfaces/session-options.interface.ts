@@ -192,6 +192,24 @@ export interface SessionOptions {
          * @default true
          */
         revokeSession?: boolean;
+        /**
+         * Seconds during which the refresh token the last rotation replaced is
+         * still accepted, ONCE, instead of being treated as reuse. Covers a
+         * refresh whose reply never reached the client (dropped mobile signal,
+         * client timeout, proxy cut, server stopped mid-response): the client
+         * still holds the old token and retries with it. The retry rotates
+         * again and emits `refresh_token_grace_used`; after it, neither the
+         * retried token nor the pair whose reply was lost works.
+         *
+         * Trade-off: whoever holds the previous token can use it once inside the
+         * window. Outside it, or for any other token, reuse handling is
+         * unchanged. Typical values are 10–60.
+         *
+         * Downgrading the library below the version that added this, while
+         * sessions have rotated with it on, signs those sessions out once.
+         * @default 0 (off — every old token is reuse)
+         */
+        graceSeconds?: number;
     };
 
     /**

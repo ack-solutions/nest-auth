@@ -66,7 +66,7 @@ Hashing is argon2 by default. To keep hashes from an existing system, supply `pa
 ## Tokens and sessions
 
 - `session.jwt.secret`: at least 32 random bytes. `validateSecretStrength: true` makes a weak secret a boot error.
-- Refresh tokens rotate. `session.refreshTokenReuse.revokeSession` controls whether a replayed token also ends the session.
+- Refresh tokens rotate. `session.refreshTokenReuse.revokeSession` controls whether a replayed token also ends the session. For mobile apps, `session.refreshTokenReuse.graceSeconds` (for example `30`; default `0`) accepts one retry with the token just replaced, so a lost refresh reply doesn't sign the user out; it emits `REFRESH_TOKEN_GRACE_USED`.
 - `session.maxSessionsPerUser`, `accessTokenValidity`, `refreshTokenValidity`: see `sessions-tokens.md`.
 
 ## API keys

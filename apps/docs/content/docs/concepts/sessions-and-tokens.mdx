@@ -39,6 +39,27 @@ This is gated by two safeties so it can't go wrong:
 
 Both are exported from `@ackplus/nest-auth-client` if you need to instrument or replace them.
 
+## Refresh-token rotation and reuse
+
+Every refresh issues a new refresh token, and the session stores a hash of the current one. Presenting a token that has already been replaced is treated as **reuse**, a sign the token was stolen: the server answers `401 REFRESH_TOKEN_INVALID`, emits `refresh_token_reuse_detected`, and by default revokes the session (`session.refreshTokenReuse.revokeSession`, default `true`).
+
+That has one cost on unreliable networks. If a refresh's **reply is lost** (dropped mobile signal, a client timeout, a proxy cutting the connection, the server stopped mid-response), the client still holds the old token and its retry looks exactly like reuse, so the user is signed out. `graceSeconds` accepts that retry:
+
+```ts
+session: {
+  refreshTokenReuse: {
+    revokeSession: true, // unchanged
+    graceSeconds: 30,    // default 0 = off
+  },
+}
+```
+
+- Within `graceSeconds` of a rotation, the token that rotation replaced is accepted **once**. The server rotates again, answers with a fresh pair, and emits `refresh_token_grace_used` instead of the reuse event.
+- After that retry, neither the retried token nor the pair whose reply was lost works. A second use is reuse.
+- Outside the window, or for any other token, nothing changes.
+
+The trade-off: whoever holds the previous token can use it once inside the window, the same window the real client needs for its retry. Leave the default of `0` if you don't want that. The previous hash lives in the session's existing `refreshToken` column, so there's no migration and custom session stores need no change. Downgrading below 2.18.0 after sessions have rotated with the grace on signs those sessions out once.
+
 ## Sliding expiration
 
 Set `session.slidingExpiration: true` and a session's expiry rolls forward on every successful refresh. A user who is active daily never gets logged out; a user who walks away for `refreshTokenValidity` loses their session.
