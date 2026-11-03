@@ -50,6 +50,13 @@ export class AuthEventsListener {
 | `LoggedOutEvent` | `NestAuthEvents.LOGGED_OUT` | `user`, `session`, `reason` |
 | `LoggedOutAllEvent` | `NestAuthEvents.LOGGED_OUT_ALL` | `user`, `reason` |
 
+## Refresh-token security
+
+| Event | Constant | Payload |
+|---|---|---|
+| — | `NestAuthEvents.REFRESH_TOKEN_REUSE_DETECTED` | `sessionId`, `userId`, `revoked` — an already-rotated refresh token was presented |
+| — | `NestAuthEvents.REFRESH_TOKEN_GRACE_USED` | `sessionId`, `userId` — the replaced token was accepted once within `session.refreshTokenReuse.graceSeconds` (a lost refresh reply, not reuse) |
+
 ## MFA
 
 | Event | Constant | Payload |

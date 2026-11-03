@@ -57,7 +57,7 @@ Register the listener in a module's `providers`. How the message is sent is up t
 | `USER_INVITED` | invitation issued | `user`, `token`, `isNewUser` |
 | `REGISTERED`, `LOGGED_IN`, `LOGIN_FAILED`, `LOGGED_OUT`, `LOGGED_OUT_ALL`, `REFRESH_TOKEN` | session lifecycle | `user`, context |
 | `PASSWORD_CHANGED`, `PASSWORD_RESET`, `TWO_FACTOR_ENABLED`, `TWO_FACTOR_DISABLED`, `TWO_FACTOR_VERIFIED`, `MFA_RECOVERY_CODE_USED` | security changes | `user` |
-| `REFRESH_TOKEN_REUSE_DETECTED`, `DISPOSABLE_EMAIL_DETECTED` | security signals | ids / email |
+| `REFRESH_TOKEN_REUSE_DETECTED`, `REFRESH_TOKEN_GRACE_USED`, `DISPOSABLE_EMAIL_DETECTED` | security signals | ids / email |
 | `USER_CREATED/UPDATED/DELETED`, `TENANT_*`, `ROLE_*`, `PERMISSION_*`, `ACCESS_KEY_*` | data changes | the entity |
 
 ## Hooks

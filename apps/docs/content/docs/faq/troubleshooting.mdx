@@ -44,6 +44,8 @@ The most common reason: the refresh request reached the backend without the cook
 
 If the refresh token in storage was actually invalid (logged out from another device, password changed elsewhere), the response is correct — log out gracefully.
 
+If users on mobile networks are signed out at random and your logs show `refresh_token_reuse_detected`, a refresh's reply is being lost and the client retries with the token the server already replaced. Set `session.refreshTokenReuse.graceSeconds` (for example `30`) to accept that one retry. See [Refresh-token rotation and reuse](/docs/concepts/sessions-and-tokens#refresh-token-rotation-and-reuse).
+
 ## `TENANT_REQUIRED` (400)
 
 Multi-tenant mode is on but the request didn't carry a tenant ID. Either:

@@ -8,7 +8,7 @@ Base path: `<origin>/<app global prefix>/auth`. `auth` can be changed with `rout
 
 Send `x-access-token-type: header` or `x-access-token-type: cookie` on auth requests to choose the mode (ignored if the backend forces one with `session.accessTokenType`).
 
-- **header**: login responds with `{ accessToken, refreshToken }`. Send `Authorization: Bearer <accessToken>`. Refresh with `POST /auth/refresh-token { refreshToken }` and store the new pair (refresh tokens rotate; a reused one is rejected).
+- **header**: login responds with `{ accessToken, refreshToken }`. Send `Authorization: Bearer <accessToken>`. Refresh with `POST /auth/refresh-token { refreshToken }` and store the new pair (refresh tokens rotate; a reused one is rejected). If the refresh reply is lost (dropped signal, timeout), retry once with the same refresh token: a backend with `session.refreshTokenReuse.graceSeconds` set accepts that retry, while one without it signs the session out.
 - **cookie**: login sets http-only `accessToken` and `refreshToken` cookies. Send requests with credentials. Refresh with `POST /auth/refresh-token` and no body.
 - **API key**: `Authorization: ApiKey <publicKey>.<privateKey>`.
 

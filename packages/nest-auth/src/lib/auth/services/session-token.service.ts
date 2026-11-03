@@ -12,6 +12,7 @@ import { TenantService } from '../../tenant/services/tenant.service';
 import { MfaService } from './mfa.service';
 import { SessionManagerService } from '../../session/services/session-manager.service';
 import { hmacSha256Hex } from '../../utils/has-token';
+import { formatStoredRefreshHash } from '../../utils/refresh-token-hash.util';
 import { JWTTokenPayload, SessionPayload } from '../../core/interfaces/token-payload.interface';
 import { AuthResponseDto, AuthTokensResponseDto } from '../dto/responses/auth.response.dto';
 import { NestAuthUserAccessStatusEnum } from '@ackplus/nest-auth-contracts';
@@ -110,7 +111,15 @@ export class SessionTokenService {
         return payload;
     }
 
-    async generateTokensFromSession(session: NestAuthSession): Promise<AuthTokensResponseDto> {
+    /**
+     * @param options.previousRefreshHash  hash of the refresh token this one
+     *   replaces, recorded with the rotation time so `refreshTokenReuse.graceSeconds`
+     *   can accept one retry with it. Omit to keep only the new hash.
+     */
+    async generateTokensFromSession(
+        session: NestAuthSession,
+        options?: { previousRefreshHash?: string },
+    ): Promise<AuthTokensResponseDto> {
         const payload = await this.generateTokensPayload(session as unknown as SessionPayload);
         const tokens = await this.jwtService.generateTokens(payload);
 
@@ -120,7 +129,11 @@ export class SessionTokenService {
         // never hand out a refresh token whose hash we failed to record.
         if (session?.id && tokens.refreshToken) {
             await this.sessionManager.updateSession(session.id, {
-                refreshToken: hmacSha256Hex(this.getRefreshHashSecret(), tokens.refreshToken),
+                refreshToken: formatStoredRefreshHash({
+                    current: hmacSha256Hex(this.getRefreshHashSecret(), tokens.refreshToken),
+                    previous: options?.previousRefreshHash,
+                    rotatedAt: options?.previousRefreshHash ? Date.now() : undefined,
+                }),
             });
         }
 

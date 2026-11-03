@@ -30,6 +30,7 @@ import { JWTTokenPayload, SessionDataPayload, SessionPayload } from '../../core/
 import { UserRegisteredEvent } from '../events/user-registered.event';
 import { UserCreatedEvent } from '../../user/events/user-created.event';
 import { hmacSha256Hex, timingSafeEqualHex } from '../../utils/has-token';
+import { parseStoredRefreshHash } from '../../utils/refresh-token-hash.util';
 import { UserLoggedInEvent } from '../events/user-logged-in.event';
 import { LoginFailedEvent } from '../events/login-failed.event';
 import { User2faVerifiedEvent } from '../events/user-2fa-verified.event';
@@ -1057,10 +1058,32 @@ export class AuthService {
             // rotated (replayed) and is rejected. Legacy sessions created before
             // rotation have an empty hash — we skip the check and this refresh
             // populates it going forward.
-            const storedRefreshHash = (session as any).refreshToken as string | undefined;
+            //
+            // With `refreshTokenReuse.graceSeconds`, the token the last rotation
+            // replaced is also accepted ONCE within that window: a client whose
+            // refresh reply was lost (dropped signal, timeout, cut connection)
+            // still holds it and retries. That retry rotates again without
+            // recording a previous hash, so neither the retried token nor the
+            // pair whose reply was lost can be used after it.
+            const storedRefreshHash = parseStoredRefreshHash((session as any).refreshToken as string | undefined);
+            const graceSeconds = this.refreshTokenGraceSeconds();
+            /** Recorded by this rotation as the replaced token, when grace is on. */
+            let previousRefreshHash: string | undefined;
+            let graceUsed = false;
             if (storedRefreshHash) {
                 const secret = this.authConfig.session?.jwt?.secret ?? '';
-                if (!timingSafeEqualHex(storedRefreshHash, hmacSha256Hex(secret, refreshToken))) {
+                const presentedHash = hmacSha256Hex(secret, refreshToken);
+                if (timingSafeEqualHex(storedRefreshHash.current, presentedHash)) {
+                    if (graceSeconds > 0) previousRefreshHash = storedRefreshHash.current;
+                } else if (
+                    graceSeconds > 0 &&
+                    storedRefreshHash.previous &&
+                    storedRefreshHash.rotatedAt !== undefined &&
+                    Date.now() - storedRefreshHash.rotatedAt < graceSeconds * 1000 &&
+                    timingSafeEqualHex(storedRefreshHash.previous, presentedHash)
+                ) {
+                    graceUsed = true;
+                } else {
                     // REUSE DETECTED: an already-rotated refresh token is being
                     // replayed — a strong theft signal. We can't tell the attacker
                     // from the victim, so by default we revoke the whole session
@@ -1164,7 +1187,18 @@ export class AuthService {
 
             // Generate new tokens
             this.debugLogger.debug('Generating new tokens from refreshed session', 'AuthService', { sessionId: updatedSession.id });
-            const tokens = await this.generateTokensFromSession(updatedSession);
+            const tokens = await this.generateTokensFromSession(updatedSession, { previousRefreshHash });
+
+            if (graceUsed) {
+                // Not reuse: the retry of a refresh whose reply was lost. Emitted so
+                // apps can see how often it happens; never let a listener break it.
+                await this.eventEmitter
+                    .emitAsync(NestAuthEvents.REFRESH_TOKEN_GRACE_USED, {
+                        sessionId: updatedSession.id,
+                        userId: updatedSession.userId,
+                    })
+                    .catch(() => undefined);
+            }
 
             // Emit refresh token event
             this.debugLogger.debug('Emitting refresh token event', 'AuthService', { sessionId: updatedSession.id });
@@ -1189,6 +1223,12 @@ export class AuthService {
         }
     }
 
+
+    /** `session.refreshTokenReuse.graceSeconds`, as a non-negative number (0 = off). */
+    private refreshTokenGraceSeconds(): number {
+        const value = Number(this.authConfig.session?.refreshTokenReuse?.graceSeconds ?? 0);
+        return Number.isFinite(value) && value > 0 ? value : 0;
+    }
 
     // changePassword moved to PasswordService
 
@@ -1245,8 +1285,11 @@ export class AuthService {
 
     // generateTokensFromSession + generateAuthResponse moved to SessionTokenService
     // (#11). Kept as thin facades — public API unchanged.
-    async generateTokensFromSession(session: NestAuthSession): Promise<AuthTokensResponseDto> {
-        return this.sessionTokenService.generateTokensFromSession(session);
+    async generateTokensFromSession(
+        session: NestAuthSession,
+        options?: { previousRefreshHash?: string },
+    ): Promise<AuthTokensResponseDto> {
+        return this.sessionTokenService.generateTokensFromSession(session, options);
     }
 
     async generateAuthResponse(
