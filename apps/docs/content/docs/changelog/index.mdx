@@ -5,12 +5,19 @@ description: What's new in each release of @ackplus/nest-auth.
 
 All packages release together at the same version: the five npm packages
 (`@ackplus/nest-auth`, `-client`, `-react`, `-react-native`, `-contracts`) plus
-`nest_auth_flutter` on pub.dev. **Current stable: `2.17.0`.**
+`nest_auth_flutter` on pub.dev. **Current stable: `2.18.0`.**
 
 - Upgrading from **v1**? Follow the **[v1 → v2 migration guide](/docs/migration)**.
 - Upgrading **within v2** (e.g. `2.0.x` → `2.2.x`)? It's additive/non-breaking — see **[Upgrading within v2](/docs/migration/within-v2)**. Bump every package to the same version.
 
 ---
+
+## 2.18.0 — a lost refresh reply no longer signs the user out
+
+- **Added (backend):** `session.refreshTokenReuse.graceSeconds` (default `0`). When a refresh reply is lost (dropped mobile signal, client timeout, proxy cut), the client retries with the refresh token that was just replaced, and reuse detection used to revoke the session. With a grace set, that token is accepted **once** within the window: the server rotates again and answers with a fresh pair. A second use of the old token, the pair whose reply was lost, or any retry after the window is still reuse. See [Refresh-token rotation and reuse](/docs/concepts/sessions-and-tokens). Closes [#14](https://github.com/ack-solutions/nest-auth/issues/14).
+- **Added (backend):** `NestAuthEvents.REFRESH_TOKEN_GRACE_USED`, payload `{ sessionId, userId }`, emitted when the grace accepts a retry.
+
+> **Upgrade note:** no action needed; the default keeps today's behaviour. The previous token is stored in the existing `refreshToken` column, so there's no migration and custom session stores need no change. Downgrading below 2.18.0 after sessions have rotated with the grace on signs those sessions out once.
 
 ## 2.17.0 — zero database queries on an authenticated request
 
