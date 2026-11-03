@@ -9,7 +9,7 @@ title: 'Redis-backed auth still costs a DB query per request, and authz state go
 
 > **Upstream:** [ack-solutions/nest-auth#13](https://github.com/ack-solutions/nest-auth/issues/13).
 >
-> Five separate problems were reported together. Fixed so far: **problem 4** (2.16.0) and **problem 1** (2.17.0). Problems **2, 3 and 5** are still open — see the table below. The file stays `in-progress` until all five are closed.
+> Five separate problems were reported together. Fixed so far: **problem 4** (2.16.0) and **problem 1** (2.18.0). Problems **2, 3 and 5** are still open — see the table below. The file stays `in-progress` until all five are closed.
 
 ## Summary
 
@@ -17,7 +17,7 @@ The library advertises Redis session storage as the answer to horizontal scale, 
 
 | # | Problem | Status |
 | --- | --- | --- |
-| 1 | The guard read the user row (`isActive`, `mustChangePassword`, `emailVerifiedAt`) on **every** authenticated request — one `SELECT` per API call | **fixed in 2.17.0** |
+| 1 | The guard read the user row (`isActive`, `mustChangePassword`, `emailVerifiedAt`) on **every** authenticated request — one `SELECT` per API call | **fixed in 2.18.0** |
 | 2 | `sessionAuthzCache` is a per-process `Map`, so a role or permission change is picked up by whichever instance handled the write and ignored by the rest until its entry ages out | open |
 | 3 | API-key auth makes three separate calls (`validateAccessKey`, `getAccessKey`, `updateAccessKeyLastUsed`) per request | open |
 | 4 | A Redis outage was read as "no session", silently opening optional-auth routes; and the library could not reuse an app's existing ioredis connection | **fixed in 2.16.0** |
@@ -34,7 +34,7 @@ Problem 1 meant the database pool still scaled with API traffic after a customer
 
 ## Fix
 
-**Problem 1 (2.17.0) — cache the user state, and invalidate it everywhere.**
+**Problem 1 (2.18.0) — cache the user state, and invalidate it everywhere.**
 
 Caching `isActive` is only safe if every write drops the entry, otherwise a stale entry is an authentication bypass. So:
 

@@ -78,7 +78,7 @@ NestAuthModule.forRoot({
 
 When `client` is set, the other connection fields (`url`, `host`, `port`, `password`, `tls`, …) are ignored; `keyPrefix` and `ttlSeconds` still apply. **Lifecycle stays with your app** — the library never calls `quit()` on a client it did not create, so shutting down Nest will not close a connection the rest of your app is still using.
 
-The reverse also holds, as of 2.17.0: a connection the library *did* open is closed when the Nest application shuts down. Before that it was left open, so each app instance leaked a socket that ioredis kept trying to reconnect — noticeable as `ECONNRESET` noise on teardown, and as connections piling up in a process that boots more than one app (test runs, workers).
+The reverse also holds, as of 2.18.0: a connection the library *did* open is closed when the Nest application shuts down. Before that it was left open, so each app instance leaked a socket that ioredis kept trying to reconnect — noticeable as `ECONNRESET` noise on teardown, and as connections piling up in a process that boots more than one app (test runs, workers).
 
 ### User-state cache
 
@@ -146,7 +146,7 @@ The TTL is a **backstop for those cases, not the mechanism** — it bounds how l
 
 > **Never cached.** Two things always go to their source: an account that does not exist (so a deleted user is refused immediately, never from a stale entry), and the session itself — that is always a session-store read, which is why a store outage still fails closed.
 
-Set `userStateCache: { enabled: false }` to restore the pre-2.17.0 behaviour of reading the user row on every request.
+Set `userStateCache: { enabled: false }` to restore the pre-2.18.0 behaviour of reading the user row on every request.
 
 ### What happens if Redis goes down
 

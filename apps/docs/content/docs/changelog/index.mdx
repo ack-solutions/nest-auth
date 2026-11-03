@@ -12,14 +12,12 @@ All packages release together at the same version: the five npm packages
 
 ---
 
-## 2.18.0 — a lost refresh reply no longer signs the user out
+## 2.18.0 — zero database queries per request; a lost refresh reply no longer signs the user out
 
 - **Added (backend):** `session.refreshTokenReuse.graceSeconds` (default `0`). When a refresh reply is lost (dropped mobile signal, client timeout, proxy cut), the client retries with the refresh token that was just replaced, and reuse detection used to revoke the session. With a grace set, that token is accepted **once** within the window: the server rotates again and answers with a fresh pair. A second use of the old token, the pair whose reply was lost, or any retry after the window is still reuse. See [Refresh-token rotation and reuse](/docs/concepts/sessions-and-tokens). Closes [#14](https://github.com/ack-solutions/nest-auth/issues/14).
 - **Added (backend):** `NestAuthEvents.REFRESH_TOKEN_GRACE_USED`, payload `{ sessionId, userId }`, emitted when the grace accepts a retry.
 
 > **Upgrade note:** no action needed; the default keeps today's behaviour. The previous token is stored in the existing `refreshToken` column, so there's no migration and custom session stores need no change. Downgrading below 2.18.0 after sessions have rotated with the grace on signs those sessions out once.
-
-## 2.17.0 — zero database queries on an authenticated request
 
 - **Added (backend, performance):** `session.userStateCache`. The guard's per-request user read (`isActive`, `mustChangePassword`, `emailVerifiedAt`) is now cached, so with the Redis session store **a warm authenticated request costs no database query at all** — measured, down from one. Defaults to **on** for Redis and **off** for the database/memory stores, because only a shared cache can carry an invalidation to every instance. See [user-state cache](/docs/concepts/session-storage#user-state-cache).
 - **Added (backend):** `NestAuthCacheService`, exported from the package root. `invalidateUser(userId)` / `invalidateUsers(ids)` drop an account's cached state — **required** after any write the ORM cannot see (`repository.update()` and other bulk `UPDATE`s, raw SQL, migrations, another app on the same database). Writes through TypeORM, including a bare `user.save()`, are invalidated automatically by a `NestAuthUser` entity subscriber.

@@ -48,7 +48,7 @@ These are not single tasks — they're reference documents that span many tasks.
 
 | ID | Area | Title |
 | --- | --- | --- |
-| [025](025-issue-13-per-request-db-reads-and-cross-instance-staleness.md) | backend / performance | Redis-backed auth: per-request DB read (fixed 2.17.0) + cross-instance authz staleness (open) — GitHub #13 |
+| [025](025-issue-13-per-request-db-reads-and-cross-instance-staleness.md) | backend / performance | Redis-backed auth: per-request DB read (fixed 2.18.0) + cross-instance authz staleness (open) — GitHub #13 |
 | [006](006-build-sql-snapshots-script-is-stub.md) | docs | `build-sql-snapshots.ts` is a stub — Database Setup page links to placeholder SQL |
 | [007](007-admin-controllers-missing-api-response-decorators.md) | backend | AdminUsersController endpoints have no `@ApiResponse` decorators |
 | [010](010-social-providers-skipmfa-inconsistent.md) | backend | Social providers inconsistently set `skipMfa` |
@@ -60,6 +60,7 @@ These are not single tasks — they're reference documents that span many tasks.
 
 | ID | Area | Title |
 | --- | --- | --- |
+| [027](027-backend-suite-flaky-under-parallel-load.md) | testing | Backend integration suite times out one random file per full run |
 | [016](016-openapi-spec-no-servers-and-no-tags.md) | backend | OpenAPI spec has empty `servers[]` and missing top-level `tags[]` |
 | [022](022-sessions-tenantid-not-a-column.md) | backend / `mode: shared` | `nest_auth_sessions.tenantId` lives inside the JSON `data` column |
 
@@ -67,6 +68,7 @@ These are not single tasks — they're reference documents that span many tasks.
 
 | ID | Area | Title |
 | --- | --- | --- |
+| [026](026-react-native-changelog-versions-never-published.md) | release | react-native CHANGELOG invents patch versions that are never published |
 
 ### Fixed
 

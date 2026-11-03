@@ -18,15 +18,9 @@
 
   The previous hash is stored in the session's existing `refreshToken` column, so there is no migration and custom session stores need no change. The default of `0` keeps today's behaviour exactly. Downgrading below this version after sessions rotated with the grace on signs those sessions out once.
 
-### Patch Changes
-
-- @ackplus/nest-auth-contracts@2.18.0
-
-## 2.17.0
-
-### Minor Changes
-
 - Zero database queries on an authenticated request. (Issue #13, problem 1, plus a connection leak found alongside it.)
+
+  _Released in 2.18.0. These changes were prepared as 2.17.0, which was never tagged or published — npm goes 2.16.0 → 2.18.0._
 
   **`session.userStateCache` — the guard stops reading the user row**
 
@@ -94,7 +88,7 @@
 
 ### Patch Changes
 
-- @ackplus/nest-auth-contracts@2.17.0
+- @ackplus/nest-auth-contracts@2.18.0
 
 ## 2.16.0
 

@@ -90,7 +90,7 @@ export class BulkDeactivateService {
 }
 ```
 
-Every invalidation emits `NestAuthEvents.USER_STATE_INVALIDATED` with `{ userId }`. Set `enabled: false` to restore the pre-2.17.0 behaviour of reading the user row on every request.
+Every invalidation emits `NestAuthEvents.USER_STATE_INVALIDATED` with `{ userId }`. Set `enabled: false` to restore the pre-2.18.0 behaviour of reading the user row on every request.
 
 ### Cookie mode checklist
 
